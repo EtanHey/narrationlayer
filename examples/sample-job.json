@@ -1,0 +1,16 @@
+{
+  "voice_profile": "neutral-reader",
+  "renderer": "fake",
+  "segments": [
+    {
+      "id": "seg-1",
+      "title": "Introduction",
+      "script": "Welcome to NarrationLayer. This is a neutral, public-safe sample job used to validate end-to-end rendering."
+    },
+    {
+      "id": "seg-2",
+      "title": "How it works",
+      "script": "The service stores each segment with metadata, audio path, and word timing paths."
+    }
+  ]
+}

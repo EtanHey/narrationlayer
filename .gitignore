@@ -1,0 +1,39 @@
+# Node/Bun artifacts
+node_modules/
+dist/
+bun.lockb
+
+# Local config and private runtime
+.env
+*.secret
+profiles.local.yaml
+jobs/
+data/
+renders/
+voices.local/
+examples.local/
+reference-clips/
+reference-audio/
+token/
+
+# Local generated/more private artifacts
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.opus
+*.txt
+
+# Private transcripts (including cloned-voice source material)
+*transcript*.txt
+*transcript*.json
+*source-transcript*
+
+# Daemon and local secrets
+daemon.secret
+daemon.token
+*.token
+
+# OS and IDE noise
+.DS_Store
+*.log

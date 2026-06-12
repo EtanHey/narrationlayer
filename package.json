@@ -1,0 +1,24 @@
+{
+  "name": "narrationlayer",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Neutral narrated-asset service for script-to-voice rendering.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "narration",
+    "tts",
+    "mcp",
+    "teleprompter"
+  ],
+  "scripts": {
+    "build": "bun build src/cli.ts --outdir dist --target bun",
+    "narrationlayer": "bun run ./src/cli.ts",
+    "mcp-server": "bun run ./src/mcp-server.ts",
+    "doctor": "bun run ./src/cli.ts doctor",
+    "test": "bun test"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

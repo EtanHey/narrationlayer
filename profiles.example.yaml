@@ -1,0 +1,25 @@
+profiles:
+  - id: neutral-public
+    name: Neutral Public
+    renderer: fake
+    voice_profile:
+      id: neutral-reader
+      speed: 1.0
+      cadence: balanced
+      sample_rate: 24000
+      language: en-US
+    render:
+      engine: fake
+      artifact_ext: mp3
+
+  - id: qwen3-voice
+    name: Qwen3 Adapter Example
+    renderer: voicelayer-qwen3
+    voice_profile:
+      id: qwen3-public
+      language: en-US
+      tone: calm
+    render:
+      engine: voicelayer-qwen3
+      reference_clip: ./reference-clips/chapter-01.wav
+      reference_text_path: ./reference-clips/chapter-01.txt
