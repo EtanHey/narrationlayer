@@ -24,6 +24,11 @@ token/
 *.opus
 *.txt
 
+# Public agent entrypoint instructions. These override Etan's global excludes.
+!AGENTS.md
+!CLAUDE.md
+!GEMINI.md
+
 # Private transcripts (including cloned-voice source material)
 *transcript*.txt
 *transcript*.json
