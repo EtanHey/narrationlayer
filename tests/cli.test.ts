@@ -105,8 +105,84 @@ test("doctor prints resolved data directory", async () => {
   const dataDir = createTempDir();
   try {
     const out = await runNarrationLayer(["doctor"], dataDir);
-    expect(out).toContain("NarrationLayer v0");
+    expect(out).toContain("NarrationLayer v1");
     expect(out).toContain(dataDir);
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("qwen3-lora-prepare writes raw JSONL from a local metadata config", async () => {
+  const dataDir = createTempDir();
+  const clipsDir = path.join(dataDir, "clips");
+  const outputDir = path.join(dataDir, "qwen3-lora");
+  try {
+    await Bun.$`mkdir -p ${clipsDir}`.quiet();
+    await Bun.write(path.join(clipsDir, "clip.wav"), "fake wav");
+    await Bun.write(path.join(dataDir, "ref.wav"), "fake ref");
+    await Bun.write(
+      path.join(dataDir, "metadata_train.csv"),
+      "audio_file|text|speaker_name\nclip.wav|CLI transcript.|THEO\n",
+    );
+    const configPath = path.join(dataDir, "qwen3-lora.json");
+    await Bun.write(
+      configPath,
+      JSON.stringify(
+        {
+          train_metadata_csv: path.join(dataDir, "metadata_train.csv"),
+          clips_dir: clipsDir,
+          ref_audio: path.join(dataDir, "ref.wav"),
+          output_dir: outputDir,
+          speaker_name: "theo_lora",
+        },
+        null,
+        2,
+      ),
+    );
+
+    const out = await runNarrationLayer(["qwen3-lora-prepare", configPath, "--json"], dataDir);
+    const result = JSON.parse(out);
+    expect(result.train_count).toBe(1);
+    expect(result.train_raw_jsonl).toBe(path.join(outputDir, "train_raw.jsonl"));
+    expect(await Bun.file(result.train_raw_jsonl).text()).toContain("CLI transcript.");
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("qwen3-lora-preflight reports prepared run readiness", async () => {
+  const dataDir = createTempDir();
+  const clipsDir = path.join(dataDir, "clips");
+  const outputDir = path.join(dataDir, "qwen3-lora");
+  try {
+    await Bun.$`mkdir -p ${clipsDir}`.quiet();
+    await Bun.write(path.join(clipsDir, "clip.wav"), "fake wav");
+    await Bun.write(path.join(dataDir, "ref.wav"), "fake ref");
+    await Bun.write(
+      path.join(dataDir, "metadata_train.csv"),
+      "audio_file|text|speaker_name\nclip.wav|CLI transcript.|THEO\n",
+    );
+    const configPath = path.join(dataDir, "qwen3-lora.json");
+    await Bun.write(
+      configPath,
+      JSON.stringify(
+        {
+          train_metadata_csv: path.join(dataDir, "metadata_train.csv"),
+          clips_dir: clipsDir,
+          ref_audio: path.join(dataDir, "ref.wav"),
+          output_dir: outputDir,
+        },
+        null,
+        2,
+      ),
+    );
+
+    await runNarrationLayer(["qwen3-lora-prepare", configPath, "--json"], dataDir);
+    const out = await runNarrationLayer(["qwen3-lora-preflight", outputDir, "--json"], dataDir);
+    const result = JSON.parse(out);
+    expect(result.ready).toBeFalse();
+    expect(result.counts.train_raw_rows).toBe(1);
+    expect(result.checks.some((check: { id: string }) => check.id === "runtime.python")).toBeTrue();
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }

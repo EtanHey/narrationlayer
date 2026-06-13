@@ -7,20 +7,36 @@ Current fields in a segment `words.json`:
 
 - `job_id`
 - `segment_id`
+- `timing`
+  - `status`: `available` or `unavailable`
+  - `source`: renderer name
+  - `reason`: optional unavailable reason
 - `words[]`
   - `index`
   - `word`
-  - `start_seconds`
-  - `end_seconds`
+  - `start`
+  - `end`
+  - `confidence` (optional)
 
-## V0 behavior
+## V1 behavior
 
-`fake` renderer emits estimated word boundaries per segment duration. This keeps
-playable highlight behavior for local smoke tests and UI validation.
+`fake` renderer emits deterministic word boundaries per segment duration. This
+keeps teleprompter highlight behavior stable for local smoke tests and UI
+validation.
+
+`voicelayer-qwen3` preserves returned timings when the backend supplies them. If
+the local daemon returns only audio, the adapter can optionally run
+`whisper-cli` alignment from a local profile. If no timing backend is configured
+or alignment fails, the words file is still written with
+`timing.status = "unavailable"` and an empty `words[]` array.
+
+The dashboard uses the same `start` values for reverse seeking: clicking a
+teleprompter word sets the audio current time to that word. Seeking does not
+change play/pause state.
 
 ## Forward path
 
-Replace `fake` timings by forced-aligner backends:
+Possible future timing sources:
 
 - WhisperX
 - Gentle

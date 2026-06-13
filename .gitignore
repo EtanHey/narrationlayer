@@ -12,6 +12,7 @@ data/
 renders/
 voices.local/
 examples.local/
+docs.local/
 reference-clips/
 reference-audio/
 token/

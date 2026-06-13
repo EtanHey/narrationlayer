@@ -16,6 +16,7 @@ Top-level fields:
 - `segments[].duration_seconds`
 - `segments[].words_path`
 - `segments[].status`
+- `segments[].error` (optional, failed segment only)
 - `total_duration_seconds`
 - `artifacts_dir`
 - `errors[]`

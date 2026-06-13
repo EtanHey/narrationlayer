@@ -1,0 +1,17 @@
+{
+  "train_metadata_csv": "/absolute/path/to/private/training-clips/metadata_train.csv",
+  "eval_metadata_csv": "/absolute/path/to/private/training-clips/metadata_eval.csv",
+  "clips_dir": "/absolute/path/to/private/training-clips",
+  "ref_audio": "/absolute/path/to/private/reference-clips/ref.wav",
+  "output_dir": "/absolute/path/to/private/qwen3-lora/run-001",
+  "speaker_name": "speaker_1",
+  "copy_audio": false,
+  "qwen_dir": "/absolute/path/to/private/tools/Qwen3-TTS",
+  "lora_tools_dir": "/absolute/path/to/private/tools/qwen3-tts-lora-finetuning",
+  "python_bin": "python",
+  "device": "cuda:0",
+  "batch_size": 4,
+  "learning_rate": "2e-6",
+  "epochs": 10,
+  "lora_scale": 0.3
+}

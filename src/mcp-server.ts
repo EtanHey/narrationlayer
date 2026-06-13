@@ -1,15 +1,16 @@
+#!/usr/bin/env bun
+
 import process from "node:process";
 import { readFile } from "node:fs/promises";
 
+import { NARRATION_MCP_TOOLS, type McpToolContract } from "./contract.js";
 import {
-  getAllJobIds,
-  getJob,
-  getManifest,
-  getStatus,
-  initializeJob,
-  pathsForJob,
-} from "./job-store.js";
-import { parseNarrationJob } from "./schema.js";
+  createJobFromPayload,
+  getJobResult,
+  getStatusSummary,
+  listJobIds,
+  renderJob,
+} from "./service.js";
 
 type McpRequest = {
   jsonrpc: "2.0";
@@ -31,53 +32,9 @@ type McpResponse = {
   };
 };
 
-const TOOLS = [
-  {
-    name: "create_narration_job",
-    description: "Create a new narration job from either an inline payload or a path to job.json.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        job: { type: "object" },
-        job_path: { type: "string" },
-      },
-      additionalProperties: false,
-      required: [],
-    },
-  },
-  {
-    name: "get_narration_status",
-    description: "Get status.json for one job.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        job_id: { type: "string" },
-      },
-      required: ["job_id"],
-    },
-  },
-  {
-    name: "get_narration_result",
-    description: "Get render manifest for one job.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        job_id: { type: "string" },
-      },
-      required: ["job_id"],
-    },
-  },
-  {
-    name: "list_narration_jobs",
-    description: "List all job IDs.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-      required: [],
-    },
-  },
-];
+export function listMcpTools(): McpToolContract[] {
+  return JSON.parse(JSON.stringify(NARRATION_MCP_TOOLS)) as McpToolContract[];
+}
 
 function writeResponse(response: McpResponse) {
   process.stdout.write(`${JSON.stringify(response)}\n`);
@@ -98,9 +55,65 @@ function wrapResult(id: string | number | null | undefined, result: Record<strin
 async function handleToolsList(id: string | number | null | undefined) {
   writeResponse(
     wrapResult(id, {
-      tools: TOOLS,
+      tools: listMcpTools(),
     }),
   );
+}
+
+function textResult(payload: unknown): Record<string, unknown> {
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(payload, null, 2),
+      },
+    ],
+  };
+}
+
+function getJobId(args: Record<string, unknown>): string {
+  const jobId = typeof args.job_id === "string" ? args.job_id.trim() : "";
+  if (!jobId) {
+    throw new Error("Missing required argument: job_id");
+  }
+  return jobId;
+}
+
+export async function handleMcpToolCall(tool: string, args: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+  if (tool === "create_narration_job") {
+    const jobArg = args.job as unknown;
+    const jobPathArg = typeof args.job_path === "string" ? args.job_path : undefined;
+    let payload = jobArg;
+    if (!payload && jobPathArg) {
+      const raw = await readFile(jobPathArg, "utf8");
+      payload = JSON.parse(raw) as unknown;
+    }
+    if (!payload) {
+      throw new Error("Missing 'job' or 'job_path'");
+    }
+    return textResult(await createJobFromPayload(payload));
+  }
+
+  if (tool === "render_narration_job") {
+    const jobId = getJobId(args);
+    return textResult(await renderJob(jobId));
+  }
+
+  if (tool === "get_narration_status") {
+    const jobId = getJobId(args);
+    return textResult(await getStatusSummary(jobId));
+  }
+
+  if (tool === "get_narration_result") {
+    const jobId = getJobId(args);
+    return textResult(await getJobResult(jobId));
+  }
+
+  if (tool === "list_narration_jobs") {
+    return textResult({ jobs: await listJobIds() });
+  }
+
+  throw new Error(`Unknown tool: ${tool}`);
 }
 
 async function handleToolsCall(
@@ -110,93 +123,10 @@ async function handleToolsCall(
   const tool = payload.name;
   const args = payload.arguments ?? {};
   try {
-    if (tool === "create_narration_job") {
-      const jobArg = args.job as unknown;
-      const jobPathArg = typeof args.job_path === "string" ? args.job_path : undefined;
-      let payload = jobArg;
-      if (!payload && jobPathArg) {
-        const raw = await readFile(jobPathArg, "utf8");
-        payload = JSON.parse(raw);
-      }
-      if (!payload) {
-        throw new Error("Missing 'job' or 'job_path'");
-      }
-      const job = parseNarrationJob(payload);
-      const { job: savedJob } = await initializeJob(job);
-      const paths = pathsForJob(savedJob.job_id);
-      writeResponse(
-        wrapResult(id, {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  job_id: savedJob.job_id,
-                  job_path: paths.jobPath,
-                  status_path: paths.statusPath,
-                  manifest_path: paths.manifestPath,
-                },
-                null,
-                2,
-              ),
-            },
-          ],
-        }),
-      );
-      return;
+    if (!tool) {
+      throw new Error("Missing tool name");
     }
-
-    if (tool === "get_narration_status") {
-      const jobId = String(args.job_id ?? "");
-      if (!jobId) {
-        throw new Error("Missing required argument: job_id");
-      }
-      const status = await getStatus(jobId);
-      const manifest = await getManifest(jobId);
-      writeResponse(
-        wrapResult(id, {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ status, manifest_exists: Boolean(manifest) }, null, 2),
-            },
-          ],
-        }),
-      );
-      return;
-    }
-
-    if (tool === "get_narration_result") {
-      const jobId = String(args.job_id ?? "");
-      if (!jobId) {
-        throw new Error("Missing required argument: job_id");
-      }
-      const manifest = await getManifest(jobId);
-      const job = await getJob(jobId);
-      writeResponse(
-        wrapResult(id, {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ job, manifest }, null, 2),
-            },
-          ],
-        }),
-      );
-      return;
-    }
-
-    if (tool === "list_narration_jobs") {
-      const jobs = await getAllJobIds();
-      writeResponse(
-        wrapResult(id, {
-          content: [{ type: "text", text: JSON.stringify({ jobs }, null, 2) }],
-        }),
-      );
-      return;
-    }
-
-    throw new Error(`Unknown tool: ${tool}`);
+    writeResponse(wrapResult(id, await handleMcpToolCall(tool, args)));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     writeResponse(asError(id, message));
@@ -254,7 +184,7 @@ export async function main() {
   const decoder = new TextDecoder();
   let buffer = "";
   process.stdin.on("data", (chunk) => {
-    buffer += decoder.decode(chunk, { stream: true });
+    buffer += typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() ?? "";
     for (const line of lines) {

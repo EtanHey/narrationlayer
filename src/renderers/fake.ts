@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { type RenderManifestSegment, type WordTiming, type NormalizedNarrationJob } from "../schema.js";
-import { getWordsFromScript, type RenderSegmentOptions } from "./voicelayer-qwen3.js";
+import { type RenderManifestSegment, type WordTiming, type NormalizedNarrationJob, type WordsFile } from "../schema.js";
+import { getWordsFromScript } from "./voicelayer-qwen3.js";
+import type { RenderSegmentOptions } from "./types.js";
 
 function estimateDurationFromWords(wordCount: number): number {
   // 150 WPM ~= 2.5 words/sec, then rounded to 0.01 precision.
@@ -25,8 +26,8 @@ function writeFallbackWords(durationSeconds: number): WordTiming[] {
     return {
       index,
       word,
-      start_seconds: Number(start.toFixed(3)),
-      end_seconds: Number(end.toFixed(3)),
+      start: Number(start.toFixed(3)),
+      end: Number(end.toFixed(3)),
     };
   });
 }
@@ -52,15 +53,19 @@ export async function renderSegment(
       return {
         index,
         word,
-        start_seconds: Number(start.toFixed(3)),
-        end_seconds: Number(end.toFixed(3)),
+        start: Number(start.toFixed(3)),
+        end: Number(end.toFixed(3)),
       };
     })
     : writeFallbackWords(durationSeconds);
 
-  const wordsPayload = {
+  const wordsPayload: WordsFile = {
     job_id: job.job_id,
     segment_id: segmentId,
+    timing: {
+      status: "available",
+      source: "fake",
+    },
     words: normalizedWords,
   };
 
