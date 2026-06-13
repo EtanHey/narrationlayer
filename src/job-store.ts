@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, readdir, access } from "node:fs/promises";
+import { mkdir, readFile, writeFile, readdir, access, rename, rm } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -65,7 +65,9 @@ export async function readJobJson<T>(jobPath: string): Promise<T> {
 }
 
 export async function writeJobJson<T>(pathName: string, data: T): Promise<void> {
-  await writeFile(pathName, JSON.stringify(data, null, 2), "utf8");
+  const tempPath = `${pathName}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tempPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  await rename(tempPath, pathName);
 }
 
 export async function fileExists(pathName: string): Promise<boolean> {
@@ -112,6 +114,8 @@ export async function initializeJob(job: NormalizedNarrationJob, dataDir = getDa
 
   await ensureDirectory(paths.jobDir);
   await ensureDirectory(artifactsDir);
+  await rm(paths.donePath, { force: true });
+  await rm(paths.failedPath, { force: true });
   await writeJobJson(paths.jobPath, job);
   await writeJobJson(paths.manifestPath, initialManifest);
   await writeJobJson(paths.statusPath, initialStatus);
@@ -165,10 +169,12 @@ export async function writeManifest(jobId: string, manifest: RenderManifest, dat
 
 export async function markDone(jobId: string, dataDir = getDataDir()): Promise<void> {
   const paths = pathsForJob(jobId, dataDir);
+  await rm(paths.failedPath, { force: true });
   await writeFile(paths.donePath, "done");
 }
 
 export async function markFailed(jobId: string, dataDir = getDataDir()): Promise<void> {
   const paths = pathsForJob(jobId, dataDir);
+  await rm(paths.donePath, { force: true });
   await writeFile(paths.failedPath, "failed");
 }

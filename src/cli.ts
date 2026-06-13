@@ -1,36 +1,41 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
-import { readFile } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
-import path from "node:path";
+import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 import {
   getDataDir,
-  getJob,
-  getManifest,
   getStatus,
-  getAllJobIds,
-  initializeJob,
-  pathsForJob,
-  writeManifest,
-  writeStatus,
-  markDone,
-  markFailed,
-  fileExists,
 } from "./job-store.js";
-import { parseNarrationJob, type RenderManifest, type RenderManifestSegment, type JobStatus } from "./schema.js";
-import { renderSegment as renderFakeSegment } from "./renderers/fake.js";
-import { renderSegment as renderQwenSegment, type VoiceLayerQwen3Config } from "./renderers/voicelayer-qwen3.js";
+import { createBakeoffJobsFromFile } from "./bakeoff.js";
+import { createDashboardDemo } from "./dashboard.js";
+import { preflightQwen3LoraRun, prepareQwen3LoraDatasetFromFile } from "./qwen3-lora.js";
+import {
+  createJobFromFile,
+  getDoctorSummary,
+  getJobResult,
+  getStatusSummary,
+  listJobIds,
+  renderJob,
+} from "./service.js";
 
 const HELP = `NarrationLayer CLI
 
 Usage:
   narrationlayer doctor
-  narrationlayer create-job <job.json>
-  narrationlayer render <job-id>
+  narrationlayer create-job <job.json> [--json]
+  narrationlayer render <job-id> [--json]
   narrationlayer status <job-id>
+  narrationlayer result <job-id>
+  narrationlayer dashboard <job-id> [--open]
+  narrationlayer bakeoff-create <bakeoff.json> [--json]
+  narrationlayer qwen3-lora-prepare <config.json> [--json]
+  narrationlayer qwen3-lora-preflight <run-dir> [--json]
+  narrationlayer list-jobs
   narrationlayer watch <job-id>
 
+All persistent state is under NARRATIONLAYER_DATA_DIR or ~/.narrationlayer.
 The command also supports ` + "`--help`" + ` to show this message.
 `;
 
@@ -38,176 +43,154 @@ function renderIdBanner(jobId: string): void {
   console.log(`Job ID: ${jobId}`);
 }
 
-async function cmdDoctor() {
-  const dataDir = getDataDir();
-  const jobsDir = path.join(dataDir, "jobs");
-  console.log("NarrationLayer v0");
-  console.log(`Data directory: ${dataDir}`);
-  console.log(`Jobs directory: ${jobsDir}`);
-  console.log(`Renderer env default: ${process.env.NARRATIONLAYER_DEFAULT_RENDERER || "fake"}`);
+function hasFlag(args: string[], flag: string): boolean {
+  return args.includes(flag);
 }
 
-async function cmdCreateJob(jobFilePath?: string): Promise<string> {
+function printJson(payload: unknown): void {
+  console.log(JSON.stringify(payload, null, 2));
+}
+
+async function cmdDoctor(json = false) {
+  const payload = await getDoctorSummary();
+  if (json) {
+    printJson(payload);
+    return;
+  }
+  console.log("NarrationLayer v1");
+  console.log(`Data directory: ${payload.data_dir}`);
+  console.log(`Jobs directory: ${payload.jobs_dir}`);
+  console.log(`Renderer env default: ${payload.default_renderer}`);
+  console.log(`Profile files: ${payload.profiles.files.length}`);
+  console.log(`Profiles: ${payload.profiles.profiles.length}`);
+}
+
+async function cmdCreateJob(jobFilePath?: string, json = false): Promise<string> {
   if (!jobFilePath) {
     throw new Error("create-job requires <job.json>");
   }
 
-  const payloadRaw = await readFile(jobFilePath, "utf8");
-  const payload = parseNarrationJob(JSON.parse(payloadRaw));
-  const { job, paths } = await initializeJob(payload);
-  renderIdBanner(job.job_id);
-  console.log(`Stored job manifest at: ${paths.jobPath}`);
-  console.log(`Stored render manifest at: ${paths.manifestPath}`);
-  return job.job_id;
+  const created = await createJobFromFile(jobFilePath);
+  if (json) {
+    printJson(created);
+  } else {
+    renderIdBanner(created.job_id);
+    console.log(`Stored job manifest at: ${created.job_path}`);
+    console.log(`Stored render manifest at: ${created.manifest_path}`);
+  }
+  return created.job_id;
 }
 
-function getRendererConfig(): { qwen: VoiceLayerQwen3Config } {
-  const referenceClip = process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP;
-  const referenceTextPath = process.env.NARRATIONLAYER_QWEN3_REFERENCE_TEXT_PATH;
-  const referenceClips = process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIPS;
-  const referenceClipList = referenceClips ? referenceClips.split(",").map((item) => item.trim()).filter(Boolean) : [];
-  return {
-    qwen: {
-      reference_clip: referenceClip,
-      reference_text_path: referenceTextPath,
-      reference_clips: referenceClipList,
-    },
-  };
-}
-
-async function cmdRender(jobId?: string): Promise<RenderManifest> {
+async function cmdRender(jobId?: string, json = false) {
   if (!jobId) {
     throw new Error("render requires <job-id>");
   }
-
-  const job = await getJob(jobId);
-  if (!job) {
-    throw new Error(`Job not found: ${jobId}`);
+  const result = await renderJob(jobId, getDataDir());
+  if (json) {
+    printJson(result);
+  } else {
+    console.log(`Rendered job: ${jobId}`);
+    console.log(`Status: ${result.status.status}`);
+    console.log(`Manifest: ${result.manifest.job_id}`);
   }
-
-  const paths = pathsForJob(jobId);
-  const config = getRendererConfig();
-  const startTime = new Date().toISOString();
-  const manifest: RenderManifest = {
-    job_id: job.job_id,
-    created_at: startTime,
-    voice_profile: job.voice_profile,
-    renderer: job.renderer,
-    segments: [],
-    total_duration_seconds: 0,
-    artifacts_dir: path.join(paths.jobDir, "artifacts"),
-    errors: [],
-  };
-
-  let status: JobStatus = {
-    job_id: job.job_id,
-    status: "rendering",
-    created_at: job.created_at,
-    updated_at: new Date().toISOString(),
-    progress: { completed_segments: 0, total_segments: job.segments.length },
-    errors: [],
-  };
-  await writeStatus(jobId, status);
-
-  for (let index = 0; index < job.segments.length; index += 1) {
-    const segment = job.segments[index];
-    status = {
-      ...status,
-      current_step: `rendering segment ${segment.id}`,
-      progress: {
-        completed_segments: index,
-        total_segments: job.segments.length,
-      },
-      updated_at: new Date().toISOString(),
-    };
-    await writeStatus(jobId, status);
-
-    try {
-      let result: RenderManifestSegment;
-      if (job.renderer === "fake") {
-        result = await renderFakeSegment(
-          segment.id,
-          segment,
-          job,
-          {
-            artifactsDir: manifest.artifacts_dir,
-            dataDir: getDataDir(),
-          },
-        );
-      } else {
-        result = await renderQwenSegment(segment.id, segment, getDataDir(), config.qwen);
-      }
-      manifest.segments.push(result);
-      manifest.total_duration_seconds += result.duration_seconds;
-      status.progress.completed_segments = index + 1;
-      await writeManifest(jobId, manifest);
-      await writeStatus(jobId, {
-        ...status,
-        updated_at: new Date().toISOString(),
-        errors: status.errors,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      manifest.errors.push(message);
-      manifest.segments.push({
-        id: segment.id,
-        title: segment.title,
-        script: segment.script,
-        audio_path: "",
-        duration_seconds: segment.duration_seconds ?? 0,
-        words_path: "",
-        status: "failed",
-      });
-      status.progress.completed_segments = index + 1;
-      status.errors.push(message);
-      await writeManifest(jobId, manifest);
-      await writeStatus(jobId, {
-        ...status,
-        status: "failed",
-        updated_at: new Date().toISOString(),
-        errors: [...status.errors],
-      });
-      await markFailed(jobId);
-      throw error;
-    }
-  }
-
-  manifest.segments = manifest.segments.map((segment) => ({ ...segment, status: "rendered" }));
-  await writeManifest(jobId, manifest);
-  const finished: JobStatus = {
-    ...status,
-    status: "done",
-    updated_at: new Date().toISOString(),
-    progress: {
-      completed_segments: job.segments.length,
-      total_segments: job.segments.length,
-    },
-    current_step: "complete",
-    errors: manifest.errors,
-  };
-  await writeStatus(jobId, finished);
-  await markDone(jobId);
-  return manifest;
+  return result.manifest;
 }
 
 async function cmdStatus(jobId?: string) {
   if (!jobId) {
     throw new Error("status requires <job-id>");
   }
-  const status = await getStatus(jobId);
-  if (!status) {
-    throw new Error(`Status not found for job: ${jobId}`);
+  const summary = await getStatusSummary(jobId);
+  printJson({
+    ...summary.status,
+    done: summary.done,
+    failed: summary.failed,
+    manifest_exists: summary.manifest_exists,
+    manifest: summary.manifest,
+  });
+}
+
+async function cmdResult(jobId?: string) {
+  if (!jobId) {
+    throw new Error("result requires <job-id>");
   }
-  const paths = pathsForJob(jobId);
-  const done = await fileExists(paths.donePath);
-  const failed = await fileExists(paths.failedPath);
-  const summary = {
-    ...status,
-    done,
-    failed,
-    manifest: await getManifest(jobId),
-  };
-  console.log(JSON.stringify(summary, null, 2));
+  printJson(await getJobResult(jobId));
+}
+
+async function cmdDashboard(jobId: string | undefined, open = false) {
+  if (!jobId) {
+    throw new Error("dashboard requires <job-id>");
+  }
+  const outputPath = await createDashboardDemo(jobId);
+  if (open) {
+    spawn("open", [outputPath], {
+      detached: true,
+      stdio: "ignore",
+    }).unref();
+  }
+  printJson({
+    dashboard_path: outputPath,
+    dashboard_url: pathToFileURL(outputPath).href,
+  });
+}
+
+async function cmdBakeoffCreate(specFilePath: string | undefined, json = false) {
+  if (!specFilePath) {
+    throw new Error("bakeoff-create requires <bakeoff.json>");
+  }
+  const result = await createBakeoffJobsFromFile(specFilePath, getDataDir());
+  if (json) {
+    printJson(result);
+    return;
+  }
+  console.log(`Bakeoff ID: ${result.bakeoff_id}`);
+  for (const created of result.created_jobs) {
+    console.log(`${created.candidate_id}: ${created.job_id}`);
+  }
+}
+
+async function cmdQwen3LoraPrepare(configFilePath: string | undefined, json = false) {
+  if (!configFilePath) {
+    throw new Error("qwen3-lora-prepare requires <config.json>");
+  }
+  const result = await prepareQwen3LoraDatasetFromFile(configFilePath);
+  if (json) {
+    printJson(result);
+    return;
+  }
+  console.log(`Qwen3 LoRA dataset: ${result.output_dir}`);
+  console.log(`Train rows: ${result.train_count}`);
+  console.log(`Eval rows: ${result.eval_count}`);
+  console.log(`Skipped rows: ${result.skipped.length}`);
+  console.log(`Train raw JSONL: ${result.train_raw_jsonl}`);
+  console.log(`Eval raw JSONL: ${result.eval_raw_jsonl}`);
+  console.log(`Env: ${result.env_path}`);
+  console.log(`Prepare script: ${result.prepare_script_path}`);
+  console.log(`Train script: ${result.train_script_path}`);
+}
+
+async function cmdQwen3LoraPreflight(runDir: string | undefined, json = false) {
+  if (!runDir) {
+    throw new Error("qwen3-lora-preflight requires <run-dir>");
+  }
+  const result = await preflightQwen3LoraRun({ run_dir: runDir });
+  if (json) {
+    printJson(result);
+    return;
+  }
+  console.log(`Qwen3 LoRA preflight: ${result.ready ? "ready" : "blocked"}`);
+  console.log(`Run directory: ${result.run_dir}`);
+  console.log(`Train raw rows: ${result.counts.train_raw_rows}`);
+  console.log(`Eval raw rows: ${result.counts.eval_raw_rows}`);
+  console.log(`Missing audio rows: ${result.counts.missing_audio_rows}`);
+  console.log(`Wrong sample-rate files: ${result.counts.sample_rate_mismatch_files}`);
+  console.log(`Unknown sample-rate files: ${result.counts.sample_rate_unknown_files}`);
+  for (const blocker of result.blockers) {
+    console.log(`Blocker: ${blocker}`);
+  }
+  for (const warning of result.warnings) {
+    console.log(`Warning: ${warning}`);
+  }
 }
 
 async function cmdWatch(jobId?: string) {
@@ -229,8 +212,7 @@ async function cmdWatch(jobId?: string) {
 }
 
 async function cmdListJobs() {
-  const ids = await getAllJobIds();
-  console.log(JSON.stringify(ids));
+  printJson({ jobs: await listJobIds() });
 }
 
 export async function main() {
@@ -243,18 +225,35 @@ export async function main() {
   }
 
   const payload = args[1];
+  const json = hasFlag(args, "--json");
+  const open = hasFlag(args, "--open");
   switch (command) {
     case "doctor":
-      await cmdDoctor();
+      await cmdDoctor(json);
       break;
     case "create-job":
-      await cmdCreateJob(payload);
+      await cmdCreateJob(payload, json);
       break;
     case "render":
-      await cmdRender(payload);
+      await cmdRender(payload, json);
       break;
     case "status":
       await cmdStatus(payload);
+      break;
+    case "result":
+      await cmdResult(payload);
+      break;
+    case "dashboard":
+      await cmdDashboard(payload, open);
+      break;
+    case "bakeoff-create":
+      await cmdBakeoffCreate(payload, json);
+      break;
+    case "qwen3-lora-prepare":
+      await cmdQwen3LoraPrepare(payload, json);
+      break;
+    case "qwen3-lora-preflight":
+      await cmdQwen3LoraPreflight(payload, json);
       break;
     case "watch":
       await cmdWatch(payload);

@@ -1,24 +1,17 @@
-profiles:
-  - id: neutral-public
-    name: Neutral Public
-    renderer: fake
-    voice_profile:
-      id: neutral-reader
-      speed: 1.0
-      cadence: balanced
-      sample_rate: 24000
-      language: en-US
-    render:
-      engine: fake
-      artifact_ext: mp3
+# Local Voice Profile Template
 
-  - id: qwen3-voice
-    name: Local Qwen3 Adapter Template
+Keep real reference audio, transcripts, tokens, and cloned-voice source material
+outside git. Put private profile entries in ignored `profiles.local.yaml` or a
+file referenced by `NARRATIONLAYER_PROFILES_FILE`.
+
+```yaml
+profiles:
+  - id: private-local-reader
+    name: Private Local Reader
     renderer: voicelayer-qwen3
     voice_profile:
-      id: qwen3-local-template
+      id: private-local-reader
       language: en-US
-      tone: calm
     render:
       engine: voicelayer-qwen3
       daemon_url: http://127.0.0.1:8880
@@ -37,17 +30,22 @@ profiles:
       max_chunk_duration_seconds: 45
       max_chunk_seconds_per_word: 3
       max_chunk_retries: 1
-      reference_clip: /absolute/path/to/local/reference.wav
-      reference_text: public placeholder text only
-      # Optional: only for a daemon/runner that explicitly confirms LoRA use.
-      # lora_adapter_path: /absolute/path/to/private/qwen3-lora/checkpoint-epoch-10
-      # lora_scale: 0.3
+      reference_clip: /absolute/path/to/private/reference.wav
+      reference_text_path: /absolute/path/to/private/reference.txt
+```
 
-  - id: external-local-tts
-    name: External Local TTS Runner Template
+The profile id is public-safe; the referenced files are not.
+
+For F5-TTS MLX, IndexTTS2, VoxCPM2, or another local runner, keep the runner
+path private and use the generic command adapter:
+
+```yaml
+profiles:
+  - id: private-f5-bakeoff
+    name: Private F5 Bakeoff
     renderer: external-command
     voice_profile:
-      id: external-local-template
+      id: private-f5-bakeoff
       language: en-US
     render:
       engine: external-command
@@ -63,3 +61,8 @@ profiles:
       output_ext: wav
       timing_backend: estimated
       reference_clip: /absolute/path/to/private/reference.wav
+```
+
+Only use reference media you have rights or authorization to use. The public
+repo should stay neutral and legitimate-use oriented; private profiles decide
+which local media and adapters are available on a given machine.

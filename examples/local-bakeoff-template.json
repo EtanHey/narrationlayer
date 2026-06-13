@@ -1,0 +1,48 @@
+{
+  "bakeoff_id": "local-voice-bakeoff",
+  "description": "Public-safe template. Put private voice profiles and reference media in ignored local files.",
+  "candidates": [
+    {
+      "id": "qwen3-current",
+      "voice_profile": "qwen3-local-template",
+      "renderer": "voicelayer-qwen3"
+    },
+    {
+      "id": "qwen3-lora",
+      "voice_profile": "qwen3-lora-local",
+      "renderer": "voicelayer-qwen3"
+    },
+    {
+      "id": "f5-mlx",
+      "voice_profile": "f5-mlx-local",
+      "renderer": "external-command"
+    },
+    {
+      "id": "index-tts2",
+      "voice_profile": "index-tts2-local",
+      "renderer": "external-command"
+    },
+    {
+      "id": "voxcpm2",
+      "voice_profile": "voxcpm2-local",
+      "renderer": "external-command"
+    }
+  ],
+  "segments": [
+    {
+      "id": "punctuation",
+      "title": "Punctuation",
+      "script": "I changed the pacing system again. It no longer ignores punctuation, and it should breathe before moving on."
+    },
+    {
+      "id": "clean-boundaries",
+      "title": "Clean Boundaries",
+      "script": "Each segment should start cleanly, end cleanly, and avoid mechanical noise between takes."
+    },
+    {
+      "id": "long-form",
+      "title": "Long Form",
+      "script": "This is a longer narration sample for testing whether the voice keeps a natural pace over time. It should not rush through commas, swallow the last word, or sound like it is running out of air near the end."
+    }
+  ]
+}

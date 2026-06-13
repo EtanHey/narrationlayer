@@ -20,7 +20,7 @@
     },
     "renderer": {
       "type": "string",
-      "enum": ["fake", "voicelayer-qwen3"]
+      "enum": ["fake", "voicelayer-qwen3", "external-command"]
     },
     "segments": {
       "type": "array",

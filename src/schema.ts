@@ -1,5 +1,6 @@
-export type RendererName = "fake" | "voicelayer-qwen3";
+export type RendererName = "fake" | "voicelayer-qwen3" | "external-command";
 export type SegmentStatus = "pending" | "rendered" | "failed" | "skipped";
+export type TimingSource = RendererName | "whisper-cli" | "estimated";
 
 export interface NarrationSegmentInput {
   id?: string;
@@ -40,6 +41,7 @@ export interface RenderManifestSegment {
   duration_seconds: number;
   words_path: string;
   status: SegmentStatus;
+  error?: string;
 }
 
 export interface RenderManifest {
@@ -66,16 +68,26 @@ export interface JobStatus {
   errors: string[];
 }
 
+export type TimingStatus = "available" | "unavailable";
+
 export interface WordTiming {
   index: number;
   word: string;
-  start_seconds: number;
-  end_seconds: number;
+  start: number;
+  end: number;
+  confidence?: number;
+}
+
+export interface WordsTimingMetadata {
+  status: TimingStatus;
+  source: TimingSource;
+  reason?: string;
 }
 
 export interface WordsFile {
   job_id: string;
   segment_id: string;
+  timing: WordsTimingMetadata;
   words: WordTiming[];
 }
 
@@ -93,6 +105,9 @@ function isString(value: unknown, minLen = 1): value is string {
 
 function normalizeRenderer(value: unknown): RendererName {
   if (value === "voicelayer-qwen3") {
+    return value;
+  }
+  if (value === "external-command") {
     return value;
   }
   return "fake";

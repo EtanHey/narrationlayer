@@ -27,18 +27,42 @@
             "type": "string",
             "minLength": 1
           },
-          "start_seconds": {
+          "start": {
             "type": "number",
             "minimum": 0
           },
-          "end_seconds": {
+          "end": {
             "type": "number",
             "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
           }
         },
-        "required": ["index", "word", "start_seconds", "end_seconds"]
+        "required": ["index", "word", "start", "end"]
       }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["available", "unavailable"]
+        },
+        "source": {
+          "type": "string",
+          "enum": ["fake", "voicelayer-qwen3", "whisper-cli", "estimated"]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["status", "source"]
     }
   },
-  "required": ["job_id", "segment_id", "words"]
+  "required": ["job_id", "segment_id", "timing", "words"]
 }
