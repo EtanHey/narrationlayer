@@ -25,10 +25,15 @@ import { createDashboardDemo } from "../../src/dashboard.js";
 function mlStackBusy() {
   try {
     const ps = execSync("ps aux", { encoding: "utf8" });
-    return ps
-      .split("\n")
-      .some((l) => /whisper-server|mlx_lm|mlx-lm/.test(l) ||
-        (/Python/.test(l) && Number(l.split(/\s+/)[5]) > 1_500_000)); // >~1.5GB RSS
+    // whisper-server and mlx_lm.server are persistent daemons that sit idle at
+    // tens of MB and only balloon to GBs when a model is actually loaded. Gate on
+    // RSS, not mere presence, so an idle daemon (or this guard's own ps/grep
+    // command line) does not falsely report the box as busy.
+    return ps.split("\n").some((l) => {
+      if (!/whisper-server|mlx_lm|mlx-lm|comfy|Python/.test(l)) return false;
+      const rss = Number(l.split(/\s+/)[5]); // RSS in KB
+      return Number.isFinite(rss) && rss > 1_200_000; // a model is actually loaded
+    });
   } catch {
     return false;
   }
