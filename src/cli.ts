@@ -4,13 +4,13 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-import {
-  getDataDir,
-  getStatus,
-} from "./job-store.js";
+import { getDataDir, getStatus } from "./job-store.js";
 import { createBakeoffJobsFromFile } from "./bakeoff.js";
 import { createDashboardDemo } from "./dashboard.js";
-import { preflightQwen3LoraRun, prepareQwen3LoraDatasetFromFile } from "./qwen3-lora.js";
+import {
+  preflightQwen3LoraRun,
+  prepareQwen3LoraDatasetFromFile,
+} from "./qwen3-lora.js";
 import {
   createJobFromFile,
   getDoctorSummary,
@@ -20,7 +20,8 @@ import {
   renderJob,
 } from "./service.js";
 
-const HELP = `NarrationLayer CLI
+const HELP =
+  `NarrationLayer CLI
 
 Usage:
   narrationlayer doctor
@@ -28,7 +29,7 @@ Usage:
   narrationlayer render <job-id> [--json]
   narrationlayer status <job-id>
   narrationlayer result <job-id>
-  narrationlayer dashboard <job-id> [--open]
+  narrationlayer dashboard <job-id> [--open] [--audio-base-url <url>]
   narrationlayer bakeoff-create <bakeoff.json> [--json]
   narrationlayer qwen3-lora-prepare <config.json> [--json]
   narrationlayer qwen3-lora-preflight <run-dir> [--json]
@@ -36,7 +37,9 @@ Usage:
   narrationlayer watch <job-id>
 
 All persistent state is under NARRATIONLAYER_DATA_DIR or ~/.narrationlayer.
-The command also supports ` + "`--help`" + ` to show this message.
+The command also supports ` +
+  "`--help`" +
+  ` to show this message.
 `;
 
 function renderIdBanner(jobId: string): void {
@@ -45,6 +48,14 @@ function renderIdBanner(jobId: string): void {
 
 function hasFlag(args: string[], flag: string): boolean {
   return args.includes(flag);
+}
+
+function flagValue(args: string[], flag: string): string | undefined {
+  const eq = args.find((arg) => arg.startsWith(`${flag}=`));
+  if (eq) return eq.slice(flag.length + 1);
+  const idx = args.indexOf(flag);
+  if (idx >= 0 && idx + 1 < args.length) return args[idx + 1];
+  return undefined;
 }
 
 function printJson(payload: unknown): void {
@@ -65,7 +76,10 @@ async function cmdDoctor(json = false) {
   console.log(`Profiles: ${payload.profiles.profiles.length}`);
 }
 
-async function cmdCreateJob(jobFilePath?: string, json = false): Promise<string> {
+async function cmdCreateJob(
+  jobFilePath?: string,
+  json = false,
+): Promise<string> {
   if (!jobFilePath) {
     throw new Error("create-job requires <job.json>");
   }
@@ -117,11 +131,17 @@ async function cmdResult(jobId?: string) {
   printJson(await getJobResult(jobId));
 }
 
-async function cmdDashboard(jobId: string | undefined, open = false) {
+async function cmdDashboard(
+  jobId: string | undefined,
+  open = false,
+  audioBaseUrl?: string,
+) {
   if (!jobId) {
     throw new Error("dashboard requires <job-id>");
   }
-  const outputPath = await createDashboardDemo(jobId);
+  const outputPath = await createDashboardDemo(jobId, undefined, {
+    audioBaseUrl,
+  });
   if (open) {
     spawn("open", [outputPath], {
       detached: true,
@@ -134,7 +154,10 @@ async function cmdDashboard(jobId: string | undefined, open = false) {
   });
 }
 
-async function cmdBakeoffCreate(specFilePath: string | undefined, json = false) {
+async function cmdBakeoffCreate(
+  specFilePath: string | undefined,
+  json = false,
+) {
   if (!specFilePath) {
     throw new Error("bakeoff-create requires <bakeoff.json>");
   }
@@ -149,7 +172,10 @@ async function cmdBakeoffCreate(specFilePath: string | undefined, json = false) 
   }
 }
 
-async function cmdQwen3LoraPrepare(configFilePath: string | undefined, json = false) {
+async function cmdQwen3LoraPrepare(
+  configFilePath: string | undefined,
+  json = false,
+) {
   if (!configFilePath) {
     throw new Error("qwen3-lora-prepare requires <config.json>");
   }
@@ -183,8 +209,12 @@ async function cmdQwen3LoraPreflight(runDir: string | undefined, json = false) {
   console.log(`Train raw rows: ${result.counts.train_raw_rows}`);
   console.log(`Eval raw rows: ${result.counts.eval_raw_rows}`);
   console.log(`Missing audio rows: ${result.counts.missing_audio_rows}`);
-  console.log(`Wrong sample-rate files: ${result.counts.sample_rate_mismatch_files}`);
-  console.log(`Unknown sample-rate files: ${result.counts.sample_rate_unknown_files}`);
+  console.log(
+    `Wrong sample-rate files: ${result.counts.sample_rate_mismatch_files}`,
+  );
+  console.log(
+    `Unknown sample-rate files: ${result.counts.sample_rate_unknown_files}`,
+  );
   for (const blocker of result.blockers) {
     console.log(`Blocker: ${blocker}`);
   }
@@ -202,7 +232,9 @@ async function cmdWatch(jobId?: string) {
     if (!status) {
       throw new Error(`Status not found for job: ${jobId}`);
     }
-    console.log(`${status.status} (${status.progress.completed_segments}/${status.progress.total_segments})`);
+    console.log(
+      `${status.status} (${status.progress.completed_segments}/${status.progress.total_segments})`,
+    );
     if (status.status === "done" || status.status === "failed") {
       return;
     }
@@ -244,7 +276,12 @@ export async function main() {
       await cmdResult(payload);
       break;
     case "dashboard":
-      await cmdDashboard(payload, open);
+      await cmdDashboard(
+        payload,
+        open,
+        flagValue(args, "--audio-base-url") ??
+          process.env.NARRATIONLAYER_AUDIO_BASE_URL,
+      );
       break;
     case "bakeoff-create":
       await cmdBakeoffCreate(payload, json);

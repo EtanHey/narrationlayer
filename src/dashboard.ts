@@ -38,6 +38,23 @@ async function readWordsFile(wordsPath: string): Promise<WordsFile> {
   return JSON.parse(await readFile(wordsPath, "utf8")) as WordsFile;
 }
 
+export interface DashboardOptions {
+  // When set, audio is referenced as `${audioBaseUrl}/<basename>` (HTTP) instead
+  // of a file:// URL. The server behind audioBaseUrl MUST support HTTP range
+  // requests (Accept-Ranges / 206) — without ranges the browser's
+  // `audio.seekable` is empty and word-click seeking / scrubbing cannot work.
+  audioBaseUrl?: string;
+}
+
+function resolveAudioUrl(audioPath: string, audioBaseUrl?: string): string {
+  if (!audioPath) return "";
+  if (audioBaseUrl) {
+    const base = audioBaseUrl.replace(/\/+$/, "");
+    return `${base}/${encodeURIComponent(path.basename(audioPath))}`;
+  }
+  return pathToFileURL(audioPath).href;
+}
+
 function renderHtml(payload: DashboardPayload): string {
   const firstSegment = payload.segments[0];
   const title = firstSegment
@@ -518,6 +535,7 @@ function renderHtml(payload: DashboardPayload): string {
 export async function createDashboardDemo(
   jobId: string,
   dataDir?: string,
+  options: DashboardOptions = {},
 ): Promise<string> {
   const { manifest } = await getJobResult(jobId, dataDir);
   const segments = await Promise.all(
@@ -527,9 +545,7 @@ export async function createDashboardDemo(
         title: segment.title,
         script: segment.script,
         audio_path: segment.audio_path,
-        audio_url: segment.audio_path
-          ? pathToFileURL(segment.audio_path).href
-          : "",
+        audio_url: resolveAudioUrl(segment.audio_path, options.audioBaseUrl),
         duration_seconds: segment.duration_seconds,
         words_path: segment.words_path,
         words: segment.words_path
