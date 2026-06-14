@@ -40,7 +40,9 @@ async function readWordsFile(wordsPath: string): Promise<WordsFile> {
 
 function renderHtml(payload: DashboardPayload): string {
   const firstSegment = payload.segments[0];
-  const title = firstSegment ? `${firstSegment.title} - Agent Narration Dashboard` : "Agent Narration Dashboard";
+  const title = firstSegment
+    ? `${firstSegment.title} - Agent Narration Dashboard`
+    : "Agent Narration Dashboard";
   const navItems = payload.segments
     .map(
       (segment, index) => `
@@ -168,6 +170,9 @@ function renderHtml(payload: DashboardPayload): string {
       gap: 6px;
       align-content: flex-start;
       min-height: 220px;
+      max-height: 60vh;
+      overflow-y: auto;
+      scroll-behavior: smooth;
     }
     .word {
       border: 1px solid var(--line);
@@ -256,6 +261,8 @@ function renderHtml(payload: DashboardPayload): string {
     let activeSegmentIndex = 0;
     let playAllEnabled = false;
     let wordNodes = [];
+    let scrubbing = false;
+    let activeWordNode = null;
 
     function playAudio() {
       const playPromise = audio.play();
@@ -295,7 +302,11 @@ function renderHtml(payload: DashboardPayload): string {
 
     function updateScrubberFromAudio() {
       updateScrubberBounds();
-      scrubber.value = String(Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
+      // While the user is actively dragging the scrubber, do not let playback
+      // timeupdates yank the thumb away from where they are dragging.
+      if (!scrubbing) {
+        scrubber.value = String(Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
+      }
       updateTimeReadout();
     }
 
@@ -327,6 +338,7 @@ function renderHtml(payload: DashboardPayload): string {
       loadAudio();
       seekToTime(targetTime);
       teleprompter.innerHTML = "";
+      activeWordNode = null;
       const words = activeSegment.words.words.length
         ? activeSegment.words.words
         : estimateWords(activeSegment.script, activeSegment.duration_seconds);
@@ -382,10 +394,21 @@ function renderHtml(payload: DashboardPayload): string {
     }
 
     function setActiveWord(current) {
+      let nextActive = null;
       for (const node of wordNodes) {
         const start = Number(node.dataset.start);
         const end = Number(node.dataset.end);
-        node.classList.toggle("active", current >= start && current < end);
+        const isActive = current >= start && current < end;
+        node.classList.toggle("active", isActive);
+        if (isActive) nextActive = node;
+      }
+      // Only scroll when the active word actually changes, so long scripts keep
+      // the spoken word in view without thrashing scroll every animation frame.
+      if (nextActive !== activeWordNode) {
+        activeWordNode = nextActive;
+        if (activeWordNode && typeof activeWordNode.scrollIntoView === "function") {
+          activeWordNode.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
       }
     }
 
@@ -430,10 +453,18 @@ function renderHtml(payload: DashboardPayload): string {
       audio.pause();
     });
     scrubber.addEventListener("input", () => {
+      scrubbing = true;
       seekToTime(Number(scrubber.value));
     });
     scrubber.addEventListener("change", () => {
       seekToTime(Number(scrubber.value));
+      scrubbing = false;
+    });
+    scrubber.addEventListener("pointerup", () => {
+      scrubbing = false;
+    });
+    scrubber.addEventListener("blur", () => {
+      scrubbing = false;
     });
     audio.addEventListener("loadedmetadata", updateScrubberFromAudio);
     audio.addEventListener("timeupdate", updateScrubberFromAudio);
@@ -464,32 +495,42 @@ function renderHtml(payload: DashboardPayload): string {
 </html>`;
 }
 
-export async function createDashboardDemo(jobId: string, dataDir?: string): Promise<string> {
+export async function createDashboardDemo(
+  jobId: string,
+  dataDir?: string,
+): Promise<string> {
   const { manifest } = await getJobResult(jobId, dataDir);
   const segments = await Promise.all(
-    manifest.segments.map(async (segment): Promise<DashboardSegment> => ({
-      id: segment.id,
-      title: segment.title,
-      script: segment.script,
-      audio_path: segment.audio_path,
-      audio_url: segment.audio_path ? pathToFileURL(segment.audio_path).href : "",
-      duration_seconds: segment.duration_seconds,
-      words_path: segment.words_path,
-      words: segment.words_path
-        ? await readWordsFile(segment.words_path)
-        : {
-            job_id: manifest.job_id,
-            segment_id: segment.id,
-            timing: {
-              status: "unavailable",
-              source: manifest.renderer,
-              reason: "segment_has_no_words_path",
+    manifest.segments.map(
+      async (segment): Promise<DashboardSegment> => ({
+        id: segment.id,
+        title: segment.title,
+        script: segment.script,
+        audio_path: segment.audio_path,
+        audio_url: segment.audio_path
+          ? pathToFileURL(segment.audio_path).href
+          : "",
+        duration_seconds: segment.duration_seconds,
+        words_path: segment.words_path,
+        words: segment.words_path
+          ? await readWordsFile(segment.words_path)
+          : {
+              job_id: manifest.job_id,
+              segment_id: segment.id,
+              timing: {
+                status: "unavailable",
+                source: manifest.renderer,
+                reason: "segment_has_no_words_path",
+              },
+              words: [],
             },
-            words: [],
-          },
-    })),
+      }),
+    ),
   );
-  const outputPath = path.join(pathsForJob(jobId, dataDir).jobDir, "dashboard.html");
+  const outputPath = path.join(
+    pathsForJob(jobId, dataDir).jobDir,
+    "dashboard.html",
+  );
   await writeFile(outputPath, renderHtml({ manifest, segments }), "utf8");
   return outputPath;
 }

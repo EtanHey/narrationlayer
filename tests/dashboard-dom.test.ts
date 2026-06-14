@@ -22,6 +22,8 @@ interface Harness {
   words: () => any[];
   activeIndex: () => number;
   playCalls: () => number;
+  scrollCalls: () => number;
+  activeWordText: () => string | null;
   press: (key: string) => void;
   emit: (target: any, type: string) => void;
   cleanup: () => void;
@@ -55,8 +57,13 @@ async function setupDashboard(segmentCount: number): Promise<Harness> {
   const document = window.document as any;
 
   // Deterministic media element: no real audio, so duration is NaN and the code
-  // falls back to segment duration_seconds. Track play() calls.
-  const state = { plays: 0 };
+  // falls back to segment duration_seconds. Track play() and scrollIntoView calls.
+  const state = { plays: 0, scrolls: 0 };
+  // scrollIntoView is not implemented in happy-dom; spy on it so auto-scroll of
+  // the active teleprompter word is observable.
+  (window as any).HTMLElement.prototype.scrollIntoView = function () {
+    state.scrolls += 1;
+  };
   const proto = (window as any).HTMLMediaElement.prototype;
   Object.defineProperty(proto, "duration", {
     configurable: true,
@@ -111,6 +118,11 @@ async function setupDashboard(segmentCount: number): Promise<Harness> {
       return active ? Number(active.dataset.segmentIndex) : -1;
     },
     playCalls: () => state.plays,
+    scrollCalls: () => state.scrolls,
+    activeWordText: () => {
+      const active = document.querySelector(".word.active") as any;
+      return active ? active.textContent : null;
+    },
     press: (key) =>
       document.dispatchEvent(
         new (window as any).KeyboardEvent("keydown", { key, bubbles: true }),
@@ -231,6 +243,56 @@ test("BUG 5: Back / Next buttons move between segments", async () => {
     expect(h.activeIndex()).toBe(2);
     back.click();
     expect(h.activeIndex()).toBe(1);
+  } finally {
+    h.cleanup();
+  }
+});
+
+test("HARDENING: scrubber drag is not yanked by playback timeupdates", async () => {
+  const h = await setupDashboard(2);
+  try {
+    const scrubber = h.document.getElementById("scrubber") as any;
+    // Begin a drag (input) -> scrubbing flag set, thumb at 2.0
+    scrubber.value = "2.0";
+    h.emit(scrubber, "input");
+    expect(Number(scrubber.value)).toBeCloseTo(2.0, 5);
+    // Playback advances mid-drag; timeupdate must NOT move the thumb.
+    h.audio.currentTime = 3.5;
+    h.emit(h.audio, "timeupdate");
+    expect(Number(scrubber.value)).toBeCloseTo(2.0, 5); // still where user dragged
+    // Release (change) clears scrubbing; subsequent timeupdates track again.
+    scrubber.value = "2.0";
+    h.emit(scrubber, "change");
+    h.audio.currentTime = 3.5;
+    h.emit(h.audio, "timeupdate");
+    expect(Number(scrubber.value)).toBeCloseTo(3.5, 5); // now follows playback
+  } finally {
+    h.cleanup();
+  }
+});
+
+test("HARDENING: active teleprompter word scrolls into view on change", async () => {
+  const h = await setupDashboard(2);
+  try {
+    const words = h.words();
+    expect(words.length).toBeGreaterThan(3);
+    const target = words[3];
+    const start = Number(target.dataset.start);
+    const end = Number(target.dataset.end);
+    const scrubber = h.document.getElementById("scrubber") as any;
+
+    const before = h.scrollCalls();
+    scrubber.value = String(start + (end - start) * 0.4); // inside word 3
+    h.emit(scrubber, "input");
+
+    // The seeked word becomes active and is scrolled into view exactly once more.
+    expect(h.activeWordText()).toBe(target.textContent);
+    expect(h.scrollCalls()).toBe(before + 1);
+
+    // Re-seeking within the SAME word must not re-scroll (no per-frame thrash).
+    scrubber.value = String(start + (end - start) * 0.6);
+    h.emit(scrubber, "input");
+    expect(h.scrollCalls()).toBe(before + 1);
   } finally {
     h.cleanup();
   }
