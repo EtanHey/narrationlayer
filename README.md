@@ -126,7 +126,20 @@ Python imports, and CUDA readiness.
 `dashboard.html` next to the job. It embeds the manifest and word timings, plays
 the generated segment audio, and highlights teleprompter words as playback
 progresses. Clicking a teleprompter word seeks the audio to that word without
-changing whether playback is currently playing or paused.
+changing whether playback is currently playing or paused. Re-selecting the
+active section seeks rather than restarting; only a real section change reloads
+the audio.
+
+By default the audio is referenced via `file://` URLs (the dashboard is meant to
+be opened directly from disk). To serve the dashboard over HTTP instead, pass
+`--audio-base-url <url>` (or set `NARRATIONLAYER_AUDIO_BASE_URL`); each segment's
+audio is then referenced as `<url>/<audio-filename>`.
+
+> **The HTTP server behind `--audio-base-url` must support range requests**
+> (`Accept-Ranges: bytes` / `206 Partial Content`). Without ranges the browser's
+> `audio.seekable` is empty and word-click seeking / scrubbing silently do not
+> work — this is the most common cause of "seeking does nothing" in a served
+> dashboard. `file://` already supports seeking, so the default path is fine.
 
 ## Development
 
