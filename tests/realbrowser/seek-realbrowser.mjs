@@ -147,24 +147,58 @@ async function main() {
       return a && a.readyState >= 1 && a.seekable && a.seekable.length > 0;
     }, { timeout: 10000 });
 
-    const result = await page.evaluate(async () => {
+    // Drives a word-click seek and reports observable media state. Reused for
+    // desktop and mobile so both prove the same backbone behavior.
+    const seekProbe = async () => {
       const a = document.getElementById("audio");
       const beforeSeekable = a.seekable.length;
-      // Click word 3 (a real seek target) and confirm currentTime lands there.
       const words = [...document.querySelectorAll(".word")];
       const target = words[3] || words[words.length - 1];
       const wantStart = Number(target.dataset.start);
       target.click();
       await new Promise((r) => setTimeout(r, 150));
-      return { beforeSeekable, wantStart, currentTime: a.currentTime, duration: a.duration };
+      const workbench = document.querySelector(".workbench");
+      const cols = workbench
+        ? getComputedStyle(workbench).gridTemplateColumns.trim().split(/\s+/).length
+        : 0;
+      return { beforeSeekable, wantStart, currentTime: a.currentTime, duration: a.duration, cols };
+    };
+    const probeSource = `(${seekProbe.toString()})()`;
+    const seekable = () => {
+      const a = document.getElementById("audio");
+      return a && a.readyState >= 1 && a.seekable && a.seekable.length > 0;
+    };
+
+    const result = await page.evaluate(probeSource);
+
+    // MOBILE (V4 requirement): phone viewport + touch. Seek must still work and
+    // the responsive layout must collapse the workbench to a single column.
+    const mobileCtx = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 3,
     });
+    const mpage = await mobileCtx.newPage();
+    await mpage.goto(dashUrl, { waitUntil: "load" });
+    await mpage.waitForFunction(seekable, { timeout: 10000 });
+    const mobile = await mpage.evaluate(probeSource);
+    await mobileCtx.close();
 
     await browser.close();
 
-    const seekOk = result.beforeSeekable > 0 && Math.abs(result.currentTime - result.wantStart) < 0.4;
-    console.log("REAL-BROWSER SEEK:", JSON.stringify(result));
-    console.log(seekOk ? "PASS: audio.seekable populated + word-click seek landed." : "FAIL: seek did not land — check range support.");
-    process.exit(seekOk ? 0 : 1);
+    const landed = (r) => r.beforeSeekable > 0 && Math.abs(r.currentTime - r.wantStart) < 0.4;
+    const desktopOk = landed(result);
+    const mobileOk = landed(mobile) && mobile.cols === 1; // single-column at 390px
+    const ok = desktopOk && mobileOk;
+    console.log("DESKTOP SEEK:", JSON.stringify(result));
+    console.log("MOBILE SEEK :", JSON.stringify(mobile));
+    console.log(
+      ok
+        ? "PASS: audio.seekable populated + word-click seek landed on desktop AND mobile (single-column)."
+        : `FAIL: desktopOk=${desktopOk} mobileOk=${mobileOk} — check range support / responsive layout.`,
+    );
+    process.exit(ok ? 0 : 1);
   } finally {
     server?.stop?.(true);
     rmSync(dataDir, { recursive: true, force: true });
