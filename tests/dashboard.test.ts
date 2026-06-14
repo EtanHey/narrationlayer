@@ -41,8 +41,16 @@ test("dashboard demo embeds manifest audio and teleprompter word timings", async
     expect(html).toContain("words");
     expect(html).toContain("estimateWords");
     expect(html).toContain("seekToWord");
+    expect(html).toContain('id="scrubber"');
+    expect(html).toContain('type="range"');
+    expect(html).toContain('id="previous-segment"');
+    expect(html).toContain('id="next-segment"');
+    expect(html).toContain("function jumpToSegment");
+    expect(html).toContain("document.addEventListener(\"keydown\"");
+    expect(html).toContain("scrubber.addEventListener(\"input\"");
+    expect(html).toContain("audio.addEventListener(\"timeupdate\", updateScrubberFromAudio)");
     expect(html).toContain("const wasPlaying = !audio.paused");
-    expect(html).toContain("audio.currentTime = targetTime");
+    expect(html).toContain("audio.currentTime = clamped");
     expect(html).toContain('node.addEventListener("click", seekToWord)');
     expect(html).toContain("play-all");
     expect(html).toContain("function playAll");
