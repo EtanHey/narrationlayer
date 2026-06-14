@@ -139,6 +139,24 @@ function renderHtml(payload: DashboardPayload): string {
       background: var(--accent-weak);
     }
     audio { width: 100%; margin: 10px 0 16px; }
+    .scrubber-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin: 0 0 12px;
+    }
+    .scrubber {
+      width: 100%;
+      min-width: 0;
+      accent-color: var(--accent);
+    }
+    .time-readout {
+      color: var(--muted);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
     .script {
       white-space: pre-wrap;
       color: #303236;
@@ -199,8 +217,14 @@ function renderHtml(payload: DashboardPayload): string {
         <section class="panel">
           <h2 id="segment-title"></h2>
           <audio id="audio" controls preload="metadata"></audio>
+          <div class="scrubber-row">
+            <input id="scrubber" class="scrubber" type="range" min="0" max="0" step="0.01" value="0" aria-label="Seek">
+            <span id="time-readout" class="time-readout">0:00 / 0:00</span>
+          </div>
           <div class="audio-controls">
+            <button id="previous-segment" class="control-button" type="button">Back</button>
             <button id="play-all" class="control-button" type="button">Play all</button>
+            <button id="next-segment" class="control-button" type="button">Next</button>
             <button id="stop-all" class="control-button" type="button">Stop</button>
           </div>
           <pre id="script" class="script"></pre>
@@ -222,7 +246,11 @@ function renderHtml(payload: DashboardPayload): string {
     const teleprompter = document.getElementById("teleprompter");
     const timingStatus = document.getElementById("timing-status");
     const playAllButton = document.getElementById("play-all");
+    const previousSegmentButton = document.getElementById("previous-segment");
+    const nextSegmentButton = document.getElementById("next-segment");
     const stopAllButton = document.getElementById("stop-all");
+    const scrubber = document.getElementById("scrubber");
+    const timeReadout = document.getElementById("time-readout");
     const tabs = Array.from(document.querySelectorAll(".segment-tab"));
     let activeSegment = null;
     let activeSegmentIndex = 0;
@@ -241,14 +269,63 @@ function renderHtml(payload: DashboardPayload): string {
       playAllButton.classList.toggle("active", enabled);
     }
 
+    function segmentDuration() {
+      const audioDuration = Number(audio.duration);
+      if (Number.isFinite(audioDuration) && audioDuration > 0) return audioDuration;
+      const fallback = activeSegment ? Number(activeSegment.duration_seconds) : 0;
+      return Number.isFinite(fallback) && fallback > 0 ? fallback : 0;
+    }
+
+    function formatTime(seconds) {
+      const clean = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+      const minutes = Math.floor(clean / 60);
+      const wholeSeconds = Math.floor(clean % 60);
+      return minutes + ":" + String(wholeSeconds).padStart(2, "0");
+    }
+
+    function updateScrubberBounds() {
+      const duration = segmentDuration();
+      scrubber.max = String(duration);
+      scrubber.disabled = duration <= 0;
+    }
+
+    function updateTimeReadout() {
+      timeReadout.textContent = formatTime(audio.currentTime) + " / " + formatTime(segmentDuration());
+    }
+
+    function updateScrubberFromAudio() {
+      updateScrubberBounds();
+      scrubber.value = String(Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
+      updateTimeReadout();
+    }
+
+    function seekToTime(targetTime) {
+      if (!Number.isFinite(targetTime)) return;
+      const duration = segmentDuration();
+      const clamped = duration > 0 ? Math.min(Math.max(targetTime, 0), duration) : Math.max(targetTime, 0);
+      audio.currentTime = clamped;
+      scrubber.value = String(clamped);
+      setActiveWord(clamped);
+      updateTimeReadout();
+    }
+
+    function loadAudio() {
+      if (typeof audio.load === "function") {
+        audio.load();
+      }
+    }
+
     function setSegment(index, options = {}) {
-      activeSegment = payload.segments[index];
-      activeSegmentIndex = index;
-      tabs.forEach((tab, tabIndex) => tab.classList.toggle("active", tabIndex === index));
+      const targetIndex = Math.min(Math.max(index, 0), payload.segments.length - 1);
+      const targetTime = Number.isFinite(options.seekTime) ? options.seekTime : 0;
+      activeSegment = payload.segments[targetIndex];
+      activeSegmentIndex = targetIndex;
+      tabs.forEach((tab, tabIndex) => tab.classList.toggle("active", tabIndex === targetIndex));
       title.textContent = activeSegment.title;
       script.textContent = activeSegment.script;
       audio.src = activeSegment.audio_url;
-      audio.currentTime = 0;
+      loadAudio();
+      seekToTime(targetTime);
       teleprompter.innerHTML = "";
       const words = activeSegment.words.words.length
         ? activeSegment.words.words
@@ -270,9 +347,26 @@ function renderHtml(payload: DashboardPayload): string {
       timingStatus.textContent = timing.status === "available"
         ? "Timing: " + timing.source
         : "Timing unavailable: " + (timing.reason || "backend did not provide word timing") + "; displaying estimated script timing";
+      updateScrubberFromAudio();
       if (options.play) {
         playAudio();
       }
+    }
+
+    function jumpToSegment(index, options = {}) {
+      if (!payload.segments.length) return;
+      const targetIndex = Math.min(Math.max(index, 0), payload.segments.length - 1);
+      setSegment(targetIndex, {
+        play: Boolean(options.play),
+        seekTime: Number.isFinite(options.seekTime) ? options.seekTime : 0,
+      });
+    }
+
+    function moveSegment(delta, options = {}) {
+      jumpToSegment(activeSegmentIndex + delta, {
+        play: Boolean(options.play),
+        seekTime: 0,
+      });
     }
 
     function estimateWords(text, durationSeconds) {
@@ -300,8 +394,7 @@ function renderHtml(payload: DashboardPayload): string {
       const targetTime = Number(node.dataset.start);
       if (!Number.isFinite(targetTime)) return;
       const wasPlaying = !audio.paused;
-      audio.currentTime = targetTime;
-      setActiveWord(targetTime);
+      seekToTime(targetTime);
       if (wasPlaying) {
         playAudio();
       }
@@ -316,7 +409,7 @@ function renderHtml(payload: DashboardPayload): string {
     for (const tab of tabs) {
       tab.addEventListener("click", () => {
         setPlayAllEnabled(false);
-        setSegment(Number(tab.dataset.segmentIndex));
+        jumpToSegment(Number(tab.dataset.segmentIndex), { play: true });
       });
     }
     function playAll() {
@@ -324,10 +417,26 @@ function renderHtml(payload: DashboardPayload): string {
       playAudio();
     }
     playAllButton.addEventListener("click", playAll);
+    previousSegmentButton.addEventListener("click", () => {
+      setPlayAllEnabled(false);
+      moveSegment(-1, { play: true });
+    });
+    nextSegmentButton.addEventListener("click", () => {
+      setPlayAllEnabled(false);
+      moveSegment(1, { play: true });
+    });
     stopAllButton.addEventListener("click", () => {
       setPlayAllEnabled(false);
       audio.pause();
     });
+    scrubber.addEventListener("input", () => {
+      seekToTime(Number(scrubber.value));
+    });
+    scrubber.addEventListener("change", () => {
+      seekToTime(Number(scrubber.value));
+    });
+    audio.addEventListener("loadedmetadata", updateScrubberFromAudio);
+    audio.addEventListener("timeupdate", updateScrubberFromAudio);
     audio.addEventListener("ended", () => {
       if (!playAllEnabled) return;
       const nextIndex = activeSegmentIndex + 1;
@@ -335,9 +444,20 @@ function renderHtml(payload: DashboardPayload): string {
         setPlayAllEnabled(false);
         return;
       }
-      setSegment(nextIndex, { play: true });
+      jumpToSegment(nextIndex, { play: true });
     });
-    setSegment(0);
+    script.addEventListener("click", () => {
+      setPlayAllEnabled(false);
+      jumpToSegment(activeSegmentIndex, { play: true, seekTime: 0 });
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "j" && event.key !== "k") return;
+      if (event.target && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(event.target.tagName)) return;
+      event.preventDefault();
+      setPlayAllEnabled(false);
+      moveSegment(event.key === "j" ? 1 : -1, { play: true });
+    });
+    jumpToSegment(0);
     requestAnimationFrame(updateTeleprompter);
   </script>
 </body>
