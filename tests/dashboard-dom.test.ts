@@ -22,6 +22,7 @@ interface Harness {
   words: () => any[];
   activeIndex: () => number;
   playCalls: () => number;
+  loadCalls: () => number;
   scrollCalls: () => number;
   activeWordText: () => string | null;
   press: (key: string) => void;
@@ -58,7 +59,7 @@ async function setupDashboard(segmentCount: number): Promise<Harness> {
 
   // Deterministic media element: no real audio, so duration is NaN and the code
   // falls back to segment duration_seconds. Track play() and scrollIntoView calls.
-  const state = { plays: 0, scrolls: 0 };
+  const state = { plays: 0, scrolls: 0, loads: 0 };
   // scrollIntoView is not implemented in happy-dom; spy on it so auto-scroll of
   // the active teleprompter word is observable.
   (window as any).HTMLElement.prototype.scrollIntoView = function () {
@@ -79,7 +80,9 @@ async function setupDashboard(segmentCount: number): Promise<Harness> {
   proto.pause = function () {
     this._paused = true;
   };
-  proto.load = function () {};
+  proto.load = function () {
+    state.loads += 1;
+  };
   Object.defineProperty(proto, "paused", {
     configurable: true,
     get() {
@@ -118,6 +121,7 @@ async function setupDashboard(segmentCount: number): Promise<Harness> {
       return active ? Number(active.dataset.segmentIndex) : -1;
     },
     playCalls: () => state.plays,
+    loadCalls: () => state.loads,
     scrollCalls: () => state.scrolls,
     activeWordText: () => {
       const active = document.querySelector(".word.active") as any;
@@ -293,6 +297,36 @@ test("HARDENING: active teleprompter word scrolls into view on change", async ()
     scrubber.value = String(start + (end - start) * 0.6);
     h.emit(scrubber, "input");
     expect(h.scrollCalls()).toBe(before + 1);
+  } finally {
+    h.cleanup();
+  }
+});
+
+test("SEEK-NOT-RESTART: re-selecting the active section keeps position, no reload", async () => {
+  const h = await setupDashboard(3);
+  try {
+    // Move to section 2 (a genuine change -> loads once, starts at 0).
+    h.tabs[1].click();
+    expect(h.activeIndex()).toBe(1);
+    expect(h.audio.src.endsWith("seg-2.mp3")).toBe(true);
+    const loadsAfterNav = h.loadCalls();
+
+    // Simulate playback advancing within section 2.
+    h.audio.currentTime = 2.5;
+
+    // Re-click the SAME (active) section tab: must SEEK (keep position), not reload/restart.
+    h.tabs[1].click();
+    expect(h.audio.currentTime).toBeCloseTo(2.5, 5); // not reset to 0
+    expect(h.loadCalls()).toBe(loadsAfterNav); // not reloaded
+    expect(h.audio.src.endsWith("seg-2.mp3")).toBe(true);
+    expect(h.activeIndex()).toBe(1);
+
+    // j at the last section is a clamped no-op -> must also keep position.
+    h.tabs[2].click();
+    h.audio.currentTime = 3.0;
+    h.press("j"); // index 2 is last; clamps to 2
+    expect(h.activeIndex()).toBe(2);
+    expect(h.audio.currentTime).toBeCloseTo(3.0, 5); // boundary no-op does not restart
   } finally {
     h.cleanup();
   }

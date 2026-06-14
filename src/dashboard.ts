@@ -326,17 +326,7 @@ function renderHtml(payload: DashboardPayload): string {
       }
     }
 
-    function setSegment(index, options = {}) {
-      const targetIndex = Math.min(Math.max(index, 0), payload.segments.length - 1);
-      const targetTime = Number.isFinite(options.seekTime) ? options.seekTime : 0;
-      activeSegment = payload.segments[targetIndex];
-      activeSegmentIndex = targetIndex;
-      tabs.forEach((tab, tabIndex) => tab.classList.toggle("active", tabIndex === targetIndex));
-      title.textContent = activeSegment.title;
-      script.textContent = activeSegment.script;
-      audio.src = activeSegment.audio_url;
-      loadAudio();
-      seekToTime(targetTime);
+    function renderSegmentWords() {
       teleprompter.innerHTML = "";
       activeWordNode = null;
       const words = activeSegment.words.words.length
@@ -359,6 +349,30 @@ function renderHtml(payload: DashboardPayload): string {
       timingStatus.textContent = timing.status === "available"
         ? "Timing: " + timing.source
         : "Timing unavailable: " + (timing.reason || "backend did not provide word timing") + "; displaying estimated script timing";
+    }
+
+    function setSegment(index, options = {}) {
+      const targetIndex = Math.min(Math.max(index, 0), payload.segments.length - 1);
+      const targetTime = Number.isFinite(options.seekTime) ? options.seekTime : 0;
+      const nextSegment = payload.segments[targetIndex];
+      // Only reload the audio element and rebuild the teleprompter when we are
+      // actually moving to a different segment. Re-selecting the active segment
+      // must SEEK, never reload-and-restart from zero.
+      const segmentChanged =
+        activeSegment === null ||
+        targetIndex !== activeSegmentIndex ||
+        nextSegment.audio_url !== activeSegment.audio_url;
+      activeSegment = nextSegment;
+      activeSegmentIndex = targetIndex;
+      tabs.forEach((tab, tabIndex) => tab.classList.toggle("active", tabIndex === targetIndex));
+      title.textContent = activeSegment.title;
+      script.textContent = activeSegment.script;
+      if (segmentChanged) {
+        audio.src = activeSegment.audio_url;
+        loadAudio();
+        renderSegmentWords();
+      }
+      seekToTime(targetTime);
       updateScrubberFromAudio();
       if (options.play) {
         playAudio();
@@ -368,16 +382,22 @@ function renderHtml(payload: DashboardPayload): string {
     function jumpToSegment(index, options = {}) {
       if (!payload.segments.length) return;
       const targetIndex = Math.min(Math.max(index, 0), payload.segments.length - 1);
-      setSegment(targetIndex, {
-        play: Boolean(options.play),
-        seekTime: Number.isFinite(options.seekTime) ? options.seekTime : 0,
-      });
+      let seekTime;
+      if (Number.isFinite(options.seekTime)) {
+        seekTime = options.seekTime; // explicit seek target wins (e.g. word/script)
+      } else if (targetIndex === activeSegmentIndex && activeSegment !== null) {
+        seekTime = audio.currentTime; // same segment: keep position, do not restart
+      } else {
+        seekTime = 0; // new (possibly never-played) segment: start at its beginning
+      }
+      setSegment(targetIndex, { play: Boolean(options.play), seekTime });
     }
 
     function moveSegment(delta, options = {}) {
+      // No forced seekTime: a genuine segment change starts at 0, while a clamped
+      // no-op at a boundary keeps position instead of restarting.
       jumpToSegment(activeSegmentIndex + delta, {
         play: Boolean(options.play),
-        seekTime: 0,
       });
     }
 
