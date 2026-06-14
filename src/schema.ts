@@ -25,7 +25,10 @@ export interface NormalizedNarrationSegment extends NarrationSegmentInput {
   duration_seconds?: number;
 }
 
-export interface NormalizedNarrationJob extends Omit<NarrationJobInput, "segments"> {
+export interface NormalizedNarrationJob extends Omit<
+  NarrationJobInput,
+  "segments"
+> {
   job_id: string;
   created_at: string;
   voice_profile: string;
@@ -84,6 +87,15 @@ export interface WordsTimingMetadata {
   reason?: string;
 }
 
+/**
+ * Per-word display-highlight timings for a rendered segment.
+ *
+ * Upstream producer note: durable `WordsFile` payloads should come from a
+ * post-generation forced-aligner pass after audio is written. Naive timings
+ * extrapolated from TTS duration are a known-bad source for real narration
+ * alignment and should stay limited to explicit fallback/demo paths. See
+ * voice-agent-dashboard findings F4 / C-ADD-1 (DR §5).
+ */
 export interface WordsFile {
   job_id: string;
   segment_id: string;
@@ -119,7 +131,9 @@ export function parseNarrationJob(raw: unknown): NormalizedNarrationJob {
   }
 
   const input = raw as Record<string, unknown>;
-  const voiceProfile = isString(input.voice_profile) ? input.voice_profile.trim() : "";
+  const voiceProfile = isString(input.voice_profile)
+    ? input.voice_profile.trim()
+    : "";
   if (!voiceProfile) {
     throw new Error("voice_profile must be a non-empty string");
   }
@@ -129,31 +143,43 @@ export function parseNarrationJob(raw: unknown): NormalizedNarrationJob {
     throw new Error("segments must be a non-empty array");
   }
 
-  const segments: NormalizedNarrationSegment[] = segmentsRaw.map((segment, index) => {
-    if (typeof segment !== "object" || segment === null || Array.isArray(segment)) {
-      throw new Error(`segments[${index}] must be an object`);
-    }
-    const data = segment as Record<string, unknown>;
-    const title = isString(data.title) ? data.title.trim() : "";
-    const script = isString(data.script) ? data.script.trim() : "";
-    if (!title || !script) {
-      throw new Error(`segments[${index}] requires title and script`);
-    }
-    const id = isString(data.id) ? data.id.trim() : `segment-${index + 1}`;
-    const durationRaw = data.duration_seconds;
-    const duration =
-      typeof durationRaw === "number" && Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : undefined;
-    return {
-      id,
-      title,
-      script,
-      duration_seconds: duration,
-    };
-  });
+  const segments: NormalizedNarrationSegment[] = segmentsRaw.map(
+    (segment, index) => {
+      if (
+        typeof segment !== "object" ||
+        segment === null ||
+        Array.isArray(segment)
+      ) {
+        throw new Error(`segments[${index}] must be an object`);
+      }
+      const data = segment as Record<string, unknown>;
+      const title = isString(data.title) ? data.title.trim() : "";
+      const script = isString(data.script) ? data.script.trim() : "";
+      if (!title || !script) {
+        throw new Error(`segments[${index}] requires title and script`);
+      }
+      const id = isString(data.id) ? data.id.trim() : `segment-${index + 1}`;
+      const durationRaw = data.duration_seconds;
+      const duration =
+        typeof durationRaw === "number" &&
+        Number.isFinite(durationRaw) &&
+        durationRaw > 0
+          ? durationRaw
+          : undefined;
+      return {
+        id,
+        title,
+        script,
+        duration_seconds: duration,
+      };
+    },
+  );
 
   return {
     job_id: isString(input.job_id) ? input.job_id.trim() : randomUUID(),
-    created_at: isString(input.created_at) ? input.created_at : new Date().toISOString(),
+    created_at: isString(input.created_at)
+      ? input.created_at
+      : new Date().toISOString(),
     voice_profile: voiceProfile,
     renderer: normalizeRenderer(input.renderer),
     segments,
