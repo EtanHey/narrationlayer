@@ -1,4 +1,12 @@
-import { access, chmod, copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  copyFile,
+  mkdir,
+  readFile,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 
@@ -96,7 +104,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function requireString(raw: Record<string, unknown>, key: keyof Qwen3LoraPrepareInput): string {
+function requireString(
+  raw: Record<string, unknown>,
+  key: keyof Qwen3LoraPrepareInput,
+): string {
   const value = raw[key];
   if (typeof value !== "string" || !value.trim()) {
     throw new Error(`qwen3-lora config requires ${String(key)}`);
@@ -104,14 +115,22 @@ function requireString(raw: Record<string, unknown>, key: keyof Qwen3LoraPrepare
   return value.trim();
 }
 
-function optionalString(raw: Record<string, unknown>, key: keyof Qwen3LoraPrepareInput): string | undefined {
+function optionalString(
+  raw: Record<string, unknown>,
+  key: keyof Qwen3LoraPrepareInput,
+): string | undefined {
   const value = raw[key];
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function optionalPositiveNumber(raw: Record<string, unknown>, key: keyof Qwen3LoraPrepareInput): number | undefined {
+function optionalPositiveNumber(
+  raw: Record<string, unknown>,
+  key: keyof Qwen3LoraPrepareInput,
+): number | undefined {
   const value = raw[key];
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
 }
 
 function normalizeDevice(value: string): string {
@@ -155,15 +174,23 @@ function defaultAttentionForDevice(device: string): string {
 }
 
 function defaultTorchDtypeForDevice(device: string): string {
-  return isMpsDevice(device) || normalizeDevice(device) === "cpu" ? "float32" : "bfloat16";
+  // Only CUDA gets bfloat16; mps, cpu, and any unknown/non-CUDA device default to
+  // float32 so an unrecognized device can never silently inherit a GPU dtype.
+  return isCudaDevice(device) ? "bfloat16" : "float32";
 }
 
-function resolveConfigPath(value: string | undefined, baseDir: string): string | undefined {
+function resolveConfigPath(
+  value: string | undefined,
+  baseDir: string,
+): string | undefined {
   if (!value) {
     return undefined;
   }
   if (value === "~" || value.startsWith("~/")) {
-    return path.join(process.env.HOME || "~", value.slice(value === "~" ? 1 : 2));
+    return path.join(
+      process.env.HOME || "~",
+      value.slice(value === "~" ? 1 : 2),
+    );
   }
   return path.isAbsolute(value) ? value : path.resolve(baseDir, value);
 }
@@ -202,7 +229,8 @@ function parseMetadata(content: string, metadataPath: string): MetadataRow[] {
       continue;
     }
     const audioFile = fields[0]?.trim();
-    const textFields = fields.length >= 3 ? fields.slice(1, -1) : fields.slice(1);
+    const textFields =
+      fields.length >= 3 ? fields.slice(1, -1) : fields.slice(1);
     const text = textFields.join("|").trim();
     if (!audioFile || !text) {
       continue;
@@ -253,10 +281,15 @@ async function writeJsonlFromMetadata(args: {
   outputAudioDir?: string;
   skipped: Qwen3LoraSkippedRow[];
 }): Promise<number> {
-  const rows = parseMetadata(await readFile(args.metadataPath, "utf8"), args.metadataPath);
+  const rows = parseMetadata(
+    await readFile(args.metadataPath, "utf8"),
+    args.metadataPath,
+  );
   const lines: string[] = [];
   for (const row of rows) {
-    const sourceAudio = path.isAbsolute(row.audio_file) ? row.audio_file : path.resolve(args.clipsDir, row.audio_file);
+    const sourceAudio = path.isAbsolute(row.audio_file)
+      ? row.audio_file
+      : path.resolve(args.clipsDir, row.audio_file);
     if (!(await canRead(sourceAudio))) {
       args.skipped.push({
         metadata_path: args.metadataPath,
@@ -270,7 +303,9 @@ async function writeJsonlFromMetadata(args: {
     if (args.outputAudioDir) {
       await mkdir(args.outputAudioDir, { recursive: true });
       audioPath = path.join(args.outputAudioDir, path.basename(row.audio_file));
-      await copyFile(sourceAudio, audioPath, constants.COPYFILE_FICLONE).catch(() => copyFile(sourceAudio, audioPath));
+      await copyFile(sourceAudio, audioPath, constants.COPYFILE_FICLONE).catch(
+        () => copyFile(sourceAudio, audioPath),
+      );
     }
     lines.push(
       JSON.stringify({
@@ -280,7 +315,11 @@ async function writeJsonlFromMetadata(args: {
       }),
     );
   }
-  await writeFile(args.outputPath, `${lines.join("\n")}${lines.length > 0 ? "\n" : ""}`, "utf8");
+  await writeFile(
+    args.outputPath,
+    `${lines.join("\n")}${lines.length > 0 ? "\n" : ""}`,
+    "utf8",
+  );
   return lines.length;
 }
 
@@ -409,7 +448,11 @@ function parseEnvFile(content: string): Record<string, string> {
 
 function parseTrailingJsonObject(content: string): unknown {
   const trimmed = content.trim();
-  for (let start = trimmed.lastIndexOf("{"); start >= 0; start = trimmed.lastIndexOf("{", start - 1)) {
+  for (
+    let start = trimmed.lastIndexOf("{");
+    start >= 0;
+    start = trimmed.lastIndexOf("{", start - 1)
+  ) {
     try {
       return JSON.parse(trimmed.slice(start));
     } catch {
@@ -448,14 +491,20 @@ async function auditJsonl(pathName: string): Promise<JsonlAudit> {
         continue;
       }
       const audio = typeof parsed.audio === "string" ? parsed.audio : "";
-      const refAudio = typeof parsed.ref_audio === "string" ? parsed.ref_audio : "";
+      const refAudio =
+        typeof parsed.ref_audio === "string" ? parsed.ref_audio : "";
       if (audio) {
         audioPaths.push(audio);
       }
       if (refAudio) {
         audioPaths.push(refAudio);
       }
-      if (!audio || !(await isFile(audio)) || !refAudio || !(await isFile(refAudio))) {
+      if (
+        !audio ||
+        !(await isFile(audio)) ||
+        !refAudio ||
+        !(await isFile(refAudio))
+      ) {
         missingAudio += 1;
       }
     } catch {
@@ -465,7 +514,9 @@ async function auditJsonl(pathName: string): Promise<JsonlAudit> {
   return { count, invalid, missingAudio, audioPaths };
 }
 
-async function getAudioSampleRate(pathName: string): Promise<number | undefined> {
+async function getAudioSampleRate(
+  pathName: string,
+): Promise<number | undefined> {
   let proc: Bun.Subprocess<"pipe", "pipe", "pipe">;
   try {
     proc = Bun.spawn(
@@ -489,7 +540,10 @@ async function getAudioSampleRate(pathName: string): Promise<number | undefined>
   } catch {
     return undefined;
   }
-  const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+  const [stdout, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    proc.exited,
+  ]);
   if (exitCode !== 0) {
     return undefined;
   }
@@ -522,7 +576,13 @@ async function runPythonRuntimeCheck(args: {
   pythonBin: string;
   qwenDir: string;
   device: string;
-}): Promise<{ ok: boolean; detail: string; missing: string[]; cudaAvailable?: boolean; mpsAvailable?: boolean }> {
+}): Promise<{
+  ok: boolean;
+  detail: string;
+  missing: string[];
+  cudaAvailable?: boolean;
+  mpsAvailable?: boolean;
+}> {
   const needsFlashAttention = isCudaDevice(args.device);
   const needsFlashAttentionPython = needsFlashAttention ? "True" : "False";
   const code = `
@@ -557,7 +617,9 @@ print(json.dumps({"details": details, "missing": missing, "cuda_available": cuda
     proc = Bun.spawn([args.pythonBin, "-c", code], {
       env: {
         ...process.env,
-        PYTHONPATH: [args.qwenDir, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter),
+        PYTHONPATH: [args.qwenDir, process.env.PYTHONPATH]
+          .filter(Boolean)
+          .join(path.delimiter),
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -590,7 +652,10 @@ print(json.dumps({"details": details, "missing": missing, "cuda_available": cuda
     const missing = Array.isArray(parsed.missing) ? parsed.missing : [];
     return {
       ok: missing.length === 0,
-      detail: missing.length > 0 ? `Missing Python modules: ${missing.join(", ")}` : "Python runtime dependencies import cleanly",
+      detail:
+        missing.length > 0
+          ? `Missing Python modules: ${missing.join(", ")}`
+          : "Python runtime dependencies import cleanly",
       missing,
       cudaAvailable: parsed.cuda_available,
       mpsAvailable: parsed.mps_available,
@@ -613,20 +678,34 @@ function addPreflightCheck(
   checks.push({ id, status, detail });
 }
 
-export function normalizeQwen3LoraPrepareInput(raw: unknown, baseDir = process.cwd()): Qwen3LoraPrepareInput {
+export function normalizeQwen3LoraPrepareInput(
+  raw: unknown,
+  baseDir = process.cwd(),
+): Qwen3LoraPrepareInput {
   if (!isObject(raw)) {
     throw new Error("qwen3-lora config must be an object");
   }
   return {
-    train_metadata_csv: resolveConfigPath(requireString(raw, "train_metadata_csv"), baseDir) ?? "",
-    eval_metadata_csv: resolveConfigPath(optionalString(raw, "eval_metadata_csv"), baseDir),
-    clips_dir: resolveConfigPath(requireString(raw, "clips_dir"), baseDir) ?? "",
-    ref_audio: resolveConfigPath(requireString(raw, "ref_audio"), baseDir) ?? "",
-    output_dir: resolveConfigPath(requireString(raw, "output_dir"), baseDir) ?? "",
+    train_metadata_csv:
+      resolveConfigPath(requireString(raw, "train_metadata_csv"), baseDir) ??
+      "",
+    eval_metadata_csv: resolveConfigPath(
+      optionalString(raw, "eval_metadata_csv"),
+      baseDir,
+    ),
+    clips_dir:
+      resolveConfigPath(requireString(raw, "clips_dir"), baseDir) ?? "",
+    ref_audio:
+      resolveConfigPath(requireString(raw, "ref_audio"), baseDir) ?? "",
+    output_dir:
+      resolveConfigPath(requireString(raw, "output_dir"), baseDir) ?? "",
     speaker_name: optionalString(raw, "speaker_name"),
     copy_audio: raw.copy_audio === true,
     qwen_dir: resolveConfigPath(optionalString(raw, "qwen_dir"), baseDir),
-    lora_tools_dir: resolveConfigPath(optionalString(raw, "lora_tools_dir"), baseDir),
+    lora_tools_dir: resolveConfigPath(
+      optionalString(raw, "lora_tools_dir"),
+      baseDir,
+    ),
     python_bin: optionalString(raw, "python_bin"),
     tokenizer_model_path: optionalString(raw, "tokenizer_model_path"),
     init_model_path: optionalString(raw, "init_model_path"),
@@ -634,7 +713,10 @@ export function normalizeQwen3LoraPrepareInput(raw: unknown, baseDir = process.c
     batch_size: optionalPositiveNumber(raw, "batch_size"),
     learning_rate: optionalString(raw, "learning_rate"),
     epochs: optionalPositiveNumber(raw, "epochs"),
-    gradient_accumulation_steps: optionalPositiveNumber(raw, "gradient_accumulation_steps"),
+    gradient_accumulation_steps: optionalPositiveNumber(
+      raw,
+      "gradient_accumulation_steps",
+    ),
     mixed_precision: optionalString(raw, "mixed_precision"),
     attention_implementation: optionalString(raw, "attention_implementation"),
     torch_dtype: optionalString(raw, "torch_dtype"),
@@ -645,27 +727,38 @@ export function normalizeQwen3LoraPrepareInput(raw: unknown, baseDir = process.c
   };
 }
 
-export async function prepareQwen3LoraDataset(input: Qwen3LoraPrepareInput): Promise<Qwen3LoraPrepareResult> {
+export async function prepareQwen3LoraDataset(
+  input: Qwen3LoraPrepareInput,
+): Promise<Qwen3LoraPrepareResult> {
   const outputDir = path.resolve(input.output_dir);
   const clipsDir = path.resolve(input.clips_dir);
   const refAudio = path.resolve(input.ref_audio);
   const trainMetadata = path.resolve(input.train_metadata_csv);
-  const evalMetadata = input.eval_metadata_csv ? path.resolve(input.eval_metadata_csv) : undefined;
+  const evalMetadata = input.eval_metadata_csv
+    ? path.resolve(input.eval_metadata_csv)
+    : undefined;
   const speakerName = normalizeSpeakerName(input.speaker_name);
-  const qwenDir = input.qwen_dir ? path.resolve(input.qwen_dir) : path.join(outputDir, "tools", "Qwen3-TTS");
+  const qwenDir = input.qwen_dir
+    ? path.resolve(input.qwen_dir)
+    : path.join(outputDir, "tools", "Qwen3-TTS");
   const loraToolsDir = input.lora_tools_dir
     ? path.resolve(input.lora_tools_dir)
     : path.join(outputDir, "tools", "qwen3-tts-lora-finetuning");
   const pythonBin = input.python_bin || "python";
-  const tokenizerModelPath = input.tokenizer_model_path || "Qwen/Qwen3-TTS-Tokenizer-12Hz";
-  const initModelPath = input.init_model_path || "Qwen/Qwen3-TTS-12Hz-1.7B-Base";
+  const tokenizerModelPath =
+    input.tokenizer_model_path || "Qwen/Qwen3-TTS-Tokenizer-12Hz";
+  const initModelPath =
+    input.init_model_path || "Qwen/Qwen3-TTS-12Hz-1.7B-Base";
   const device = resolveTrainingDevice(input.device);
   const batchSize = input.batch_size ?? defaultBatchSizeForDevice(device);
   const learningRate = input.learning_rate || "2e-6";
   const epochs = input.epochs ?? 10;
-  const gradAccumSteps = input.gradient_accumulation_steps ?? defaultGradAccumForDevice(device);
-  const mixedPrecision = input.mixed_precision || defaultMixedPrecisionForDevice(device);
-  const attentionImplementation = input.attention_implementation || defaultAttentionForDevice(device);
+  const gradAccumSteps =
+    input.gradient_accumulation_steps ?? defaultGradAccumForDevice(device);
+  const mixedPrecision =
+    input.mixed_precision || defaultMixedPrecisionForDevice(device);
+  const attentionImplementation =
+    input.attention_implementation || defaultAttentionForDevice(device);
   const torchDtype = input.torch_dtype || defaultTorchDtypeForDevice(device);
   const loraRank = input.lora_rank ?? (isMpsDevice(device) ? 8 : 16);
   const loraAlpha = input.lora_alpha ?? loraRank * 2;
@@ -681,7 +774,9 @@ export async function prepareQwen3LoraDataset(input: Qwen3LoraPrepareInput): Pro
   const evalRawJsonl = path.join(outputDir, "val_raw.jsonl");
   const trainJsonl = path.join(outputDir, "train_with_codes.jsonl");
   const evalJsonl = path.join(outputDir, "val_with_codes.jsonl");
-  const audioOutDir = input.copy_audio ? path.join(outputDir, "audio") : undefined;
+  const audioOutDir = input.copy_audio
+    ? path.join(outputDir, "audio")
+    : undefined;
   const skipped: Qwen3LoraSkippedRow[] = [];
   const trainCount = await writeJsonlFromMetadata({
     metadataPath: trainMetadata,
@@ -843,13 +938,19 @@ fi
   };
 }
 
-export async function prepareQwen3LoraDatasetFromFile(configPath: string): Promise<Qwen3LoraPrepareResult> {
+export async function prepareQwen3LoraDatasetFromFile(
+  configPath: string,
+): Promise<Qwen3LoraPrepareResult> {
   const resolvedPath = path.resolve(configPath);
   const raw = JSON.parse(await readFile(resolvedPath, "utf8")) as unknown;
-  return prepareQwen3LoraDataset(normalizeQwen3LoraPrepareInput(raw, path.dirname(resolvedPath)));
+  return prepareQwen3LoraDataset(
+    normalizeQwen3LoraPrepareInput(raw, path.dirname(resolvedPath)),
+  );
 }
 
-export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Promise<Qwen3LoraPreflightResult> {
+export async function preflightQwen3LoraRun(
+  input: Qwen3LoraPreflightInput,
+): Promise<Qwen3LoraPreflightResult> {
   const runDir = path.resolve(input.run_dir);
   const envPath = path.join(runDir, "qwen3-lora.env");
   const checks: Qwen3LoraPreflightCheck[] = [];
@@ -857,7 +958,12 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
   const warnings: string[] = [];
 
   if (!(await isFile(envPath))) {
-    addPreflightCheck(checks, "config.env", "fail", `Missing qwen3-lora.env at ${envPath}`);
+    addPreflightCheck(
+      checks,
+      "config.env",
+      "fail",
+      `Missing qwen3-lora.env at ${envPath}`,
+    );
     blockers.push("Missing qwen3-lora.env");
     return {
       run_dir: runDir,
@@ -883,12 +989,16 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
   addPreflightCheck(checks, "config.env", "pass", envPath);
   const env = parseEnvFile(await readFile(envPath, "utf8"));
   const qwenDir = env.QWEN_DIR || path.join(runDir, "tools", "Qwen3-TTS");
-  const loraToolsDir = env.LORA_TOOLS_DIR || path.join(runDir, "tools", "qwen3-tts-lora-finetuning");
-  const trainRawJsonl = env.TRAIN_RAW_JSONL || path.join(runDir, "train_raw.jsonl");
+  const loraToolsDir =
+    env.LORA_TOOLS_DIR ||
+    path.join(runDir, "tools", "qwen3-tts-lora-finetuning");
+  const trainRawJsonl =
+    env.TRAIN_RAW_JSONL || path.join(runDir, "train_raw.jsonl");
   const evalRawJsonl = env.VAL_RAW_JSONL || path.join(runDir, "val_raw.jsonl");
   const prepareScript = path.join(runDir, "prepare-qwen3-data.sh");
   const trainScript = path.join(runDir, "train-qwen3-lora.sh");
-  const pythonBin = env.PYTHON_BIN || input.python_bin || process.env.PYTHON || "python";
+  const pythonBin =
+    env.PYTHON_BIN || input.python_bin || process.env.PYTHON || "python";
   const device = resolveTrainingDevice(env.DEVICE);
   const requiredFiles = [
     {
@@ -922,7 +1032,12 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
     if (await isFile(required.path)) {
       addPreflightCheck(checks, required.id, "pass", required.path);
     } else {
-      addPreflightCheck(checks, required.id, "fail", `Missing file: ${required.path}`);
+      addPreflightCheck(
+        checks,
+        required.id,
+        "fail",
+        `Missing file: ${required.path}`,
+      );
       blockers.push(required.blocker);
     }
   }
@@ -933,7 +1048,12 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
   const missingAudioRows = trainAudit.missingAudio + evalAudit.missingAudio;
 
   if (trainAudit.count > 0 && trainAudit.invalid === 0) {
-    addPreflightCheck(checks, "dataset.train_raw", "pass", `${trainAudit.count} train rows`);
+    addPreflightCheck(
+      checks,
+      "dataset.train_raw",
+      "pass",
+      `${trainAudit.count} train rows`,
+    );
   } else {
     addPreflightCheck(
       checks,
@@ -945,12 +1065,27 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
   }
 
   if (evalAudit.count > 0 && evalAudit.invalid === 0) {
-    addPreflightCheck(checks, "dataset.eval_raw", "pass", `${evalAudit.count} eval rows`);
+    addPreflightCheck(
+      checks,
+      "dataset.eval_raw",
+      "pass",
+      `${evalAudit.count} eval rows`,
+    );
   } else if (await exists(evalRawJsonl)) {
-    addPreflightCheck(checks, "dataset.eval_raw", "warn", "Eval raw JSONL is empty");
+    addPreflightCheck(
+      checks,
+      "dataset.eval_raw",
+      "warn",
+      "Eval raw JSONL is empty",
+    );
     warnings.push("Eval raw JSONL is empty");
   } else {
-    addPreflightCheck(checks, "dataset.eval_raw", "warn", `Eval raw JSONL missing: ${evalRawJsonl}`);
+    addPreflightCheck(
+      checks,
+      "dataset.eval_raw",
+      "warn",
+      `Eval raw JSONL missing: ${evalRawJsonl}`,
+    );
     warnings.push("Eval raw JSONL is missing");
   }
 
@@ -958,13 +1093,28 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
     blockers.push(`${invalidJsonlRows} invalid JSONL rows`);
   }
   if (missingAudioRows > 0) {
-    addPreflightCheck(checks, "dataset.audio_paths", "fail", `${missingAudioRows} rows point at missing audio/ref_audio files`);
-    blockers.push(`${missingAudioRows} dataset rows point at missing audio/ref_audio files`);
+    addPreflightCheck(
+      checks,
+      "dataset.audio_paths",
+      "fail",
+      `${missingAudioRows} rows point at missing audio/ref_audio files`,
+    );
+    blockers.push(
+      `${missingAudioRows} dataset rows point at missing audio/ref_audio files`,
+    );
   } else {
-    addPreflightCheck(checks, "dataset.audio_paths", "pass", "All audited audio and ref_audio paths are readable");
+    addPreflightCheck(
+      checks,
+      "dataset.audio_paths",
+      "pass",
+      "All audited audio and ref_audio paths are readable",
+    );
   }
 
-  const sampleRates = await auditSampleRates([...new Set([...trainAudit.audioPaths, ...evalAudit.audioPaths])], 24000);
+  const sampleRates = await auditSampleRates(
+    [...new Set([...trainAudit.audioPaths, ...evalAudit.audioPaths])],
+    24000,
+  );
   if (sampleRates.mismatch > 0) {
     addPreflightCheck(
       checks,
@@ -972,7 +1122,9 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
       "fail",
       `${sampleRates.mismatch} audio/ref_audio files are not 24000 Hz`,
     );
-    blockers.push(`${sampleRates.mismatch} audio/ref_audio files must be resampled to 24000 Hz`);
+    blockers.push(
+      `${sampleRates.mismatch} audio/ref_audio files must be resampled to 24000 Hz`,
+    );
   } else if (sampleRates.unknown > 0) {
     addPreflightCheck(
       checks,
@@ -980,36 +1132,63 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
       "fail",
       `${sampleRates.unknown} audio/ref_audio files could not be inspected by ffprobe`,
     );
-    blockers.push(`${sampleRates.unknown} audio/ref_audio files could not be inspected by ffprobe`);
+    blockers.push(
+      `${sampleRates.unknown} audio/ref_audio files could not be inspected by ffprobe`,
+    );
   } else if (sampleRates.checked > 0) {
-    addPreflightCheck(checks, "dataset.sample_rate", "pass", `All ${sampleRates.checked} audio/ref_audio files are 24000 Hz`);
+    addPreflightCheck(
+      checks,
+      "dataset.sample_rate",
+      "pass",
+      `All ${sampleRates.checked} audio/ref_audio files are 24000 Hz`,
+    );
   } else {
-    addPreflightCheck(checks, "dataset.sample_rate", "warn", "No audio sample rates were inspected");
+    addPreflightCheck(
+      checks,
+      "dataset.sample_rate",
+      "warn",
+      "No audio sample rates were inspected",
+    );
     warnings.push("No audio sample rates were inspected");
   }
 
   const sftLoraPath = path.join(qwenDir, "finetuning", "sft_12hz_lora.py");
-  const sftLoraSource = (await isFile(sftLoraPath)) ? await readFile(sftLoraPath, "utf8") : "";
-  const modelingPath = path.join(qwenDir, "qwen_tts", "core", "models", "modeling_qwen3_tts.py");
-  const modelingSource = (await isFile(modelingPath)) ? await readFile(modelingPath, "utf8") : "";
+  const sftLoraSource = (await isFile(sftLoraPath))
+    ? await readFile(sftLoraPath, "utf8")
+    : "";
+  const modelingPath = path.join(
+    qwenDir,
+    "qwen_tts",
+    "core",
+    "models",
+    "modeling_qwen3_tts.py",
+  );
+  const modelingSource = (await isFile(modelingPath))
+    ? await readFile(modelingPath, "utf8")
+    : "";
   const hasUnshiftedTalkerLoss =
     /model\.talker\([\s\S]*inputs_embeds\s*=\s*input_embeddings\s*,[\s\S]*attention_mask\s*=\s*attention_mask\s*,[\s\S]*labels\s*=\s*codec_0_labels/.test(
       sftLoraSource,
     ) || /labels\s*=\s*codec_0_labels/.test(sftLoraSource);
-  const hasShiftedHiddenStates = /hidden_states\s*=\s*outputs\.hidden_states\[0\]\[-1\]\s*\[:,\s*:-1\s*,/.test(
-    sftLoraSource,
-  );
-  const hasShiftedCodecMask = /talker_hidden_states\s*=\s*hidden_states\s*\[\s*codec_mask\[:,\s*1:\]\s*\]/.test(
-    sftLoraSource,
-  );
-  const hasLabelShiftPatch = hasUnshiftedTalkerLoss && hasShiftedHiddenStates && hasShiftedCodecMask;
+  const hasShiftedHiddenStates =
+    /hidden_states\s*=\s*outputs\.hidden_states\[0\]\[-1\]\s*\[:,\s*:-1\s*,/.test(
+      sftLoraSource,
+    );
+  const hasShiftedCodecMask =
+    /talker_hidden_states\s*=\s*hidden_states\s*\[\s*codec_mask\[:,\s*1:\]\s*\]/.test(
+      sftLoraSource,
+    );
+  const hasLabelShiftPatch =
+    hasUnshiftedTalkerLoss && hasShiftedHiddenStates && hasShiftedCodecMask;
   const hasModelingShiftLabelsPatch =
     /loss_function\(\s*logits\s*=\s*logits\s*,\s*labels\s*=\s*None\s*,\s*shift_labels\s*=\s*labels\.contiguous\(\)/.test(
       modelingSource,
     );
   const hasTextProjectionPatch =
     /model\.talker\.text_projection\s*\(/.test(sftLoraSource) &&
-    /input_text_embedding\.shape\s*==\s*input_codec_embedding\.shape/.test(sftLoraSource);
+    /input_text_embedding\.shape\s*==\s*input_codec_embedding\.shape/.test(
+      sftLoraSource,
+    );
 
   if (hasLabelShiftPatch) {
     addPreflightCheck(
@@ -1059,15 +1238,24 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
       "fail",
       "sft_12hz_lora.py does not project text embeddings with a dimension assertion before masking",
     );
-    blockers.push("Qwen3 LoRA training script is missing the text_projection fix");
+    blockers.push(
+      "Qwen3 LoRA training script is missing the text_projection fix",
+    );
   }
 
   if (isMpsDevice(device)) {
     const hasTorchDtypeArg = sftLoraSource.includes("--torch_dtype");
     const hasDeviceArg = sftLoraSource.includes("--device");
-    const avoidsCudaFlashDefault = sftLoraSource.includes("attn_implementation") && !sftLoraSource.includes('default="flash_attention_2"');
+    const avoidsCudaFlashDefault =
+      sftLoraSource.includes("attn_implementation") &&
+      !sftLoraSource.includes('default="flash_attention_2"');
     if (hasTorchDtypeArg && hasDeviceArg) {
-      addPreflightCheck(checks, "qwen.sft_lora_mps_patch", "pass", "sft_12hz_lora.py accepts --device and --torch_dtype for MPS/CPU training");
+      addPreflightCheck(
+        checks,
+        "qwen.sft_lora_mps_patch",
+        "pass",
+        "sft_12hz_lora.py accepts --device and --torch_dtype for MPS/CPU training",
+      );
     } else {
       addPreflightCheck(
         checks,
@@ -1075,10 +1263,17 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
         "fail",
         "sft_12hz_lora.py does not accept --device and --torch_dtype; apply the local MPS training patch first",
       );
-      blockers.push("Qwen3 LoRA training script is not patched for MPS dtype selection");
+      blockers.push(
+        "Qwen3 LoRA training script is not patched for MPS dtype selection",
+      );
     }
     if (avoidsCudaFlashDefault) {
-      addPreflightCheck(checks, "qwen.sft_lora_attention_patch", "pass", "sft_12hz_lora.py no longer defaults to FlashAttention");
+      addPreflightCheck(
+        checks,
+        "qwen.sft_lora_attention_patch",
+        "pass",
+        "sft_12hz_lora.py no longer defaults to FlashAttention",
+      );
     } else {
       addPreflightCheck(
         checks,
@@ -1086,7 +1281,9 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
         "warn",
         "sft_12hz_lora.py still defaults to FlashAttention unless ATTN_IMPL overrides it",
       );
-      warnings.push("MPS runs must use ATTN_IMPL=eager or sdpa; FlashAttention is CUDA-only");
+      warnings.push(
+        "MPS runs must use ATTN_IMPL=eager or sdpa; FlashAttention is CUDA-only",
+      );
     }
   }
 
@@ -1100,22 +1297,55 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
 
   if (isCudaDevice(device)) {
     if (runtime.cudaAvailable === true) {
-      addPreflightCheck(checks, "runtime.cuda", "pass", `CUDA is available for ${device}`);
+      addPreflightCheck(
+        checks,
+        "runtime.cuda",
+        "pass",
+        `CUDA is available for ${device}`,
+      );
     } else {
-      addPreflightCheck(checks, "runtime.cuda", "fail", `Configured device is ${device}, but CUDA is not available`);
-      blockers.push("CUDA is required for the configured Qwen3 LoRA training device");
+      addPreflightCheck(
+        checks,
+        "runtime.cuda",
+        "fail",
+        `Configured device is ${device}, but CUDA is not available`,
+      );
+      blockers.push(
+        "CUDA is required for the configured Qwen3 LoRA training device",
+      );
     }
   } else if (isMpsDevice(device)) {
     if (runtime.mpsAvailable === true) {
-      addPreflightCheck(checks, "runtime.mps", "pass", "MPS is available for Apple Silicon training probes");
-      warnings.push("MPS Qwen3 LoRA training is an experimental local path; expect slow first probes and possible unsupported ops");
+      addPreflightCheck(
+        checks,
+        "runtime.mps",
+        "pass",
+        "MPS is available for Apple Silicon training probes",
+      );
+      warnings.push(
+        "MPS Qwen3 LoRA training is an experimental local path; expect slow first probes and possible unsupported ops",
+      );
     } else {
-      addPreflightCheck(checks, "runtime.mps", "fail", "Configured device is mps, but PyTorch MPS is not available");
-      blockers.push("PyTorch MPS is required for the configured Qwen3 LoRA training device");
+      addPreflightCheck(
+        checks,
+        "runtime.mps",
+        "fail",
+        "Configured device is mps, but PyTorch MPS is not available",
+      );
+      blockers.push(
+        "PyTorch MPS is required for the configured Qwen3 LoRA training device",
+      );
     }
   } else {
-    addPreflightCheck(checks, "runtime.device", "warn", `Configured device is ${device}; Qwen3 LoRA tooling is CUDA-first`);
-    warnings.push(`Configured device is ${device}; Qwen3 LoRA tooling is CUDA-first`);
+    addPreflightCheck(
+      checks,
+      "runtime.device",
+      "warn",
+      `Configured device is ${device}; Qwen3 LoRA tooling is CUDA-first`,
+    );
+    warnings.push(
+      `Configured device is ${device}; Qwen3 LoRA tooling is CUDA-first`,
+    );
   }
 
   const uniqueBlockers = [...new Set(blockers)];

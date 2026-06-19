@@ -3,7 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "bun:test";
 
-import { preflightQwen3LoraRun, prepareQwen3LoraDataset } from "../src/qwen3-lora.js";
+import {
+  preflightQwen3LoraRun,
+  prepareQwen3LoraDataset,
+} from "../src/qwen3-lora.js";
 
 function createTempDir(): string {
   return mkdtempSync(path.join(os.tmpdir(), "narrationlayer-qwen3-lora-"));
@@ -28,7 +31,10 @@ test("Qwen3 LoRA preparation converts XTTS metadata into official raw JSONL", as
       "missing.wav|Missing audio should be skipped.|THEO",
     ].join("\n"),
   );
-  writeFileSync(evalMetadataPath, "audio_file|text|speaker_name\nclip-2.wav|Eval transcript.|THEO\n");
+  writeFileSync(
+    evalMetadataPath,
+    "audio_file|text|speaker_name\nclip-2.wav|Eval transcript.|THEO\n",
+  );
 
   try {
     const result = await prepareQwen3LoraDataset({
@@ -47,7 +53,9 @@ test("Qwen3 LoRA preparation converts XTTS metadata into official raw JSONL", as
     expect(result.skipped.length).toBe(1);
     expect(result.commands.prepare_train).toContain("prepare_data.py");
     expect(result.commands.train_lora).toContain("train-qwen3-lora.sh");
-    expect(result.commands.train_lora).toContain("INIT_MODEL_PATH='Custom/Qwen3-TTS-Base'");
+    expect(result.commands.train_lora).toContain(
+      "INIT_MODEL_PATH='Custom/Qwen3-TTS-Base'",
+    );
 
     const trainJsonl = (await Bun.file(result.train_raw_jsonl).text())
       .trim()
@@ -72,13 +80,19 @@ test("Qwen3 LoRA preparation converts XTTS metadata into official raw JSONL", as
       },
     ]);
 
-    const envFile = await Bun.file(path.join(outputDir, "qwen3-lora.env")).text();
+    const envFile = await Bun.file(
+      path.join(outputDir, "qwen3-lora.env"),
+    ).text();
     expect(envFile).toContain("SPEAKER_NAME=theo_lora");
     expect(envFile).toContain("LORA_SCALE=0.3");
     expect(envFile).toContain("PYTHON_BIN=python");
-    const trainScript = await Bun.file(path.join(outputDir, "train-qwen3-lora.sh")).text();
+    const trainScript = await Bun.file(
+      path.join(outputDir, "train-qwen3-lora.sh"),
+    ).text();
     expect(trainScript).toContain('--init_model_path "$INIT_MODEL_PATH"');
-    expect(trainScript).toContain('"$PYTHON_BIN" "$QWEN_DIR/finetuning/sft_12hz_lora.py"');
+    expect(trainScript).toContain(
+      '"$PYTHON_BIN" "$QWEN_DIR/finetuning/sft_12hz_lora.py"',
+    );
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
@@ -95,10 +109,15 @@ test("Qwen3 LoRA preflight validates prepared files and reports runtime blockers
 
   try {
     mkdirSync(path.join(qwenDir, "finetuning"), { recursive: true });
-    mkdirSync(path.join(qwenDir, "qwen_tts", "core", "models"), { recursive: true });
+    mkdirSync(path.join(qwenDir, "qwen_tts", "core", "models"), {
+      recursive: true,
+    });
     mkdirSync(path.join(loraToolsDir, "scripts"), { recursive: true });
     mkdirSync(clipsDir, { recursive: true });
-    writeFileSync(path.join(qwenDir, "finetuning", "prepare_data.py"), "# prepare\n");
+    writeFileSync(
+      path.join(qwenDir, "finetuning", "prepare_data.py"),
+      "# prepare\n",
+    );
     writeFileSync(
       path.join(qwenDir, "finetuning", "sft_12hz_lora.py"),
       [
@@ -116,10 +135,16 @@ test("Qwen3 LoRA preflight validates prepared files and reports runtime blockers
       path.join(qwenDir, "qwen_tts", "core", "models", "modeling_qwen3_tts.py"),
       "loss = self.loss_function(logits=logits, labels=None, shift_labels=labels.contiguous(), vocab_size=self.config.vocab_size)\n",
     );
-    writeFileSync(path.join(loraToolsDir, "scripts", "run_lora_train.sh"), "#!/usr/bin/env bash\n");
+    writeFileSync(
+      path.join(loraToolsDir, "scripts", "run_lora_train.sh"),
+      "#!/usr/bin/env bash\n",
+    );
     writeFileSync(path.join(clipsDir, "clip-1.wav"), "fake wav");
     writeFileSync(refAudioPath, "fake ref wav");
-    writeFileSync(trainMetadataPath, "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n");
+    writeFileSync(
+      trainMetadataPath,
+      "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n",
+    );
 
     await prepareQwen3LoraDataset({
       train_metadata_csv: trainMetadataPath,
@@ -138,9 +163,15 @@ test("Qwen3 LoRA preflight validates prepared files and reports runtime blockers
     expect(result.ready).toBeFalse();
     expect(result.counts.train_raw_rows).toBe(1);
     expect(result.counts.missing_audio_rows).toBe(0);
-    expect(result.checks.find((check) => check.id === "dataset.train_raw")?.status).toBe("pass");
-    expect(result.checks.find((check) => check.id === "runtime.python")?.status).toBe("fail");
-    expect(result.blockers.some((blocker) => blocker.includes("Python runtime"))).toBeTrue();
+    expect(
+      result.checks.find((check) => check.id === "dataset.train_raw")?.status,
+    ).toBe("pass");
+    expect(
+      result.checks.find((check) => check.id === "runtime.python")?.status,
+    ).toBe("fail");
+    expect(
+      result.blockers.some((blocker) => blocker.includes("Python runtime")),
+    ).toBeTrue();
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
@@ -161,7 +192,10 @@ test("Qwen3 LoRA preparation auto-detects Apple Silicon and avoids silent CUDA d
     mkdirSync(clipsDir, { recursive: true });
     writeFileSync(path.join(clipsDir, "clip-1.wav"), "fake wav");
     writeFileSync(refAudioPath, "fake ref wav");
-    writeFileSync(trainMetadataPath, "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n");
+    writeFileSync(
+      trainMetadataPath,
+      "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n",
+    );
 
     const result = await prepareQwen3LoraDataset({
       train_metadata_csv: trainMetadataPath,
@@ -170,7 +204,9 @@ test("Qwen3 LoRA preparation auto-detects Apple Silicon and avoids silent CUDA d
       output_dir: outputDir,
     });
 
-    const envFile = await Bun.file(path.join(outputDir, "qwen3-lora.env")).text();
+    const envFile = await Bun.file(
+      path.join(outputDir, "qwen3-lora.env"),
+    ).text();
     expect(envFile).toContain("DEVICE=mps");
     expect(envFile).toContain("BATCH_SIZE=1");
     expect(envFile).toContain("GRAD_ACCUM_STEPS=16");
@@ -184,7 +220,7 @@ test("Qwen3 LoRA preparation auto-detects Apple Silicon and avoids silent CUDA d
     expect(trainScript).toContain('--torch_dtype "$TORCH_DTYPE"');
     expect(trainScript).toContain('--device "$DEVICE"');
     expect(trainScript).toContain('ATTN_IMPL="${ATTN_IMPL:-eager}"');
-    expect(trainScript).not.toContain('flash_attention_2');
+    expect(trainScript).not.toContain("flash_attention_2");
     expect(result.commands.train_lora).toContain("DEVICE='mps'");
     expect(result.commands.train_lora).toContain("ATTN_IMPL='eager'");
     expect(result.commands.train_lora).toContain("TORCH_DTYPE='float32'");
@@ -215,7 +251,10 @@ test("Qwen3 LoRA preparation preserves explicit CUDA env path", async () => {
     mkdirSync(clipsDir, { recursive: true });
     writeFileSync(path.join(clipsDir, "clip-1.wav"), "fake wav");
     writeFileSync(refAudioPath, "fake ref wav");
-    writeFileSync(trainMetadataPath, "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n");
+    writeFileSync(
+      trainMetadataPath,
+      "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n",
+    );
 
     const result = await prepareQwen3LoraDataset({
       train_metadata_csv: trainMetadataPath,
@@ -225,16 +264,71 @@ test("Qwen3 LoRA preparation preserves explicit CUDA env path", async () => {
       device: cudaDevice,
     });
 
-    const envFile = await Bun.file(path.join(outputDir, "qwen3-lora.env")).text();
+    const envFile = await Bun.file(
+      path.join(outputDir, "qwen3-lora.env"),
+    ).text();
     expect(envFile).toContain(`DEVICE=${cudaDevice}`);
     expect(envFile).toContain("ATTN_IMPL=flash_attention_2");
     expect(envFile).toContain("TORCH_DTYPE=bfloat16");
     expect(result.commands.train_lora).toContain(`DEVICE='${cudaDevice}'`);
 
     const trainScript = await Bun.file(result.train_script_path).text();
-    expect(trainScript).toContain('ATTN_IMPL="${ATTN_IMPL:-flash_attention_2}"');
+    expect(trainScript).toContain(
+      'ATTN_IMPL="${ATTN_IMPL:-flash_attention_2}"',
+    );
     expect(trainScript).toContain('--device "$DEVICE"');
   } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("Qwen3 LoRA preparation honors QWEN3_LORA_DEVICE env over the platform default", async () => {
+  const dataDir = createTempDir();
+  const clipsDir = path.join(dataDir, "clips");
+  const outputDir = path.join(dataDir, "qwen3-lora");
+  const trainMetadataPath = path.join(dataDir, "metadata_train.csv");
+  const refAudioPath = path.join(dataDir, "ref.wav");
+  const originalDevice = process.env.DEVICE;
+  const originalQwenDevice = process.env.QWEN3_LORA_DEVICE;
+
+  try {
+    // No explicit input.device; env should win over the host platform default (mps on darwin).
+    delete process.env.DEVICE;
+    process.env.QWEN3_LORA_DEVICE = "cpu";
+    mkdirSync(clipsDir, { recursive: true });
+    writeFileSync(path.join(clipsDir, "clip-1.wav"), "fake wav");
+    writeFileSync(refAudioPath, "fake ref wav");
+    writeFileSync(
+      trainMetadataPath,
+      "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n",
+    );
+
+    const result = await prepareQwen3LoraDataset({
+      train_metadata_csv: trainMetadataPath,
+      clips_dir: clipsDir,
+      ref_audio: refAudioPath,
+      output_dir: outputDir,
+    });
+
+    const envFile = await Bun.file(
+      path.join(outputDir, "qwen3-lora.env"),
+    ).text();
+    expect(envFile).toContain("DEVICE=cpu");
+    expect(envFile).toContain("ATTN_IMPL=eager");
+    expect(envFile).toContain("TORCH_DTYPE=float32");
+    expect(envFile).not.toContain("flash_attention_2");
+    expect(result.commands.train_lora).toContain("DEVICE='cpu'");
+  } finally {
+    if (originalDevice === undefined) {
+      delete process.env.DEVICE;
+    } else {
+      process.env.DEVICE = originalDevice;
+    }
+    if (originalQwenDevice === undefined) {
+      delete process.env.QWEN3_LORA_DEVICE;
+    } else {
+      process.env.QWEN3_LORA_DEVICE = originalQwenDevice;
+    }
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
@@ -250,10 +344,15 @@ test("Qwen3 LoRA preflight asserts upstream label-shift and text_projection fixe
 
   try {
     mkdirSync(path.join(qwenDir, "finetuning"), { recursive: true });
-    mkdirSync(path.join(qwenDir, "qwen_tts", "core", "models"), { recursive: true });
+    mkdirSync(path.join(qwenDir, "qwen_tts", "core", "models"), {
+      recursive: true,
+    });
     mkdirSync(path.join(loraToolsDir, "scripts"), { recursive: true });
     mkdirSync(clipsDir, { recursive: true });
-    writeFileSync(path.join(qwenDir, "finetuning", "prepare_data.py"), "# prepare\n");
+    writeFileSync(
+      path.join(qwenDir, "finetuning", "prepare_data.py"),
+      "# prepare\n",
+    );
     writeFileSync(
       path.join(qwenDir, "finetuning", "sft_12hz_lora.py"),
       [
@@ -271,10 +370,16 @@ test("Qwen3 LoRA preflight asserts upstream label-shift and text_projection fixe
       path.join(qwenDir, "qwen_tts", "core", "models", "modeling_qwen3_tts.py"),
       "loss = self.loss_function(logits=logits, labels=None, shift_labels=labels.contiguous(), vocab_size=self.config.vocab_size)\n",
     );
-    writeFileSync(path.join(loraToolsDir, "scripts", "run_lora_train.sh"), "#!/usr/bin/env bash\n");
+    writeFileSync(
+      path.join(loraToolsDir, "scripts", "run_lora_train.sh"),
+      "#!/usr/bin/env bash\n",
+    );
     writeFileSync(path.join(clipsDir, "clip-1.wav"), "fake wav");
     writeFileSync(refAudioPath, "fake ref wav");
-    writeFileSync(trainMetadataPath, "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n");
+    writeFileSync(
+      trainMetadataPath,
+      "audio_file|text|speaker_name\nclip-1.wav|First transcript.|THEO\n",
+    );
 
     await prepareQwen3LoraDataset({
       train_metadata_csv: trainMetadataPath,
@@ -291,11 +396,30 @@ test("Qwen3 LoRA preflight asserts upstream label-shift and text_projection fixe
       python_bin: path.join(dataDir, "missing-python"),
     });
 
-    expect(result.checks.find((check) => check.id === "qwen.sft_lora_mps_patch")?.status).toBe("pass");
-    expect(result.checks.find((check) => check.id === "qwen.sft_lora_attention_patch")?.status).toBe("pass");
-    expect(result.checks.find((check) => check.id === "qwen.sft_lora_label_shift_patch")?.status).toBe("pass");
-    expect(result.checks.find((check) => check.id === "qwen.modeling_label_shift_patch")?.status).toBe("pass");
-    expect(result.checks.find((check) => check.id === "qwen.sft_lora_text_projection_patch")?.status).toBe("pass");
+    expect(
+      result.checks.find((check) => check.id === "qwen.sft_lora_mps_patch")
+        ?.status,
+    ).toBe("pass");
+    expect(
+      result.checks.find(
+        (check) => check.id === "qwen.sft_lora_attention_patch",
+      )?.status,
+    ).toBe("pass");
+    expect(
+      result.checks.find(
+        (check) => check.id === "qwen.sft_lora_label_shift_patch",
+      )?.status,
+    ).toBe("pass");
+    expect(
+      result.checks.find(
+        (check) => check.id === "qwen.modeling_label_shift_patch",
+      )?.status,
+    ).toBe("pass");
+    expect(
+      result.checks.find(
+        (check) => check.id === "qwen.sft_lora_text_projection_patch",
+      )?.status,
+    ).toBe("pass");
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
