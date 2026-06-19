@@ -5,7 +5,7 @@
 - Repo: `/Users/etanheyman/Gits/narrationlayer`
 - Public GitHub repo: `https://github.com/EtanHey/narrationlayer`
 - Launchers: `narrationlayerCodex`, `narrationlayerClaude`, `narrationlayerCursor`, `narrationlayerGemini`, `narrationlayerKiro`
-- repoGolem MCPs are wired for this repo: `brainlayer`, `voicelayer`, `exa`, `cmux`, `context7`
+- repoGolem MCPs are wired at the launcher level (outside this repo): `brainlayer`, `voicelayer`, `exa`, `cmux`, `context7`. The in-repo `.agents/mcp_config.json` is intentionally empty (`{"mcpServers": {}}`) to keep the repo public-safe and backend-neutral — MCP wiring lives in the repoGolem launchers, not in tracked repo config.
 - This repo must stay neutral and public-safe. It is not Theo-specific.
 - Private voice clips, voice IDs, transcripts, `profiles.local.yaml`, tokens, and generated audio stay out of git.
 
