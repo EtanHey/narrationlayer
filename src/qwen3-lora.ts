@@ -114,8 +114,20 @@ function optionalPositiveNumber(raw: Record<string, unknown>, key: keyof Qwen3Lo
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
-function normalizeDevice(value: string | undefined): string {
-  return (value || "cuda:0").trim().toLowerCase();
+function normalizeDevice(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function detectDefaultDevice(): string {
+  if (process.platform === "darwin" && process.arch === "arm64") {
+    return "mps";
+  }
+  return "cpu";
+}
+
+function resolveTrainingDevice(value: string | undefined): string {
+  const explicit = value || process.env.QWEN3_LORA_DEVICE || process.env.DEVICE;
+  return normalizeDevice(explicit || detectDefaultDevice());
 }
 
 function isMpsDevice(device: string): boolean {
@@ -143,7 +155,7 @@ function defaultAttentionForDevice(device: string): string {
 }
 
 function defaultTorchDtypeForDevice(device: string): string {
-  return isMpsDevice(device) ? "float32" : "bfloat16";
+  return isMpsDevice(device) || normalizeDevice(device) === "cpu" ? "float32" : "bfloat16";
 }
 
 function resolveConfigPath(value: string | undefined, baseDir: string): string | undefined {
@@ -332,6 +344,8 @@ function buildCommands(args: {
       shellQuote(args.evalJsonl),
       " OUTPUT_DIR=",
       shellQuote(path.join(args.outputDir, "adapter")),
+      " DEVICE=",
+      shellQuote(args.device),
       " INIT_MODEL_PATH=",
       shellQuote(args.initModelPath),
       " LR=",
@@ -391,6 +405,18 @@ function parseEnvFile(content: string): Record<string, string> {
     parsed[match[1]] = parseEnvValue(match[2]);
   }
   return parsed;
+}
+
+function parseTrailingJsonObject(content: string): unknown {
+  const trimmed = content.trim();
+  for (let start = trimmed.lastIndexOf("{"); start >= 0; start = trimmed.lastIndexOf("{", start - 1)) {
+    try {
+      return JSON.parse(trimmed.slice(start));
+    } catch {
+      // Keep walking backward; imported Python modules may print banners before JSON.
+    }
+  }
+  throw new Error("No JSON object found");
 }
 
 interface JsonlAudit {
@@ -498,11 +524,12 @@ async function runPythonRuntimeCheck(args: {
   device: string;
 }): Promise<{ ok: boolean; detail: string; missing: string[]; cudaAvailable?: boolean; mpsAvailable?: boolean }> {
   const needsFlashAttention = isCudaDevice(args.device);
+  const needsFlashAttentionPython = needsFlashAttention ? "True" : "False";
   const code = `
 import importlib, json
 
 modules = ["qwen_tts", "peft", "torch", "transformers", "accelerate", "safetensors", "soundfile", "librosa"]
-if ${JSON.stringify(needsFlashAttention)}:
+if ${needsFlashAttentionPython}:
     modules.append("flash_attn")
 details = {}
 missing = []
@@ -555,7 +582,11 @@ print(json.dumps({"details": details, "missing": missing, "cuda_available": cuda
     };
   }
   try {
-    const parsed = JSON.parse(stdout) as { missing?: string[]; cuda_available?: boolean; mps_available?: boolean };
+    const parsed = parseTrailingJsonObject(stdout) as {
+      missing?: string[];
+      cuda_available?: boolean;
+      mps_available?: boolean;
+    };
     const missing = Array.isArray(parsed.missing) ? parsed.missing : [];
     return {
       ok: missing.length === 0,
@@ -628,7 +659,7 @@ export async function prepareQwen3LoraDataset(input: Qwen3LoraPrepareInput): Pro
   const pythonBin = input.python_bin || "python";
   const tokenizerModelPath = input.tokenizer_model_path || "Qwen/Qwen3-TTS-Tokenizer-12Hz";
   const initModelPath = input.init_model_path || "Qwen/Qwen3-TTS-12Hz-1.7B-Base";
-  const device = input.device || "cuda:0";
+  const device = resolveTrainingDevice(input.device);
   const batchSize = input.batch_size ?? defaultBatchSizeForDevice(device);
   const learningRate = input.learning_rate || "2e-6";
   const epochs = input.epochs ?? 10;
@@ -759,13 +790,13 @@ fi
 set -euo pipefail
 source "$(dirname "$0")/qwen3-lora.env"
 
-GRAD_ACCUM_STEPS="\${GRAD_ACCUM_STEPS:-4}"
-MIXED_PRECISION="\${MIXED_PRECISION:-bf16}"
-ATTN_IMPL="\${ATTN_IMPL:-flash_attention_2}"
-TORCH_DTYPE="\${TORCH_DTYPE:-bfloat16}"
-LORA_RANK="\${LORA_RANK:-16}"
-LORA_ALPHA="\${LORA_ALPHA:-32}"
-LORA_DROPOUT="\${LORA_DROPOUT:-0.05}"
+GRAD_ACCUM_STEPS="\${GRAD_ACCUM_STEPS:-${gradAccumSteps}}"
+MIXED_PRECISION="\${MIXED_PRECISION:-${mixedPrecision}}"
+ATTN_IMPL="\${ATTN_IMPL:-${attentionImplementation}}"
+TORCH_DTYPE="\${TORCH_DTYPE:-${torchDtype}}"
+LORA_RANK="\${LORA_RANK:-${loraRank}}"
+LORA_ALPHA="\${LORA_ALPHA:-${loraAlpha}}"
+LORA_DROPOUT="\${LORA_DROPOUT:-${loraDropout}}"
 LORA_BIAS="\${LORA_BIAS:-none}"
 LORA_TARGET_MODULES="\${LORA_TARGET_MODULES:-q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj}"
 VAL_ARGS=()
@@ -781,6 +812,7 @@ fi
   --lr "$LR" \\
   --num_epochs "$EPOCHS" \\
   --speaker_name "$SPEAKER_NAME" \\
+  --device "$DEVICE" \\
   --gradient_accumulation_steps "$GRAD_ACCUM_STEPS" \\
   --mixed_precision "$MIXED_PRECISION" \\
   --attn_implementation "$ATTN_IMPL" \\
@@ -857,7 +889,7 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
   const prepareScript = path.join(runDir, "prepare-qwen3-data.sh");
   const trainScript = path.join(runDir, "train-qwen3-lora.sh");
   const pythonBin = env.PYTHON_BIN || input.python_bin || process.env.PYTHON || "python";
-  const device = env.DEVICE || "cuda:0";
+  const device = resolveTrainingDevice(env.DEVICE);
   const requiredFiles = [
     {
       id: "qwen.prepare_data",
@@ -958,17 +990,90 @@ export async function preflightQwen3LoraRun(input: Qwen3LoraPreflightInput): Pro
 
   const sftLoraPath = path.join(qwenDir, "finetuning", "sft_12hz_lora.py");
   const sftLoraSource = (await isFile(sftLoraPath)) ? await readFile(sftLoraPath, "utf8") : "";
+  const modelingPath = path.join(qwenDir, "qwen_tts", "core", "models", "modeling_qwen3_tts.py");
+  const modelingSource = (await isFile(modelingPath)) ? await readFile(modelingPath, "utf8") : "";
+  const hasUnshiftedTalkerLoss =
+    /model\.talker\([\s\S]*inputs_embeds\s*=\s*input_embeddings\s*,[\s\S]*attention_mask\s*=\s*attention_mask\s*,[\s\S]*labels\s*=\s*codec_0_labels/.test(
+      sftLoraSource,
+    ) || /labels\s*=\s*codec_0_labels/.test(sftLoraSource);
+  const hasShiftedHiddenStates = /hidden_states\s*=\s*outputs\.hidden_states\[0\]\[-1\]\s*\[:,\s*:-1\s*,/.test(
+    sftLoraSource,
+  );
+  const hasShiftedCodecMask = /talker_hidden_states\s*=\s*hidden_states\s*\[\s*codec_mask\[:,\s*1:\]\s*\]/.test(
+    sftLoraSource,
+  );
+  const hasLabelShiftPatch = hasUnshiftedTalkerLoss && hasShiftedHiddenStates && hasShiftedCodecMask;
+  const hasModelingShiftLabelsPatch =
+    /loss_function\(\s*logits\s*=\s*logits\s*,\s*labels\s*=\s*None\s*,\s*shift_labels\s*=\s*labels\.contiguous\(\)/.test(
+      modelingSource,
+    );
+  const hasTextProjectionPatch =
+    /model\.talker\.text_projection\s*\(/.test(sftLoraSource) &&
+    /input_text_embedding\.shape\s*==\s*input_codec_embedding\.shape/.test(sftLoraSource);
+
+  if (hasLabelShiftPatch) {
+    addPreflightCheck(
+      checks,
+      "qwen.sft_lora_label_shift_patch",
+      "pass",
+      "sft_12hz_lora.py passes unshifted tensors and masks hidden states after the internal CE shift",
+    );
+  } else {
+    addPreflightCheck(
+      checks,
+      "qwen.sft_lora_label_shift_patch",
+      "fail",
+      "sft_12hz_lora.py does not show the upstream label-shift fix; apply the local trainer patch",
+    );
+    blockers.push("Qwen3 LoRA training script is missing the label-shift fix");
+  }
+
+  if (hasModelingShiftLabelsPatch) {
+    addPreflightCheck(
+      checks,
+      "qwen.modeling_label_shift_patch",
+      "pass",
+      "modeling_qwen3_tts.py routes finetune labels through shift_labels for single internal CE shift",
+    );
+  } else {
+    addPreflightCheck(
+      checks,
+      "qwen.modeling_label_shift_patch",
+      "fail",
+      "modeling_qwen3_tts.py does not show PR #278 shift_labels loss routing",
+    );
+    blockers.push("Qwen3 model code is missing the label-shift loss fix");
+  }
+
+  if (hasTextProjectionPatch) {
+    addPreflightCheck(
+      checks,
+      "qwen.sft_lora_text_projection_patch",
+      "pass",
+      "sft_12hz_lora.py projects text embeddings before masking and asserts matching embedding dims",
+    );
+  } else {
+    addPreflightCheck(
+      checks,
+      "qwen.sft_lora_text_projection_patch",
+      "fail",
+      "sft_12hz_lora.py does not project text embeddings with a dimension assertion before masking",
+    );
+    blockers.push("Qwen3 LoRA training script is missing the text_projection fix");
+  }
+
   if (isMpsDevice(device)) {
     const hasTorchDtypeArg = sftLoraSource.includes("--torch_dtype");
+    const hasDeviceArg = sftLoraSource.includes("--device");
     const avoidsCudaFlashDefault = sftLoraSource.includes("attn_implementation") && !sftLoraSource.includes('default="flash_attention_2"');
-    if (hasTorchDtypeArg) {
-      addPreflightCheck(checks, "qwen.sft_lora_mps_patch", "pass", "sft_12hz_lora.py accepts --torch_dtype for MPS/CPU training");
+    if (hasTorchDtypeArg && hasDeviceArg) {
+      addPreflightCheck(checks, "qwen.sft_lora_mps_patch", "pass", "sft_12hz_lora.py accepts --device and --torch_dtype for MPS/CPU training");
     } else {
       addPreflightCheck(
         checks,
         "qwen.sft_lora_mps_patch",
         "fail",
-        "sft_12hz_lora.py does not accept --torch_dtype; apply the local MPS training patch first",
+        "sft_12hz_lora.py does not accept --device and --torch_dtype; apply the local MPS training patch first",
       );
       blockers.push("Qwen3 LoRA training script is not patched for MPS dtype selection");
     }

@@ -57,8 +57,10 @@ Private config shape:
   "qwen_dir": "/private/tools/Qwen3-TTS",
   "lora_tools_dir": "/private/tools/qwen3-tts-lora-finetuning",
   "python_bin": "python",
-  "device": "cuda:0",
-  "batch_size": 4,
+  "device": "mps",
+  "attention_implementation": "eager",
+  "torch_dtype": "float32",
+  "batch_size": 1,
   "learning_rate": "2e-6",
   "epochs": 10,
   "lora_scale": 0.3
@@ -84,11 +86,14 @@ The public Qwen3-TTS fine-tuning examples are CUDA-first. NarrationLayer keeps
 that path configurable, but it should not be treated as the only possible local
 path.
 
-- `device: "cuda:0"` keeps the upstream-style defaults:
-  `ATTN_IMPL=flash_attention_2`, `MIXED_PRECISION=bf16`, batch size `4`.
+- Omit `device` to auto-detect: Apple Silicon resolves to `mps`, other hosts
+  resolve to `cpu`.
 - `device: "mps"` generates conservative Mac probe defaults:
   `ATTN_IMPL=eager`, `MIXED_PRECISION=no`, `TORCH_DTYPE=float32`, batch size `1`,
   gradient accumulation `16`, LoRA rank `8`.
+- Set `DEVICE=cuda:${GPU_INDEX}` or `QWEN3_LORA_DEVICE=cuda:${GPU_INDEX}` for
+  the preserved CUDA path. CUDA keeps `ATTN_IMPL=flash_attention_2`,
+  `MIXED_PRECISION=bf16`, and batch size `4`.
 
 The MPS path is an experimental bridge for proving the existing PyTorch training
 loop can execute on Apple Silicon. The longer-term native path is an MLX trainer
