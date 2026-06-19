@@ -9,8 +9,10 @@
   "qwen_dir": "/absolute/path/to/private/tools/Qwen3-TTS",
   "lora_tools_dir": "/absolute/path/to/private/tools/qwen3-tts-lora-finetuning",
   "python_bin": "python",
-  "device": "cuda:0",
-  "batch_size": 4,
+  "device": "mps",
+  "attention_implementation": "eager",
+  "torch_dtype": "float32",
+  "batch_size": 1,
   "learning_rate": "2e-6",
   "epochs": 10,
   "lora_scale": 0.3

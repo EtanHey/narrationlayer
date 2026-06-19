@@ -1,0 +1,131 @@
+diff --git a/finetuning/sft_12hz_lora.py b/finetuning/sft_12hz_lora.py
+index 4171cd7..d65ee60 100644
+--- a/finetuning/sft_12hz_lora.py
++++ b/finetuning/sft_12hz_lora.py
+@@ -40,6 +40,28 @@ def _parse_list(value: str) -> list[str]:
+     return [item.strip() for item in value.split(",") if item.strip()]
+ 
+ 
++def _resolve_device(value: str) -> torch.device:
++    device = value.strip().lower()
++    if device == "auto":
++        if torch.backends.mps.is_available():
++            return torch.device("mps")
++        if torch.cuda.is_available():
++            return torch.device("cuda")
++        return torch.device("cpu")
++    return torch.device(device)
++
++
++def _resolve_torch_dtype(value: str) -> torch.dtype:
++    dtype = value.strip().lower()
++    if dtype in {"float32", "fp32"}:
++        return torch.float32
++    if dtype in {"bfloat16", "bf16"}:
++        return torch.bfloat16
++    if dtype in {"float16", "fp16"}:
++        return torch.float16
++    raise ValueError(f"Unsupported --torch_dtype: {value}")
++
++
+ def compute_loss(model, batch):
+     global target_speaker_embedding
+ 
+@@ -63,11 +85,13 @@ def compute_loss(model, batch):
+     input_text_ids = input_ids[:, :, 0]
+     input_codec_ids = input_ids[:, :, 1]
+ 
+-    input_text_embedding = model.talker.model.text_embedding(input_text_ids)
+-    if hasattr(model.talker, 'text_projection'):
+-        input_text_embedding = model.talker.text_projection(input_text_embedding)
+-    input_text_embedding = input_text_embedding * text_embedding_mask
++    input_text_embedding = model.talker.text_projection(model.talker.model.text_embedding(input_text_ids))
+     input_codec_embedding = model.talker.model.codec_embedding(input_codec_ids) * codec_embedding_mask
++    assert input_text_embedding.shape == input_codec_embedding.shape, (
++        f"text_projection shape mismatch: text={tuple(input_text_embedding.shape)} "
++        f"codec={tuple(input_codec_embedding.shape)}"
++    )
++    input_text_embedding = input_text_embedding * text_embedding_mask
+     input_codec_embedding[:, 6, :] = speaker_embedding
+ 
+     input_embeddings = input_text_embedding + input_codec_embedding
+@@ -78,21 +102,13 @@ def compute_loss(model, batch):
+         input_embeddings = input_embeddings + codec_i_embedding
+ 
+     outputs = model.talker(
+-        inputs_embeds=input_embeddings[:, :-1, :],
+-        attention_mask=attention_mask[:, :-1],
+-        labels=None,  # Do NOT pass labels here — HF internally shifts again (double-shift bug, PR #178)
++        inputs_embeds=input_embeddings,
++        attention_mask=attention_mask,
++        labels=codec_0_labels,
+         output_hidden_states=True,
+     )
+-    # Compute codec-0 loss manually to avoid the double label-shift
+-    logits = outputs.logits  # shape: [B, T-1, V]
+-    codec_0_targets = codec_0_labels[:, 1:]  # already shifted by 1
+-    codec_0_loss = torch.nn.functional.cross_entropy(
+-        logits.reshape(-1, logits.size(-1)),
+-        codec_0_targets.reshape(-1),
+-        ignore_index=-100,
+-    )
+ 
+-    hidden_states = outputs.hidden_states[0][-1]
++    hidden_states = outputs.hidden_states[0][-1][:, :-1, :]
+     talker_hidden_states = hidden_states[codec_mask[:, 1:]]
+     talker_codec_ids = codec_ids[codec_mask]
+ 
+@@ -100,7 +116,7 @@ def compute_loss(model, batch):
+         talker_codec_ids, talker_hidden_states
+     )
+ 
+-    return codec_0_loss + sub_talker_loss
++    return outputs.loss + sub_talker_loss
+ 
+ 
+ def evaluate(model, dataloader, accelerator):
+@@ -132,9 +148,11 @@ def train():
+     parser.add_argument("--start_epoch", type=int, default=0)
+     parser.add_argument("--resume_adapter", type=str, default=None)
+     parser.add_argument("--speaker_name", type=str, default="speaker_test")
++    parser.add_argument("--device", type=str, default="auto")
+     parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
+     parser.add_argument("--mixed_precision", type=str, default="bf16", choices=["no", "fp16", "bf16"])
+-    parser.add_argument("--attn_implementation", type=str, default="flash_attention_2")
++    parser.add_argument("--attn_implementation", type=str, default="eager")
++    parser.add_argument("--torch_dtype", type=str, default="bfloat16")
+     parser.add_argument("--save_every", type=int, default=1)
+     parser.add_argument("--lora_rank", type=int, default=16)
+     parser.add_argument("--lora_alpha", type=int, default=32)
+@@ -157,12 +175,17 @@ def train():
+     )
+ 
+     MODEL_PATH = args.init_model_path
++    device = _resolve_device(args.device)
++    torch_dtype = _resolve_torch_dtype(args.torch_dtype)
+ 
+     qwen3tts = Qwen3TTSModel.from_pretrained(
+         MODEL_PATH,
+-        torch_dtype=torch.bfloat16,
++        torch_dtype=torch_dtype,
+         attn_implementation=args.attn_implementation,
+     )
++    qwen3tts.model.to(device)
++    print(f"Resolved training device: {device}", flush=True)
++    print(f"Model first parameter device: {next(qwen3tts.model.parameters()).device}", flush=True)
+     config = AutoConfig.from_pretrained(MODEL_PATH)
+ 
+     if args.resume_adapter:
+diff --git a/qwen_tts/core/models/modeling_qwen3_tts.py b/qwen_tts/core/models/modeling_qwen3_tts.py
+index 4f1261b..8851d9c 100644
+--- a/qwen_tts/core/models/modeling_qwen3_tts.py
++++ b/qwen_tts/core/models/modeling_qwen3_tts.py
+@@ -1240,7 +1240,7 @@ class Qwen3TTSTalkerCodePredictorModelForConditionalGeneration(Qwen3TTSPreTraine
+ 
+         loss = None
+         if labels is not None:
+-            loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)
++            loss = self.loss_function(logits=logits, labels=None, shift_labels=labels.contiguous(), vocab_size=self.config.vocab_size, **kwargs)
+ 
+         return Qwen3TTSTalkerCodePredictorOutputWithPast(
+             loss=loss,
