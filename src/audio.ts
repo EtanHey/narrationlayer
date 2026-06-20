@@ -22,7 +22,10 @@ export interface DetectedSilence {
   duration: number;
 }
 
-async function runCommand(command: string, args: string[]): Promise<string | null> {
+async function runCommand(
+  command: string,
+  args: string[],
+): Promise<string | null> {
   return new Promise((resolve) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
@@ -34,7 +37,10 @@ async function runCommand(command: string, args: string[]): Promise<string | nul
   });
 }
 
-async function runCommandWithStderr(command: string, args: string[]): Promise<{ code: number; stderr: string } | null> {
+async function runCommandWithStderr(
+  command: string,
+  args: string[],
+): Promise<{ code: number; stderr: string } | null> {
   return new Promise((resolve) => {
     const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
@@ -46,7 +52,10 @@ async function runCommandWithStderr(command: string, args: string[]): Promise<{ 
   });
 }
 
-async function runRequiredCommand(command: string, args: string[]): Promise<void> {
+async function runRequiredCommand(
+  command: string,
+  args: string[],
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
@@ -71,7 +80,9 @@ function cleanDuration(value: number): number | undefined {
   return Number(value.toFixed(3));
 }
 
-export async function probeAudioDurationSeconds(audioPath: string): Promise<number | undefined> {
+export async function probeAudioDurationSeconds(
+  audioPath: string,
+): Promise<number | undefined> {
   const ffprobe = await runCommand("ffprobe", [
     "-v",
     "error",
@@ -103,7 +114,10 @@ function escapeConcatPath(filePath: string): string {
   return path.resolve(filePath).replace(/'/g, "'\\''");
 }
 
-export async function assembleAudioWithSilence(chunks: AudioAssemblyChunk[], outputPath: string): Promise<void> {
+export async function assembleAudioWithSilence(
+  chunks: AudioAssemblyChunk[],
+  outputPath: string,
+): Promise<void> {
   if (chunks.length === 0) {
     throw new Error("Cannot assemble audio without chunks");
   }
@@ -113,7 +127,9 @@ export async function assembleAudioWithSilence(chunks: AudioAssemblyChunk[], out
     return;
   }
 
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "narrationlayer-audio-"));
+  const tempDir = await mkdtemp(
+    path.join(os.tmpdir(), "narrationlayer-audio-"),
+  );
   try {
     const concatFiles: string[] = [];
     for (let index = 0; index < chunks.length; index += 1) {
@@ -142,7 +158,9 @@ export async function assembleAudioWithSilence(chunks: AudioAssemblyChunk[], out
     const concatListPath = path.join(tempDir, "concat.txt");
     await writeFile(
       concatListPath,
-      concatFiles.map((filePath) => `file '${escapeConcatPath(filePath)}'`).join("\n"),
+      concatFiles
+        .map((filePath) => `file '${escapeConcatPath(filePath)}'`)
+        .join("\n"),
       "utf8",
     );
     await runRequiredCommand("ffmpeg", [
@@ -154,9 +172,7 @@ export async function assembleAudioWithSilence(chunks: AudioAssemblyChunk[], out
       "-i",
       concatListPath,
       "-codec:a",
-      "libmp3lame",
-      "-q:a",
-      "4",
+      "copy",
       outputPath,
     ]);
   } finally {
@@ -173,7 +189,9 @@ function parseSilenceDetectOutput(output: string): DetectedSilence[] {
       pendingStart = Number(startMatch[1]);
       continue;
     }
-    const endMatch = line.match(/silence_end:\s*([0-9.]+)\s*\|\s*silence_duration:\s*([0-9.]+)/);
+    const endMatch = line.match(
+      /silence_end:\s*([0-9.]+)\s*\|\s*silence_duration:\s*([0-9.]+)/,
+    );
     if (endMatch && pendingStart !== undefined) {
       silences.push({
         start: Number(pendingStart.toFixed(3)),
@@ -186,7 +204,11 @@ function parseSilenceDetectOutput(output: string): DetectedSilence[] {
   return silences;
 }
 
-async function detectSilences(audioPath: string, thresholdDb: number, minDurationSeconds: number): Promise<DetectedSilence[]> {
+async function detectSilences(
+  audioPath: string,
+  thresholdDb: number,
+  minDurationSeconds: number,
+): Promise<DetectedSilence[]> {
   const result = await runCommandWithStderr("ffmpeg", [
     "-hide_banner",
     "-nostats",
@@ -207,7 +229,11 @@ async function detectSilences(audioPath: string, thresholdDb: number, minDuratio
 export function findTailCutoffSeconds(
   silences: DetectedSilence[],
   durationSeconds: number,
-  options: { minSilenceSeconds: number; tailWindowSeconds: number; paddingSeconds: number },
+  options: {
+    minSilenceSeconds: number;
+    tailWindowSeconds: number;
+    paddingSeconds: number;
+  },
 ): number | undefined {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     return undefined;
@@ -234,7 +260,11 @@ export function findTailCutoffSeconds(
   return Number(cutoff.toFixed(3));
 }
 
-async function truncateAudio(inputPath: string, outputPath: string, durationSeconds: number): Promise<void> {
+async function truncateAudio(
+  inputPath: string,
+  outputPath: string,
+  durationSeconds: number,
+): Promise<void> {
   await runRequiredCommand("ffmpeg", [
     "-y",
     "-i",
