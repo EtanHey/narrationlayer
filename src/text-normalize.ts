@@ -79,7 +79,7 @@ const VS_RULE =
 // dot joining two-or-more lowercase/digit segments, bounded by non-token chars.
 // Avoids touching sentence-final words because it needs a segment AFTER each dot.
 const DOTTED_RULE =
-  /(?<![A-Za-z0-9.])([a-z0-9]+(?:\.[a-z0-9]+)+)(?![A-Za-z0-9.])/g;
+  /(?<![A-Za-z0-9.])([a-z0-9]+(?:\.[a-z0-9]+)+)(?![A-Za-z0-9])/g;
 
 // snake_case `a_b` -> `a b`. Bounded; requires an underscore between segments.
 const SNAKE_RULE =

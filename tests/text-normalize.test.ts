@@ -46,6 +46,12 @@ test("dotted lowercase identifier becomes spaced 'dot'", () => {
   );
 });
 
+test("dotted lowercase identifier before sentence period becomes spaced 'dot'", () => {
+  expect(normalizeForSpeech("Call surface.select.split.")).toBe(
+    "Call surface dot select dot split.",
+  );
+});
+
 test("snake_case identifier becomes spaced words", () => {
   expect(normalizeForSpeech("Run spawn_agent now.")).toBe(
     "Run spawn agent now.",
