@@ -9,6 +9,7 @@ import type {
   WordTiming,
   WordsFile,
 } from "../schema.js";
+import { normalizeForSpeech } from "../text-normalize.js";
 import { getWordsFromScript } from "./voicelayer-qwen3.js";
 import type { RenderSegmentOptions } from "./types.js";
 
@@ -127,6 +128,7 @@ export async function renderSegment(
     throw new Error("external-command requires render.command");
   }
 
+  const normalizedScript = normalizeForSpeech(segment.script);
   const artifactsRoot = path.join(options.artifactsDir, "segments", segmentId);
   await mkdir(artifactsRoot, { recursive: true });
   const outputExt = safeOutputExt(config.output_ext);
@@ -144,7 +146,7 @@ export async function renderSegment(
     job_id: options.jobId || "",
     voice_profile: options.voiceProfile || "",
     title: segment.title,
-    script: segment.script,
+    script: normalizedScript,
     duration_seconds: segment.duration_seconds === undefined ? "" : String(segment.duration_seconds),
     reference_clip: config.reference_clip || "",
     reference_text: referenceText,
@@ -167,7 +169,7 @@ export async function renderSegment(
     throw new Error(`external-command did not create expected audio: ${audioPath}`);
   }
 
-  const words = getWordsFromScript(segment.script);
+  const words = getWordsFromScript(normalizedScript);
   const durationSeconds =
     (await (config.audio_duration_probe ?? probeAudioDurationSeconds)(audioPath)) ??
     segment.duration_seconds ??
@@ -193,7 +195,7 @@ export async function renderSegment(
   return {
     id: segmentId,
     title: segment.title,
-    script: segment.script,
+    script: normalizedScript,
     audio_path: audioPath,
     duration_seconds: Number(durationSeconds.toFixed(3)),
     words_path: wordsPath,

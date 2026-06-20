@@ -5,6 +5,7 @@ import { assembleAudioWithSilence, trimAudioSilence, type AudioAssemblyChunk } f
 import { probeAudioDurationSeconds } from "../audio.js";
 import { planNarrationUtterances, type NarrationPacingConfig } from "../narration-plan.js";
 import type { RenderManifestSegment, TimingSource, WordTiming, WordsFile } from "../schema.js";
+import { normalizeForSpeech } from "../text-normalize.js";
 import type { RenderSegmentOptions } from "./types.js";
 import { runWhisperCliWordTimings, type WordTimingResult } from "../word-timings.js";
 import { normalizeWordTimingsForScript } from "../word-timing-repair.js";
@@ -292,6 +293,7 @@ export async function renderSegment(
   options: RenderSegmentOptions,
   config: VoiceLayerQwen3Config,
 ): Promise<RenderManifestSegment> {
+  const normalizedScript = normalizeForSpeech(segment.script);
   const daemonUrl = (config.daemon_url || "http://127.0.0.1:8880").replace(/\/+$/, "");
   const authToken = await loadAuthToken(config);
   if (!authToken) {
@@ -305,7 +307,7 @@ export async function renderSegment(
   await mkdir(artifactsRoot, { recursive: true });
   const audioPath = path.join(artifactsRoot, `${segmentId}.mp3`);
   const wordsPath = path.join(artifactsRoot, "words.json");
-  const plannedUtterances = planNarrationUtterances(segment.script, config);
+  const plannedUtterances = planNarrationUtterances(normalizedScript, config);
   const shouldTrim = config.trim_silence === true;
   const chunksRoot = path.join(artifactsRoot, "chunks");
   const shouldAssemble = plannedUtterances.length > 1 || plannedUtterances.some((item) => item.pause_after_seconds > 0);
@@ -405,7 +407,7 @@ export async function renderSegment(
   if (returnedTimings.length === 0 && config.word_timing_provider) {
     const provided = await config.word_timing_provider({
       audioPath,
-      script: segment.script,
+      script: normalizedScript,
       durationSeconds: measuredDuration,
     });
     if (Array.isArray(provided)) {
@@ -428,7 +430,7 @@ export async function renderSegment(
     }
   }
   if (returnedTimings.length > 0 && (config.repair_word_timings ?? config.timing_backend === "whisper-cli")) {
-    const repair = normalizeWordTimingsForScript(segment.script, returnedTimings, measuredDuration);
+    const repair = normalizeWordTimingsForScript(normalizedScript, returnedTimings, measuredDuration);
     returnedTimings = repair.words;
     if (repair.repaired) {
       timingSource = "estimated";
@@ -453,7 +455,7 @@ export async function renderSegment(
   return {
     id: segmentId,
     title: segment.title,
-    script: segment.script,
+    script: normalizedScript,
     audio_path: audioPath,
     duration_seconds: measuredDuration,
     words_path: wordsPath,
