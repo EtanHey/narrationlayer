@@ -64,6 +64,13 @@ const COMPILED_TERMS: { regexp: RegExp; spoken: string }[] = TERM_MAP.map(
 
 // General rules.
 
+// `at @word` -> `at word`, preserving the already-spoken preposition.
+const AT_PREPOSITION_RULE =
+  /(?<![A-Za-z0-9])(\bat)\s+@([A-Za-z][A-Za-z0-9]*)/gi;
+
+// `at @-tag` -> `at tag`, preserving the already-spoken preposition.
+const AT_TAG_PREPOSITION_RULE = /(?<![A-Za-z0-9])(\bat)\s+@-tag(?![A-Za-z0-9])/gi;
+
 // `x-vs-y` -> `x versus y` (generic). Operates on alphanumeric word halves.
 const VS_RULE =
   /(?<![A-Za-z0-9])([A-Za-z0-9]+)-vs-([A-Za-z0-9]+)(?![A-Za-z0-9])/gi;
@@ -88,6 +95,15 @@ export function normalizeForSpeech(text: string): string {
   }
 
   let result = text;
+
+  result = result.replace(
+    AT_TAG_PREPOSITION_RULE,
+    (_match, preposition: string) => `${preposition} tag`,
+  );
+  result = result.replace(
+    AT_PREPOSITION_RULE,
+    (_match, preposition: string, word: string) => `${preposition} ${word}`,
+  );
 
   // 1. Explicit terms, most specific first.
   for (const { regexp, spoken } of COMPILED_TERMS) {

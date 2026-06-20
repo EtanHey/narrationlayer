@@ -58,9 +58,21 @@ test("leading @word becomes 'at word'", () => {
   );
 });
 
+test("at before @word is not duplicated", () => {
+  expect(normalizeForSpeech("Look at @narration please.")).toBe(
+    "Look at narration please.",
+  );
+});
+
 test("@-tag becomes 'at tag'", () => {
   expect(normalizeForSpeech("Use the @-tag syntax.")).toBe(
     "Use the at tag syntax.",
+  );
+});
+
+test("at before @-tag is not duplicated", () => {
+  expect(normalizeForSpeech("Look at @-tag syntax.")).toBe(
+    "Look at tag syntax.",
   );
 });
 
