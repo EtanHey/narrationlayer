@@ -1,7 +1,7 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 
-import { assembleAudioWithSilence, trimAudioSilence, type AudioAssemblyChunk } from "../audio.js";
+import { assembleAudioWithSilence, trimAudioSilence, applyAudioEq, type AudioAssemblyChunk } from "../audio.js";
 import { probeAudioDurationSeconds } from "../audio.js";
 import { planNarrationUtterances, type NarrationPacingConfig } from "../narration-plan.js";
 import type { RenderManifestSegment, TimingSource, WordTiming, WordsFile } from "../schema.js";
@@ -26,6 +26,10 @@ export interface VoiceLayerQwen3Config extends NarrationPacingConfig {
   whisper_model?: string;
   trim_silence?: boolean;
   silence_threshold_db?: number;
+  eq_highshelf_hz?: number;
+  eq_highshelf_gain_db?: number;
+  loudness_target_db?: number;
+  atempo?: number;
   silence_padding_seconds?: number;
   repair_word_timings?: boolean;
   max_chunk_duration_seconds?: number;
@@ -357,6 +361,14 @@ export async function renderSegment(
           inputPath: rawChunkPath,
           outputPath: chunkPath,
         });
+      }
+      if (config.eq_highshelf_hz !== undefined || config.eq_highshelf_gain_db !== undefined) {
+        const eqPath = `${chunkPath}.eq.mp3`;
+        await applyAudioEq(chunkPath, eqPath, {
+          highshelfHz: config.eq_highshelf_hz,
+          highshelfGainDb: config.eq_highshelf_gain_db,
+        });
+        await rename(eqPath, chunkPath);
       }
       try {
         await assertGeneratedChunkDuration({

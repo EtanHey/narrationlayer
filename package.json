@@ -13,7 +13,8 @@
   ],
   "bin": {
     "narrationlayer": "./src/cli.ts",
-    "narrationlayer-mcp": "./src/mcp-server.ts"
+    "narrationlayer-mcp": "./src/mcp-server.ts",
+    "narrationlayer-local-tts": "./bin/local-tts-runner.ts"
   },
   "scripts": {
     "build": "bun build src/cli.ts --outdir dist --target bun",

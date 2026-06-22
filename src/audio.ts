@@ -180,7 +180,7 @@ export async function assembleAudioWithSilence(
   }
 }
 
-function parseSilenceDetectOutput(output: string): DetectedSilence[] {
+export function parseSilenceDetectOutput(output: string): DetectedSilence[] {
   const silences: DetectedSilence[] = [];
   let pendingStart: number | undefined;
   for (const line of output.split(/\r?\n/)) {
@@ -204,7 +204,7 @@ function parseSilenceDetectOutput(output: string): DetectedSilence[] {
   return silences;
 }
 
-async function detectSilences(
+export async function detectSilences(
   audioPath: string,
   thresholdDb: number,
   minDurationSeconds: number,
@@ -271,6 +271,45 @@ async function truncateAudio(
     inputPath,
     "-t",
     String(durationSeconds),
+    "-codec:a",
+    "libmp3lame",
+    "-q:a",
+    "3",
+    outputPath,
+  ]);
+}
+
+export interface AudioEqOptions {
+  /** High-shelf corner frequency in Hz. */
+  highshelfHz?: number;
+  /** High-shelf gain in dB (positive lifts highs, de-muffling). */
+  highshelfGainDb?: number;
+}
+
+/**
+ * Apply a high-shelf EQ to lift high-frequency energy (de-muffle). If neither
+ * parameter is provided this is a no-op copy so callers can always route through
+ * it. Mirrors the trim/assemble ffmpeg helpers: re-encode with libmp3lame at the
+ * same q:a 3 quality used by the trim path so the EQ'd chunk stays consistent.
+ */
+export async function applyAudioEq(
+  inputPath: string,
+  outputPath: string,
+  options: AudioEqOptions = {},
+): Promise<void> {
+  const { highshelfHz, highshelfGainDb } = options;
+  if (highshelfHz === undefined && highshelfGainDb === undefined) {
+    await copyFile(inputPath, outputPath);
+    return;
+  }
+  const hz = highshelfHz ?? 4000;
+  const gain = highshelfGainDb ?? 0;
+  await runRequiredCommand("ffmpeg", [
+    "-y",
+    "-i",
+    inputPath,
+    "-af",
+    `highshelf=f=${hz}:g=${gain}`,
     "-codec:a",
     "libmp3lame",
     "-q:a",
