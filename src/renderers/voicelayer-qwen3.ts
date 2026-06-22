@@ -444,7 +444,7 @@ export async function renderSegment(
   if (returnedTimings.length > 0 && (config.repair_word_timings ?? config.timing_backend === "whisper-cli")) {
     const repair = normalizeWordTimingsForScript(normalizedScript, returnedTimings, measuredDuration);
     returnedTimings = repair.words;
-    if (repair.repaired) {
+    if (repair.estimated) {
       timingSource = "estimated";
     }
   }

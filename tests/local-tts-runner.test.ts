@@ -5,6 +5,7 @@ import {
   buildLoudnessNormalizeArgs,
   computeLoudnessGainDb,
   computeContentHashKey,
+  splitForBreathing,
   type CacheKeyParams,
 } from "../bin/local-tts-runner.js";
 
@@ -30,6 +31,30 @@ test("config without eq params produces NO highshelf and no -af", () => {
   const args = buildMonoS16WavArgs("/in.mp3", "/out.wav", 24000, {});
   expect(args).not.toContain("-af");
   expect(args.some((a) => a.startsWith("highshelf"))).toBe(false);
+});
+
+test("splitForBreathing keeps closing quotes with sentence terminators and preserves short first sentences", () => {
+  const text =
+    'You keep saying "gate." Etan\'s been hammering that word for weeks. What\'s the actual thesis here — why is a gate different from just writing down a rule?';
+
+  expect(splitForBreathing(text, 0.42, 0)).toEqual([
+    { text: 'You keep saying "gate."', padAfterSeconds: 0.42 },
+    {
+      text: "Etan's been hammering that word for weeks.",
+      padAfterSeconds: 0.42,
+    },
+    {
+      text: "What's the actual thesis here — why is a gate different from just writing down a rule?",
+      padAfterSeconds: 0,
+    },
+  ]);
+
+  expect(splitForBreathing(text, 0.42, 0.16).map((piece) => piece.text)).toEqual([
+    'You keep saying "gate."',
+    "Etan's been hammering that word for weeks.",
+    "What's the actual thesis here",
+    "why is a gate different from just writing down a rule?",
+  ]);
 });
 
 test("only one eq param set still injects highshelf using defaults", () => {

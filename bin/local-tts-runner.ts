@@ -520,50 +520,64 @@ export function splitForBreathing(
   commaPad: number,
 ): Array<{ text: string; padAfterSeconds: number }> {
   const pieces: Array<{ text: string; padAfterSeconds: number }> = [];
-  // When commaPad is disabled, split on SENTENCE enders only and synth whole
-  // sentences — so qwen3 shapes expression across the full sentence instead of
-  // throwing isolated comma-fragments (which sound like words thrown one by one).
-  if (!(commaPad > 0)) {
-    const sre = /([^.?!]*[.?!]+)(?:\s+|$)|([^.?!]+)$/g;
-    let sm: RegExpExecArray | null;
-    while ((sm = sre.exec(text)) !== null) {
-      if (sm[0].length === 0) {
-        sre.lastIndex += 1;
-        continue;
+  const sentenceEnders = new Set([".", "?", "!"]);
+  const clauseEnders = new Set([";", ":", "—", ","]);
+  const closingAfterSentence = new Set([
+    '"',
+    "'",
+    "”",
+    "’",
+    ")",
+    "]",
+    "}",
+    "»",
+  ]);
+  let pieceStart = 0;
+
+  const pushPiece = (
+    spokenEnd: number,
+    nextStart: number,
+    padAfterSeconds: number,
+  ) => {
+    const spoken = text.slice(pieceStart, spokenEnd).trim();
+    if (spoken) {
+      pieces.push({ text: spoken, padAfterSeconds });
+    }
+    pieceStart = nextStart;
+    while (pieceStart < text.length && /\s/.test(text[pieceStart])) {
+      pieceStart += 1;
+    }
+  };
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (sentenceEnders.has(ch)) {
+      let end = i + 1;
+      while (end < text.length && sentenceEnders.has(text[end])) {
+        end += 1;
       }
-      const spoken = (sm[1] ?? sm[2] ?? "").trim();
-      if (spoken) pieces.push({ text: spoken, padAfterSeconds: sentencePad });
-    }
-    if (pieces.length > 0) pieces[pieces.length - 1].padAfterSeconds = 0;
-    else if (text.trim())
-      pieces.push({ text: text.trim(), padAfterSeconds: 0 });
-    return pieces;
-  }
-  // Capture a run of text up to and including a terminator; classify the terminator.
-  const re = /([^.?!;:—]*?)([.?!]+|[;:—]+|,)(\s+|$)|([^.?!;:—,]+)$/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
-    if (match[0].length === 0) {
-      re.lastIndex += 1;
+      while (end < text.length && closingAfterSentence.has(text[end])) {
+        end += 1;
+      }
+      if (end === text.length || /\s/.test(text[end])) {
+        pushPiece(end, end, sentencePad);
+        i = pieceStart - 1;
+      }
       continue;
     }
-    if (match[4] !== undefined) {
-      // Trailing remainder with no terminator.
-      const tail = match[4].trim();
-      if (tail) pieces.push({ text: tail, padAfterSeconds: 0 });
-      continue;
+
+    if (commaPad > 0 && clauseEnders.has(ch)) {
+      const end = i + 1;
+      if (end === text.length || /\s/.test(text[end])) {
+        pushPiece(i, end, commaPad);
+        i = pieceStart - 1;
+      }
     }
-    const body = (match[1] ?? "").trim();
-    const term = match[2] ?? "";
-    const isSentence = /[.?!]/.test(term);
-    const isComma = term === ",";
-    const spoken = `${body}${isSentence ? term : ""}`.trim();
-    if (!spoken) continue;
-    pieces.push({
-      text: spoken,
-      padAfterSeconds: isSentence ? sentencePad : isComma ? commaPad : commaPad,
-    });
   }
+
+  const tail = text.slice(pieceStart).trim();
+  if (tail) pieces.push({ text: tail, padAfterSeconds: 0 });
+
   if (pieces.length > 0) {
     // The last piece ends the utterance — no trailing breath needed.
     pieces[pieces.length - 1].padAfterSeconds = 0;
