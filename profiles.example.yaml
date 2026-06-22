@@ -33,6 +33,11 @@ profiles:
       trim_silence: true
       silence_threshold_db: -45
       silence_padding_seconds: 0.18
+      # Optional de-muffle high-shelf EQ, applied to every chunk after trim.
+      # Lifts energy above eq_highshelf_hz by eq_highshelf_gain_db dB. Useful for
+      # voices that render slightly muffled. Omit both keys to disable EQ.
+      # eq_highshelf_hz: 4000
+      # eq_highshelf_gain_db: 8
       repair_word_timings: true
       max_chunk_duration_seconds: 45
       max_chunk_seconds_per_word: 3

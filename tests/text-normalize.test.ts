@@ -38,6 +38,63 @@ test("triage expands to tree azh", () => {
   );
 });
 
+// --- Tech-term respellings ---
+
+test("Supabase is respelled phonetically", () => {
+  expect(normalizeForSpeech("We use Supabase for auth.")).toBe(
+    "We use sooper base for auth.",
+  );
+});
+
+test("Twilio is respelled phonetically", () => {
+  expect(normalizeForSpeech("Twilio sends the SMS.")).toBe(
+    "twi lee oh sends the SMS.",
+  );
+});
+
+test("LiveKit is respelled phonetically", () => {
+  expect(normalizeForSpeech("LiveKit handles the WebRTC.")).toBe(
+    "live kit handles the WebRTC.",
+  );
+});
+
+test("Postgres is respelled phonetically", () => {
+  expect(normalizeForSpeech("Store it in Postgres.")).toBe(
+    "Store it in post gres.",
+  );
+});
+
+test("Next.js is respelled and not split into 'next dot js'", () => {
+  expect(normalizeForSpeech("Built with Next.js today.")).toBe(
+    "Built with next jay ess today.",
+  );
+});
+
+test("OTP is spoken letter-by-letter", () => {
+  expect(normalizeForSpeech("Send them the OTP code.")).toBe(
+    "Send them the O T P code.",
+  );
+});
+
+test("tech-term respellings are case-insensitive", () => {
+  expect(
+    normalizeForSpeech("SUPABASE and twilio and LIVEKIT and postgres"),
+  ).toBe("sooper base and twi lee oh and live kit and post gres");
+});
+
+test("tech terms as substrings of larger tokens are untouched", () => {
+  // word-boundaried: "supabased", "postgresql", "twilioApi" must stay intact.
+  expect(
+    normalizeForSpeech("The supabased postgresql twilioApi stay intact."),
+  ).toBe("The supabased postgresql twilioApi stay intact.");
+});
+
+test("OTP as a substring of a larger token is untouched", () => {
+  expect(normalizeForSpeech("The OTPgenerator and notOTP stay intact.")).toBe(
+    "The OTPgenerator and notOTP stay intact.",
+  );
+});
+
 // --- General rules ---
 
 test("dotted lowercase identifier becomes spaced 'dot'", () => {

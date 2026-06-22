@@ -16,7 +16,7 @@
  * must not be touched, "Statton" must stay intact).
  */
 
-interface TermRule {
+export interface TermRule {
   /** The literal token (case-insensitive) to replace. */
   term: string;
   /** Spoken replacement. */
@@ -27,7 +27,7 @@ interface TermRule {
  * Explicit term map. Longest / most specific patterns MUST come first so that,
  * e.g., `cmux-agents` wins over `cmux` and `tty-input` wins over `tty`.
  */
-const TERM_MAP: TermRule[] = [
+export const TERM_MAP: TermRule[] = [
   { term: "cmux-agents", spoken: "see mux agents" },
   { term: "tty-input", spoken: "T T Y input" },
   { term: "human-vs-agent", spoken: "human versus agent" },
@@ -36,6 +36,18 @@ const TERM_MAP: TermRule[] = [
   { term: "tty", spoken: "T T Y" },
   { term: "cmux", spoken: "see mux" },
   { term: "triage", spoken: "tree azh" },
+  // Tech-term respellings: the daemon has no lexicon, so product/library names
+  // that TTS routinely mangles are respelled phonetically here (TTS-feed only;
+  // the displayed script keeps the original spelling). Word-boundaried like the
+  // entries above, so substrings (e.g. "supabased", "nextjs-config") are safe.
+  // `Next.js` MUST precede the general DOTTED_RULE so it isn't split into
+  // "next dot js".
+  { term: "Next.js", spoken: "next jay ess" },
+  { term: "Supabase", spoken: "sooper base" },
+  { term: "Twilio", spoken: "twi lee oh" },
+  { term: "LiveKit", spoken: "live kit" },
+  { term: "Postgres", spoken: "post gres" },
+  { term: "OTP", spoken: "O T P" },
 ];
 
 /** Characters that count as part of a token for boundary purposes. */
@@ -51,7 +63,7 @@ function escapeRegExp(value: string): string {
  * separator chars used in the term itself (`-`, `@`) are escaped literally, and
  * the boundary lookarounds key off alphanumerics so ordinary words are safe.
  */
-function buildTermRegExp(term: string): RegExp {
+export function buildTermRegExp(term: string): RegExp {
   return new RegExp(
     `(?<![${TOKEN_CHAR}])${escapeRegExp(term)}(?![${TOKEN_CHAR}])`,
     "gi",
@@ -69,7 +81,8 @@ const AT_PREPOSITION_RULE =
   /(?<![A-Za-z0-9])(\bat)\s+@([A-Za-z][A-Za-z0-9]*)/gi;
 
 // `at @-tag` -> `at tag`, preserving the already-spoken preposition.
-const AT_TAG_PREPOSITION_RULE = /(?<![A-Za-z0-9])(\bat)\s+@-tag(?![A-Za-z0-9])/gi;
+const AT_TAG_PREPOSITION_RULE =
+  /(?<![A-Za-z0-9])(\bat)\s+@-tag(?![A-Za-z0-9])/gi;
 
 // `x-vs-y` -> `x versus y` (generic). Operates on alphanumeric word halves.
 const VS_RULE =
