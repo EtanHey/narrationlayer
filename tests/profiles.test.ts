@@ -214,8 +214,11 @@ test("speaker aliases resolve to the latest accepted canonical profile", async (
   }
 });
 
-test("Qwen3 profiles surface voice-SSOT provenance fields", () => {
-  const profiles = parseProfilesYaml(`profiles:
+test("Qwen3 profiles surface voice-SSOT provenance fields", async () => {
+  const profileDir = createTempDir();
+  const previousProfilesFile = process.env.NARRATIONLAYER_PROFILES_FILE;
+  const profilesPath = path.join(profileDir, "profiles.local.yaml");
+  const profileYaml = `profiles:
   - id: theo-c4s
     renderer: voicelayer-qwen3
     speaker: theo
@@ -228,12 +231,39 @@ test("Qwen3 profiles surface voice-SSOT provenance fields", () => {
       reference_clip: voices/theo-c4s.wav
       reference_text: bright reference text
       model: qwen3-tts-4bit
-`, "/tmp/profiles/profiles.local.yaml");
+      lora_adapter_path: private-adapters/theo-c4s
+      lora_scale: 0.5
+      eq_highshelf_hz: 3500
+      loudness_target_db: -19
+`;
+  writeFileSync(profilesPath, profileYaml);
+  process.env.NARRATIONLAYER_PROFILES_FILE = profilesPath;
 
-  expect(qwenConfigFromProfile(profiles[0])).toMatchObject({
-    profile_id: "theo-c4s",
-    profile_version: "c4s",
-    reference_clip_sha: "abc123",
-    model: "qwen3-tts-4bit",
-  });
+  try {
+    const profiles = parseProfilesYaml(profileYaml, profilesPath);
+    expect(qwenConfigFromProfile(profiles[0])).toMatchObject({
+      profile_id: "theo-c4s",
+      profile_version: "c4s",
+      reference_clip_sha: "abc123",
+      model: "qwen3-tts-4bit",
+    });
+
+    expect((await getRendererConfigForVoiceProfile("theo")).qwen).toMatchObject({
+      profile_id: "theo-c4s",
+      profile_version: "c4s",
+      reference_clip_sha: "abc123",
+      model: "qwen3-tts-4bit",
+      lora_adapter_path: path.join(profileDir, "private-adapters/theo-c4s"),
+      lora_scale: 0.5,
+      eq_highshelf_hz: 3500,
+      loudness_target_db: -19,
+    });
+  } finally {
+    if (previousProfilesFile === undefined) {
+      delete process.env.NARRATIONLAYER_PROFILES_FILE;
+    } else {
+      process.env.NARRATIONLAYER_PROFILES_FILE = previousProfilesFile;
+    }
+    rmSync(profileDir, { recursive: true, force: true });
+  }
 });

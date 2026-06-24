@@ -101,6 +101,11 @@ export function getRendererConfigFromEnv(
   const referenceClipList = referenceClips ? referenceClips.split(",").map((item) => item.trim()).filter(Boolean) : [];
   return {
     qwen: {
+      profile_id: overrides.profile_id,
+      profile_version: overrides.profile_version,
+      reference_clip_sha: overrides.reference_clip_sha,
+      model: overrides.model,
+      narrationlayer_commit: overrides.narrationlayer_commit,
       daemon_url: process.env.NARRATIONLAYER_QWEN3_DAEMON_URL ?? overrides.daemon_url,
       timeout_ms: numberFromEnv("NARRATIONLAYER_QWEN3_TIMEOUT_MS", overrides.timeout_ms),
       auth_token: process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN ?? overrides.auth_token,
@@ -109,6 +114,8 @@ export function getRendererConfigFromEnv(
       reference_text: referenceText ?? overrides.reference_text,
       reference_text_path: referenceTextPath ?? overrides.reference_text_path,
       reference_clips: referenceClipList.length ? referenceClipList : overrides.reference_clips,
+      lora_adapter_path: overrides.lora_adapter_path,
+      lora_scale: overrides.lora_scale,
       timing_backend: overrides.timing_backend,
       pause_strategy:
         process.env.NARRATIONLAYER_QWEN3_PAUSE_STRATEGY === "punctuation" ||
@@ -124,6 +131,10 @@ export function getRendererConfigFromEnv(
       comma_pause_seconds: numberFromEnv("NARRATIONLAYER_QWEN3_COMMA_PAUSE_SECONDS", overrides.comma_pause_seconds),
       trim_silence: booleanFromEnv("NARRATIONLAYER_QWEN3_TRIM_SILENCE", overrides.trim_silence),
       silence_threshold_db: anyNumberFromEnv("NARRATIONLAYER_QWEN3_SILENCE_THRESHOLD_DB", overrides.silence_threshold_db),
+      eq_highshelf_hz: overrides.eq_highshelf_hz,
+      eq_highshelf_gain_db: overrides.eq_highshelf_gain_db,
+      loudness_target_db: overrides.loudness_target_db,
+      atempo: overrides.atempo,
       silence_padding_seconds: numberFromEnv(
         "NARRATIONLAYER_QWEN3_SILENCE_PADDING_SECONDS",
         overrides.silence_padding_seconds,
