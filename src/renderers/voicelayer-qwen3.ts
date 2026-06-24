@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 
@@ -11,6 +12,11 @@ import { runWhisperCliWordTimings, type WordTimingResult } from "../word-timings
 import { normalizeWordTimingsForScript } from "../word-timing-repair.js";
 
 export interface VoiceLayerQwen3Config extends NarrationPacingConfig {
+  profile_id?: string;
+  profile_version?: string;
+  reference_clip_sha?: string;
+  model?: string;
+  narrationlayer_commit?: string;
   daemon_url?: string;
   auth_token?: string;
   auth_token_file?: string;
@@ -212,6 +218,7 @@ async function synthesizeText(args: {
   referenceText: string;
   loraAdapterPath?: string;
   loraScale?: number;
+  model?: string;
   text: string;
   fetchImpl: NonNullable<RenderSegmentOptions["fetch"]>;
   timeoutMs: number;
@@ -230,6 +237,7 @@ async function synthesizeText(args: {
         text: args.text,
         reference_wav: args.referenceClip,
         reference_text: args.referenceText,
+        ...(args.model ? { model: args.model } : {}),
         ...(args.loraAdapterPath ? { lora_adapter_path: args.loraAdapterPath } : {}),
         ...(args.loraScale === undefined ? {} : { lora_scale: args.loraScale }),
       }),
@@ -291,6 +299,40 @@ function getReferenceClip(config: VoiceLayerQwen3Config): string {
   return path.resolve(expandHome(referenceClip));
 }
 
+let narrationlayerCommitCache: string | undefined;
+
+function getNarrationLayerCommit(config: VoiceLayerQwen3Config): string {
+  if (config.narrationlayer_commit?.trim()) {
+    return config.narrationlayer_commit.trim();
+  }
+  if (process.env.NARRATIONLAYER_COMMIT?.trim()) {
+    return process.env.NARRATIONLAYER_COMMIT.trim();
+  }
+  if (narrationlayerCommitCache !== undefined) {
+    return narrationlayerCommitCache;
+  }
+  const result = Bun.spawnSync({
+    cmd: ["git", "rev-parse", "HEAD"],
+    cwd: path.resolve(import.meta.dir, "..", ".."),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  narrationlayerCommitCache =
+    result.exitCode === 0 ? result.stdout.toString().trim() || "unknown" : "unknown";
+  return narrationlayerCommitCache;
+}
+
+async function getReferenceClipSha(config: VoiceLayerQwen3Config, referenceClip: string): Promise<string> {
+  if (config.reference_clip_sha?.trim()) {
+    return config.reference_clip_sha.trim();
+  }
+  try {
+    return createHash("sha256").update(await readFile(referenceClip)).digest("hex");
+  } catch {
+    return "unknown";
+  }
+}
+
 export async function renderSegment(
   segmentId: string,
   segment: { title: string; script: string; duration_seconds?: number },
@@ -335,6 +377,7 @@ export async function renderSegment(
         referenceText,
         loraAdapterPath: config.lora_adapter_path ? path.resolve(expandHome(config.lora_adapter_path)) : undefined,
         loraScale: config.lora_scale,
+        model: config.model,
         text: utterance.text,
         fetchImpl,
         timeoutMs: config.timeout_ms ?? 30_000,
@@ -472,6 +515,13 @@ export async function renderSegment(
     duration_seconds: measuredDuration,
     words_path: wordsPath,
     status: "rendered",
+    provenance: {
+      profile_id: config.profile_id || options.voiceProfile || "unknown",
+      profile_version: config.profile_version || "unknown",
+      reference_clip_sha: await getReferenceClipSha(config, referenceClip),
+      model: config.model || "unknown",
+      narrationlayer_commit: getNarrationLayerCommit(config),
+    },
   };
 }
 

@@ -45,6 +45,13 @@ export interface RenderManifestSegment {
   words_path: string;
   status: SegmentStatus;
   error?: string;
+  provenance?: {
+    profile_id: string;
+    profile_version: string;
+    reference_clip_sha: string;
+    model: string;
+    narrationlayer_commit: string;
+  };
 }
 
 export interface RenderManifest {

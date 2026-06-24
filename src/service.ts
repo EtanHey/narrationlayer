@@ -18,7 +18,13 @@ import {
 import { renderSegment as renderExternalSegment, type ExternalCommandConfig } from "./renderers/external-command.js";
 import { renderSegment as renderFakeSegment } from "./renderers/fake.js";
 import { renderSegment as renderQwenSegment, type VoiceLayerQwen3Config } from "./renderers/voicelayer-qwen3.js";
-import { externalCommandConfigFromProfile, findProfile, getProfileSummary, qwenConfigFromProfile } from "./profiles.js";
+import {
+  externalCommandConfigFromProfile,
+  findProfile,
+  getProfileSummary,
+  qwenConfigFromProfile,
+  warnIfNonAcceptedProfile,
+} from "./profiles.js";
 import {
   parseNarrationJob,
   type JobStatus,
@@ -143,6 +149,7 @@ export function getRendererConfigFromEnv(
 
 export async function getRendererConfigForVoiceProfile(voiceProfile: string): Promise<RendererRuntimeConfig> {
   const profile = await findProfile(voiceProfile);
+  warnIfNonAcceptedProfile(profile, voiceProfile);
   return getRendererConfigFromEnv(qwenConfigFromProfile(profile), externalCommandConfigFromProfile(profile));
 }
 
@@ -152,11 +159,15 @@ function payloadHasRenderer(payload: unknown): boolean {
 
 export async function createJobFromPayload(payload: unknown, dataDir = getDataDir()): Promise<CreatedJobResult> {
   const job = parseNarrationJob(payload);
+  const profile = await findProfile(job.voice_profile);
+  warnIfNonAcceptedProfile(profile, job.voice_profile);
   if (!payloadHasRenderer(payload)) {
-    const profile = await findProfile(job.voice_profile);
     if (profile?.renderer) {
       job.renderer = profile.renderer;
     }
+  }
+  if (profile?.id && profile.id !== job.voice_profile) {
+    job.voice_profile = profile.id;
   }
   const { job: savedJob, paths } = await initializeJob(job, dataDir);
   return {

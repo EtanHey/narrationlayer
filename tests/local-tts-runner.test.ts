@@ -182,6 +182,30 @@ test("computeContentHashKey: different text / reference clip / reference text =>
   ).not.toBe(base);
 });
 
+test("computeContentHashKey: model and profile version separate superseded accepted takes", () => {
+  const accepted = computeContentHashKey({
+    ...baseKeyInput,
+    profileId: "theo-c4s",
+    profileVersion: "c4s",
+    model: "qwen3-tts-4bit",
+  });
+  const supersededVersion = computeContentHashKey({
+    ...baseKeyInput,
+    profileId: "theo-c4",
+    profileVersion: "c4",
+    model: "qwen3-tts-4bit",
+  });
+  const newerModel = computeContentHashKey({
+    ...baseKeyInput,
+    profileId: "theo-c4s",
+    profileVersion: "c4s",
+    model: "qwen3-tts-8bit",
+  });
+
+  expect(supersededVersion).not.toBe(accepted);
+  expect(newerModel).not.toBe(accepted);
+});
+
 test("computeContentHashKey: omitting a param equals passing it undefined (absent === undefined)", () => {
   const withUndefined = computeContentHashKey({
     ...baseKeyInput,

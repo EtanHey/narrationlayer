@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -122,6 +123,75 @@ test("VoiceLayer Qwen3 adapter forwards LoRA adapter path and scale to the daemo
         lora_scale: 0.3,
       },
     ]);
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("VoiceLayer Qwen3 adapter forwards model pin and stamps render provenance", async () => {
+  const dataDir = createTempDir();
+  const refClip = path.join(dataDir, "theo-c4s-reference.wav");
+  await writeFile(refClip, "bright-reference-audio");
+  const expectedSha = createHash("sha256")
+    .update("bright-reference-audio")
+    .digest("hex");
+  const requestBodies: unknown[] = [];
+  const fetchMock = async (_url: string, init?: RequestInit): Promise<Response> => {
+    requestBodies.push(JSON.parse(String(init?.body)));
+    return new Response(
+      JSON.stringify({
+        audio_b64: Buffer.from("fake mp3 bytes").toString("base64"),
+        duration_ms: 1000,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  };
+
+  try {
+    const result = await renderSegment(
+      "seg-1",
+      {
+        title: "Intro",
+        script: "The accepted profile should be stamped.",
+      },
+      {
+        artifactsDir: path.join(dataDir, "jobs", "job-1", "artifacts"),
+        dataDir,
+        jobId: "job-1",
+        voiceProfile: "theo-c4s",
+        fetch: fetchMock,
+      },
+      {
+        daemon_url: "http://127.0.0.1:8880",
+        auth_token: "test-token",
+        reference_clip: refClip,
+        reference_text: "bright reference text",
+        profile_id: "theo-c4s",
+        profile_version: "c4s",
+        model: "qwen3-tts-4bit",
+        narrationlayer_commit: "abc1234",
+        audio_duration_probe: async () => 1.2,
+      },
+    );
+
+    expect(requestBodies).toEqual([
+      {
+        text: "The accepted profile should be stamped.",
+        reference_wav: refClip,
+        reference_text: "bright reference text",
+        model: "qwen3-tts-4bit",
+      },
+    ]);
+    expect(result.provenance).toEqual({
+      profile_id: "theo-c4s",
+      profile_version: "c4s",
+      reference_clip_sha: expectedSha,
+      model: "qwen3-tts-4bit",
+      narrationlayer_commit: "abc1234",
+    });
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
