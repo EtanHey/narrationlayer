@@ -99,11 +99,12 @@ export function getRendererConfigFromEnv(
   const referenceTextPath = process.env.NARRATIONLAYER_QWEN3_REFERENCE_TEXT_PATH;
   const referenceClips = process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIPS;
   const referenceClipList = referenceClips ? referenceClips.split(",").map((item) => item.trim()).filter(Boolean) : [];
+  const referenceClipOverridden = Boolean(referenceClip || referenceClipList.length);
   return {
     qwen: {
       profile_id: overrides.profile_id,
       profile_version: overrides.profile_version,
-      reference_clip_sha: overrides.reference_clip_sha,
+      reference_clip_sha: referenceClipOverridden ? undefined : overrides.reference_clip_sha,
       model: overrides.model,
       narrationlayer_commit: overrides.narrationlayer_commit,
       daemon_url: process.env.NARRATIONLAYER_QWEN3_DAEMON_URL ?? overrides.daemon_url,

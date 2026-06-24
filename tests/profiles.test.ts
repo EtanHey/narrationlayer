@@ -113,6 +113,33 @@ test("profile parser keeps render list values inside the render section", () => 
   });
 });
 
+test("profile parser accepts SSOT metadata after the render section", () => {
+  const profiles = parseProfilesYaml(`profiles:
+  - id: theo-c4s
+    renderer: voicelayer-qwen3
+    voice_profile:
+      id: theo-c4s
+    render:
+      reference_clip: /tmp/theo-c4s.wav
+      reference_text: bright reference
+    speaker: theo
+    profile_version: c4s
+    accepted: true
+    aliases:
+      - theo
+`);
+
+  expect(profiles[0]).toMatchObject({
+    id: "theo-c4s",
+    speaker: "theo",
+    profile_version: "c4s",
+    accepted: true,
+    aliases: ["theo"],
+  });
+  expect(profiles[0].render).not.toHaveProperty("speaker");
+  expect(profiles[0].render).not.toHaveProperty("accepted");
+});
+
 test("Qwen3 profiles can configure a private LoRA adapter path and inference scale", () => {
   const profiles = parseProfilesYaml(`profiles:
   - id: qwen3-lora-reader
@@ -217,6 +244,7 @@ test("speaker aliases resolve to the latest accepted canonical profile", async (
 test("Qwen3 profiles surface voice-SSOT provenance fields", async () => {
   const profileDir = createTempDir();
   const previousProfilesFile = process.env.NARRATIONLAYER_PROFILES_FILE;
+  const previousReferenceClip = process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP;
   const profilesPath = path.join(profileDir, "profiles.local.yaml");
   const profileYaml = `profiles:
   - id: theo-c4s
@@ -258,11 +286,22 @@ test("Qwen3 profiles surface voice-SSOT provenance fields", async () => {
       eq_highshelf_hz: 3500,
       loudness_target_db: -19,
     });
+
+    process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP = "/tmp/override.wav";
+    expect((await getRendererConfigForVoiceProfile("theo")).qwen).toMatchObject({
+      reference_clip: "/tmp/override.wav",
+      reference_clip_sha: undefined,
+    });
   } finally {
     if (previousProfilesFile === undefined) {
       delete process.env.NARRATIONLAYER_PROFILES_FILE;
     } else {
       process.env.NARRATIONLAYER_PROFILES_FILE = previousProfilesFile;
+    }
+    if (previousReferenceClip === undefined) {
+      delete process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP;
+    } else {
+      process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP = previousReferenceClip;
     }
     rmSync(profileDir, { recursive: true, force: true });
   }

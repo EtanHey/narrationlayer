@@ -145,6 +145,14 @@ export function parseProfilesYaml(content: string, sourcePath?: string): Narrati
     }
 
     const trimmed = rawLine.trim();
+    const indent = rawLine.match(/^\s*/)?.[0].length ?? 0;
+    const keyValueMatch = trimmed.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    const sectionMatch = trimmed.match(/^([A-Za-z0-9_-]+):\s*$/);
+    if (section && indent <= 4 && (keyValueMatch || sectionMatch)) {
+      section = null;
+      arrayKey = null;
+    }
+
     if (arrayKey && trimmed.startsWith("- ")) {
       const next = cleanValue(trimmed.slice(2));
       if (section === "render") {
@@ -156,7 +164,6 @@ export function parseProfilesYaml(content: string, sourcePath?: string): Narrati
       continue;
     }
 
-    const keyValueMatch = trimmed.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
     if (section === "render" && keyValueMatch) {
       const [, key, rawValue] = keyValueMatch;
       const value = cleanValue(rawValue);
@@ -170,7 +177,6 @@ export function parseProfilesYaml(content: string, sourcePath?: string): Narrati
       continue;
     }
 
-    const sectionMatch = trimmed.match(/^([A-Za-z0-9_-]+):\s*$/);
     if (sectionMatch) {
       section = sectionMatch[1];
       arrayKey = null;
