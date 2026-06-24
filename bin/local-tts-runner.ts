@@ -38,7 +38,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
 
-import { findProfile, qwenConfigFromProfile } from "../src/profiles.js";
+import { findProfile, qwenConfigFromProfile, warnIfNonAcceptedProfile } from "../src/profiles.js";
 import { normalizeForSpeech } from "../src/text-normalize.js";
 
 interface Args {
@@ -282,6 +282,7 @@ async function resolveReference(args: Args): Promise<{
       `voice profile "${ref}" uses renderer "${profile.renderer}", not the qwen3 clone engine — refusing (fail-closed)`,
     );
   }
+  warnIfNonAcceptedProfile(profile, ref);
   const cfg = qwenConfigFromProfile(profile);
   const referenceClip = cfg.reference_clip || cfg.reference_clips?.[0];
   if (!referenceClip) {
