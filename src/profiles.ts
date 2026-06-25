@@ -10,6 +10,12 @@ export interface NarrationProfile {
   id: string;
   name?: string;
   renderer?: RendererName;
+  speaker?: string;
+  profile_version?: string;
+  accepted?: boolean;
+  aliases?: string[];
+  superseded_by?: string;
+  reference_clip_sha?: string;
   voice_profile_id?: string;
   render: Record<string, string | string[]>;
   source_path?: string;
@@ -65,6 +71,13 @@ function parseBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function parseProfileBoolean(value: string): boolean | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (["true", "yes", "1", "accepted"].includes(normalized)) return true;
+  if (["false", "no", "0", "rejected", "superseded"].includes(normalized)) return false;
+  return undefined;
+}
+
 function setField(profile: NarrationProfile, section: string | null, key: string, value: string) {
   if (!section) {
     if (key === "id") {
@@ -73,6 +86,16 @@ function setField(profile: NarrationProfile, section: string | null, key: string
       profile.name = value;
     } else if (key === "renderer" && isRenderer(value)) {
       profile.renderer = value;
+    } else if (key === "speaker") {
+      profile.speaker = value;
+    } else if (key === "profile_version") {
+      profile.profile_version = value;
+    } else if (key === "accepted") {
+      profile.accepted = parseProfileBoolean(value);
+    } else if (key === "superseded_by") {
+      profile.superseded_by = value;
+    } else if (key === "reference_clip_sha") {
+      profile.reference_clip_sha = value;
     }
     return;
   }
@@ -122,14 +145,25 @@ export function parseProfilesYaml(content: string, sourcePath?: string): Narrati
     }
 
     const trimmed = rawLine.trim();
-    if (section === "render" && arrayKey && trimmed.startsWith("- ")) {
-      const existing = current.render[arrayKey];
+    const indent = rawLine.match(/^\s*/)?.[0].length ?? 0;
+    const keyValueMatch = trimmed.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    const sectionMatch = trimmed.match(/^([A-Za-z0-9_-]+):\s*$/);
+    if (section && indent <= 4 && (keyValueMatch || sectionMatch)) {
+      section = null;
+      arrayKey = null;
+    }
+
+    if (arrayKey && trimmed.startsWith("- ")) {
       const next = cleanValue(trimmed.slice(2));
-      current.render[arrayKey] = Array.isArray(existing) ? [...existing, next] : [next];
+      if (section === "render") {
+        const existing = current.render[arrayKey];
+        current.render[arrayKey] = Array.isArray(existing) ? [...existing, next] : [next];
+      } else if (section === "aliases") {
+        current.aliases = [...(current.aliases ?? []), next];
+      }
       continue;
     }
 
-    const keyValueMatch = trimmed.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
     if (section === "render" && keyValueMatch) {
       const [, key, rawValue] = keyValueMatch;
       const value = cleanValue(rawValue);
@@ -143,10 +177,12 @@ export function parseProfilesYaml(content: string, sourcePath?: string): Narrati
       continue;
     }
 
-    const sectionMatch = trimmed.match(/^([A-Za-z0-9_-]+):\s*$/);
     if (sectionMatch) {
       section = sectionMatch[1];
       arrayKey = null;
+      if (section === "aliases") {
+        arrayKey = "aliases";
+      }
       continue;
     }
 
@@ -228,7 +264,30 @@ export async function getProfileSummary(cwd = process.cwd()): Promise<ProfileSum
 
 export async function findProfile(profileId: string, cwd = process.cwd()): Promise<NarrationProfile | undefined> {
   const profiles = await loadProfiles(cwd);
-  return profiles.find((profile) => profile.id === profileId || profile.voice_profile_id === profileId);
+  const normalized = profileId.trim().toLowerCase();
+  const direct = profiles.find((profile) => profile.id === profileId || profile.voice_profile_id === profileId);
+  if (direct) return direct;
+  return profiles
+    .filter((profile) => profile.accepted === true)
+    .filter((profile) => {
+      if (profile.speaker?.trim().toLowerCase() === normalized) return true;
+      return profile.aliases?.some((alias) => alias.trim().toLowerCase() === normalized) ?? false;
+    })
+    .sort((a, b) => {
+      const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+      const version = collator.compare(a.profile_version ?? "", b.profile_version ?? "");
+      if (version !== 0) return version;
+      return collator.compare(a.id, b.id);
+    })
+    .at(-1);
+}
+
+export function warnIfNonAcceptedProfile(profile: NarrationProfile | undefined, requestedId: string): void {
+  if (!profile || (profile.accepted !== false && !profile.superseded_by)) return;
+  const target = profile.superseded_by ? ` superseded_by="${profile.superseded_by}"` : "";
+  console.error(
+    `[narrationlayer] VOICE PROFILE DRIFT: requested "${requestedId}" uses non-accepted profile "${profile.id}"${target}. Use the latest accepted speaker alias/profile instead.`,
+  );
 }
 
 export function qwenConfigFromProfile(profile: NarrationProfile | undefined): Partial<VoiceLayerQwen3Config> {
@@ -242,6 +301,10 @@ export function qwenConfigFromProfile(profile: NarrationProfile | undefined): Pa
     return path.resolve(path.dirname(profile.source_path), value);
   };
   return {
+    profile_id: profile.id || profile.voice_profile_id,
+    profile_version: profile.profile_version,
+    reference_clip_sha: profile.reference_clip_sha,
+    model: typeof profile.render.model === "string" ? profile.render.model : undefined,
     daemon_url: typeof profile.render.daemon_url === "string" ? profile.render.daemon_url : undefined,
     timeout_ms: parsePositiveNumber(profile.render.timeout_ms),
     auth_token_file:

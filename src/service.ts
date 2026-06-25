@@ -18,7 +18,13 @@ import {
 import { renderSegment as renderExternalSegment, type ExternalCommandConfig } from "./renderers/external-command.js";
 import { renderSegment as renderFakeSegment } from "./renderers/fake.js";
 import { renderSegment as renderQwenSegment, type VoiceLayerQwen3Config } from "./renderers/voicelayer-qwen3.js";
-import { externalCommandConfigFromProfile, findProfile, getProfileSummary, qwenConfigFromProfile } from "./profiles.js";
+import {
+  externalCommandConfigFromProfile,
+  findProfile,
+  getProfileSummary,
+  qwenConfigFromProfile,
+  warnIfNonAcceptedProfile,
+} from "./profiles.js";
 import {
   parseNarrationJob,
   type JobStatus,
@@ -93,8 +99,14 @@ export function getRendererConfigFromEnv(
   const referenceTextPath = process.env.NARRATIONLAYER_QWEN3_REFERENCE_TEXT_PATH;
   const referenceClips = process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIPS;
   const referenceClipList = referenceClips ? referenceClips.split(",").map((item) => item.trim()).filter(Boolean) : [];
+  const referenceClipOverridden = Boolean(referenceClip || referenceClipList.length);
   return {
     qwen: {
+      profile_id: overrides.profile_id,
+      profile_version: overrides.profile_version,
+      reference_clip_sha: referenceClipOverridden ? undefined : overrides.reference_clip_sha,
+      model: overrides.model,
+      narrationlayer_commit: overrides.narrationlayer_commit,
       daemon_url: process.env.NARRATIONLAYER_QWEN3_DAEMON_URL ?? overrides.daemon_url,
       timeout_ms: numberFromEnv("NARRATIONLAYER_QWEN3_TIMEOUT_MS", overrides.timeout_ms),
       auth_token: process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN ?? overrides.auth_token,
@@ -103,6 +115,8 @@ export function getRendererConfigFromEnv(
       reference_text: referenceText ?? overrides.reference_text,
       reference_text_path: referenceTextPath ?? overrides.reference_text_path,
       reference_clips: referenceClipList.length ? referenceClipList : overrides.reference_clips,
+      lora_adapter_path: overrides.lora_adapter_path,
+      lora_scale: overrides.lora_scale,
       timing_backend: overrides.timing_backend,
       pause_strategy:
         process.env.NARRATIONLAYER_QWEN3_PAUSE_STRATEGY === "punctuation" ||
@@ -118,6 +132,10 @@ export function getRendererConfigFromEnv(
       comma_pause_seconds: numberFromEnv("NARRATIONLAYER_QWEN3_COMMA_PAUSE_SECONDS", overrides.comma_pause_seconds),
       trim_silence: booleanFromEnv("NARRATIONLAYER_QWEN3_TRIM_SILENCE", overrides.trim_silence),
       silence_threshold_db: anyNumberFromEnv("NARRATIONLAYER_QWEN3_SILENCE_THRESHOLD_DB", overrides.silence_threshold_db),
+      eq_highshelf_hz: overrides.eq_highshelf_hz,
+      eq_highshelf_gain_db: overrides.eq_highshelf_gain_db,
+      loudness_target_db: overrides.loudness_target_db,
+      atempo: overrides.atempo,
       silence_padding_seconds: numberFromEnv(
         "NARRATIONLAYER_QWEN3_SILENCE_PADDING_SECONDS",
         overrides.silence_padding_seconds,
@@ -143,6 +161,7 @@ export function getRendererConfigFromEnv(
 
 export async function getRendererConfigForVoiceProfile(voiceProfile: string): Promise<RendererRuntimeConfig> {
   const profile = await findProfile(voiceProfile);
+  warnIfNonAcceptedProfile(profile, voiceProfile);
   return getRendererConfigFromEnv(qwenConfigFromProfile(profile), externalCommandConfigFromProfile(profile));
 }
 
@@ -152,11 +171,15 @@ function payloadHasRenderer(payload: unknown): boolean {
 
 export async function createJobFromPayload(payload: unknown, dataDir = getDataDir()): Promise<CreatedJobResult> {
   const job = parseNarrationJob(payload);
+  const profile = await findProfile(job.voice_profile);
+  warnIfNonAcceptedProfile(profile, job.voice_profile);
   if (!payloadHasRenderer(payload)) {
-    const profile = await findProfile(job.voice_profile);
     if (profile?.renderer) {
       job.renderer = profile.renderer;
     }
+  }
+  if (profile?.id && profile.id !== job.voice_profile) {
+    job.voice_profile = profile.id;
   }
   const { job: savedJob, paths } = await initializeJob(job, dataDir);
   return {

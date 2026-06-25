@@ -38,7 +38,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
 
-import { findProfile, qwenConfigFromProfile } from "../src/profiles.js";
+import { findProfile, qwenConfigFromProfile, warnIfNonAcceptedProfile } from "../src/profiles.js";
 import { normalizeForSpeech } from "../src/text-normalize.js";
 
 interface Args {
@@ -185,6 +185,9 @@ export function computeContentHashKey(input: {
   spokenText: string;
   referenceClip: string;
   referenceText: string;
+  profileId?: string;
+  profileVersion?: string;
+  model?: string;
   params: CacheKeyParams;
 }): string {
   // Stable, explicit param ordering — never rely on object key insertion order.
@@ -202,6 +205,9 @@ export function computeContentHashKey(input: {
     spokenText: input.spokenText,
     referenceClip: input.referenceClip,
     referenceText: input.referenceText,
+    profileId: input.profileId,
+    profileVersion: input.profileVersion,
+    model: input.model,
     params: orderedParams,
   });
   return createHash("sha256").update(payload, "utf8").digest("hex");
@@ -213,6 +219,9 @@ async function resolveReference(args: Args): Promise<{
   daemonUrl: string;
   authTokenFile: string;
   source: string;
+  profileId?: string;
+  profileVersion?: string;
+  model?: string;
   eqHighshelfHz?: number;
   eqHighshelfGainDb?: number;
   loudnessTargetDb?: number;
@@ -273,6 +282,7 @@ async function resolveReference(args: Args): Promise<{
       `voice profile "${ref}" uses renderer "${profile.renderer}", not the qwen3 clone engine — refusing (fail-closed)`,
     );
   }
+  warnIfNonAcceptedProfile(profile, ref);
   const cfg = qwenConfigFromProfile(profile);
   const referenceClip = cfg.reference_clip || cfg.reference_clips?.[0];
   if (!referenceClip) {
@@ -308,6 +318,9 @@ async function resolveReference(args: Args): Promise<{
     daemonUrl,
     authTokenFile,
     source: `profile:${ref}`,
+    profileId: profile.id,
+    profileVersion: profile.profile_version,
+    model: cfg.model,
     eqHighshelfHz: cfg.eq_highshelf_hz,
     eqHighshelfGainDb: cfg.eq_highshelf_gain_db,
     loudnessTargetDb: cfg.loudness_target_db,
@@ -322,6 +335,7 @@ async function synthesize(opts: {
   authToken: string;
   referenceClip: string;
   referenceText: string;
+  model?: string;
   text: string;
   timeoutMs: number;
 }): Promise<Buffer> {
@@ -340,6 +354,7 @@ async function synthesize(opts: {
         text: opts.text,
         reference_wav: opts.referenceClip,
         reference_text: opts.referenceText,
+        ...(opts.model ? { model: opts.model } : {}),
       }),
       signal: controller.signal,
     });
@@ -882,6 +897,9 @@ async function main(): Promise<void> {
     spokenText,
     referenceClip: resolved.referenceClip,
     referenceText: resolved.referenceText,
+    profileId: resolved.profileId,
+    profileVersion: resolved.profileVersion,
+    model: resolved.model,
     params: cacheParams,
   });
   const cachePath = path.join(cacheDir, `${cacheKey}.wav`);
@@ -902,6 +920,7 @@ async function main(): Promise<void> {
     authToken,
     referenceClip: resolved.referenceClip,
     referenceText: resolved.referenceText,
+    model: resolved.model,
     text: spokenText,
     timeoutMs: args.timeoutMs,
   });

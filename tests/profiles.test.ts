@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "bun:test";
 
-import { externalCommandConfigFromProfile, parseProfilesYaml, qwenConfigFromProfile } from "../src/profiles.js";
+import { externalCommandConfigFromProfile, findProfile, parseProfilesYaml, qwenConfigFromProfile } from "../src/profiles.js";
 import { createJobFromPayload, getRendererConfigForVoiceProfile } from "../src/service.js";
 
 function createTempDir(): string {
@@ -113,6 +113,33 @@ test("profile parser keeps render list values inside the render section", () => 
   });
 });
 
+test("profile parser accepts SSOT metadata after the render section", () => {
+  const profiles = parseProfilesYaml(`profiles:
+  - id: theo-c4s
+    renderer: voicelayer-qwen3
+    voice_profile:
+      id: theo-c4s
+    render:
+      reference_clip: /tmp/theo-c4s.wav
+      reference_text: bright reference
+    speaker: theo
+    profile_version: c4s
+    accepted: true
+    aliases:
+      - theo
+`);
+
+  expect(profiles[0]).toMatchObject({
+    id: "theo-c4s",
+    speaker: "theo",
+    profile_version: "c4s",
+    accepted: true,
+    aliases: ["theo"],
+  });
+  expect(profiles[0].render).not.toHaveProperty("speaker");
+  expect(profiles[0].render).not.toHaveProperty("accepted");
+});
+
 test("Qwen3 profiles can configure a private LoRA adapter path and inference scale", () => {
   const profiles = parseProfilesYaml(`profiles:
   - id: qwen3-lora-reader
@@ -133,4 +160,149 @@ test("Qwen3 profiles can configure a private LoRA adapter path and inference sca
     lora_adapter_path: "/tmp/profiles/private-adapters/theo-qwen3/checkpoint-epoch-10",
     lora_scale: 0.3,
   });
+});
+
+test("speaker aliases resolve to the latest accepted canonical profile", async () => {
+  const dataDir = createTempDir();
+  const profileDir = createTempDir();
+  const previousProfilesFile = process.env.NARRATIONLAYER_PROFILES_FILE;
+  const previousDataDir = process.env.NARRATIONLAYER_DATA_DIR;
+  const profilesPath = path.join(profileDir, "profiles.local.yaml");
+  writeFileSync(
+    profilesPath,
+    `profiles:
+  - id: theo-c4
+    renderer: voicelayer-qwen3
+    speaker: theo
+    profile_version: c4
+    accepted: false
+    superseded_by: theo-c4s
+    aliases:
+      - theo
+    voice_profile:
+      id: theo-c4
+    render:
+      reference_clip: /tmp/theo-c4.wav
+      reference_text: muffled
+      model: qwen3-tts-4bit
+  - id: theo-c4s
+    renderer: voicelayer-qwen3
+    speaker: theo
+    profile_version: c4s
+    accepted: true
+    aliases:
+      - theo
+    voice_profile:
+      id: theo-c4s
+    render:
+      reference_clip: /tmp/theo-c4s.wav
+      reference_text: bright
+      model: qwen3-tts-4bit
+`,
+  );
+  process.env.NARRATIONLAYER_PROFILES_FILE = profilesPath;
+  process.env.NARRATIONLAYER_DATA_DIR = dataDir;
+
+  try {
+    const profile = await findProfile("theo");
+    expect(profile?.id).toBe("theo-c4s");
+
+    const created = await createJobFromPayload({
+      job_id: "alias-job",
+      voice_profile: "theo",
+      segments: [{ id: "seg-1", title: "Intro", script: "Hello" }],
+    });
+    const job = JSON.parse(await Bun.file(created.job_path).text());
+    expect(job.voice_profile).toBe("theo-c4s");
+    expect(job.renderer).toBe("voicelayer-qwen3");
+
+    const explicitRenderer = await createJobFromPayload({
+      job_id: "alias-explicit-renderer-job",
+      voice_profile: "theo",
+      renderer: "fake",
+      segments: [{ id: "seg-1", title: "Intro", script: "Hello" }],
+    });
+    const explicitJob = JSON.parse(await Bun.file(explicitRenderer.job_path).text());
+    expect(explicitJob.voice_profile).toBe("theo-c4s");
+    expect(explicitJob.renderer).toBe("fake");
+  } finally {
+    if (previousProfilesFile === undefined) {
+      delete process.env.NARRATIONLAYER_PROFILES_FILE;
+    } else {
+      process.env.NARRATIONLAYER_PROFILES_FILE = previousProfilesFile;
+    }
+    if (previousDataDir === undefined) {
+      delete process.env.NARRATIONLAYER_DATA_DIR;
+    } else {
+      process.env.NARRATIONLAYER_DATA_DIR = previousDataDir;
+    }
+    rmSync(dataDir, { recursive: true, force: true });
+    rmSync(profileDir, { recursive: true, force: true });
+  }
+});
+
+test("Qwen3 profiles surface voice-SSOT provenance fields", async () => {
+  const profileDir = createTempDir();
+  const previousProfilesFile = process.env.NARRATIONLAYER_PROFILES_FILE;
+  const previousReferenceClip = process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP;
+  const profilesPath = path.join(profileDir, "profiles.local.yaml");
+  const profileYaml = `profiles:
+  - id: theo-c4s
+    renderer: voicelayer-qwen3
+    speaker: theo
+    profile_version: c4s
+    accepted: true
+    reference_clip_sha: abc123
+    voice_profile:
+      id: theo-c4s
+    render:
+      reference_clip: voices/theo-c4s.wav
+      reference_text: bright reference text
+      model: qwen3-tts-4bit
+      lora_adapter_path: private-adapters/theo-c4s
+      lora_scale: 0.5
+      eq_highshelf_hz: 3500
+      loudness_target_db: -19
+`;
+  writeFileSync(profilesPath, profileYaml);
+  process.env.NARRATIONLAYER_PROFILES_FILE = profilesPath;
+
+  try {
+    const profiles = parseProfilesYaml(profileYaml, profilesPath);
+    expect(qwenConfigFromProfile(profiles[0])).toMatchObject({
+      profile_id: "theo-c4s",
+      profile_version: "c4s",
+      reference_clip_sha: "abc123",
+      model: "qwen3-tts-4bit",
+    });
+
+    expect((await getRendererConfigForVoiceProfile("theo")).qwen).toMatchObject({
+      profile_id: "theo-c4s",
+      profile_version: "c4s",
+      reference_clip_sha: "abc123",
+      model: "qwen3-tts-4bit",
+      lora_adapter_path: path.join(profileDir, "private-adapters/theo-c4s"),
+      lora_scale: 0.5,
+      eq_highshelf_hz: 3500,
+      loudness_target_db: -19,
+    });
+
+    process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP = "/tmp/override.wav";
+    expect((await getRendererConfigForVoiceProfile("theo")).qwen).toMatchObject({
+      reference_clip: "/tmp/override.wav",
+      reference_clip_sha: undefined,
+    });
+  } finally {
+    if (previousProfilesFile === undefined) {
+      delete process.env.NARRATIONLAYER_PROFILES_FILE;
+    } else {
+      process.env.NARRATIONLAYER_PROFILES_FILE = previousProfilesFile;
+    }
+    if (previousReferenceClip === undefined) {
+      delete process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP;
+    } else {
+      process.env.NARRATIONLAYER_QWEN3_REFERENCE_CLIP = previousReferenceClip;
+    }
+    rmSync(profileDir, { recursive: true, force: true });
+  }
 });

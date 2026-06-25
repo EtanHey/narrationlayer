@@ -56,6 +56,39 @@
           "error": {
             "type": "string",
             "minLength": 1
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "profile_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "profile_version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_clip_sha": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1
+              },
+              "narrationlayer_commit": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "profile_id",
+              "profile_version",
+              "reference_clip_sha",
+              "model",
+              "narrationlayer_commit"
+            ]
           }
         },
         "required": ["id", "title", "script", "audio_path", "duration_seconds", "words_path", "status"]

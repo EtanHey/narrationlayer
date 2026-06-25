@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   buildMonoS16WavArgs,
@@ -182,6 +185,30 @@ test("computeContentHashKey: different text / reference clip / reference text =>
   ).not.toBe(base);
 });
 
+test("computeContentHashKey: model and profile version separate superseded accepted takes", () => {
+  const accepted = computeContentHashKey({
+    ...baseKeyInput,
+    profileId: "theo-c4s",
+    profileVersion: "c4s",
+    model: "qwen3-tts-4bit",
+  });
+  const supersededVersion = computeContentHashKey({
+    ...baseKeyInput,
+    profileId: "theo-c4",
+    profileVersion: "c4",
+    model: "qwen3-tts-4bit",
+  });
+  const newerModel = computeContentHashKey({
+    ...baseKeyInput,
+    profileId: "theo-c4s",
+    profileVersion: "c4s",
+    model: "qwen3-tts-8bit",
+  });
+
+  expect(supersededVersion).not.toBe(accepted);
+  expect(newerModel).not.toBe(accepted);
+});
+
 test("computeContentHashKey: omitting a param equals passing it undefined (absent === undefined)", () => {
   const withUndefined = computeContentHashKey({
     ...baseKeyInput,
@@ -197,4 +224,56 @@ test("computeContentHashKey: omitting a param equals passing it undefined (absen
   expect(computeContentHashKey({ ...baseKeyInput, params: withoutKey })).toBe(
     withUndefined,
   );
+});
+
+test("local runner warns loudly for direct superseded profiles", () => {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-local-runner-drift-"));
+  const profilesPath = path.join(dataDir, "profiles.local.yaml");
+  writeFileSync(
+    profilesPath,
+    `profiles:
+  - id: theo-c4
+    renderer: voicelayer-qwen3
+    speaker: theo
+    profile_version: c4
+    accepted: false
+    superseded_by: theo-c4s
+    voice_profile:
+      id: theo-c4
+    render:
+      reference_clip: missing-reference.wav
+      reference_text: legacy reference
+      model: qwen3-tts-4bit
+`,
+  );
+
+  try {
+    const result = Bun.spawnSync({
+      cmd: [
+        "bun",
+        "bin/local-tts-runner.ts",
+        "--text",
+        "hello",
+        "--output",
+        path.join(dataDir, "out.wav"),
+        "--reference",
+        "theo-c4",
+        "--no-cache",
+      ],
+      cwd: path.resolve(import.meta.dir, ".."),
+      env: {
+        ...process.env,
+        NARRATIONLAYER_PROFILES_FILE: profilesPath,
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const stderr = result.stderr.toString();
+    expect(result.exitCode).not.toBe(0);
+    expect(stderr).toContain("VOICE PROFILE DRIFT");
+    expect(stderr).toContain("reference clip missing on disk");
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
 });
