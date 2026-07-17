@@ -31,6 +31,7 @@ import {
   stat,
   rename,
   copyFile,
+  unlink,
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -211,6 +212,38 @@ export function computeContentHashKey(input: {
     params: orderedParams,
   });
   return createHash("sha256").update(payload, "utf8").digest("hex");
+}
+
+/**
+ * Persist the cache decision that produced a take. The sidecar is replaced
+ * atomically so downstream consumers never observe a partial receipt.
+ */
+export async function writeTakeCacheReceipt(
+  output: string,
+  cacheKey: string,
+  options: { cacheEnabled: boolean },
+): Promise<string> {
+  if (!/^[a-f0-9]{64}$/.test(cacheKey)) {
+    throw new Error(`invalid cache key for take receipt: ${cacheKey}`);
+  }
+  const receiptPath = `${output}.cache.json`;
+  const temporaryPath = `${receiptPath}.tmp-${process.pid}`;
+  await writeFile(
+    temporaryPath,
+    `${JSON.stringify({ version: 1, cacheKey, cacheEnabled: options.cacheEnabled })}\n`,
+    "utf8",
+  );
+  await rename(temporaryPath, receiptPath);
+  return receiptPath;
+}
+
+/** Clear stale evidence before beginning a new attempt. Missing receipts are fine. */
+export async function clearTakeCacheReceipt(output: string): Promise<void> {
+  try {
+    await unlink(`${output}.cache.json`);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
 }
 
 async function resolveReference(args: Args): Promise<{
@@ -851,6 +884,10 @@ async function main(): Promise<void> {
   if (!Number.isFinite(args.sampleRate) || args.sampleRate <= 0)
     fail(`invalid --sample-rate: ${args.sampleRate}`);
 
+  const output = path.resolve(expandHome(args.output));
+  await mkdir(path.dirname(output), { recursive: true });
+  await clearTakeCacheReceipt(output);
+
   const resolved = await resolveReference(args);
 
   const authTokenPath = path.resolve(expandHome(resolved.authTokenFile));
@@ -858,9 +895,6 @@ async function main(): Promise<void> {
     fail(`daemon auth token file not found: ${authTokenPath}`);
   const authToken = (await readFile(authTokenPath, "utf8")).trim();
   if (!authToken) fail(`daemon auth token file is empty: ${authTokenPath}`);
-
-  const output = path.resolve(expandHome(args.output));
-  await mkdir(path.dirname(output), { recursive: true });
 
   // Pronunciation normalization (the TERM_MAP respellings) MUST happen here,
   // before the daemon, exactly as renderSegment does. The DISPLAY is unaffected:
@@ -909,6 +943,7 @@ async function main(): Promise<void> {
     if (!hitInfo || hitInfo.size === 0) {
       fail(`cache HIT but frozen WAV is empty or unreadable: ${cachePath}`);
     }
+    await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache });
     process.stderr.write(
       `local-tts-runner: cache HIT key=${cacheKey} role=${args.role ?? "-"} via ${resolved.source} -> ${output} (${hitInfo.size} bytes, frozen take ${cachePath})\n`,
     );
@@ -1016,6 +1051,8 @@ async function main(): Promise<void> {
   const info = await stat(output).catch(() => undefined);
   if (!info || info.size === 0)
     fail(`output WAV is empty or missing: ${output}`);
+
+  await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache });
 
   // CONTENT-HASH FREEZE (MISS): store the FINAL processed WAV under the key so this
   // accepted take is frozen for every future identical request. Best-effort: a cache
