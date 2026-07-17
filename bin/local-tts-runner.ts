@@ -901,16 +901,6 @@ async function main(): Promise<void> {
   // the build reads the script .md, not this runner's TTS-feed text.
   const spokenText = normalizeForSpeech(args.text);
 
-  // PRONUNCIATION SIDECAR: write the LITERAL bytes sent to the daemon next to the
-  // output as <output>.spoken.txt, so the gate's Check 0 can diff the spoken feed
-  // against the displayed script. Best-effort: a sidecar write failure never blocks
-  // synthesis.
-  try {
-    await writeFile(`${output}.spoken.txt`, spokenText, "utf8");
-  } catch {
-    /* best effort: sidecar is diagnostic, not load-bearing for audio */
-  }
-
   // CONTENT-HASH FREEZE (determinism layer). The key is computed over the literal
   // spoken text + reference identity + the OUTPUT-affecting synth params. On a HIT
   // we copy the FROZEN accepted take to the output and skip the non-deterministic
@@ -943,6 +933,9 @@ async function main(): Promise<void> {
     if (!hitInfo || hitInfo.size === 0) {
       fail(`cache HIT but frozen WAV is empty or unreadable: ${cachePath}`);
     }
+    // Commit synth provenance only after the selected WAV is known non-empty.
+    // A failed rerun must never pair new sidecar bytes with an older output.
+    await writeFile(`${output}.spoken.txt`, spokenText, "utf8");
     await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache });
     process.stderr.write(
       `local-tts-runner: cache HIT key=${cacheKey} role=${args.role ?? "-"} via ${resolved.source} -> ${output} (${hitInfo.size} bytes, frozen take ${cachePath})\n`,
@@ -1052,6 +1045,10 @@ async function main(): Promise<void> {
   if (!info || info.size === 0)
     fail(`output WAV is empty or missing: ${output}`);
 
+  // Persist the literal daemon input only after every output-affecting pass and
+  // final non-empty validation has succeeded. Downstream gates derive approved
+  // aliases from these bytes, so publishing them before the WAV is accepted is unsafe.
+  await writeFile(`${output}.spoken.txt`, spokenText, "utf8");
   await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache });
 
   // CONTENT-HASH FREEZE (MISS): store the FINAL processed WAV under the key so this

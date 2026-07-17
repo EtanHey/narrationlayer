@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -13,6 +13,35 @@ import {
   writeTakeCacheReceipt,
   type CacheKeyParams,
 } from "../bin/local-tts-runner.js";
+
+test("synth provenance is committed only after the selected WAV is validated", () => {
+  const runnerSource = readFileSync(
+    path.resolve(import.meta.dir, "..", "bin", "local-tts-runner.ts"),
+    "utf8",
+  );
+  const sidecarWrite = "await writeFile(`${output}.spoken.txt`, spokenText, \"utf8\")";
+  const writeIndexes = [
+    ...runnerSource.matchAll(
+      new RegExp(sidecarWrite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"),
+    ),
+  ].map((match) => match.index);
+  const cacheHitValidation = runnerSource.indexOf("if (!hitInfo || hitInfo.size === 0)");
+  const cacheHitReceipt = runnerSource.indexOf(
+    "await writeTakeCacheReceipt(output, cacheKey",
+    cacheHitValidation,
+  );
+  const synthesizedValidation = runnerSource.indexOf("if (!info || info.size === 0)");
+  const synthesizedReceipt = runnerSource.indexOf(
+    "await writeTakeCacheReceipt(output, cacheKey",
+    synthesizedValidation,
+  );
+
+  expect(writeIndexes).toHaveLength(2);
+  expect(writeIndexes[0]).toBeGreaterThan(cacheHitValidation);
+  expect(writeIndexes[0]).toBeLessThan(cacheHitReceipt);
+  expect(writeIndexes[1]).toBeGreaterThan(synthesizedValidation);
+  expect(writeIndexes[1]).toBeLessThan(synthesizedReceipt);
+});
 
 test("take cache receipts replace stale state atomically and can be cleared", async () => {
   const dataDir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-cache-receipt-"));
