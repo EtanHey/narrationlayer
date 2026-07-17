@@ -122,3 +122,34 @@ test("timing repair preserves matching real Whisper timings with isolated zero-l
   expect(result.words[0]).toMatchObject({ word: "The", start: 0.27, end: 0.27 });
   expect(result.words.at(-1)?.end).toBe(3.28);
 });
+
+test("timing repair returns the untouched raw Whisper series from every result branch", () => {
+  const emptyScriptRaw = [{ index: 0, word: "raw", start: 0.1, end: 0.4 }];
+  const emptyScript = normalizeWordTimingsForScript("", emptyScriptRaw, 0.5);
+  expect(emptyScript.rawWords).toBe(emptyScriptRaw);
+
+  const mismatchRaw = [
+    { index: 0, word: "alpha", start: 0.1, end: 0.4 },
+    { index: 1, word: "omega", start: 0.9, end: 1.2 },
+  ];
+  const mismatch = normalizeWordTimingsForScript("alpha missing omega", mismatchRaw, 1.4);
+  expect(mismatch.rawWords).toBe(mismatchRaw);
+  expect(mismatch.words).not.toBe(mismatchRaw);
+
+  const suspiciousRaw = [
+    { index: 0, word: "alpha", start: 0.1, end: 0.1 },
+    { index: 1, word: "omega", start: 0.9, end: 1.2 },
+  ];
+  const suspicious = normalizeWordTimingsForScript("alpha omega", suspiciousRaw, 1.2);
+  expect(suspicious.reason).toBe("suspicious_timing");
+  expect(suspicious.rawWords).toBe(suspiciousRaw);
+
+  const exactRaw = [
+    { index: 0, word: "alpha", start: 0.1, end: 0.4 },
+    { index: 1, word: "omega", start: 0.5, end: 0.9 },
+  ];
+  const exact = normalizeWordTimingsForScript("alpha omega", exactRaw, 0.9);
+  expect(exact.repaired).toBe(false);
+  expect(exact.reason).toBeUndefined();
+  expect(exact.rawWords).toBe(exactRaw);
+});

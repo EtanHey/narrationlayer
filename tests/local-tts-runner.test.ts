@@ -1,16 +1,167 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 import {
   buildMonoS16WavArgs,
   buildLoudnessNormalizeArgs,
+  clearTakeCacheReceipt,
   computeLoudnessGainDb,
   computeContentHashKey,
   splitForBreathing,
+  writeTakeCacheReceipt,
   type CacheKeyParams,
 } from "../bin/local-tts-runner.js";
+
+test("synth provenance is committed only after the selected WAV is validated", () => {
+  const runnerSource = readFileSync(
+    path.resolve(import.meta.dir, "..", "bin", "local-tts-runner.ts"),
+    "utf8",
+  );
+  const sidecarWrite = "await writeFile(`${output}.spoken.txt`, spokenText, \"utf8\")";
+  const writeIndexes = [
+    ...runnerSource.matchAll(
+      new RegExp(sidecarWrite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"),
+    ),
+  ].map((match) => match.index);
+  const cacheHitValidation = runnerSource.indexOf("if (!hitInfo || hitInfo.size === 0)");
+  const cacheHitReceipt = runnerSource.indexOf(
+    "await writeTakeCacheReceipt(output, cacheKey",
+    cacheHitValidation,
+  );
+  const synthesizedValidation = runnerSource.indexOf("if (!info || info.size === 0)");
+  const synthesizedReceipt = runnerSource.indexOf(
+    "await writeTakeCacheReceipt(output, cacheKey",
+    synthesizedValidation,
+  );
+
+  expect(writeIndexes).toHaveLength(2);
+  expect(writeIndexes[0]).toBeGreaterThan(cacheHitValidation);
+  expect(writeIndexes[0]).toBeLessThan(cacheHitReceipt);
+  expect(writeIndexes[1]).toBeGreaterThan(synthesizedValidation);
+  expect(writeIndexes[1]).toBeLessThan(synthesizedReceipt);
+});
+
+test("take cache receipts replace stale state atomically and can be cleared", async () => {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-cache-receipt-"));
+  const output = path.join(dataDir, "take.wav");
+  const receiptPath = `${output}.cache.json`;
+  const cacheKey = "a".repeat(64);
+  writeFileSync(receiptPath, '{"version":0,"cacheKey":"stale"}\n');
+
+  try {
+    await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: false });
+    expect(await Bun.file(receiptPath).json()).toEqual({
+      version: 1,
+      cacheKey,
+      cacheEnabled: false,
+    });
+    expect(existsSync(`${receiptPath}.tmp-${process.pid}`)).toBe(false);
+
+    await clearTakeCacheReceipt(output);
+    expect(existsSync(receiptPath)).toBe(false);
+    await clearTakeCacheReceipt(output);
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("take cache receipts reject unsafe cache keys", async () => {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-cache-receipt-"));
+  try {
+    await expect(
+      writeTakeCacheReceipt(path.join(dataDir, "take.wav"), "../not-a-hash", {
+        cacheEnabled: true,
+      }),
+    ).rejects.toThrow("invalid cache key");
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("a failed runner attempt clears the previous take receipt", () => {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-cache-receipt-"));
+  const output = path.join(dataDir, "take.wav");
+  const receiptPath = `${output}.cache.json`;
+  writeFileSync(receiptPath, '{"version":1,"cacheKey":"stale","cacheEnabled":true}\n');
+
+  try {
+    const result = Bun.spawnSync({
+      cmd: [
+        "bun",
+        "bin/local-tts-runner.ts",
+        "--text",
+        "hello",
+        "--output",
+        output,
+        "--reference",
+        path.join(dataDir, "missing.wav"),
+      ],
+      cwd: path.resolve(import.meta.dir, ".."),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr.toString()).toContain("reference clip not found");
+    expect(existsSync(receiptPath)).toBe(false);
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("a cache hit binds the selected frozen take to its cache key", async () => {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-cache-receipt-"));
+  const output = path.join(dataDir, "take.wav");
+  const reference = path.join(dataDir, "reference.wav");
+  const token = path.join(dataDir, "daemon.secret");
+  const cacheDir = path.join(dataDir, "cache");
+  mkdirSync(cacheDir);
+  writeFileSync(reference, "reference");
+  writeFileSync(token, "test-token");
+  const cacheKey = computeContentHashKey({
+    spokenText: "hello",
+    referenceClip: reference,
+    referenceText: "reference transcript",
+    params: {},
+  });
+  const cachedTake = path.join(cacheDir, `${cacheKey}.wav`);
+  writeFileSync(cachedTake, "frozen-wave");
+
+  try {
+    const result = Bun.spawnSync({
+      cmd: [
+        "bun",
+        "bin/local-tts-runner.ts",
+        "--text",
+        "hello",
+        "--output",
+        output,
+        "--reference",
+        reference,
+        "--reference-text",
+        "reference transcript",
+        "--auth-token-file",
+        token,
+        "--cache-dir",
+        cacheDir,
+      ],
+      cwd: path.resolve(import.meta.dir, ".."),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr.toString()).toContain(`cache HIT key=${cacheKey}`);
+    expect(await Bun.file(output).text()).toBe("frozen-wave");
+    expect(await Bun.file(`${output}.cache.json`).json()).toEqual({
+      version: 1,
+      cacheKey,
+      cacheEnabled: true,
+    });
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
 
 // An eq-bearing profile carries eq_highshelf_hz / eq_highshelf_gain_db, so
 // qwenConfigFromProfile surfaces them and the runner must inject the de-muffle

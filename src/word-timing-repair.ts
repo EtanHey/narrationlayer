@@ -1,6 +1,7 @@
 import type { WordTiming } from "./schema.js";
 
 export interface WordTimingRepairResult {
+  rawWords: WordTiming[];
   words: WordTiming[];
   repaired: boolean;
   reason?: "word_mismatch" | "suspicious_timing";
@@ -313,12 +314,12 @@ function alignWordTimingsToScript(
   }
   fillMissingAssignments(assignments, durationSeconds);
 
-  let previousStart = 0;
+  let previousEnd = 0;
   const words = scriptTokens.map((word, index) => {
-    const assignment = assignments[index] ?? { start: previousStart, end: previousStart };
-    const start = Math.max(previousStart, assignment.start);
+    const assignment = assignments[index] ?? { start: previousEnd, end: previousEnd };
+    const start = Math.max(previousEnd, assignment.start);
     const end = Math.max(start, assignment.end);
-    previousStart = start;
+    previousEnd = end;
     const confidence = assignment.confidence;
     return {
       index,
@@ -338,12 +339,13 @@ export function normalizeWordTimingsForScript(
 ): WordTimingRepairResult {
   const expectedWords = scriptWords(script);
   if (!expectedWords.length) {
-    return { words: timings, repaired: false };
+    return { rawWords: timings, words: timings, repaired: false };
   }
 
   if (!wordsMatchScript(expectedWords, timings)) {
     const alignment = alignWordTimingsToScript(expectedWords, timings, durationSeconds);
     return {
+      rawWords: timings,
       words: alignment.words,
       repaired: true,
       reason: "word_mismatch",
@@ -353,6 +355,7 @@ export function normalizeWordTimingsForScript(
 
   if (hasSuspiciousTiming(timings, durationSeconds)) {
     return {
+      rawWords: timings,
       words: timings.map((timing, index) => ({ ...timing, word: expectedWords[index], index })),
       repaired: false,
       reason: "suspicious_timing",
@@ -360,6 +363,7 @@ export function normalizeWordTimingsForScript(
   }
 
   return {
+    rawWords: timings,
     words: timings.map((timing, index) => ({ ...timing, index })),
     repaired: false,
   };
