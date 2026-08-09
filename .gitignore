@@ -43,3 +43,6 @@ daemon.token
 # OS and IDE noise
 .DS_Store
 *.log
+.worktrees/
+.claude/worktrees/
+.cmux/worktrees/
