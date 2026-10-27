@@ -1,0 +1,462 @@
+{
+  "source-baseline": {
+    "exit": 0,
+    "expected_exit": 0,
+    "counts": [
+      3,
+      3
+    ],
+    "config_sha256": "07c62a0cb7469496b04962a00a4c71ef5dbc179558d446ea7714717131fdd750",
+    "model_sha256": "a09ad2cc250671c76aaf7b320042fb95bc383858317326e49c0696b211f48884",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Observations <- Observed\nINVARIANTS LegacyExclusive\nCHECK_DEADLOCK FALSE\n"
+  },
+  "source-break-done": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      2,
+      2
+    ],
+    "config_sha256": "07c62a0cb7469496b04962a00a4c71ef5dbc179558d446ea7714717131fdd750",
+    "model_sha256": "b263e1963bffc561f431952e5248e234dcdaf596fc2332eea09ac1aa8111167a",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Observations <- Observed\nINVARIANTS LegacyExclusive\nCHECK_DEADLOCK FALSE\n"
+  },
+  "source-break-failed": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      3,
+      3
+    ],
+    "config_sha256": "07c62a0cb7469496b04962a00a4c71ef5dbc179558d446ea7714717131fdd750",
+    "model_sha256": "3e4552f35aa93c5ddee92453aa90953efd2f05cea04167c60a0b42a4d866809a",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Observations <- Observed\nINVARIANTS LegacyExclusive\nCHECK_DEADLOCK FALSE\n"
+  },
+  "source-restored": {
+    "exit": 0,
+    "expected_exit": 0,
+    "counts": [
+      3,
+      3
+    ],
+    "config_sha256": "07c62a0cb7469496b04962a00a4c71ef5dbc179558d446ea7714717131fdd750",
+    "model_sha256": "a09ad2cc250671c76aaf7b320042fb95bc383858317326e49c0696b211f48884",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Observations <- Observed\nINVARIANTS LegacyExclusive\nCHECK_DEADLOCK FALSE\n"
+  },
+  "contract-safe": {
+    "exit": 0,
+    "expected_exit": 0,
+    "counts": [
+      1294158,
+      253680
+    ],
+    "config_sha256": "c832c94cacaf2ed40a9e561f325b6f92c888cb45aee31f8eb4a3fa756d5ebea2",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"none\"\nINVARIANTS TypeOK I01 I02 I03 I04 I05 I06 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "action_coverage": {
+    "Init": {
+      "distinct": 2,
+      "transitions": 2
+    },
+    "StartGeneration": {
+      "distinct": 38,
+      "transitions": 176
+    },
+    "Deliver": {
+      "distinct": 76,
+      "transitions": 4352
+    },
+    "Seal": {
+      "distinct": 38,
+      "transitions": 46976
+    },
+    "Commit": {
+      "distinct": 38,
+      "transitions": 46976
+    },
+    "EndGeneration": {
+      "distinct": 6118,
+      "transitions": 98656
+    },
+    "SynthesisFailure": {
+      "distinct": 6086,
+      "transitions": 51328
+    },
+    "PublishFailure": {
+      "distinct": 5610,
+      "transitions": 46976
+    },
+    "BackendExit": {
+      "distinct": 276,
+      "transitions": 61056
+    },
+    "Spawn": {
+      "distinct": 384,
+      "transitions": 1248
+    },
+    "Pause": {
+      "distinct": 1242,
+      "transitions": 17220
+    },
+    "Resume": {
+      "distinct": 4088,
+      "transitions": 18312
+    },
+    "Seek": {
+      "distinct": 2976,
+      "transitions": 3744
+    },
+    "ReapOld": {
+      "distinct": 2592,
+      "transitions": 8448
+    },
+    "Feedback": {
+      "distinct": 13824,
+      "transitions": 48000
+    },
+    "Stop": {
+      "distinct": 19816,
+      "transitions": 67408
+    },
+    "PlayerReaped": {
+      "distinct": 7520,
+      "transitions": 16320
+    },
+    "PersistPlaying": {
+      "distinct": 2088,
+      "transitions": 107872
+    },
+    "Archive": {
+      "distinct": 7488,
+      "transitions": 19008
+    },
+    "Release": {
+      "distinct": 4094,
+      "transitions": 12320
+    },
+    "Delete": {
+      "distinct": 4094,
+      "transitions": 15400
+    },
+    "ObserveTiming": {
+      "distinct": 11696,
+      "transitions": 23984
+    },
+    "Reject": {
+      "distinct": 32424,
+      "transitions": 109312
+    },
+    "Select": {
+      "distinct": 0,
+      "transitions": 109312
+    },
+    "Capture": {
+      "distinct": 28608,
+      "transitions": 44424
+    },
+    "CaptureEnd": {
+      "distinct": 0,
+      "transitions": 88848
+    },
+    "Close": {
+      "distinct": 40984,
+      "transitions": 123760
+    },
+    "Drain": {
+      "distinct": 5360,
+      "transitions": 6160
+    },
+    "Crash": {
+      "distinct": 46080,
+      "transitions": 91584
+    },
+    "Successor": {
+      "distinct": 40,
+      "transitions": 4976
+    }
+  },
+  "lease-delete": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      7,
+      7
+    ],
+    "config_sha256": "2c4558c74f7dba2de4c99a40fa2fdcd0b19b740a22db23df7c09b021b56b1f50",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"lease-delete\"\nINVARIANTS I06 TypeOK I01 I02 I03 I04 I05 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "abort-drain": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      1232,
+      593
+    ],
+    "config_sha256": "db6574a1ba87125552ef3ea2066974543ece30e9b77771595b5f41cb579f59dc",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"abort-drain\"\nINVARIANTS I08 TypeOK I01 I02 I03 I04 I05 I06 I07 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "seek-pause": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      6541,
+      2554
+    ],
+    "config_sha256": "6dbdc7580b6f32d2720bc4099433864778e110aee57ab510fbdb8c6249762c4f",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"seek-pause\"\nINVARIANTS I09 TypeOK I01 I02 I03 I04 I05 I06 I07 I08 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "timing-identity": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      303,
+      182
+    ],
+    "config_sha256": "b78f05c2fc9568947ab2e798702eb9cd4f4dc752a96368a8c938eb09178342f0",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"timing-identity\"\nINVARIANTS I10 TypeOK I01 I02 I03 I04 I05 I06 I07 I08 I09\nCHECK_DEADLOCK FALSE\n"
+  },
+  "reject-reuse": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      2697,
+      1179
+    ],
+    "config_sha256": "0185db533875c942b9a1b5d595f36d82e0937ef7df288c12608392d46564b94a",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"reject-reuse\"\nINVARIANTS I05 TypeOK I01 I02 I03 I04 I06 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "reopen-terminal": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      35,
+      32
+    ],
+    "config_sha256": "11d26bf974d0a0340f86de8083d1efcc01b8451473118619d20a016ba3e35d48",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"reopen-terminal\"\nINVARIANTS I01 TypeOK I02 I03 I04 I05 I06 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "late-commit": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      870,
+      441
+    ],
+    "config_sha256": "366978ca79a4e0dfb09e194dade00c3b23fb2345cb60cc834407db2816fcd3b1",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"late-commit\"\nINVARIANTS I03 TypeOK I01 I02 I04 I05 I06 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "truncated-eof": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      328,
+      202
+    ],
+    "config_sha256": "92aa08ef596a10099a3cebf7e2ca9bb61df8abff05694adabf2ad367f1f8e50c",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"truncated-eof\"\nINVARIANTS I04 TypeOK I01 I02 I03 I05 I06 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "archive-prerequisite": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      2500,
+      1113
+    ],
+    "config_sha256": "790507e8ec86b04be563a04d278459fa603dad7a3f0d253ac812f1903e295a67",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"archive-prerequisite\"\nINVARIANTS I07 TypeOK I01 I02 I03 I04 I05 I06 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "foreign-feedback": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      887,
+      464
+    ],
+    "config_sha256": "e29e06026a348a43c29057a9f05fc368f54b2ea5a89c122154f2e8bc2cff76be",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"foreign-feedback\"\nINVARIANTS I02 TypeOK I01 I03 I04 I05 I06 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "stale-derivation": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      5636,
+      2243
+    ],
+    "config_sha256": "0c59b05df0d498fa74e29a47e6685f20a54bf1f18cddcd28d97e21cde72cd76c",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"stale-derivation\"\nINVARIANTS I10 TypeOK I01 I02 I03 I04 I05 I06 I07 I08 I09\nCHECK_DEADLOCK FALSE\n"
+  },
+  "unknown-reap": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      113503,
+      31351
+    ],
+    "config_sha256": "99184924dd6581ddfae80b03ea42bfda6214c7c30d6d2cf834c6f9a3230d95e3",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"unknown-reap\"\nINVARIANTS I08 TypeOK I01 I02 I03 I04 I05 I06 I07 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "seek-start-pause": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      2565,
+      1140
+    ],
+    "config_sha256": "cec05659f905171b68b77f889db9dcefd10d46d7415dc76dbb6a58aa111a94cb",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"seek-start-pause\"\nINVARIANTS I09 TypeOK I01 I02 I03 I04 I05 I06 I07 I08 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "late-delivery": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      24,
+      24
+    ],
+    "config_sha256": "38602b82cdfb0c7bb7d2f40c38663d3531b594fe75fb211b126cc3f850e8adfb",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"late-delivery\"\nINVARIANTS I03 TypeOK I01 I02 I04 I05 I06 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "early-release": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      33379,
+      10432
+    ],
+    "config_sha256": "731cee6987d2898be2dabafe63671f6607380f1103a34e68d81e5781c0fc173b",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"early-release\"\nINVARIANTS I06 TypeOK I01 I02 I03 I04 I05 I07 I08 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "capture-spawn": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      359,
+      214
+    ],
+    "config_sha256": "e58e466517222539e0a3c4b2ed0f7d157f2080d2cc9e7fbb0a27fd763666e0a0",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"capture-spawn\"\nINVARIANTS I08 TypeOK I01 I02 I03 I04 I05 I06 I07 I09 I10\nCHECK_DEADLOCK FALSE\n"
+  },
+  "C21-witness": {
+    "exit": 12,
+    "expected_exit": 12,
+    "counts": [
+      5420,
+      2175
+    ],
+    "config_sha256": "7c26b52326394b29642c77f3eae4b0d8618500980f48c4bce386bdac4b44c4d5",
+    "model_sha256": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Mutant = \"none\"\nINVARIANTS NoLateFailure\nCHECK_DEADLOCK FALSE\n"
+  },
+  "responsive-progress": {
+    "exit": 0,
+    "expected_exit": 0,
+    "counts": [
+      16,
+      10
+    ],
+    "config_sha256": "3c3602412daae3ef9712693aa09e9a9f547549d071d3181eb2710e181d904869",
+    "model_sha256": "4bc0f3c4818bfed4255b35bdb518beba18b3e609ae52f97096b64a5137ed09df",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Responsive = TRUE\nINVARIANTS Safe\nCHECK_DEADLOCK FALSE\nPROPERTY EventuallySafe\n"
+  },
+  "unresponsive-safety": {
+    "exit": 0,
+    "expected_exit": 0,
+    "counts": [
+      5,
+      4
+    ],
+    "config_sha256": "3123a6269050c59b62b43b14b7bcb972dca6b77e601596cb10749b86533b8d5e",
+    "model_sha256": "4bc0f3c4818bfed4255b35bdb518beba18b3e609ae52f97096b64a5137ed09df",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Responsive = FALSE\nINVARIANTS Safe\nCHECK_DEADLOCK FALSE\n"
+  },
+  "unresponsive-progress": {
+    "exit": 13,
+    "expected_exit": 13,
+    "counts": [
+      5,
+      4
+    ],
+    "config_sha256": "8002f2013d70a0c38f791ca4cebf407aed2c9f90fbc1b1818d657148fa3bec30",
+    "model_sha256": "4bc0f3c4818bfed4255b35bdb518beba18b3e609ae52f97096b64a5137ed09df",
+    "configuration": "SPECIFICATION Spec\nCONSTANTS Responsive = FALSE\nINVARIANTS Safe\nCHECK_DEADLOCK FALSE\nPROPERTY EventuallySafe\n"
+  },
+  "sha256": {
+    "check.py": "bcf596b78b5eb4fc63313b1fb773dbf47436927bc3361185d66bfc9dcc323417",
+    "NarrationContract.tla": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "coverage.json": "9fc766881a1085d4a7c4dff3c8b2a2e7856286ee1b3626240c0e5bb4d1911274",
+    "check.sh": "6ba4199270f7d98739762ee8d84bcb1131fda4127a6b463dcfd392dbc26bf12d",
+    "source-probe.ts": "ad3a8f9beb86a264f45ee5a07989b3dc3c4f9b93e47b3983d5639b6cf81a7e9c",
+    "DrainProgress.tla": "4bc0f3c4818bfed4255b35bdb518beba18b3e609ae52f97096b64a5137ed09df",
+    "SourceTrace.tla": "28ca53c473f64d7a505a5e075b5f20ac539b5358c8b7e1ad1d377fde1d2f6e29"
+  },
+  "head": "2ea3d6ccf3105611c5e27409622d52e68dc3e338",
+  "receipt_kind": "LAST_OBSERVED_RUN; check.sh recomputes gates, not a golden comparison",
+  "tools": {
+    "bun": "1.4.4",
+    "tlc": "TLC2 2.19, revision 5a47802; tla2tools 1.7.4",
+    "tlc_jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+  },
+  "jvm_limits": "512MiB heap; one active CPU; one TLC worker",
+  "existing_checks": {
+    "bun test": {
+      "exit": 1,
+      "pass": 156,
+      "fail": 1,
+      "error": 1,
+      "reason": "Missing happy-dom"
+    },
+    "bun run typecheck": {
+      "exit": 2,
+      "reason": "Missing Bun types; local TypeScript rejects moduleResolution bundler"
+    },
+    "doctor/create-job/status": {
+      "exits": [
+        0,
+        0,
+        0
+      ],
+      "job": "6eb492fa-d9d4-43a8-b13c-a4ded7687f20",
+      "state": "queued"
+    },
+    "CLI render": {
+      "state": "SKIPPED_PER_BRIEF"
+    }
+  },
+  "status": "T3_DESIGN_SLICE_LOCAL_PASS; OPUS_R2_PENDING; I01-I10_DESIGN_LEVEL",
+  "optimization_regression": {
+    "env": "PYTHONOPTIMIZE=1",
+    "real_source_mutation": "markDone opposite-marker unlink removed; scratch source hash repinned",
+    "exit": 1,
+    "reported_TLC_exit": 12,
+    "reported_invariant": "LegacyExclusive",
+    "CHECKS_PASS_present": false
+  },
+  "handwritten_sha256": {
+    "formal/narration-contract/check.py": "bcf596b78b5eb4fc63313b1fb773dbf47436927bc3361185d66bfc9dcc323417",
+    "formal/narration-contract/source-probe.ts": "ad3a8f9beb86a264f45ee5a07989b3dc3c4f9b93e47b3983d5639b6cf81a7e9c",
+    "formal/narration-contract/README.md": "0c5c58067baf27980dd2913611bf9a185fe7d34961592f59980e95b1a1c7b056",
+    "formal/narration-contract/DrainProgress.tla": "4bc0f3c4818bfed4255b35bdb518beba18b3e609ae52f97096b64a5137ed09df",
+    "formal/narration-contract/SourceTrace.tla": "28ca53c473f64d7a505a5e075b5f20ac539b5358c8b7e1ad1d377fde1d2f6e29",
+    "formal/narration-contract/NarrationContract.tla": "ae25e6066ff646b2d0b2be1d27baf0185c4ce8c66898cd8e62cb3072ad3aee80",
+    "formal/narration-contract/check.sh": "6ba4199270f7d98739762ee8d84bcb1131fda4127a6b463dcfd392dbc26bf12d",
+    "formal/narration-contract/coverage.json": "9fc766881a1085d4a7c4dff3c8b2a2e7856286ee1b3626240c0e5bb4d1911274",
+    ".agents/skills/verify-narration-contract/SKILL.md": "05398e6d2c7dc0cf853ba8b7503f2bc22300de343dc1038210dd491f75c4396d"
+  },
+  "handwritten_lines": 463
+}

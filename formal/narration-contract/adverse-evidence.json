@@ -1,0 +1,203 @@
+{
+  "pre_edit_wrong_target": {
+    "result": "Mutation hit initializeJob, all three probes exit 0; not a sensitivity proof",
+    "receipt": [
+      {
+        "variant": "baseline",
+        "exit": 0,
+        "stdout": "{\"done\":true,\"failed\":false}\n",
+        "stderr": ""
+      },
+      {
+        "variant": "remove-failed-unlink",
+        "exit": 0,
+        "stdout": "{\"done\":true,\"failed\":false}\n",
+        "stderr": ""
+      },
+      {
+        "variant": "restored",
+        "exit": 0,
+        "stdout": "{\"done\":true,\"failed\":false}\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "pre_edit_corrected": {
+    "exits": [
+      0,
+      1,
+      0
+    ],
+    "result": "Function-specific markDone unlink removal leaves DONE and FAILED; restoration clears FAILED"
+  },
+  "draft_model_failures": {
+    "reopen-after-cancel": {
+      "exit": 12,
+      "invariant": "I01",
+      "states": [
+        {
+          "state": 1,
+          "action": "<Initial predicate>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"queued\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  backend |-> \"none\",\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 2,
+          "action": "<StartGeneration line 24, col 20 to line 25, col 58 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 3,
+          "action": "<Deliver line 26, col 12 to line 27, col 40 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 4,
+          "action": "<Deliver line 26, col 12 to line 27, col 40 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 5,
+          "action": "<ObserveTiming line 88, col 24 to line 90, col 54 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"eligible\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 6,
+          "action": "<Seek line 52, col 9 to line 54, col 70 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 2,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"stopping\",\n  r |-> \"held\",\n  e |-> \"eligible\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> TRUE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 7,
+          "action": "<EndGeneration line 33, col 27 to line 37, col 66 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 2,\n  pid |-> 1,\n  g |-> \"cancelled\",\n  p |-> \"cancelled\",\n  r |-> \"held\",\n  e |-> \"eligible\",\n  gl |-> \"cancelled\",\n  pl |-> \"cancelled\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  backend |-> \"active\",\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> TRUE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 8,
+          "action": "<ReapOld line 55, col 12 to line 59, col 57 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 2,\n  pid |-> 1,\n  g |-> \"cancelled\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"eligible\",\n  gl |-> \"cancelled\",\n  pl |-> \"cancelled\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  backend |-> \"active\",\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  seekOK |-> TRUE ]"
+        }
+      ],
+      "binding": "Unhashed draft evidence; not the final model"
+    },
+    "lease-after-safe": {
+      "exit": 12,
+      "invariant": "I08",
+      "states": [
+        {
+          "state": 1,
+          "action": "<Initial predicate>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"queued\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 2,
+          "action": "<EndGeneration line 33, col 27 to line 37, col 66 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"cancelled\",\n  p |-> \"cancelled\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"cancelled\",\n  pl |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 3,
+          "action": "<Release line 78, col 12 to line 81, col 53 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"cancelled\",\n  p |-> \"cancelled\",\n  r |-> \"releasable\",\n  e |-> \"pending\",\n  gl |-> \"cancelled\",\n  pl |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 4,
+          "action": "<Close line 98, col 10 to line 99, col 70 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"cancelled\",\n  p |-> \"cancelled\",\n  r |-> \"releasable\",\n  e |-> \"pending\",\n  gl |-> \"cancelled\",\n  pl |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"closed\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 5,
+          "action": "<Drain line 100, col 10 to line 102, col 41 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"cancelled\",\n  p |-> \"cancelled\",\n  r |-> \"releasable\",\n  e |-> \"pending\",\n  gl |-> \"cancelled\",\n  pl |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"safe\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 6,
+          "action": "<Successor line 107, col 14 to line 112, col 73 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 2,\n  attempt |-> 2,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"queued\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"safe\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        }
+      ],
+      "binding": "Unhashed draft evidence; not the final model"
+    }
+  },
+  "other_retained_draft_failures": [
+    "Source trace constants require an operator override, not a tuple literal in config",
+    "CaptureEnd generates existing-state transitions, so coverage must check transitions, not novel states",
+    "Delete guard required parentheses for TLA precedence",
+    "DrainProgress initial boolean values required explicit FALSE assignments"
+  ],
+  "source_statechart": {
+    "states": 3,
+    "transitions": 2,
+    "counterexamples": 1,
+    "reader_steps": 1,
+    "story": "Failure published, then success without unlinking FAILED yields conflicting markers",
+    "png": "SKIPPED: renderer cache absent; installs forbidden"
+  },
+  "draft_C21_witness_too_broad": {
+    "model_sha256": "9f69f315a9171b96979fe2696ba993b31da0a9d304bf1ce65c4b35854c4950be",
+    "trace": {
+      "invariant": "NoLateFailure",
+      "expected": true,
+      "states": [
+        {
+          "state": 1,
+          "action": "<Initial predicate>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"queued\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 2,
+          "action": "<StartGeneration line 25, col 20 to line 26, col 80 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 3,
+          "action": "<Deliver line 27, col 12 to line 28, col 40 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 4,
+          "action": "<Deliver line 27, col 12 to line 28, col 40 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"preparing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 5,
+          "action": "<Spawn line 46, col 10 to line 50, col 61 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"playing\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 6,
+          "action": "<Feedback line 68, col 2 to line 73, col 64 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"running\",\n  p |-> \"completed\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"\",\n  pl |-> \"completed\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> TRUE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        },
+        {
+          "state": 7,
+          "action": "<SynthesisFailure line 42, col 21 to line 42, col 65 of module NarrationContract>",
+          "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  g |-> \"failed\",\n  p |-> \"completed\",\n  r |-> \"held\",\n  e |-> \"pending\",\n  gl |-> \"failed\",\n  pl |-> \"completed\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> TRUE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  seekOK |-> TRUE ]"
+        }
+      ]
+    },
+    "reason": "Reached generic synthesis failure after EOF rather than final publication failure; final model now records stage and requires publication"
+  },
+  "opus_r1_corrections": {
+    "old_design_model_sha256": "2c2e4ed176e9994e2a860f4ce8f5e43baf03d7145d1d321c646439fb8c860ede",
+    "old_design_distinct_states": 198496,
+    "final_design_distinct_states": 253680,
+    "blockers": [
+      "Python asserts could be optimized away",
+      "Same-session control/player feedback overstated; now explicitly omitted",
+      "Successor leaked eligibility/timing; now reset and attempt-bound",
+      "Unknown player status could be reaped; now sticky with witness",
+      "Seek could drop pause; now covered at Seek and reap"
+    ],
+    "additional_failed_fix_runs": [
+      "First delivery-mutant edit lacked guard parentheses; retained failing log",
+      "Stronger pause invariant exposed successor restart/seekPause carryover; reset per attempt"
+    ],
+    "optimization_regression": {
+      "env": "PYTHONOPTIMIZE=1",
+      "real_source_mutation": "markDone opposite-marker unlink removed; scratch source hash repinned",
+      "exit": 1,
+      "reported_TLC_exit": 12,
+      "reported_invariant": "LegacyExclusive",
+      "CHECKS_PASS_present": false
+    },
+    "nonexecuted_hook_rejection": "Temporary-path stdout redirect denied; reran with durable docs.local log, no bypass"
+  }
+}

@@ -1,0 +1,727 @@
+{
+  "source-break-done": {
+    "invariant": "LegacyExclusive",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "i = 1"
+      },
+      {
+        "state": 2,
+        "action": "<Next line 6, col 9 to line 6, col 46 of module SourceTrace>",
+        "values": "i = 2"
+      }
+    ]
+  },
+  "source-break-failed": {
+    "invariant": "LegacyExclusive",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "i = 1"
+      },
+      {
+        "state": 2,
+        "action": "<Next line 6, col 9 to line 6, col 46 of module SourceTrace>",
+        "values": "i = 2"
+      },
+      {
+        "state": 3,
+        "action": "<Next line 6, col 9 to line 6, col 46 of module SourceTrace>",
+        "values": "i = 3"
+      }
+    ]
+  },
+  "lease-delete": {
+    "invariant": "I06",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<Delete line 95, col 11 to line 97, col 37 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> FALSE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "abort-drain": {
+    "invariant": "I08",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<EndGeneration line 39, col 34 to line 44, col 66 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Release line 91, col 12 to line 94, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"releasable\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Close line 108, col 10 to line 109, col 70 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"releasable\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"closed\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<Drain line 110, col 10 to line 112, col 41 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"releasable\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"safe\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "seek-pause": {
+    "invariant": "I09",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Pause line 56, col 10 to line 57, col 59 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"paused\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> TRUE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<ObserveTiming line 98, col 24 to line 100, col 93 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"paused\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> TRUE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 7,
+        "action": "<Seek line 61, col 9 to line 64, col 91 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 2,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"stopping\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> TRUE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> TRUE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> TRUE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 8,
+        "action": "<ReapOld line 65, col 12 to line 70, col 57 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 2,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"paused\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> TRUE,\n  fenceCoverage |-> 0,\n  seekOK |-> FALSE ]"
+      }
+    ]
+  },
+  "timing-identity": {
+    "invariant": "I10",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<ObserveTiming line 98, col 24 to line 100, col 93 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 2,\n  timingAttempt |-> 1,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "reject-reuse": {
+    "invariant": "I05",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<ObserveTiming line 98, col 24 to line 100, col 93 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<Reject line 101, col 11 to line 101, col 86 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"rejected\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 7,
+        "action": "<Select line 102, col 11 to line 104, col 70 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"rejected\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> TRUE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "reopen-terminal": {
+    "invariant": "I01",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<Stop line 80, col 9 to line 81, col 87 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"stopped\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"stopped\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<EndGeneration line 39, col 34 to line 44, col 66 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"stopped\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "late-commit": {
+    "invariant": "I03",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<EndGeneration line 39, col 34 to line 44, col 66 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 2,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<Commit line 35, col 11 to line 37, col 47 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"committed\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 2,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "truncated-eof": {
+    "invariant": "I04",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Spawn line 50, col 10 to line 55, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Feedback line 74, col 2 to line 79, col 64 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"completed\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"completed\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> TRUE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "archive-prerequisite": {
+    "invariant": "I07",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Spawn line 50, col 10 to line 55, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<Feedback line 74, col 2 to line 79, col 64 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"completed\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"completed\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> TRUE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 7,
+        "action": "<Archive line 88, col 12 to line 90, col 62 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"completed\",\n  retention |-> \"durable\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"completed\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> TRUE,\n  eof |-> TRUE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "foreign-feedback": {
+    "invariant": "I02",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Spawn line 50, col 10 to line 55, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<Feedback line 74, col 2 to line 79, col 64 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"completed\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"completed\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> TRUE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> FALSE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "stale-derivation": {
+    "invariant": "I10",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<EndGeneration line 39, col 34 to line 44, col 66 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 2,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<BackendExit line 48, col 16 to line 49, col 64 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 2,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 7,
+        "action": "<ObserveTiming line 98, col 24 to line 100, col 93 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 2,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 8,
+        "action": "<Successor line 118, col 14 to line 128, col 81 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 2,\n  attempt |-> 2,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 2,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "unknown-reap": {
+    "invariant": "I08",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<BackendExit line 48, col 16 to line 49, col 64 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Spawn line 50, col 10 to line 55, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<EndGeneration line 39, col 34 to line 44, col 66 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"stopping\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 7,
+        "action": "<PersistPlaying line 86, col 19 to line 87, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"stopping\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 8,
+        "action": "<Close line 108, col 10 to line 109, col 70 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"stopping\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"closed\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 9,
+        "action": "<Crash line 114, col 10 to line 117, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"stopping\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"unknown\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"closed\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> TRUE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 10,
+        "action": "<PlayerReaped line 82, col 17 to line 85, col 93 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"closed\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> TRUE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 11,
+        "action": "<Release line 91, col 12 to line 94, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"releasable\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"closed\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> TRUE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 12,
+        "action": "<Drain line 110, col 10 to line 112, col 41 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"releasable\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"safe\",\n  permit |-> 0,\n  close |-> 1,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> TRUE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "seek-start-pause": {
+    "invariant": "I09",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Pause line 56, col 10 to line 57, col 59 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"paused\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> TRUE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<ObserveTiming line 98, col 24 to line 100, col 93 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"paused\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> TRUE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 7,
+        "action": "<Seek line 61, col 9 to line 64, col 91 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 2,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"stopping\",\n  retention |-> \"held\",\n  eligibility |-> \"eligible\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> TRUE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 1,\n  timingAttempt |-> 1,\n  seekPause |-> TRUE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "late-delivery": {
+    "invariant": "I03",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<EndGeneration line 39, col 34 to line 44, col 66 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 0,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "early-release": {
+    "invariant": "I06",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<BackendExit line 48, col 16 to line 49, col 64 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Spawn line 50, col 10 to line 55, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<PersistPlaying line 86, col 19 to line 87, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 7,
+        "action": "<Crash line 114, col 10 to line 117, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"unknown\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> TRUE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 8,
+        "action": "<EndGeneration line 39, col 34 to line 44, col 66 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"unknown\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> TRUE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 9,
+        "action": "<Release line 91, col 12 to line 94, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"releasable\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"unknown\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> TRUE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 10,
+        "action": "<Delete line 95, col 11 to line 97, col 37 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"cancelled\",\n  playback |-> \"cancelled\",\n  retention |-> \"releasable\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"cancelled\",\n  playbackLock |-> \"cancelled\",\n  delivered |-> 1,\n  fenced |-> TRUE,\n  failure |-> \"cancel\",\n  backend |-> \"exited\",\n  outstanding |-> FALSE,\n  player |-> \"unknown\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> TRUE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 0,\n  exists |-> FALSE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> TRUE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 1,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "capture-spawn": {
+    "invariant": "I08",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Capture line 105, col 12 to line 106, col 37 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> TRUE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Spawn line 50, col 10 to line 55, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> TRUE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "C21-witness": {
+    "invariant": "NoLateFailure",
+    "expected": true,
+    "exit": 12,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"queued\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"none\",\n  outstanding |-> FALSE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 2,
+        "action": "<StartGeneration line 28, col 20 to line 29, col 89 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 0,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 3,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 1,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 4,
+        "action": "<Deliver line 30, col 12 to line 32, col 40 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"running\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 5,
+        "action": "<Seal line 33, col 9 to line 34, col 45 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"sealing\",\n  playback |-> \"preparing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"none\",\n  paused |-> FALSE,\n  started |-> FALSE,\n  playingSaved |-> FALSE,\n  pending |-> FALSE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 6,
+        "action": "<Spawn line 50, col 10 to line 55, col 61 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"sealing\",\n  playback |-> \"playing\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"active\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> FALSE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 7,
+        "action": "<Feedback line 74, col 2 to line 79, col 64 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"sealing\",\n  playback |-> \"completed\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"\",\n  playbackLock |-> \"completed\",\n  delivered |-> 2,\n  fenced |-> FALSE,\n  failure |-> \"none\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> TRUE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 0,\n  seekOK |-> TRUE ]"
+      },
+      {
+        "state": 8,
+        "action": "<PublishFailure line 47, col 19 to line 47, col 87 of module NarrationContract>",
+        "values": "s = [ job |-> 1,\n  owner |-> 1,\n  attempt |-> 1,\n  control |-> 1,\n  pid |-> 1,\n  generation |-> \"failed\",\n  playback |-> \"completed\",\n  retention |-> \"held\",\n  eligibility |-> \"pending\",\n  generationLock |-> \"failed\",\n  playbackLock |-> \"completed\",\n  delivered |-> 2,\n  fenced |-> TRUE,\n  failure |-> \"publication\",\n  backend |-> \"active\",\n  outstanding |-> TRUE,\n  player |-> \"exited\",\n  paused |-> FALSE,\n  started |-> TRUE,\n  playingSaved |-> FALSE,\n  pending |-> TRUE,\n  archive |-> FALSE,\n  eof |-> TRUE,\n  leases |-> 1,\n  exists |-> TRUE,\n  admission |-> \"open\",\n  permit |-> 1,\n  close |-> 0,\n  capture |-> FALSE,\n  restart |-> FALSE,\n  matched |-> TRUE,\n  staleSeen |-> FALSE,\n  playerUnknown |-> FALSE,\n  selectedRejected |-> FALSE,\n  timing |-> 0,\n  timingAttempt |-> 0,\n  seekPause |-> FALSE,\n  fenceCoverage |-> 2,\n  seekOK |-> TRUE ]"
+      }
+    ]
+  },
+  "unresponsive-progress": {
+    "invariant": "EventuallySafe",
+    "expected": true,
+    "exit": 13,
+    "states": [
+      {
+        "state": 1,
+        "action": "<Initial predicate>",
+        "values": "/\\ safe = FALSE\n/\\ fenced = FALSE\n/\\ closed = FALSE\n/\\ backend = \"active\""
+      },
+      {
+        "state": 2,
+        "action": "<Close line 8, col 10 to line 8, col 76 of module DrainProgress>",
+        "values": "/\\ safe = FALSE\n/\\ fenced = FALSE\n/\\ closed = TRUE\n/\\ backend = \"active\""
+      },
+      {
+        "state": 3,
+        "action": "<Abort line 7, col 10 to line 7, col 76 of module DrainProgress>",
+        "values": "/\\ safe = FALSE\n/\\ fenced = TRUE\n/\\ closed = TRUE\n/\\ backend = \"active\""
+      },
+      {
+        "state": 4,
+        "action": "Stuttering",
+        "values": "Finished checking temporal properties in 00s at 2026-10-27 09:38:39"
+      }
+    ]
+  }
+}
