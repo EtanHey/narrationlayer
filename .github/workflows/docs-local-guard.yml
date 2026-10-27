@@ -1,0 +1,20 @@
+name: docs.local guard
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-local-guard:
+    name: No new tracked docs.local
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Guard against newly tracked docs.local paths
+        run: bash scripts/guard-no-docslocal.sh
