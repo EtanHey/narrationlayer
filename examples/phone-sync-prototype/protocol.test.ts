@@ -159,3 +159,19 @@ test("local dense parent snapshot ignores input-supplied map and sort", () => {
   expect(normalize(input({ kind: "resolve", parents })).value.parents).toEqual(["a", "b"]);
   expect(calls).toBe(0);
 });
+
+const ev = (id: string, seq: number): Event => ({ ...scope, id, seq, normalizedRequest: "", receipt: "", payload: "x", parents: "[]" });
+const h5: Head = { revision: 5, clearedThrough: 3, pendingCount: 2, canonicalEventId: "e3" };
+const res = (parents: string[], baseRevision = 5) => normalize(input({ kind: "resolve", baseRevision, parents }));
+test("frontier evidence integrity: unseen pending can never be resolved", () => {
+  expect(() => decide(scope, h5, [ev("e3", 3), ev("e4", 4), ev("x4", 4)], res(["e3", "e4", "x4"]))).toThrow("INTEGRITY_ERROR"); // dup seq
+  expect(() => decide(scope, h5, [ev("e3", 3), ev("e4", 4), ev("e9", 9)], res(["e3", "e4", "e9"]))).toThrow("INTEGRITY_ERROR"); // seq > revision
+  expect(() => decide(scope, h5, [ev("e3", 3), ev("e5", 5)], res(["e3", "e5"]))).toThrow("INTEGRITY_ERROR"); // truncated page
+  expect(() => decide(scope, { ...h5, pendingCount: 1 }, [ev("e3", 3), ev("e4", 4)], res(["e3", "e4"]))).toThrow("INTEGRITY_ERROR"); // corrupt count
+});
+test("head/registry integrity", () => {
+  expect(() => decide(scope, { revision: 3, clearedThrough: 3, pendingCount: 0, canonicalEventId: "e2" }, [ev("e2", 2)], normalize(input({ baseRevision: 3 })))).toThrow("INTEGRITY_ERROR");
+  expect(() => decide(scope, { revision: 1, clearedThrough: 1, pendingCount: 0 }, [ev("e1", 1)], normalize(input({ baseRevision: 1 })))).toThrow("INTEGRITY_ERROR");
+  expect(() => decide({ ...scope, questionId: "q-other" }, empty(), [], normalize(input({ questionId: "q-other" })))).toThrow("TARGET");
+  expect(() => normalize(Object.assign(Object.create({ x: 1 }), input()))).toThrow("VALIDATION");
+});
