@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { schema } from "./capsule/server/schema";
 import * as store from "./capsule/server/store";
 import { memoryDb } from "./memory-db";
-import { FIXTURE } from "./capsule/shared/protocol";
+import { FIXTURE, normalize } from "./capsule/shared/protocol";
 
 // LOCAL ADAPTER EVIDENCE ONLY: identities are injected here, outside capsule imports/exports.
 // Not Lakebed auth, atomicity or serialization proof; signed-in runtime cases stay UNRUN until P3.
@@ -58,7 +58,7 @@ test("T04 save/resolve without membership are denied; scope, kind and identity b
   expect(mem.rows("memberships")).toHaveLength(1);
 });
 
-test("T02 replay at cap after content change: same receipt, one event; changed fields are OP_ID_REUSE", async () => {
+test("T02 replay at the 48 cap after the head advanced 47 times: same receipt, one event; changed fields are OP_ID_REUSE", async () => {
   const mem = await setup(U1);
   const first = await save(mem, U1, { opId: "lost-ack" });
   await fill(mem, 1, 48);
@@ -72,6 +72,40 @@ test("T02 replay at cap after content change: same receipt, one event; changed f
     await refused(mem, () => save(mem, U1, { opId: "lost-ack", ...patch }), "OP_ID_REUSE");
   }
   await refused(mem, () => resolve(mem, U1, { opId: "lost-ack", parents: [first.eventId] }), "OP_ID_REUSE");
+});
+
+test("T02 historical op (retired revision/question, seeded) replays before freshness/capacity at the 64 hard cap", async () => {
+  const mem = await setup(U1);
+  const first = await save(mem, U1);
+  const old = { contentRevision: "synthetic-r0", questionId: "q-retired-r0" };
+  // Explicitly seeded historical state (an op admitted under a retired registry), not a real migration.
+  await mem.run(async db => {
+    await db.events.update(first.eventId, { normalizedRequest: normalize(op(old)).json, questionId: old.questionId });
+    await db.quota.update(quota(mem).id, { eventsTotal: 64 });
+  });
+  const forbidden = (): never => { throw new Error("REPLAY_TOUCHED_QUOTA_OR_HEAD"); };
+  const sentinel = { withIndex: forbidden, insert: forbidden, update: forbidden };
+  const before = mem.dump();
+  for (let i = 0; i < 2; i++) {
+    expect(await mem.run(db => store.save({ ...db, quota: sentinel, heads: sentinel }, U1, op(old)))).toEqual(first);
+  }
+  expect(mem.dump()).toBe(before);
+  expect(mem.rows("events")).toHaveLength(1);
+});
+
+test("receipts carry canonical-at-commit; later writes never alter an earlier event or receipt", async () => {
+  const mem = await setup(U1);
+  const a = await save(mem, U1);
+  const [rowA] = mem.rows("events");
+  expect(a).toEqual({ outcome: "accepted", eventId: rowA.id, revision: 1, canonicalEventId: rowA.id });
+  const b = await save(mem, U1, { opId: "b" });
+  expect(b).toEqual({ outcome: "conflict", eventId: mem.rows("events")[1].id, revision: 2, canonicalEventId: a.eventId });
+  const r = await resolve(mem, U1, { opId: "r", baseRevision: 2, parents: [a.eventId, b.eventId] });
+  expect(r).toEqual({ outcome: "accepted", eventId: mem.rows("events")[2].id, revision: 3, canonicalEventId: r.eventId });
+  const rows = mem.rows("events");
+  expect(rows[0]).toEqual(rowA);
+  expect(rows.map(e => JSON.parse(e.receipt as string))).toEqual([a, b, r]);
+  expect(mem.rows("heads")[0]).toMatchObject({ canonicalEventId: r.eventId, clearedThrough: 3, pendingCount: 0 });
 });
 
 test("T03 sequential last ordinary slot 47->48 admits one; overflow is CAPACITY with no change", async () => {
