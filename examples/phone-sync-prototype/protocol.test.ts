@@ -73,9 +73,14 @@ test("local normalization rejects malformed Unicode, unknown keys and invalid bo
 
 test("local scope and frontier integrity reject foreign evidence without changing inputs", () => {
   const s = append(empty(), []), before = JSON.stringify(s);
-  for (const badScope of [{ ...scope, ownerId: "foreign" }, { ...scope, dashboardId: "foreign" },
-    { ...scope, questionId: "q-tide-r1" }, { ...scope, field: "note" as const }]) {
-    expect(() => decide(badScope, s.head, s.events, normalize(input()))).toThrow();
+  const pending = append(s.head, s.events, { opId: "pending" });
+  for (const patch of [{ ownerId: "foreign" }, { dashboardId: "foreign" },
+    { questionId: "q-tide-r1" }, { field: "note" as const }]) {
+    const canonical = [{ ...s.events[0], ...patch }];
+    expect(() => decide(scope, s.head, canonical, normalize(input({ baseRevision: 1 })))).toThrow("DENIED");
+    const parent = [pending.events[0], { ...pending.events[1], ...patch }];
+    const resolution = normalize(input({ kind: "resolve", baseRevision: 2, parents: parent.map(e => e.id) }));
+    expect(() => decide(scope, pending.head, parent, resolution)).toThrow("DENIED");
   }
   expect(() => decide(scope, { ...s.head, pendingCount: 1 }, s.events, normalize(input()))).toThrow("INTEGRITY_ERROR");
   expect(() => decide(scope, s.head, s.events, normalize(input({ kind: "resolve", parents: ["unknown"] })))).toThrow("DENIED");
@@ -122,4 +127,35 @@ test("local UTF-8 byte counts match native encoding at exact boundaries", () => 
   }
   const s = append(empty(), []);
   expect(() => decide(scope, s.head, [{ ...s.events[0], id: "x".repeat(65) }], normalize(input()))).toThrow("CAPACITY");
+});
+
+test.each(["baseRevision", "kind", "field", "parents"] as const)("local request accessor %s is rejected without invocation", key => {
+  const raw = input(), value = raw[key];
+  let reads = 0;
+  Object.defineProperty(raw, key, { enumerable: true, get() {
+    reads++;
+    return key === "baseRevision" && reads > 1 ? NaN : value;
+  } });
+  expect(() => normalize(raw)).toThrow("VALIDATION");
+  expect(reads).toBe(0);
+});
+
+test("local parent arrays reject holes, custom prototypes and accessor elements", () => {
+  for (const parents of [Array(1), ["a", , "b"], Object.setPrototypeOf(["a"], {})]) {
+    expect(() => normalize(input({ kind: "resolve", parents }))).toThrow("VALIDATION");
+  }
+  let reads = 0;
+  const parents = ["a"];
+  Object.defineProperty(parents, "0", { get() { reads++; return "a"; } });
+  expect(() => normalize(input({ kind: "resolve", parents }))).toThrow("VALIDATION");
+  expect(reads).toBe(0);
+});
+
+test("local dense parent snapshot ignores input-supplied map and sort", () => {
+  let calls = 0;
+  const parents = Object.assign(["b", "a"], {
+    map() { calls++; return ["forged"]; }, sort() { calls++; return ["forged"]; },
+  });
+  expect(normalize(input({ kind: "resolve", parents })).value.parents).toEqual(["a", "b"]);
+  expect(calls).toBe(0);
 });

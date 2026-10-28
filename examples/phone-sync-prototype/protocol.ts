@@ -41,12 +41,27 @@ export function normalize(raw: unknown): Normalized {
   if (proto !== null && proto !== Object.prototype) fail("VALIDATION");
   const actual = Reflect.ownKeys(raw);
   if (actual.length !== keys.length || actual.some(k => typeof k !== "string" || !keys.includes(k))) fail("VALIDATION");
-  const v = raw as Record<string, unknown>;
+  const v: Record<string, unknown> = Object.create(null);
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(raw, key);
+    if (!descriptor || !("value" in descriptor)) fail("VALIDATION");
+    v[key] = descriptor.value;
+  }
   if (v.protocolVersion !== 2 || !integer(v.baseRevision)) fail("VALIDATION");
   if (v.field !== "answer" && v.field !== "note") fail("VALIDATION");
   if (v.kind !== "save" && v.kind !== "clear" && v.kind !== "resolve") fail("VALIDATION");
-  if (!Array.isArray(v.parents) || v.parents.length > LIMITS.MAX_PARENT_IDS) fail("CAPACITY");
-  const parents = v.parents.map(appId).sort();
+  const source = v.parents;
+  if (!Array.isArray(source) || Object.getPrototypeOf(source) !== Array.prototype) fail("VALIDATION");
+  const length = Object.getOwnPropertyDescriptor(source, "length")?.value;
+  if (!integer(length) || length > LIMITS.MAX_PARENT_IDS) fail("CAPACITY");
+  const dense: unknown[] = [];
+  for (let i = 0; i < length; i++) {
+    const element = Object.getOwnPropertyDescriptor(source, String(i));
+    if (!element) fail("VALIDATION");
+    if (!("value" in element)) fail("VALIDATION");
+    dense.push(element.value);
+  }
+  const parents = dense.map(appId).sort();
   if (new Set(parents).size !== parents.length) fail("VALIDATION");
   const payload = boundedText(v.payload, LIMITS.MAX_PAYLOAD_UTF8);
   if ((v.kind !== "resolve" && parents.length) || (v.kind === "clear" && payload !== "")) fail("VALIDATION");
