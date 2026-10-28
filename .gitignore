@@ -1,6 +1,7 @@
 # Node/Bun artifacts
 node_modules/
 dist/
+.lakebed/
 bun.lockb
 
 # Local config and private runtime
