@@ -1,8 +1,8 @@
 import type { IndexRange, PaginationOptions, PaginationResult } from "lakebed/database";
 import { FIXTURE, LIMITS, boundedText, decide, normalize, replay, sealReceipt, type Event, type Head, type Scope } from "../shared/protocol";
 
-// Admission logic over a narrow port of the documented database subset: withIndex(eq/gt)/take,
-// insert, update (docs.lakebed.dev/database; lakebed/dist/database/query.d.ts:79-85,94,103,110-111).
+// Admission logic over a narrow port of the documented database subset: withIndex(eq/gt)/take/paginate,
+// insert, update (docs.lakebed.dev/database; lakebed/dist/database/query.d.ts:15-23,79-85,94,96,103,110-111).
 // ownerId comes only from ctx.auth.requireSignedIn() in the handler, never from arguments.
 export type Row = Record<string, unknown> & { id: string };
 export type Range = IndexRange; // store.ts calls only eq and gt

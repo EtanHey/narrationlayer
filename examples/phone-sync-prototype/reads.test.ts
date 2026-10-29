@@ -102,6 +102,7 @@ describe.each(["memory", "lakebed"])("P1c local adapter evidence: %s", backend =
   });
 
   test("history is bounded, paginated, query-scoped and read-only", async () => {
+    expect(LIMITS.MAX_PAGE).toBe(16);
     const h = await setup(backend, [U1, U2]);
     for (let i = 0; i < 18; i++) await h.save({ opId: `page-${i}`, baseRevision: i });
     const before = await h.snapshot();
@@ -152,7 +153,6 @@ describe.each(["memory", "lakebed"])("P1c local adapter evidence: %s", backend =
     await h.run(db => db.heads.update(head.id, { canonicalEventId: a.eventId }));
     await h.run(db => db.events.update(a.eventId, { questionId: FIXTURE.questionIds[1] }));
     await denied(h, () => h.heads());
-    expect(LIMITS.MAX_PAGE).toBe(16);
   });
 
   test("empty reads, first-write conflicts, and duplicate or inconsistent evidence", async () => {
@@ -179,4 +179,27 @@ describe.each(["memory", "lakebed"])("P1c local adapter evidence: %s", backend =
     await h.run(db => db.memberships.insert({ ownerId: U1, dashboardId: D, active: true }));
     for (const attempt of [() => h.heads(), () => h.history(), () => h.receipt()]) await denied(h, attempt, "INTEGRITY_ERROR");
   });
+  test("pending frontier must match the fetched rows, not only head arithmetic", async () => {
+    const h = await setup(backend);
+    await h.save({ baseRevision: 1 });
+    await h.save({ opId: "b", baseRevision: 1, payload: "Invented B" });
+    const [head] = await h.rows("heads");
+    expect(head).toMatchObject({ revision: 2, clearedThrough: 0, pendingCount: 2 });
+    await h.run(db => db.heads.update(head.id, { revision: 3, pendingCount: 3 }));
+    await denied(h, () => h.heads(), "INTEGRITY_ERROR");
+    await h.run(db => db.heads.update(head.id, { revision: 2, pendingCount: 2 }));
+    const first = (await h.rows("events")).find(e => e.seq === 1)!;
+    await h.run(db => db.events.update(first.id, { seq: 3 }));
+    await denied(h, () => h.heads(), "INTEGRITY_ERROR");
+  });
+});
+
+import app from "./capsule/server/index";
+test("every query handler refuses before touching the database when requireSignedIn throws", async () => {
+  const db = new Proxy({}, { get() { throw new Error("db touched before auth"); } });
+  const ctx = { auth: { requireSignedIn() { throw new Error("UNAUTHENTICATED"); }, userId: U1 }, db } as never;
+  const queries = (app as unknown as { queries: Record<string, (...a: unknown[]) => Promise<unknown>> }).queries;
+  const calls: [string, unknown[]][] = [["heads", [D]], ["history", [D, Q, "answer", { cursor: null, numItems: 1 }]], ["receipt", [D, "phone-a", "a"]]];
+  expect(Object.keys(queries).sort()).toEqual(calls.map(([n]) => n).sort());
+  for (const [name, args] of calls) await expect(queries[name](ctx, ...args)).rejects.toThrow("UNAUTHENTICATED");
 });
