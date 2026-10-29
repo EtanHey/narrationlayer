@@ -45,13 +45,15 @@ measured state-byte usage.
 P2a client (`capsule/client/`): `player.tsx` renders a ~6.5 s synthetic test tone with
 OfflineAudioContext into a WAV Blob (286,694 bytes measured; no speech, nothing hosted) with invented
 word timings; no autoplay, speed 0.75-1.5, and seeks never start playback. `sync.tsx` shows each
-answer/note as not answered, unsaved draft, saving or saved; drafts live in localStorage per account
-and field and never yield to a server value. Conflict, capacity, lost-acknowledgement (receipt) and
-account-switch freeze land in the stacked P2a-states change. `index.tsx` wires this to Lakebed;
-`harness/` wires the same components to the in-memory adapter on a page labelled LOCAL HARNESS
-(`bun examples/phone-sync-prototype/harness/serve.ts`). `client.test.tsx` is happy-dom component
-evidence and `proof/` holds real-browser screenshots and GIFs from the harness (`proof/capture.mjs`).
-The signed-in Lakebed UI, a real phone and hosted audio transport stay UNRUN until P3.
+answer/note as not answered, unsaved draft, saving, saved, conflict (the editor keeps this phone's
+edit; every competing value, resolved with the full sorted parent set), capacity reached (draft kept) or
+not confirmed (lost acknowledgement). The complete operation is persisted with the draft. An uncertain
+save first queries `receipt`; while it is absent, a retry replays the same bytes under the original
+opId, so one edit can never land twice. Drafts and the outbox live in localStorage per account and field. They never yield to a server value, and they stay frozen while another account is open.
+`index.tsx` wires this to Lakebed; `harness/` wires the same components to the in-memory adapter on a
+page labelled LOCAL HARNESS (`bun examples/phone-sync-prototype/harness/serve.ts`). `client.test.tsx`
+is happy-dom component evidence and `proof/` holds real-browser screenshots and GIFs from the harness
+(`proof/capture.mjs`). The signed-in Lakebed UI, a real phone and hosted audio transport stay UNRUN until P3.
 
 Primary evidence: [agents](https://lakebed.dev/agents.md),
 [database](https://docs.lakebed.dev/database/index.md), [auth](https://docs.lakebed.dev/auth/index.md),

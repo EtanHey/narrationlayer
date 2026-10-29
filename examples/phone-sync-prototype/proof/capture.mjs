@@ -76,8 +76,43 @@ for (const width of [1280, 390]) {
   await until("saved");
   await shot("state-saved", question(0));
   await harness("Slow network");
+  await field().locator("textarea").fill("Actually the last one, it resolves.");
+  await harness("Edit from another device");
+  await page.waitForTimeout(300);
+  await shot("state-draft-kept-after-server-update", question(0));
+  await field().getByRole("button", { name: "Save" }).click();
+  await until("conflict");
+  await shot("state-conflict", question(0));
+  await field().locator("[data-value='Actually the last one, it resolves.'] button").click();
+  await until("saved");
+  await shot("state-conflict-resolved", question(0));
+  await harness("Drop acknowledgements");
+  await field("q-orbit-r1", "note").locator("textarea").fill("Tone four felt rushed.");
+  await field("q-orbit-r1", "note").getByRole("button", { name: "Save" }).click();
+  await until("uncertain", "q-orbit-r1", "note");
+  await shot("state-uncertain", question(0));
+  await harness("Drop acknowledgements");
+  await until("saved", "q-orbit-r1", "note");
+  await shot("state-uncertain-reconciled", question(0));
+  await harness("Lose next request");
+  await field("q-tide-r1", "note").locator("textarea").fill("The pause before the last tone felt long.");
+  await field("q-tide-r1", "note").getByRole("button", { name: "Save" }).click();
+  await page.getByText("The server has no record of this save yet.").waitFor();
   await page.waitForTimeout(260);
+  await shot("state-uncertain-not-landed", question(1));
+  await field("q-tide-r1", "note").getByRole("button", { name: "Save" }).click();
+  await until("saved", "q-tide-r1", "note");
+  await harness("Fill test capacity");
+  await field("q-tide-r1").locator("textarea").fill("Shorter gaps between the tones.");
+  await field("q-tide-r1").getByRole("button", { name: "Save" }).click();
+  await until("capacity", "q-tide-r1");
+  await shot("state-capacity", question(1));
   await shot("page-final");
+  await harness("Test account bob");
+  await until("empty");
+  await shot("state-account-switched");
+  await harness("Test account alice");
+  await until("capacity", "q-tide-r1");
   measured[width] = { playing, seekWhilePaused, ...(await page.evaluate(async () => ({
     scrollWidth: document.documentElement.scrollWidth, innerWidth,
     toneBytes: (await (await fetch(document.querySelector("audio").src)).blob()).size,
@@ -105,6 +140,25 @@ await gif("edit-save", async ({ field, until, harness, question }) => {
   await field().getByRole("button", { name: "Save" }).click();
   await until("saved");
 });
+await gif("conflict-resolve", async ({ page, field, until, harness, question }) => {
+  await question(0).evaluate(el => el.scrollIntoView({ block: "start" }));
+  await field().locator("textarea").pressSequentially("The last one.", { delay: 45 });
+  await harness("Edit from another device");
+  await page.waitForTimeout(500);
+  await field().getByRole("button", { name: "Save" }).click();
+  await until("conflict");
+  await page.waitForTimeout(900);
+  await field().locator("[data-value='The last one.'] button").click();
+  await until("saved");
+});
+await gif("capacity", async ({ field, until, harness, question }) => {
+  await question(1).evaluate(el => el.scrollIntoView({ block: "start" }));
+  await harness("Fill test capacity");
+  await field("q-tide-r1").locator("textarea").pressSequentially("Shorter gaps.", { delay: 45 });
+  await field("q-tide-r1").getByRole("button", { name: "Save" }).click();
+  await until("capacity", "q-tide-r1");
+});
+
 writeFileSync(`${out}/measurements.json`, `${JSON.stringify(measured, null, 2)}\n`);
 await browser.close();
 server.stop(true);

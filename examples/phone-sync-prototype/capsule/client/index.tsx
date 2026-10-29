@@ -4,7 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import type app from "../server/index";
 import { FIXTURE } from "../shared/protocol";
 import { press } from "./player";
-import { Answers, Shell, type FieldHead, type Port } from "./sync";
+import { Answers, Shell, type FieldHead, type Port, type Receipt } from "./sync";
 
 // Lakebed port for the shared answer UI. Data components mount only after sign-in and enroll().
 const client = createClient<typeof app>();
@@ -27,6 +27,7 @@ function Enrolled({ account }: { account: string }) {
 
 function Synced({ account }: { account: string }) {
   const port: Port = { account, heads: client.useQuery("heads", FIXTURE.dashboardId) as FieldHead[] | undefined,
-    save: client.useMutation("save") as Port["save"] };
+    save: client.useMutation("save") as Port["save"], resolve: client.useMutation("resolve") as Port["resolve"],
+    useReceipt: (deviceId, opId) => client.useQuery("receipt", FIXTURE.dashboardId, deviceId, opId) as Receipt | null | undefined };
   return <Answers port={port} />;
 }
