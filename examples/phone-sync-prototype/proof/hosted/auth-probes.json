@@ -1,0 +1,38 @@
+[
+  {
+    "name": "heads",
+    "status": 401,
+    "body": "Sign in to use this app.\n",
+    "handlerSent": false
+  },
+  {
+    "name": "history",
+    "status": 401,
+    "body": "Sign in to use this app.\n",
+    "handlerSent": false
+  },
+  {
+    "name": "receipt",
+    "status": 401,
+    "body": "Sign in to use this app.\n",
+    "handlerSent": false
+  },
+  {
+    "name": "enroll",
+    "status": 401,
+    "body": "Sign in to use this app.\n",
+    "handlerSent": false
+  },
+  {
+    "name": "save",
+    "status": 401,
+    "body": "Sign in to use this app.\n",
+    "handlerSent": false
+  },
+  {
+    "name": "resolve",
+    "status": 401,
+    "body": "Sign in to use this app.\n",
+    "handlerSent": false
+  }
+]

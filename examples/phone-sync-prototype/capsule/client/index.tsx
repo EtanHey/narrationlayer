@@ -11,6 +11,7 @@ const client = createClient<typeof app>();
 
 export function App() {
   const auth = useAuth();
+  if (auth.isLoading) return null;
   return (
     <Shell>
       {canAccessApp() && auth.isSignedIn ? <Enrolled key={auth.userId} account={auth.userId} />

@@ -1,0 +1,38 @@
+{
+  "baselineSha": "9f4d527fe252dfdc0d8e5fa3ca6fb30695e4de20",
+  "method": "Agent-browser Canvas2D exact RGBA comparison, normalize each image to its CSS width, preserve full-page height, white-pad shorter page; magenta changed pixels. Expected different harness/signed-out states, not a zero-difference assertion.",
+  "results": [
+    {
+      "width": 1280,
+      "height": 900,
+      "beforePixels": [
+        1280,
+        900
+      ],
+      "afterPixels": [
+        1280,
+        900
+      ],
+      "beforeScale": 1,
+      "afterScale": 1,
+      "changedPixels": 502062,
+      "totalPixels": 1152000
+    },
+    {
+      "width": 390,
+      "height": 1436,
+      "beforePixels": [
+        780,
+        2872
+      ],
+      "afterPixels": [
+        390,
+        844
+      ],
+      "beforeScale": 0.5,
+      "afterScale": 1,
+      "changedPixels": 496411,
+      "totalPixels": 560040
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 # Synthetic phone sync: P1 protocol, capsule and P2a phone UI
 
-Status: P1c read/write capsule plus the P2a client UI. Not deployed, not
-acceptance of the phone prototype. Keep the approved Lakebed state plus future authorized-media architecture.
+Status: P1c read/write capsule plus the P2a client UI, with P3a anonymous hosted checks.
+Preview: https://clear-river-2b6e42e022.lakebed.app (expires `2026-11-05T15:09:50.897Z`).
+Signed-in and physical-phone acceptance remain unrun. Keep the approved Lakebed state plus future authorized-media architecture.
 
 Fixed fixture: `d-demo-r1`, immutable content revision `synthetic-r1`, questions
 `q-orbit-r1` / `q-tide-r1`, each with `answer` / `note`. Values are invented.
@@ -38,7 +39,7 @@ Real runtime (`npx lakebed dev`, `lakebed@0.0.41` on Node >=22.18): no-session a
 (`?lakebed_guest=alice`) WebSocket requests to all three mutations and all three queries are
 refused with 401 at upgrade, before handler execution.
 
-UNRUN until P3 (hosted, real Google sign-in with existing accounts): signed-in success paths,
+UNRUN (hosted, real Google sign-in with existing accounts): signed-in success paths,
 cross-account isolation through real accounts, hosted transaction rollback and serialization,
 measured state-byte usage.
 
@@ -53,11 +54,22 @@ opId, so one edit can never land twice. Drafts and the outbox live in localStora
 `index.tsx` wires this to Lakebed; `harness/` wires the same components to the in-memory adapter on a
 page labelled LOCAL HARNESS (`bun examples/phone-sync-prototype/harness/serve.ts`). `client.test.tsx`
 is happy-dom component evidence and `proof/` holds real-browser screenshots and GIFs from the harness
-(`proof/capture.mjs`). The signed-in Lakebed UI, a real phone and hosted audio transport stay UNRUN until P3.
+(`proof/capture.mjs`). The signed-in Lakebed UI and a real phone remain UNRUN.
+P3a hosted evidence is in [`proof/hosted/`](proof/hosted/README.md): signed-out gate,
+HTTPS/TLS, WebSocket upgrade refusal, zero rows, and client-generated Blob playback/paused seek.
+Auth loading renders nothing; data components stay unmounted until signed in and allowed access.
+
+From this directory use `npx lakebed build capsule --target anonymous --json` and
+`npx lakebed deploy capsule` (the capsule entry lives in `capsule/server/`). CLI state is
+gitignored under `.lakebed/`.
+Run `bun examples/phone-sync-prototype/proof/size.ts` from the repository root after building
+from this directory to reproduce the artifact and conservative row-state budget.
+Answers belong to an account: use the same account on both devices for sync/conflicts;
+account B must not see account A's answers.
 
 Primary evidence: [agents](https://lakebed.dev/agents.md),
 [database](https://docs.lakebed.dev/database/index.md), [auth](https://docs.lakebed.dev/auth/index.md),
 [capsule API](https://docs.lakebed.dev/capsule-api/index.md), [limits](https://docs.lakebed.dev/limits/index.md).
-Free anonymous deployment ownership is separate from visitor auth; no deploy was attempted.
+Free anonymous deployment ownership is separate from visitor auth; this preview is unclaimed.
 Static assets are limited to favicon; P2 must verify any synthetic-tone delivery route.
 Protected-media authorization, Range/Blob, grants, expiry, revocation, cache and audit remain unrun.
