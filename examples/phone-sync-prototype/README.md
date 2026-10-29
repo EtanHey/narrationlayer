@@ -61,7 +61,7 @@ Auth loading renders nothing; data components stay unmounted until signed in and
 
 From this directory use `npx lakebed build capsule --target anonymous --json` and
 `npx lakebed deploy capsule` (the capsule entry lives in `capsule/server/`). CLI state is
-gitignored under `.lakebed/`; retain this deployment's worktree and credential file.
+gitignored under `.lakebed/`.
 Run `bun examples/phone-sync-prototype/proof/size.ts` from the repository root after building
 from this directory to reproduce the artifact and conservative row-state budget.
 Answers belong to an account: use the same account on both devices for sync/conflicts;

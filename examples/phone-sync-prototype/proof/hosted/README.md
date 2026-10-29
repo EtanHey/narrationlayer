@@ -21,3 +21,22 @@ The screenshots were captured in an owned isolated Chrome Beta context after
 `agent-browser start` exited 0, using Playwright `connectOverCDP` on `127.0.0.1:9333`.
 390 CSS pixels is viewport evidence, not a physical-phone receipt.
 No sign-in button was clicked; all signed-in behavior remains untested.
+
+## Pre-PR follow-up
+
+`auth-mutation.json` records a scratch-only OR-gate mutation: baseline exit 0,
+`canAccessApp() || auth.isSignedIn` exit 1 at the guest-with-access assertion,
+restored exit 0. The positive signed-in/access case mounts `Enrolled` and begins
+enrollment in a local component test with injected identity, not a hosted sign-in.
+
+`1280-master-harness-vs-hosted-diff.png` and `390-master-harness-vs-hosted-diff.png`
+compare master's P2a harness initial screenshots at
+`9f4d527fe252dfdc0d8e5fa3ca6fb30695e4de20` (`proof/screens/*-page-initial.png`)
+against the hosted signed-out screenshots. An isolated agent-browser Canvas2D
+compares exact RGBA values without added dependencies. Magenta marks changed
+pixels; unchanged pixels are faded. Normalize each image to its CSS width,
+preserve its full-page height, and white-pad the shorter page. The 390px baseline
+is 780×2872 at 2×, normalized to 390×1436; hosted is 390×844 at 1×.
+`pixel-diff.json` records dimensions, scales and counts. These are expected
+cross-state differences (local harness answers versus hosted sign-in gate),
+not a zero-difference regression assertion or physical-phone proof.

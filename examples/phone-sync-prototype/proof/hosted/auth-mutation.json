@@ -1,0 +1,9 @@
+{
+  "baselineExit": 0,
+  "mutant": "canAccessApp() || auth.isSignedIn",
+  "mutantExit": 1,
+  "failure": "Guest with access must still see sign-in, never Enrolled",
+  "restoredExit": 0,
+  "sourceUnchanged": true,
+  "evidence": "Scratch-copy component test with injected auth/access; not hosted signed-in proof."
+}
