@@ -1,0 +1,46 @@
+{
+  "390": {
+    "playing": {
+      "t": 1.55982,
+      "paused": false,
+      "rate": 1,
+      "duration": 6.5
+    },
+    "seekWhilePaused": {
+      "t": 3.45,
+      "paused": true,
+      "rate": 1,
+      "duration": 6.5
+    },
+    "scrollWidth": 390,
+    "innerWidth": 390,
+    "toneBytes": 286694,
+    "under44": []
+  },
+  "1280": {
+    "playing": {
+      "t": 1.558888,
+      "paused": false,
+      "rate": 1,
+      "duration": 6.5
+    },
+    "seekWhilePaused": {
+      "t": 3.45,
+      "paused": true,
+      "rate": 1,
+      "duration": 6.5
+    },
+    "scrollWidth": 1280,
+    "innerWidth": 1280,
+    "toneBytes": 286694,
+    "under44": []
+  },
+  "gif:play-pause-seek": {
+    "frames": 72,
+    "fps": 19.14
+  },
+  "gif:edit-save": {
+    "frames": 92,
+    "fps": 25.1
+  }
+}
