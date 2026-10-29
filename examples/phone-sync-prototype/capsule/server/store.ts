@@ -1,24 +1,30 @@
-import type { IndexRange } from "lakebed/database";
+import type { IndexRange, PaginationOptions, PaginationResult } from "lakebed/database";
 import { FIXTURE, LIMITS, boundedText, decide, normalize, replay, sealReceipt, type Event, type Head, type Scope } from "../shared/protocol";
 
-// Admission logic over a narrow port of the documented database subset: withIndex(eq/gt)/take,
-// insert, update (docs.lakebed.dev/database; lakebed/dist/database/query.d.ts:79-85,94,103,110-111).
+// Admission logic over a narrow port of the documented database subset: withIndex(eq/gt)/take/paginate,
+// insert, update (docs.lakebed.dev/database; lakebed/dist/database/query.d.ts:15-23,79-85,94,96,103,110-111).
 // ownerId comes only from ctx.auth.requireSignedIn() in the handler, never from arguments.
 export type Row = Record<string, unknown> & { id: string };
 export type Range = IndexRange; // store.ts calls only eq and gt
-export type Table = {
-  withIndex(index: string, range: (q: Range) => Range): { take(n: number): Promise<Row[]> };
+export type ReadTable = {
+  withIndex(index: string, range: (q: Range) => Range): {
+    take(n: number): Promise<Row[]>;
+    paginate(page: PaginationOptions): Promise<PaginationResult<Row>>;
+  };
+};
+export type Table = ReadTable & {
   insert(value: Record<string, unknown>): Promise<Row>;
   update(id: string, patch: Record<string, unknown>): Promise<unknown>;
 };
 export type Db = Record<"memberships" | "heads" | "events" | "quota", Table>;
+export type ReadDb = Record<keyof Db, ReadTable>;
 export type Receipt = { outcome: "accepted" | "conflict"; eventId: string; revision: number; canonicalEventId: string | null };
 export const QUOTA_KEY = "deployment";
 type Counts = { enrolledAccounts: number; headsTotal: number; eventsTotal: number };
 
 function fail(code: string): never { throw new Error(code); }
 // Indexes are not unique: two matches is corruption, never a guessed winner.
-async function single(table: Table, index: string, pairs: [string, unknown][]) {
+export async function single(table: ReadTable, index: string, pairs: [string, unknown][]) {
   const rows = await table.withIndex(index, q => pairs.reduce((r, [f, v]) => r.eq(f, v), q)).take(2);
   if (rows.length > 1) fail("INTEGRITY_ERROR");
   return rows[0];
@@ -34,7 +40,7 @@ async function writeQuota(db: Db, row: Row | undefined, counts: Counts) {
   if (row) await db.quota.update(row.id, counts);
   else await db.quota.insert({ key: QUOTA_KEY, ...counts });
 }
-async function membership(db: Db, ownerId: string) {
+export async function membership(db: ReadDb, ownerId: string) {
   boundedText(ownerId, LIMITS.MAX_ID_UTF8, true); // unsupported identity is refused, never truncated
   return single(db.memberships, "by_owner_dashboard", [["ownerId", ownerId], ["dashboardId", FIXTURE.dashboardId]]);
 }
