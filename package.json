@@ -31,5 +31,8 @@
   },
   "engines": {
     "bun": ">=1.0.0"
+  },
+  "dependencies": {
+    "lakebed": "0.0.41"
   }
 }

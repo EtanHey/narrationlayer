@@ -11,7 +11,14 @@ export type Event = Scope & { id: string; seq: number; normalizedRequest: string
   payload: string; parents: string };
 type Operation = Omit<Scope, "ownerId"> & { protocolVersion: 2; contentRevision: string; deviceId: string;
   opId: string; kind: "save" | "clear" | "resolve"; baseRevision: number; payload: string; parents: string[] };
-export type Normalized = Readonly<{ value: Readonly<Operation>; json: string }>;
+declare const brand: unique symbol;
+export type Normalized = Readonly<{ value: Readonly<Operation>; json: string; [brand]: true }>;
+// N4: only normalize() outputs pass replay/decide; a structural copy is refused at runtime.
+const issued = new WeakSet<object>();
+function own(op: Normalized): Readonly<Operation> {
+  if (!issued.has(op)) fail("VALIDATION");
+  return op.value;
+}
 const keys = ["protocolVersion", "contentRevision", "dashboardId", "questionId", "field", "deviceId",
   "opId", "kind", "baseRevision", "payload", "parents"];
 function fail(code: string): never { throw new Error(code); }
@@ -71,11 +78,14 @@ export function normalize(raw: unknown): Normalized {
     baseRevision: v.baseRevision, payload, parents };
   const json = boundedText(JSON.stringify(value), LIMITS.MAX_NORMALIZED_UTF8);
   Object.freeze(value.parents);
-  return Object.freeze({ value: Object.freeze(value), json });
+  const op = Object.freeze({ value: Object.freeze(value), json }) as Normalized;
+  issued.add(op);
+  return op;
 }
 // Call only after signed-in identity, active membership, bounded shape and dashboard authorization.
 // The future storage adapter must do the account/device/op lookup BEFORE new-operation checks.
 export function replay(existing: Pick<Event, "normalizedRequest" | "receipt">, op: Normalized): string {
+  own(op);
   if (existing.normalizedRequest !== op.json) fail("OP_ID_REUSE");
   return existing.receipt;
 }
@@ -90,8 +100,8 @@ function sameScope(a: Scope, b: Scope): boolean {
 // Evidence must contain canonical + ALL pending + supplied parents, with no foreign rows.
 // This pure helper cannot prove the adapter fetched a complete page or reserved global quota.
 export function decide(scope: Scope, head: Head, evidence: readonly Event[], op: Normalized) {
+  const v = own(op);
   appId(scope.ownerId);
-  const v = op.value;
   if (scope.dashboardId !== v.dashboardId || scope.questionId !== v.questionId || scope.field !== v.field) fail("DENIED");
   if (v.dashboardId !== FIXTURE.dashboardId || !FIXTURE.questionIds.includes(v.questionId)) fail("TARGET");
   if (v.contentRevision !== FIXTURE.contentRevision) fail("CONTENT_REVISION");

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { normalize, decide, replay, sealReceipt, boundedText, FIXTURE, LIMITS, type Event, type Head, type Scope } from "./protocol";
+import { normalize, decide, replay, sealReceipt, boundedText, FIXTURE, LIMITS, type Event, type Head, type Scope } from "./capsule/shared/protocol";
 
 // Local algorithm evidence only: no Lakebed imports, identity injection or transactions.
 const scope: Scope = { ownerId: "synthetic-account", dashboardId: FIXTURE.dashboardId, questionId: "q-orbit-r1", field: "answer" };
@@ -174,4 +174,11 @@ test("head/registry integrity", () => {
   expect(() => decide(scope, { revision: 1, clearedThrough: 1, pendingCount: 0 }, [ev("e1", 1)], normalize(input({ baseRevision: 1 })))).toThrow("INTEGRITY_ERROR");
   expect(() => decide({ ...scope, questionId: "q-other" }, empty(), [], normalize(input({ questionId: "q-other" })))).toThrow("TARGET");
   expect(() => normalize(Object.assign(Object.create({ x: 1 }), input()))).toThrow("VALIDATION");
+});
+test("N4 only normalize() outputs reach replay/decide; structural copies are refused", () => {
+  const real = normalize(input());
+  const forged = Object.freeze({ value: real.value, json: real.json }) as typeof real;
+  expect(() => replay({ normalizedRequest: real.json, receipt: "r" }, forged)).toThrow("VALIDATION");
+  expect(() => decide(scope, empty(), [], forged)).toThrow("VALIDATION");
+  expect(replay({ normalizedRequest: real.json, receipt: "r" }, real)).toBe("r");
 });
