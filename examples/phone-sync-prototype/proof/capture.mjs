@@ -63,9 +63,11 @@ for (const width of [1280, 390]) {
   await page.locator("[data-word='3']").click();
   const seekWhilePaused = await audio();
   await page.locator("[data-speed='1.5']").click();
+  await page.waitForTimeout(260);
   await shot("player-seek-paused-speed", player);
   await shot("state-empty", question(0));
   await field().locator("textarea").fill("The second tone, where the pitch drops.");
+  await page.waitForTimeout(260);
   await shot("state-draft", question(0));
   await harness("Slow network");
   await field().getByRole("button", { name: "Save" }).click();

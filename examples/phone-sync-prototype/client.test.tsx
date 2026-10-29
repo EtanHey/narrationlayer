@@ -59,6 +59,33 @@ test("speed applies to the audio element", async () => {
   expect($("[data-speed='1.5']").getAttribute("aria-pressed")).toBe("true");
 });
 
+test("review: upper seek clamp handles an out-of-range event", async () => {
+  await mount(<Player source={tone} />);
+  const range = $("input[type=range]");
+  Object.defineProperty(range, "value", { configurable: true, value: "1000" });
+  act(() => fire(range, "change"));
+  expect($("audio").currentTime).toBe(6.5);
+});
+
+test("review: lower seek clamp handles an out-of-range event", async () => {
+  await mount(<Player source={tone} />);
+  const range = $("input[type=range]");
+  Object.defineProperty(range, "value", { configurable: true, value: "-1000" });
+  act(() => fire(range, "change"));
+  expect($("audio").currentTime).toBe(0);
+});
+
+test("review: playback cannot yank the seek thumb during scrubbing", async () => {
+  await mount(<Player source={tone} />);
+  const range = $("input[type=range]");
+  range.value = "2.5"; act(() => fire(range, "input"));
+  $("audio").currentTime = 4; act(() => fire($("audio"), "timeupdate"));
+  expect(range.value).toBe("2.5");
+  act(() => fire(range, "change"));
+  $("audio").currentTime = 5; act(() => fire($("audio"), "timeupdate"));
+  expect(range.value).toBe("5");
+});
+
 function View({ h, account }: { h: Harness; account: string }) { return <Answers port={useHarnessPort(h, account)} />; }
 const field = (q: string, f = "answer") => $(`[data-field='${q}:${f}']`);
 const state = (q: string, f = "answer") => field(q, f).getAttribute("data-state");
@@ -75,8 +102,10 @@ test("field states: empty -> unsaved draft -> saving -> saved, refresh-safe", as
   const h = createHarness();
   await mount(<View h={h} account="alice" />);
   expect(state(Q)).toBe("empty");
+  const fades = () => field(Q).querySelector("[role=status]").className.includes("starting:opacity-0");
+  expect(fades()).toBe(false); // no entrance fade on first load
   await type(Q, "Invented answer");
-  expect(state(Q)).toBe("draft");
+  expect([state(Q), fades()]).toEqual(["draft", true]);
   await mount(<View h={h} account="alice" key="refresh" />);
   expect([state(Q), text(Q)]).toEqual(["draft", "Invented answer"]);
   act(() => button(Q, "Save").click());
