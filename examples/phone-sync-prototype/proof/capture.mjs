@@ -87,19 +87,32 @@ for (const width of [1280, 390]) {
   await until("saved");
   await shot("state-conflict-resolved", question(0));
   await harness("Drop acknowledgements");
-  await field("q-orbit-r1", "note").locator("textarea").fill("Saved, but the reply never arrived.");
+  await field("q-orbit-r1", "note").locator("textarea").fill("Tone four felt rushed.");
   await field("q-orbit-r1", "note").getByRole("button", { name: "Save" }).click();
   await until("uncertain", "q-orbit-r1", "note");
   await shot("state-uncertain", question(0));
   await harness("Drop acknowledgements");
   await until("saved", "q-orbit-r1", "note");
   await shot("state-uncertain-reconciled", question(0));
+  await harness("Lose next request");
+  await field("q-tide-r1", "note").locator("textarea").fill("The pause before the last tone felt long.");
+  await field("q-tide-r1", "note").getByRole("button", { name: "Save" }).click();
+  await page.getByText("The server has no record of this save yet.").waitFor();
+  await page.waitForTimeout(260);
+  await shot("state-uncertain-not-landed", question(1));
+  await field("q-tide-r1", "note").getByRole("button", { name: "Save" }).click();
+  await until("saved", "q-tide-r1", "note");
   await harness("Fill test capacity");
   await field("q-tide-r1").locator("textarea").fill("Shorter gaps between the tones.");
   await field("q-tide-r1").getByRole("button", { name: "Save" }).click();
   await until("capacity", "q-tide-r1");
   await shot("state-capacity", question(1));
   await shot("page-final");
+  await harness("Test account bob");
+  await until("empty");
+  await shot("state-account-switched");
+  await harness("Test account alice");
+  await until("capacity", "q-tide-r1");
   measured[width] = { playing, seekWhilePaused, ...(await page.evaluate(async () => ({
     scrollWidth: document.documentElement.scrollWidth, innerWidth,
     toneBytes: (await (await fetch(document.querySelector("audio").src)).blob()).size,

@@ -22,6 +22,7 @@ function HarnessPage() {
         <button type="button" onClick={() => void h.otherDevice(account, "q-orbit-r1", "answer", "Edited on another device")} className={control()}>Edit from another device</button>
         <button type="button" aria-pressed={h.latency > 0} onClick={toggle(() => (h.latency = h.latency ? 0 : 1500))} className={control(h.latency > 0)}>Slow network</button>
         <button type="button" aria-pressed={h.dropAcks} onClick={toggle(() => h.setDropAcks(!h.dropAcks))} className={control(h.dropAcks)}>Drop acknowledgements</button>
+        <button type="button" aria-pressed={h.failNext} onClick={toggle(() => (h.failNext = !h.failNext))} className={control(h.failNext)}>Lose next request</button>
         <button type="button" onClick={() => void h.fillCapacity()} className={control()}>Fill test capacity</button>
       </div>
     </div>

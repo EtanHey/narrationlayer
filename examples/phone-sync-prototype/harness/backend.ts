@@ -14,7 +14,7 @@ export function createHarness() {
   for (const account of ["alice", "bob"]) void mem.run(db => store.enroll(db, account));
   let other = 0;
   const h = {
-    calls: [] as Record<string, unknown>[], dropAcks: false, latency: 0,
+    calls: [] as Record<string, unknown>[], dropAcks: false, failNext: false, latency: 0,
     heads: (account: string) => mem.run(db => reads.heads(db, account, FIXTURE.dashboardId)) as unknown as Promise<FieldHead[]>,
     receipt: (account: string, deviceId: string, opId: string) =>
       mem.run(db => reads.receipt(db, account, FIXTURE.dashboardId, deviceId, opId)),
@@ -24,6 +24,8 @@ export function createHarness() {
     setDropAcks(on: boolean) { h.dropAcks = on; h.notify(); },
     mutate: (write: typeof store.save, account: string) => async (op: object) => {
       h.calls.push(op as Record<string, unknown>);
+      // Lost request: refused before it reaches the store, so no receipt will ever exist for it.
+      if (h.failNext && !(h.failNext = false)) throw new Error("LOCAL HARNESS lost the request before commit");
       await new Promise(r => setTimeout(r, h.latency));
       const receipt = await mem.run(db => write(db, account, op));
       h.notify();
