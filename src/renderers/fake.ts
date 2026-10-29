@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { resolveWithinRoot } from "../path-safety.js";
 
 import { type RenderManifestSegment, type WordTiming, type NormalizedNarrationJob, type WordsFile } from "../schema.js";
 import { getWordsFromScript } from "./voicelayer-qwen3.js";
@@ -38,14 +38,14 @@ export async function renderSegment(
   job: NormalizedNarrationJob,
   options: RenderSegmentOptions,
 ): Promise<RenderManifestSegment> {
-  const artifactsRoot = path.join(options.artifactsDir, "segments", segmentId);
+  const artifactsRoot = resolveWithinRoot(options.artifactsDir, "segments", segmentId);
+  const audioPath = resolveWithinRoot(artifactsRoot, `${segmentId}.mp3`);
+  const wordsPath = resolveWithinRoot(artifactsRoot, "words.json");
   await mkdir(artifactsRoot, { recursive: true });
 
   const words = getWordsFromScript(segment.script);
   const durationSeconds = clampNonNegative(segment.duration_seconds ?? estimateDurationFromWords(words.length));
 
-  const audioPath = path.join(artifactsRoot, `${segmentId}.mp3`);
-  const wordsPath = path.join(artifactsRoot, "words.json");
   const normalizedWords = words.length
     ? words.map((word, index) => {
       const start = durationSeconds * (index / words.length);

@@ -4,6 +4,7 @@ import process from "node:process";
 import { readFile } from "node:fs/promises";
 
 import { NARRATION_MCP_TOOLS, type McpToolContract } from "./contract.js";
+import { parsePathId } from "./schema.js";
 import {
   createJobFromPayload,
   getJobResult,
@@ -72,11 +73,7 @@ function textResult(payload: unknown): Record<string, unknown> {
 }
 
 function getJobId(args: Record<string, unknown>): string {
-  const jobId = typeof args.job_id === "string" ? args.job_id.trim() : "";
-  if (!jobId) {
-    throw new Error("Missing required argument: job_id");
-  }
-  return jobId;
+  return parsePathId(args.job_id, "job_id");
 }
 
 export async function handleMcpToolCall(tool: string, args: Record<string, unknown> = {}): Promise<Record<string, unknown>> {

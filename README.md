@@ -13,6 +13,9 @@ repo identity stays neutral.
 
 - Default data directory: `~/.narrationlayer`
 - Override with `NARRATIONLAYER_DATA_DIR`
+- Job and segment IDs must be 1–128 ASCII letters, digits, dots, underscores or
+  hyphens, starting with a letter or digit. Unsafe IDs are rejected, not rewritten.
+  Omitted IDs still default to a UUID for jobs and `segment-N` for segments.
 - Each job is stored under `<data-dir>/jobs/<job-id>/` with:
   - `job.json`
   - `status.json`
