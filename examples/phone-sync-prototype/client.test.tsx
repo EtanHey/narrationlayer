@@ -84,3 +84,72 @@ test("field states: empty -> unsaved draft -> saving -> saved, refresh-safe", as
   await flush();
   expect([state(Q), text(Q)]).toEqual(["saved", "Invented answer"]);
 });
+
+test("a dirty draft survives a server update; conflict shows both and resolves with the full parent set", async () => {
+  const h = createHarness();
+  await mount(<View h={h} account="alice" />);
+  await type(Q, "Mine");
+  await h.otherDevice("alice", Q, "answer", "Theirs");
+  await flush();
+  expect([state(Q), text(Q)]).toEqual(["draft", "Mine"]);
+  act(() => button(Q, "Save").click()); await flush();
+  expect(state(Q)).toBe("conflict");
+  const values = [...field(Q).querySelectorAll("[data-value]")].map((n: any) => n.getAttribute("data-value"));
+  expect(values).toEqual(["Theirs", "Mine"]);
+  const heads = await h.heads("alice");
+  const frontier = [heads[0]!.canonical!.id, heads[0]!.pending[0]!.id].sort();
+  act(() => field(Q).querySelectorAll("[data-value] button")[0].click()); await flush();
+  expect(h.calls.at(-1)).toMatchObject({ kind: "resolve", parents: frontier, payload: "Theirs", baseRevision: 2 });
+  expect([state(Q), text(Q)]).toEqual(["saved", "Theirs"]);
+});
+
+test("capacity keeps the draft, visibly unsaved", async () => {
+  const h = createHarness();
+  await h.fillCapacity();
+  await mount(<View h={h} account="alice" />);
+  await type(Q, "Kept on this phone");
+  act(() => button(Q, "Save").click()); await flush();
+  expect([state(Q), text(Q)]).toEqual(["capacity", "Kept on this phone"]);
+  expect(win.localStorage.getItem(`nl-phone-sync:alice:${Q}:answer`)).toContain("Kept on this phone");
+});
+
+test("a lost acknowledgement stays uncertain, then reconciles via receipt with no resend", async () => {
+  const h = createHarness();
+  h.setDropAcks(true);
+  await mount(<View h={h} account="alice" />);
+  await type(Q, "Landed quietly");
+  act(() => button(Q, "Save").click()); await flush();
+  expect(state(Q)).toBe("uncertain");
+  h.setDropAcks(false); await flush();
+  expect([state(Q), text(Q), h.calls.length]).toEqual(["saved", "Landed quietly", 1]);
+});
+
+test("account switch freezes the old account's draft and outbox, reconciling on return", async () => {
+  const h = createHarness();
+  h.setDropAcks(true);
+  await mount(<View h={h} account="alice" key="alice" />);
+  await type(Q, "Alice only");
+  await type("q-tide-r1", "Alice note", "note");
+  act(() => button(Q, "Save").click()); await flush();
+  await mount(<View h={h} account="bob" key="bob" />);
+  expect([state(Q), text(Q), text("q-tide-r1", "note")]).toEqual(["empty", "", ""]);
+  h.setDropAcks(false);
+  await mount(<View h={h} account="alice" key="alice" />);
+  expect([state(Q), state("q-tide-r1", "note"), text("q-tide-r1", "note"), h.calls.length]).toEqual(["saved", "draft", "Alice note", 1]);
+});
+
+test("a switch mid-save freezes the outbox; on return it is uncertain until a receipt reconciles it", async () => {
+  const h = createHarness();
+  h.latency = 30;
+  await mount(<View h={h} account="alice" key="alice" />);
+  await type(Q, "In flight");
+  act(() => button(Q, "Save").click());
+  await mount(<View h={h} account="bob" key="bob" />);
+  await new Promise(r => setTimeout(r, 60)); await flush();
+  expect(JSON.parse(win.localStorage.getItem(`nl-phone-sync:alice:${Q}:answer`))).toMatchObject({ text: "In flight", sent: {} });
+  h.setDropAcks(true);
+  await mount(<View h={h} account="alice" key="alice" />);
+  expect(state(Q)).toBe("uncertain");
+  h.setDropAcks(false); await flush();
+  expect([state(Q), text(Q), h.calls.length]).toEqual(["saved", "In flight", 1]);
+});

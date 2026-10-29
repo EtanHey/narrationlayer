@@ -1,7 +1,7 @@
 {
   "390": {
     "playing": {
-      "t": 1.558262,
+      "t": 1.560235,
       "paused": false,
       "rate": 1,
       "duration": 6.5
@@ -19,7 +19,7 @@
   },
   "1280": {
     "playing": {
-      "t": 1.55721,
+      "t": 1.569777,
       "paused": false,
       "rate": 1,
       "duration": 6.5
@@ -36,11 +36,19 @@
     "under44": []
   },
   "gif:play-pause-seek": {
-    "frames": 70,
-    "fps": 18.65
+    "frames": 67,
+    "fps": 18.03
   },
   "gif:edit-save": {
-    "frames": 87,
-    "fps": 23.55
+    "frames": 90,
+    "fps": 24.45
+  },
+  "gif:conflict-resolve": {
+    "frames": 80,
+    "fps": 23.13
+  },
+  "gif:capacity": {
+    "frames": 37,
+    "fps": 20.94
   }
 }
