@@ -23,11 +23,24 @@ export function memoryDb(schema: Record<Name, { indexes: { name: string; fields:
         if (c.field !== fields[i] || (c.op === "gt" && i !== clauses.length - 1)) throw new Error("range must follow index");
       });
       const key = (r: Row) => fields.map(f => r[f] as string | number);
-      return { async take(n) {
+      const take = async (n: number) => {
         return state.rows[name]
           .filter(r => clauses.every(c => c.op === "eq" ? r[c.field] === c.value : (r[c.field] as number) > (c.value as number)))
           .sort((a, b) => { const x = key(a), y = key(b); const i = x.findIndex((v, j) => v !== y[j]); return i < 0 ? 0 : x[i] < y[i] ? -1 : 1; })
           .slice(0, n).map(r => ({ ...r }));
+      };
+      return { take, async paginate({ cursor, numItems }) {
+        // Test-only cursor, bound to the exact range. Not Lakebed's encrypted cursor format.
+        const query = JSON.stringify([name, index, clauses]);
+        let after = 0;
+        if (cursor !== null) {
+          const token = JSON.parse(cursor);
+          if (token.query !== query || !Number.isSafeInteger(token.after) || token.after < 0) throw new Error("cursor mismatch");
+          after = token.after;
+        }
+        const all = await take(Number.MAX_SAFE_INTEGER), page = all.slice(after, after + numItems);
+        const isDone = after + page.length >= all.length;
+        return { page, isDone, continueCursor: isDone ? null : JSON.stringify({ query, after: after + page.length }) };
       } };
     },
     async insert(value) {

@@ -1,6 +1,6 @@
-# Synthetic phone sync: P1 protocol + P1b capsule writes
+# Synthetic phone sync: P1 protocol + capsule reads and writes
 
-Status: P1b write capsule; reads (`heads`/`history`/`receipt`) are P1c. Not deployed, not
+Status: P1c read/write capsule. Not deployed, not
 acceptance of the phone prototype. Keep the approved Lakebed state plus future authorized-media architecture.
 
 Fixed fixture: `d-demo-r1`, immutable content revision `synthetic-r1`, questions
@@ -18,14 +18,25 @@ Layout (`capsule/` is a Lakebed v0 capsule; its build resolves imports only insi
   accounts 2), `take(MAX_PENDING+1)` pending + canonical + scoped parents, `decide`, then insert
   event, seal its receipt with the assigned id, update head and quota. Singletons use checked `take(2)`.
 - `capsule/server/index.ts`: `auth.requireSignIn: true`; each mutation takes `userId` from
-  `ctx.auth.requireSignedIn()` only. No query, admin, grant, revoke or reset handler.
+  `ctx.auth.requireSignedIn()` only. Each query does the same. No admin, grant, revoke or reset handler.
+- `capsule/server/reads.ts`: all reads require current active membership. `heads(dashboardId)`
+  returns field heads with `canonical` (row or null) and complete current `pending` rows; resolved
+  conflicts remain only in history. `history(dashboardId, questionId, field, { cursor, numItems })`
+  uses Lakebed `paginate`, with 1–16 items and the returned opaque `continueCursor` (null initially).
+  Cursors are bound to the scoped query. `receipt(dashboardId, deviceId, opId)` returns the original
+  stored receipt or null; a stored dashboard mismatch is denied. Revocation denies historical reads.
 
 Run `bun test examples/phone-sync-prototype`. `store.test.ts` runs `store.ts` against
 `memory-db.ts`, a **local in-memory adapter: evidence about this code, not Lakebed proof**. It models only
 the subset above, serialized writes, and throw-means-rollback; identities are injected in the test.
+`reads.test.ts` runs every P1c case twice: that adapter and Lakebed's exported `MemoryCapsuleStore`
++ `DatabaseSession`, using the actual serialized schema and read transactions. Both are **local
+adapter evidence** with injected accounts. The first adapter models pagination with a test-only
+query-bound cursor; Lakebed uses its own authenticated cursor format. Neither proves hosted auth.
 
 Real runtime (`npx lakebed dev`, `lakebed@0.0.41` on Node >=22.18): no-session and named-guest
-(`?lakebed_guest=alice`) WebSocket requests to `enroll`/`save`/`resolve` are refused with 401 at upgrade.
+(`?lakebed_guest=alice`) WebSocket requests to all three mutations and all three queries are
+refused with 401 at upgrade, before handler execution.
 
 UNRUN until P3 (hosted, real Google sign-in with existing accounts): signed-in success paths,
 cross-account isolation through real accounts, hosted transaction rollback and serialization,
