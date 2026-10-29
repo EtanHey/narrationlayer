@@ -1,0 +1,9 @@
+{
+  "artifactBytes": 299647,
+  "limitBytes": 1048576,
+  "eventUpperBytes": 14726,
+  "stateUpperBytes": 964034,
+  "rows": 75,
+  "indexBytes": null,
+  "indexNote": "Physical hosted index bytes unmeasured. SDK 0.0.41 memory-store stateBytes counts JSON rows only, excluding indexes. Hosted worst-case usage remains unrun."
+}

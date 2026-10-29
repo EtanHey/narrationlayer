@@ -1,0 +1,10 @@
+[
+  {
+    "at": "2026-10-29T15:09:51.360Z",
+    "data": {
+      "artifactHash": "sha256:0b5ced402b8ce5a57619261178d7c04a4c358ec1b8c438990d5a8dc9560bc1e6"
+    },
+    "level": "info",
+    "message": "anonymous deploy created"
+  }
+]

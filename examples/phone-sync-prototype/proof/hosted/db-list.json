@@ -1,0 +1,113 @@
+{
+  "tables": [
+    "heads",
+    "quota",
+    "events",
+    "memberships"
+  ],
+  "counts": {
+    "heads": 0,
+    "quota": 0,
+    "events": 0,
+    "memberships": 0
+  },
+  "database": {
+    "apiVersion": 1,
+    "failedIndexes": [],
+    "indexCodecVersion": 1,
+    "indexes": [
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_creation",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "events",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      },
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_field_seq",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "events",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      },
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_op",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "events",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      },
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_creation",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "heads",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      },
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_scope",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "heads",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      },
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_creation",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "memberships",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      },
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_owner_dashboard",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "memberships",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      },
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_creation",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "quota",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      },
+      {
+        "codecVersion": 1,
+        "error": null,
+        "name": "by_key",
+        "rowCount": 0,
+        "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107",
+        "state": "ready",
+        "table": "quota",
+        "updatedAt": "2026-10-29T15:09:50.910Z"
+      }
+    ],
+    "metrics": [],
+    "schemaHash": "sha256:12d6ae4c98c332aaf31f1d25f466344936d61aa18ad6e741f1f7c98a8dd42107"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "runtimeQuota": "deploy_daily",
+  "limits": {
+    "artifactBytes": 1048576,
+    "stateBytes": 1048576,
+    "stateRows": 16384,
+    "requestsPerDay": 10000,
+    "mutationsPerDay": 1000,
+    "rowsReturned": 1000,
+    "maxValueBytes": 65536,
+    "databaseBytesRead": 4194304,
+    "databaseDirectGets": 1000,
+    "databaseRowsRead": 5000,
+    "databaseScanCalls": 100,
+    "databaseWrites": 1000,
+    "databaseTransactionMs": 5000,
+    "databaseStatementMs": 4500,
+    "databaseLockMs": 1000,
+    "logEntries": 1000,
+    "logBytes": 262144,
+    "logEntryBytes": 16384
+  },
+  "state": {
+    "stateBytes": 0,
+    "stateRows": 0
+  },
+  "usage": [
+    {
+      "bucket": "requests",
+      "count": 6,
+      "windowStart": "2026-10-29T00:00:00.000Z"
+    }
+  ]
+}
