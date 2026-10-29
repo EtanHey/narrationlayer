@@ -122,6 +122,13 @@ function isString(value: unknown, minLen = 1): value is string {
   return typeof value === "string" && value.trim().length >= minLen;
 }
 
+export function parsePathId(value: unknown, field: string): string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value)) {
+    throw new Error(`Invalid ${field}: expected 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit`);
+  }
+  return value;
+}
+
 function normalizeRenderer(value: unknown): RendererName {
   if (value === "voicelayer-qwen3") {
     return value;
@@ -165,7 +172,7 @@ export function parseNarrationJob(raw: unknown): NormalizedNarrationJob {
       if (!title || !script) {
         throw new Error(`segments[${index}] requires title and script`);
       }
-      const id = isString(data.id) ? data.id.trim() : `segment-${index + 1}`;
+      const id = parsePathId(data.id === undefined ? `segment-${index + 1}` : data.id, "segment_id");
       const durationRaw = data.duration_seconds;
       const duration =
         typeof durationRaw === "number" &&
@@ -183,7 +190,7 @@ export function parseNarrationJob(raw: unknown): NormalizedNarrationJob {
   );
 
   return {
-    job_id: isString(input.job_id) ? input.job_id.trim() : randomUUID(),
+    job_id: parsePathId(input.job_id === undefined ? randomUUID() : input.job_id, "job_id"),
     created_at: isString(input.created_at)
       ? input.created_at
       : new Date().toISOString(),

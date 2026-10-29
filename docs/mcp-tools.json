@@ -24,7 +24,10 @@
       "properties": {
         "job_id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "description": "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit."
         }
       },
       "additionalProperties": false,
@@ -41,7 +44,10 @@
       "properties": {
         "job_id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "description": "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit."
         }
       },
       "additionalProperties": false,
@@ -58,7 +64,10 @@
       "properties": {
         "job_id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "description": "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit."
         }
       },
       "additionalProperties": false,

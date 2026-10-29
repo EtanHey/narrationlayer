@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { resolveWithinRoot } from "../path-safety.js";
 
 import { probeAudioDurationSeconds } from "../audio.js";
 import type {
@@ -129,11 +129,11 @@ export async function renderSegment(
   }
 
   const normalizedScript = normalizeForSpeech(segment.script);
-  const artifactsRoot = path.join(options.artifactsDir, "segments", segmentId);
-  await mkdir(artifactsRoot, { recursive: true });
+  const artifactsRoot = resolveWithinRoot(options.artifactsDir, "segments", segmentId);
   const outputExt = safeOutputExt(config.output_ext);
-  const audioPath = path.join(artifactsRoot, `${segmentId}.${outputExt}`);
-  const wordsPath = path.join(artifactsRoot, "words.json");
+  const audioPath = resolveWithinRoot(artifactsRoot, `${segmentId}.${outputExt}`);
+  const wordsPath = resolveWithinRoot(artifactsRoot, "words.json");
+  await mkdir(artifactsRoot, { recursive: true });
   const referenceText: string =
     config.reference_text !== undefined
       ? config.reference_text

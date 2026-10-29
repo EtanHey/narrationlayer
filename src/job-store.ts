@@ -2,7 +2,8 @@ import { mkdir, readFile, writeFile, readdir, access, rename, rm } from "node:fs
 import { constants } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { type RenderManifest, type JobStatus, type NormalizedNarrationJob } from "./schema.js";
+import { parseNarrationJob, parsePathId, type RenderManifest, type JobStatus, type NormalizedNarrationJob } from "./schema.js";
+import { resolveWithinRoot } from "./path-safety.js";
 
 export interface JobPaths {
   jobDir: string;
@@ -37,10 +38,7 @@ export function getDataDir(): string {
 }
 
 export function getJobDir(jobId: string, dataDir = getDataDir()): string {
-  if (!jobId || jobId.trim().length < 2) {
-    throw new Error("jobId is required");
-  }
-  return path.join(dataDir, "jobs", jobId);
+  return resolveWithinRoot(path.join(dataDir, "jobs"), parsePathId(jobId, "job_id"));
 }
 
 export async function ensureDirectory(dirPath: string): Promise<void> {
@@ -51,11 +49,11 @@ export function pathsForJob(jobId: string, dataDir = getDataDir()): JobPaths {
   const jobDir = getJobDir(jobId, dataDir);
   return {
     jobDir,
-    jobPath: path.join(jobDir, "job.json"),
-    statusPath: path.join(jobDir, "status.json"),
-    manifestPath: path.join(jobDir, "manifest.json"),
-    donePath: path.join(jobDir, JOB_MARKER_DONE),
-    failedPath: path.join(jobDir, JOB_MARKER_FAILED),
+    jobPath: resolveWithinRoot(jobDir, "job.json"),
+    statusPath: resolveWithinRoot(jobDir, "status.json"),
+    manifestPath: resolveWithinRoot(jobDir, "manifest.json"),
+    donePath: resolveWithinRoot(jobDir, JOB_MARKER_DONE),
+    failedPath: resolveWithinRoot(jobDir, JOB_MARKER_FAILED),
   };
 }
 
@@ -143,7 +141,7 @@ export async function getJob(jobId: string, dataDir = getDataDir()): Promise<Nor
   if (!(await fileExists(paths.jobPath))) {
     return null;
   }
-  return readJobJson<NormalizedNarrationJob>(paths.jobPath);
+  return parseNarrationJob(await readJobJson<unknown>(paths.jobPath));
 }
 
 export async function getAllJobIds(dataDir = getDataDir()): Promise<string[]> {

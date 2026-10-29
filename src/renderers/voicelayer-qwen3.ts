@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
+import { resolveWithinRoot } from "../path-safety.js";
 
 import { assembleAudioWithSilence, trimAudioSilence, applyAudioEq, type AudioAssemblyChunk } from "../audio.js";
 import { probeAudioDurationSeconds } from "../audio.js";
@@ -349,13 +350,13 @@ export async function renderSegment(
   const referenceText = await loadReferenceText(config);
 
   const fetchImpl = options.fetch ?? fetch;
-  const artifactsRoot = path.join(options.artifactsDir, "segments", segmentId);
+  const artifactsRoot = resolveWithinRoot(options.artifactsDir, "segments", segmentId);
+  const audioPath = resolveWithinRoot(artifactsRoot, `${segmentId}.mp3`);
+  const wordsPath = resolveWithinRoot(artifactsRoot, "words.json");
   await mkdir(artifactsRoot, { recursive: true });
-  const audioPath = path.join(artifactsRoot, `${segmentId}.mp3`);
-  const wordsPath = path.join(artifactsRoot, "words.json");
   const plannedUtterances = planNarrationUtterances(normalizedScript, config);
   const shouldTrim = config.trim_silence === true;
-  const chunksRoot = path.join(artifactsRoot, "chunks");
+  const chunksRoot = resolveWithinRoot(artifactsRoot, "chunks");
   const shouldAssemble = plannedUtterances.length > 1 || plannedUtterances.some((item) => item.pause_after_seconds > 0);
   if (shouldAssemble || shouldTrim) {
     await mkdir(chunksRoot, { recursive: true });
@@ -384,14 +385,14 @@ export async function renderSegment(
       });
       const suffix = attempt === 0 ? `${segmentId}-${index + 1}` : `${segmentId}-${index + 1}.retry-${attempt}`;
       const rawChunkPath = shouldTrim
-        ? path.join(chunksRoot, `${suffix}.raw.mp3`)
+        ? resolveWithinRoot(chunksRoot, `${suffix}.raw.mp3`)
         : shouldAssemble
-          ? path.join(chunksRoot, `${suffix}.mp3`)
+          ? resolveWithinRoot(chunksRoot, `${suffix}.mp3`)
           : audioPath;
       await writeFile(rawChunkPath, Buffer.from(payload.audio_b64 as string, "base64"));
       const chunkPath = shouldTrim
         ? shouldAssemble
-          ? path.join(chunksRoot, `${suffix}.mp3`)
+          ? resolveWithinRoot(chunksRoot, `${suffix}.mp3`)
           : audioPath
         : rawChunkPath;
       if (shouldTrim) {
@@ -406,7 +407,7 @@ export async function renderSegment(
         });
       }
       if (config.eq_highshelf_hz !== undefined || config.eq_highshelf_gain_db !== undefined) {
-        const eqPath = `${chunkPath}.eq.mp3`;
+        const eqPath = resolveWithinRoot(artifactsRoot, `${chunkPath}.eq.mp3`);
         await applyAudioEq(chunkPath, eqPath, {
           highshelfHz: config.eq_highshelf_hz,
           highshelfGainDb: config.eq_highshelf_gain_db,
