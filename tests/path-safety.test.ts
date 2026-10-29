@@ -148,3 +148,22 @@ test("all renderers confine destinations for IDs that bypassed parsing", async (
     await rm(dataDir, { recursive: true, force: true });
   }
 });
+
+test("renderer leaf guards reject IDs whose second application climbs out of the artifacts root", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "nl-path-leaf-"));
+  try {
+    const job = parseNarrationJob(payload);
+    const segment = job.segments[0];
+    const artifactsDir = path.join(dataDir, "sandbox", "one", "two", "three", "artifacts");
+    const options = { dataDir, artifactsDir, fetch: async () => { throw new Error("Unexpected synthesis request"); } };
+    // segments/<id> resolves inside to artifacts/r1/r2, but <id>.mp3 from there resolves outside to three/three/artifacts/r1/r2.mp3.
+    const id = "../../../three/artifacts/r1/r2";
+    expect(resolveWithinRoot(artifactsDir, "segments", id)).toBe(path.join(artifactsDir, "r1", "r2"));
+    await expect(renderFake(id, segment, job, options)).rejects.toThrow(/Path escapes root/);
+    await expect(renderExternal(id, segment, options, { command: process.execPath, args: ["-e", "process.exit(0)"] })).rejects.toThrow(/Path escapes root/);
+    await expect(renderQwen(id, segment, options, { auth_token: "test-token", reference_clip: "/unused.wav", reference_text: "Hello." })).rejects.toThrow(/Path escapes root/);
+    expect(await Bun.file(path.join(dataDir, "sandbox", "one", "two", "three", "three", "artifacts", "r1", "r2.mp3")).exists()).toBe(false);
+  } finally {
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});

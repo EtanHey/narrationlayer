@@ -29,7 +29,7 @@ export const NARRATION_MCP_TOOLS: McpToolContract[] = [
     inputSchema: {
       type: "object",
       properties: {
-        job_id: { type: "string", minLength: 1 },
+        job_id: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", description: "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit." },
       },
       additionalProperties: false,
       required: ["job_id"],
@@ -41,7 +41,7 @@ export const NARRATION_MCP_TOOLS: McpToolContract[] = [
     inputSchema: {
       type: "object",
       properties: {
-        job_id: { type: "string", minLength: 1 },
+        job_id: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", description: "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit." },
       },
       additionalProperties: false,
       required: ["job_id"],
@@ -53,7 +53,7 @@ export const NARRATION_MCP_TOOLS: McpToolContract[] = [
     inputSchema: {
       type: "object",
       properties: {
-        job_id: { type: "string", minLength: 1 },
+        job_id: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", description: "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit." },
       },
       additionalProperties: false,
       required: ["job_id"],
