@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import type { ComponentChildren } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { FIXTURE } from "../shared/protocol";
 import { Player, press } from "./player";
 
@@ -17,7 +17,7 @@ type State = "empty" | "draft" | "saving" | "saved";
 const serif = "[font-family:Charter,'Iowan_Old_Style','Palatino_Linotype',Georgia,serif]";
 const QUESTIONS = [["q-orbit-r1", "Which moment would you replay first?"], ["q-tide-r1", "What should change before the next take?"]];
 const STATES: Record<State, [label: string, glyph: string, tone: string, detail?: string]> = {
-  empty: ["Not answered", "○", "#8A949C"],
+  empty: ["Not answered", "○", "#5B6670"],
   draft: ["Unsaved draft", "◐", "#9A5B0B", "Only on this phone until you save."],
   saving: ["Saving…", "◌", "#1D6B67"],
   saved: ["Saved", "●", "#1D6B67"],
@@ -42,6 +42,9 @@ function Field({ port, device, questionId, field }: { port: Port; device: string
     else localStorage.removeItem(key);
     setDraft(next);
   };
+  // Status labels fade in on a state change only, never on first load (heads arriving included).
+  const settled = useRef(false);
+  useEffect(() => { if (port.heads) settled.current = true; });
   const head = port.heads?.find(h => h.questionId === questionId && h.field === field), revision = head?.revision ?? 0;
   useEffect(() => { if (draft?.landed && revision >= draft.landed) write(null); }, [draft, revision]);
   const state: State = draft?.sent || draft?.landed ? "saving" : draft ? "draft" : head?.canonical ? "saved" : "empty";
@@ -65,7 +68,8 @@ function Field({ port, device, questionId, field }: { port: Port; device: string
     <div data-field={`${questionId}:${field}`} data-state={state} className="mt-4" style={{ "--tone": tone }}>
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="text-[14px] font-medium">{field === "answer" ? "Answer" : "Note"}</label>
-        <span key={state} role="status" className="text-[13px] font-medium text-[var(--tone)] transition-[opacity,transform] duration-200 ease-out starting:opacity-0 motion-safe:starting:translate-y-0.5">
+        <span key={state} role="status" className={"text-[13px] font-medium text-[var(--tone)] " + (settled.current
+          ? "transition-[opacity,transform] duration-200 ease-out starting:opacity-0 motion-safe:starting:translate-y-0.5" : "")}>
           <span aria-hidden="true">{glyph}</span> {label}
         </span>
       </div>
