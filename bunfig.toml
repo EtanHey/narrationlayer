@@ -1,0 +1,2 @@
+[test]
+pathIgnorePatterns = ["**/docs.local/**", "**/.worktrees/**", "**/node_modules/**"]
