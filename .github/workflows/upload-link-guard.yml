@@ -1,0 +1,15 @@
+name: Block uploaded audio links
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  publication-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject links and keys in tracked files
+        run: python3 scripts/check-upload-links.py
+      - name: Prove tracked and staged leak rejection
+        run: python3 -m unittest discover -s tests -p 'test_upload_link_guard.py' -v
