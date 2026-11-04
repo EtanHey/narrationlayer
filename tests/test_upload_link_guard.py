@@ -64,7 +64,8 @@ class PublicationGuardTest(unittest.TestCase):
         (self.root / '.gitignore').write_text('local/\n')
         (self.root / 'local').mkdir()
         (self.root / 'local/private.json').write_text(self.samples()[1])
-        (self.root / 'clean.md').write_text('a' * 64 + '\nnormal text\n')
+        integrity = 'sha512-' + 'B' * 41 + '//' + 'dependency-integrity'
+        (self.root / 'clean.md').write_text('a' * 64 + '\nnormal text\n' + integrity)
         self.git('add', '.gitignore', 'clean.md')
         self.assertEqual(self.command('git', 'commit', '-qm', 'clean').returncode, 0)
         self.assertEqual(self.command('python3', 'scripts/check-upload-links.py').returncode, 0)

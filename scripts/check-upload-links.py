@@ -8,7 +8,7 @@ import sys
 # Match CDN file locations, including JSON-escaped slash separators.
 URL = re.compile(rb'(?:utfs\.io|[a-z0-9-]+\.ufs\.sh|(?:[a-z0-9-]+\.)?uploadthing\.com)(?:\\?/)[^\s<>"\x27]*', re.I)
 # Current provider keys have 48 URL-safe characters; exclude longer hashes/tokens.
-KEY = re.compile(rb'(?<![a-zA-Z0-9_-])(?=[a-zA-Z0-9_-]{0,47}[a-zA-Z0-9])[a-zA-Z0-9_-]{48}(?![a-zA-Z0-9_-])')
+KEY = re.compile(rb'(?<![a-zA-Z0-9_+/-])(?=[a-zA-Z0-9_-]{0,47}[a-zA-Z0-9])[a-zA-Z0-9_-]{48}(?![a-zA-Z0-9_+/-])')
 
 
 def git(*args):
