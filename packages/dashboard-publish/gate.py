@@ -30,7 +30,7 @@ def run(request):
         shell=base64.b64decode(request['shellBase64'], validate=True), dashboard_id=request['dashboardId'],
         saved_keys=request['savedKeys'], deliveries=request['deliveries'], provider=request['provider'],
         artifact=artifact, lock=request['lock'], owner_pid=request['ownerPid'],
-        runtime_config=request.get('runtimeConfig', ROOT / 'answer-runtimes.json'))
+        runtime_config=request.get('runtimeConfig', ROOT / 'answer-runtimes.json'), staging=request.get('staging'))
 
 
 if __name__ == '__main__':

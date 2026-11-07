@@ -34,9 +34,16 @@
           "type": "object",
           "properties": {
             "mode": {
-              "const": "unlisted-candidate"
+              "enum": [
+                "unlisted-candidate",
+                "in-place-maintenance"
+              ]
             },
             "servedShellSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "previousServedShellSha256": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
             }
@@ -45,7 +52,30 @@
             "mode",
             "servedShellSha256"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "mode": {
+                    "const": "in-place-maintenance"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "previousServedShellSha256"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "previousServedShellSha256"
+                  ]
+                }
+              }
+            }
+          ]
         },
         "accountProof": {
           "type": "object",
@@ -165,7 +195,36 @@
         "admission",
         "publishedAt"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "staging": {
+                "properties": {
+                  "mode": {
+                    "const": "in-place-maintenance"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "admission": {
+                "properties": {
+                  "design": {
+                    "enum": [
+                      "COMPARED",
+                      "REDESIGN_APPROVED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "type": "object",
@@ -200,7 +259,9 @@
           "type": "object",
           "properties": {
             "mode": {
-              "const": "none-backfill"
+              "enum": [
+                "none-backfill"
+              ]
             },
             "servedShellSha256": {
               "type": "string",

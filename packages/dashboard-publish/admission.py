@@ -116,18 +116,47 @@ def runtime_status(digest, config):
         raise Refusal('ANSWER_RUNTIME_CONFIG') from None
 
 
-def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider, artifact, lock, owner_pid, runtime_config=ROOT / "answer-runtimes.json"):
+def validate_deliveries(deliveries):
+    require(isinstance(deliveries, dict) and all(isinstance(rows, list) and all(isinstance(row, dict) for row in rows)
+            for rows in deliveries.values()), 'DELIVERIES_SCHEMA')
+    return deliveries
+
+
+def check_staging(staging, design, dashboard_id, deliveries, served_shell_sha256):
+    mode = staging.get('mode') if isinstance(staging, dict) else None
+    require(mode in ('unlisted-candidate', 'in-place-maintenance', 'none-backfill'), 'INVALID_STAGING_MODE')
+    require(mode != 'none-backfill', 'STAGING_MODE')
+    accepted = [row for rows in deliveries.values() for row in rows if row.get('accepted') is True and row.get('dashboardId') == dashboard_id]
+    require(mode != 'unlisted-candidate' or not accepted, 'MAINTENANCE_REQUIRED')
+    if mode == 'in-place-maintenance':
+        previous = staging.get('previousServedShellSha256')
+        require(isinstance(previous, str) and re.fullmatch('[a-f0-9]{64}', previous) and previous != served_shell_sha256, 'MAINTENANCE_PREVIOUS_SHELL')
+        require(design in ('COMPARED', 'REDESIGN_APPROVED'), 'MAINTENANCE_DESIGN')
+        require(bool(accepted), 'MAINTENANCE_NOT_ACCEPTED')
+        recorded = accepted[-1].get('servedShellSha256')
+        require(recorded is None or recorded == previous, 'MAINTENANCE_PREVIOUS_SHELL')
+
+
+def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider, artifact, lock, owner_pid, runtime_config=ROOT / "answer-runtimes.json", staging=None):
     require(handoff is not None, 'HANDOFF_MISSING')
+    design = handoff.get('design', {}) if isinstance(handoff, dict) else {}
+    if isinstance(design, dict) and design.get('admission') == 'FIRST_IN_LINEAGE':
+        approval = design.get('firstInLineage')
+        owner = approval.get('approvedBy') if isinstance(approval, dict) else None
+        reason = approval.get('reason') if isinstance(approval, dict) else None
+        require(isinstance(owner, str) and owner.strip() and owner.strip().upper() != 'UNRECORDED' and isinstance(reason, str) and reason.strip(), 'FIRST_IN_LINEAGE_UNAPPROVED')
     validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
     require(valid_id(dashboard_id) and dashboard_id == handoff['dashboardId'], 'DASHBOARD_ID')
     require(sha(raw) == handoff['sourceHtmlSha256'], 'SOURCE_SHA')  # Prepared input, never builtHtmlSha256.
     for html in (raw, shell):
         scope = check_scope(html, dashboard_id)
+    deliveries = validate_deliveries(deliveries)
     history = deliveries.get(handoff['design']['lineage'], [])
-    require(not (handoff['design']['admission'] == 'FIRST_IN_LINEAGE'
-                 and any(row.get('accepted') is True and not (row.get('dashboardId') == dashboard_id
-                         and row.get('sourceHtmlSha256') == handoff['sourceHtmlSha256'])
-                         for row in history)), 'LINEAGE_EXISTS')
+    self_accepted = any(row.get('accepted') is True and row.get('dashboardId') == dashboard_id
+                        and row.get('sourceHtmlSha256') == handoff['sourceHtmlSha256'] for row in history)
+    require(handoff['design']['admission'] != 'FIRST_IN_LINEAGE' or self_accepted
+            or not any(row.get('accepted') is True for row in history), 'LINEAGE_EXISTS')
+    if staging is not None: check_staging(staging, handoff['design']['admission'], dashboard_id, deliveries, sha(shell))
     require(handoff['answerPersistence'] == 'PASS', 'ANSWER_PERSISTENCE')
     digest = handoff['answerRuntimeSha256']
     require(runtime_sha(raw) == runtime_sha(shell) == digest, 'ANSWER_RUNTIME_MISMATCH')
@@ -148,9 +177,12 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
 
 
 def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
-             handoff=None, admission=None, staging=None, backfill=None, runtime_config=ROOT / "answer-runtimes.json"):
+             handoff=None, admission=None, staging=None, backfill=None, runtime_config=ROOT / "answer-runtimes.json", deliveries=None):
+    deliveries = validate_deliveries({} if deliveries is None else deliveries)
     if backfill is not None:
+        require(isinstance(backfill, dict) and {'dashboardId', 'sourceHtmlSha256', 'sourceHtml', 'accountProof', 'answerIdentity', 'providerReady'} <= backfill.keys(), 'BACKFILL_INPUT')
         require(handoff is None and staging is None and admission is None, 'BACKFILL_INPUT')
+        require(isinstance(backfill.get('sourceHtml'), bytes), 'BACKFILL_INPUT')
         dashboard_id, source_sha = backfill['dashboardId'], backfill['sourceHtmlSha256']
         require(valid_id(dashboard_id), 'DASHBOARD_ID')
         for html in (backfill['sourceHtml'], shell): check_scope(html, dashboard_id)
@@ -162,7 +194,7 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
     else:
         require(handoff is not None and admission is not None and isinstance(staging, dict), 'STAGING_PROOF')
         validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
-        require(staging.get('mode') == 'unlisted-candidate', 'STAGING_MODE')
+        check_staging(staging, handoff['design']['admission'], handoff['dashboardId'], deliveries, sha(shell))
         require(staging.get('servedShellSha256') == sha(shell), 'STAGING_SHELL')
         require(admission.get('servedShellSha256') == staging['servedShellSha256'], 'ADMISSION_SHELL')
         require(admission.get('sourceHtmlSha256') == handoff['sourceHtmlSha256'], 'ADMISSION_SOURCE')
@@ -172,6 +204,7 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
         dashboard_id, source_sha = handoff['dashboardId'], handoff['sourceHtmlSha256']
         proof = staging.get('accountProof', {})
         stage = {key: staging[key] for key in ('mode', 'servedShellSha256')}
+        if staging['mode'] == 'in-place-maintenance': stage['previousServedShellSha256'] = staging['previousServedShellSha256']
         echo = {key: admission.get(key) for key in ('design', 'answerIdentity', 'providerReady', 'answerRuntime', 'gateVersion')}
     parsed = urlsplit(url)
     require(parsed.scheme == 'https' and not parsed.username and not parsed.password

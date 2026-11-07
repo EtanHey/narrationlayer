@@ -122,6 +122,24 @@
             "from"
           ],
           "additionalProperties": false
+        },
+        "firstInLineage": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "approvedBy": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason",
+            "approvedBy"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -143,8 +161,21 @@
             "properties": {
               "predecessorSha256": {
                 "type": "null"
+              },
+              "firstInLineage": {
+                "properties": {
+                  "approvedBy": {
+                    "pattern": "\\S",
+                    "not": {
+                      "pattern": "^\\s*[uU][nN][rR][eE][cC][oO][rR][dD][eE][dD]\\s*$"
+                    }
+                  }
+                }
               }
-            }
+            },
+            "required": [
+              "firstInLineage"
+            ]
           },
           "else": {
             "properties": {
