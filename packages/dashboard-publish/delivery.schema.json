@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "audio-dashboard.delivery.v2"
+        },
+        "host": {
+          "const": "lakebed"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "dashboardId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceHtmlSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "servedShellSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifactSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "staging": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "unlisted-candidate"
+            },
+            "servedShellSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "mode",
+            "servedShellSha256"
+          ],
+          "additionalProperties": false
+        },
+        "accountProof": {
+          "type": "object",
+          "properties": {
+            "signedIn": {
+              "const": true
+            },
+            "markerSaved": {
+              "const": true
+            },
+            "restoredAfterLocalKeysCleared": {
+              "const": true
+            },
+            "cleanedUp": {
+              "const": true
+            },
+            "disposableRecord": {
+              "const": true
+            },
+            "independentClient": {
+              "const": true
+            },
+            "serverAck": {
+              "const": true
+            },
+            "method": {
+              "const": "note-roundtrip"
+            },
+            "mutationDelta": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "existingRowsPreserved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "signedIn",
+            "markerSaved",
+            "restoredAfterLocalKeysCleared",
+            "cleanedUp",
+            "disposableRecord",
+            "independentClient",
+            "serverAck",
+            "method",
+            "mutationDelta",
+            "existingRowsPreserved",
+            "at"
+          ],
+          "additionalProperties": false
+        },
+        "admission": {
+          "type": "object",
+          "properties": {
+            "design": {
+              "enum": [
+                "COMPARED",
+                "REDESIGN_APPROVED",
+                "FIRST_IN_LINEAGE"
+              ]
+            },
+            "answerIdentity": {
+              "const": "PASS"
+            },
+            "providerReady": {
+              "const": true
+            },
+            "gateVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "design",
+            "answerIdentity",
+            "providerReady",
+            "gateVersion"
+          ],
+          "additionalProperties": false
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "schema",
+        "host",
+        "url",
+        "dashboardId",
+        "sourceHtmlSha256",
+        "servedShellSha256",
+        "artifactSha256",
+        "staging",
+        "accountProof",
+        "admission",
+        "publishedAt"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "audio-dashboard.delivery.v2"
+        },
+        "host": {
+          "const": "lakebed"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "dashboardId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceHtmlSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "servedShellSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifactSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "staging": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "none-backfill"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        "accountProof": {
+          "type": "object",
+          "properties": {
+            "signedIn": {
+              "const": true
+            },
+            "markerSaved": {
+              "const": true
+            },
+            "restoredAfterLocalKeysCleared": {
+              "const": true
+            },
+            "cleanedUp": {
+              "const": true
+            },
+            "disposableRecord": {
+              "const": true
+            },
+            "independentClient": {
+              "const": true
+            },
+            "serverAck": {
+              "const": true
+            },
+            "method": {
+              "const": "note-roundtrip"
+            },
+            "mutationDelta": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "existingRowsPreserved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "signedIn",
+            "markerSaved",
+            "restoredAfterLocalKeysCleared",
+            "cleanedUp",
+            "disposableRecord",
+            "independentClient",
+            "serverAck",
+            "method",
+            "mutationDelta",
+            "existingRowsPreserved",
+            "at"
+          ],
+          "additionalProperties": false
+        },
+        "admission": {
+          "type": "object",
+          "properties": {
+            "design": {
+              "const": "UNKNOWN_BACKFILL"
+            },
+            "answerIdentity": {
+              "const": "PASS"
+            },
+            "providerReady": {
+              "const": true
+            },
+            "gateVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "design",
+            "answerIdentity",
+            "providerReady",
+            "gateVersion"
+          ],
+          "additionalProperties": false
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "backfilled": {
+          "const": true
+        }
+      },
+      "required": [
+        "schema",
+        "host",
+        "url",
+        "dashboardId",
+        "sourceHtmlSha256",
+        "servedShellSha256",
+        "artifactSha256",
+        "staging",
+        "accountProof",
+        "admission",
+        "publishedAt",
+        "backfilled"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}
