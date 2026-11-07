@@ -73,7 +73,27 @@ def check_lock(lock, owner_pid):
         raise Refusal('DEPLOY_LOCK') from None
 
 
-def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider, artifact, lock, owner_pid):
+def runtime_sha(html):
+    blocks = re.findall(r'\(function installAnswerPersistence\(\) \{.*?\n\}\)\(\);', html.decode('utf8'), re.S)
+    require(len(blocks) == 1, 'ANSWER_RUNTIME_BLOCK')
+    return sha(blocks[0].strip().encode())
+
+
+def runtime_status(digest, config):
+    try:
+        entries = json.loads(Path(config).read_text())
+        require(isinstance(entries, list) and all(isinstance(row, dict) and
+                re.fullmatch('[a-f0-9]{64}', row.get('sha256', '')) and row.get('status') in ('current', 'deprecated')
+                and isinstance(row.get('note'), str) for row in entries), 'ANSWER_RUNTIME_CONFIG')
+        matches = [row for row in entries if row['sha256'] == digest]
+        require(len(matches) == 1, 'ANSWER_RUNTIME_NOT_ALLOWED')
+        return matches[0]['status']
+    except (OSError, ValueError, TypeError) as error:
+        if isinstance(error, Refusal): raise
+        raise Refusal('ANSWER_RUNTIME_CONFIG') from None
+
+
+def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider, artifact, lock, owner_pid, runtime_config=ROOT / "answer-runtimes.json"):
     require(handoff is not None, 'HANDOFF_MISSING')
     validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
     require(re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', dashboard_id) and len(dashboard_id) <= 96
@@ -86,6 +106,11 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
     require(not (handoff['design']['admission'] == 'FIRST_IN_LINEAGE'
                  and any(row.get('accepted') is True for row in history)), 'LINEAGE_EXISTS')
     require(handoff['answerPersistence'] == 'PASS', 'ANSWER_PERSISTENCE')
+    digest = handoff['answerRuntimeSha256']
+    require(runtime_sha(raw) == runtime_sha(shell) == digest, 'ANSWER_RUNTIME_MISMATCH')
+    status = runtime_status(digest, runtime_config)
+    require(status != 'deprecated' or any(row.get('accepted') is True and row.get('dashboardId') == dashboard_id
+            for rows in deliveries.values() for row in rows), 'ANSWER_RUNTIME_DEPRECATED_NEW')
     keys = {row['key']: row['kind'] for row in handoff['answerKeys']}
     require(len(keys) == len(handoff['answerKeys']) and all(
         keys.get(row['key']) == row['kind'] for row in saved_keys), 'ANSWER_IDENTITY')
@@ -95,19 +120,19 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
     require(provider.get('savedSemantics') == 'serverAck', 'SAVED_LOCAL_ONLY')
     require(len(artifact) <= LIMIT, 'ARTIFACT_TOO_LARGE')
     check_lock(lock, owner_pid)
-    return {'design': handoff['design']['admission'], 'answerIdentity': 'PASS', 'providerReady': True, 'gateVersion': '2',
+    return {'answerRuntime': status, 'design': handoff['design']['admission'], 'answerIdentity': 'PASS', 'providerReady': True, 'gateVersion': '2',
             'dashboardId': dashboard_id, 'sourceHtmlSha256': sha(raw), 'servedShellSha256': sha(shell)}
 
 
 def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
-             handoff=None, admission=None, staging=None, backfill=None):
+             handoff=None, admission=None, staging=None, backfill=None, runtime_config=ROOT / "answer-runtimes.json"):
     if backfill is not None:
         require(handoff is None and staging is None and admission is None, 'BACKFILL_INPUT')
         dashboard_id, source_sha = backfill['dashboardId'], backfill['sourceHtmlSha256']
         proof = backfill['accountProof']
         require(sha(backfill['sourceHtml']) == source_sha, 'SOURCE_SHA')
         stage = {'mode': 'none-backfill', 'servedShellSha256': sha(shell)}
-        echo = {'design': 'UNKNOWN_BACKFILL', 'answerIdentity': 'PASS', 'providerReady': True, 'gateVersion': '2'}
+        echo = {'answerRuntime': runtime_status(runtime_sha(shell), runtime_config), 'design': 'UNKNOWN_BACKFILL', 'answerIdentity': 'PASS', 'providerReady': True, 'gateVersion': '2'}
     else:
         require(handoff is not None and admission is not None and isinstance(staging, dict), 'STAGING_PROOF')
         validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
@@ -119,7 +144,7 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
         dashboard_id, source_sha = handoff['dashboardId'], handoff['sourceHtmlSha256']
         proof = staging.get('accountProof', {})
         stage = {key: staging[key] for key in ('mode', 'servedShellSha256')}
-        echo = {key: admission.get(key) for key in ('design', 'answerIdentity', 'providerReady', 'gateVersion')}
+        echo = {key: admission.get(key) for key in ('design', 'answerIdentity', 'providerReady', 'answerRuntime', 'gateVersion')}
     parsed = urlsplit(url)
     require(parsed.scheme == 'https' and not parsed.username and not parsed.password
             and parsed.scheme + '://' + parsed.netloc in approved_origins

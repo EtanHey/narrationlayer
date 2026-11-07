@@ -2,7 +2,7 @@
 import base64
 import json
 import sys
-from admission import Refusal, admit, check_lock, require, sha
+from admission import ROOT, Refusal, admit, check_lock, require, sha
 
 
 def manifest_only(candidate, baseline, manifest_path):
@@ -29,7 +29,8 @@ def run(request):
     return admit(handoff=request.get('handoff'), raw=base64.b64decode(request['rawBase64'], validate=True),
         shell=base64.b64decode(request['shellBase64'], validate=True), dashboard_id=request['dashboardId'],
         saved_keys=request['savedKeys'], deliveries=request['deliveries'], provider=request['provider'],
-        artifact=artifact, lock=request['lock'], owner_pid=request['ownerPid'])
+        artifact=artifact, lock=request['lock'], owner_pid=request['ownerPid'],
+        runtime_config=request.get('runtimeConfig', ROOT / 'answer-runtimes.json'))
 
 
 if __name__ == '__main__':

@@ -4,9 +4,10 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from admission import Refusal, admit, delivery, sha
+from admission import Refusal, admit, delivery, sha, runtime_sha
 
-RAW = b'<meta name="dashboard-id" content="fixture-1"><body data-storage-key="dbx:fixture-1">'
+RUNTIME = b'(function installAnswerPersistence() {\n  // fixture runtime\n})();'
+RAW = b'<meta name="dashboard-id" content="fixture-1"><body data-storage-key="dbx:fixture-1">' + b'<script>' + RUNTIME + b'</script>'
 SHELL = RAW + b'<script>const s=window.__answerStore;s.load();s.save();s.onStatus();</script>'
 
 
@@ -15,11 +16,13 @@ class AdmissionTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        self.runtime_config = self.root / 'runtimes.json'
+        self.runtime_config.write_text(json.dumps([{'sha256': sha(RUNTIME), 'status': 'current', 'note': 'fixture'}]))
         self.lock = self.root / 'lock'
         self.lock.mkdir()
         (self.lock / 'owner.json').write_text(json.dumps({'pid': os.getpid()}))
         self.handoff = {'schema': 'audio-dashboard.publish-handoff.v2', 'dashboardId': 'fixture-1',
-            'type': 'decision-flow', 'builtHtmlSha256': sha(b'single-file BUILD'), 'sourcePath': 'build', 'sourceHtmlSha256': sha(RAW),
+            'type': 'decision-flow', 'builtHtmlSha256': sha(b'single-file BUILD'), 'answerRuntimeSha256': sha(RUNTIME), 'sourcePath': 'build', 'sourceHtmlSha256': sha(RAW),
             'buildReceiptsSha256': sha(b'receipts'), 'answerPersistence': 'PASS',
             'answerKeys': [{'key': 'note', 'kind': 'text'}], 'mediaManifest': [],
             'design': {'admission': 'FIRST_IN_LINEAGE', 'lineage': 'fixture', 'predecessorSha256': None},
@@ -27,7 +30,7 @@ class AdmissionTest(unittest.TestCase):
         self.args = dict(handoff=self.handoff, raw=RAW, shell=SHELL, dashboard_id='fixture-1',
             saved_keys=[{'key': 'note', 'kind': 'text'}], deliveries={},
             provider={'providerReady': True, 'servedShellSha256': sha(SHELL), 'savedSemantics': 'serverAck'},
-            artifact=b'{}', lock=self.lock, owner_pid=os.getpid())
+            artifact=b'{}', lock=self.lock, owner_pid=os.getpid(), runtime_config=self.runtime_config)
 
     def reject(self, code, **changes):
         with self.assertRaises(Refusal) as raised:
@@ -46,6 +49,25 @@ class AdmissionTest(unittest.TestCase):
             ('DEPLOY_LOCK', {'owner_pid': os.getpid() + 1})]
         for code, changes in cases:
             with self.subTest(code=code): self.reject(code, **changes)
+
+    def test_current_runtime_accepted(self):
+        self.assertEqual(admit(**self.args)['answerRuntime'], 'current')
+
+    def test_runtime_must_match_the_page(self):
+        self.reject('ANSWER_RUNTIME_MISMATCH', handoff=self.handoff | {'answerRuntimeSha256': sha(b'wrong')})
+        for shell in (SHELL.replace(RUNTIME, b'no runtime'), SHELL + RUNTIME):
+            self.reject('ANSWER_RUNTIME_BLOCK', shell=shell)
+
+    def test_unlisted_runtime_refused(self):
+        self.runtime_config.write_text('[]')
+        self.reject('ANSWER_RUNTIME_NOT_ALLOWED')
+
+    def test_deprecated_runtime_is_only_for_delivered_ids(self):
+        self.runtime_config.write_text(json.dumps([{'sha256': sha(RUNTIME), 'status': 'deprecated', 'note': 'fixture'}]))
+        self.reject('ANSWER_RUNTIME_DEPRECATED_NEW')
+        history = {'other-lineage': [{'accepted': True, 'dashboardId': 'fixture-1'}]}
+        self.assertEqual(admit(**(self.args | {'deliveries': history}))['answerRuntime'], 'deprecated')
+        self.reject('ANSWER_RUNTIME_DEPRECATED_NEW', deliveries={'other': [{'accepted': True, 'dashboardId': 'other'}]})
 
     def test_build_and_prepared_hashes_are_distinct(self):
         self.assertNotEqual(self.handoff['builtHtmlSha256'], sha(RAW))
@@ -89,6 +111,10 @@ class AdmissionTest(unittest.TestCase):
         self.assertEqual(receipt['sourceHtmlSha256'], sha(RAW))
         self.assertEqual(receipt['servedShellSha256'], receipt['staging']['servedShellSha256'])
         self.assertEqual(receipt['artifactSha256'], sha(b'{}'))
+        self.assertEqual(receipt['admission']['answerRuntime'], 'current')
+        output.unlink()
+        warned = delivery(**(args | {'admission': admission | {'answerRuntime': 'deprecated'}}))
+        self.assertEqual(warned['admission']['answerRuntime'], 'deprecated')
 
 
 
@@ -98,12 +124,12 @@ class BackfillDirectionTest(unittest.TestCase):
         with self.assertRaises(Refusal):
             delivery(path=self.root / 'normal.json', handoff=self.handoff, admission=admit(**self.args),
                 shell=SHELL, artifact=b'{}', url='https://fixture.invalid/?d=fixture-1',
-                approved_origins=['https://fixture.invalid'], existing_rows=0)
+                approved_origins=['https://fixture.invalid'], existing_rows=0, runtime_config=self.runtime_config)
         self.assertFalse((self.root / 'normal.json').exists())
 
     def test_backfill_requires_explicit_input_and_no_handoff(self):
         args = dict(path=self.root / 'backfill.json', shell=SHELL, artifact=b'{}',
-            url='https://fixture.invalid/?d=fixture-1', approved_origins=['https://fixture.invalid'], existing_rows=0)
+            url='https://fixture.invalid/?d=fixture-1', approved_origins=['https://fixture.invalid'], existing_rows=0, runtime_config=self.runtime_config)
         proof = {key: True for key in ('signedIn', 'independentClient', 'disposableRecord', 'markerSaved',
             'serverAck', 'restoredAfterLocalKeysCleared', 'cleanedUp')}
         proof.update(method='note-roundtrip', probe='dedicated-key', mutationDelta=0, existingRowsPreserved=0, at='2026-01-01T00:00:00Z')
@@ -114,4 +140,5 @@ class BackfillDirectionTest(unittest.TestCase):
         self.assertEqual(receipt['admission']['design'], 'UNKNOWN_BACKFILL')
         self.assertEqual(receipt['staging']['mode'], 'none-backfill')
         self.assertTrue(receipt['backfilled'])
+        self.assertEqual(receipt['admission']['answerRuntime'], 'current')
         self.assertEqual(receipt['staging']['servedShellSha256'], sha(SHELL))
