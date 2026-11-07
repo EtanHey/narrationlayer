@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "audio-dashboard.delivery.v2"
+        },
+        "host": {
+          "const": "lakebed"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "dashboardId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceHtmlSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "servedShellSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifactSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "staging": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "unlisted-candidate"
+            },
+            "servedShellSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "mode",
+            "servedShellSha256"
+          ],
+          "additionalProperties": false
+        },
+        "accountProof": {
+          "type": "object",
+          "properties": {
+            "signedIn": {
+              "const": true
+            },
+            "markerSaved": {
+              "const": true
+            },
+            "restoredAfterLocalKeysCleared": {
+              "const": true
+            },
+            "cleanedUp": {
+              "const": true,
+              "description": "Restored to the pre-probe value; the row may remain because the API has no row delete."
+            },
+            "disposableRecord": {
+              "const": true,
+              "description": "The probed value contained no user data before the probe."
+            },
+            "independentClient": {
+              "const": true
+            },
+            "serverAck": {
+              "const": true
+            },
+            "method": {
+              "const": "note-roundtrip"
+            },
+            "probe": {
+              "enum": [
+                "existing-empty-field",
+                "dedicated-key"
+              ]
+            },
+            "mutationDelta": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "existingRowsPreserved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "signedIn",
+            "markerSaved",
+            "restoredAfterLocalKeysCleared",
+            "cleanedUp",
+            "disposableRecord",
+            "independentClient",
+            "serverAck",
+            "method",
+            "probe",
+            "mutationDelta",
+            "existingRowsPreserved",
+            "at"
+          ],
+          "additionalProperties": false
+        },
+        "admission": {
+          "type": "object",
+          "properties": {
+            "design": {
+              "enum": [
+                "COMPARED",
+                "REDESIGN_APPROVED",
+                "FIRST_IN_LINEAGE"
+              ]
+            },
+            "answerIdentity": {
+              "const": "PASS"
+            },
+            "providerReady": {
+              "const": true
+            },
+            "answerRuntime": {
+              "enum": [
+                "current",
+                "deprecated"
+              ]
+            },
+            "gateVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "design",
+            "answerIdentity",
+            "providerReady",
+            "answerRuntime",
+            "gateVersion"
+          ],
+          "additionalProperties": false
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "schema",
+        "host",
+        "url",
+        "dashboardId",
+        "sourceHtmlSha256",
+        "servedShellSha256",
+        "artifactSha256",
+        "staging",
+        "accountProof",
+        "admission",
+        "publishedAt"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "audio-dashboard.delivery.v2"
+        },
+        "host": {
+          "const": "lakebed"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "dashboardId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceHtmlSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "servedShellSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifactSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "staging": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "none-backfill"
+            },
+            "servedShellSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "mode",
+            "servedShellSha256"
+          ],
+          "additionalProperties": false
+        },
+        "accountProof": {
+          "type": "object",
+          "properties": {
+            "signedIn": {
+              "const": true
+            },
+            "markerSaved": {
+              "const": true
+            },
+            "restoredAfterLocalKeysCleared": {
+              "const": true
+            },
+            "cleanedUp": {
+              "const": true,
+              "description": "Restored to the pre-probe value; the row may remain because the API has no row delete."
+            },
+            "disposableRecord": {
+              "const": true,
+              "description": "The probed value contained no user data before the probe."
+            },
+            "independentClient": {
+              "const": true
+            },
+            "serverAck": {
+              "const": true
+            },
+            "method": {
+              "const": "note-roundtrip"
+            },
+            "probe": {
+              "enum": [
+                "existing-empty-field",
+                "dedicated-key"
+              ]
+            },
+            "mutationDelta": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "existingRowsPreserved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "signedIn",
+            "markerSaved",
+            "restoredAfterLocalKeysCleared",
+            "cleanedUp",
+            "disposableRecord",
+            "independentClient",
+            "serverAck",
+            "method",
+            "probe",
+            "mutationDelta",
+            "existingRowsPreserved",
+            "at"
+          ],
+          "additionalProperties": false
+        },
+        "admission": {
+          "type": "object",
+          "properties": {
+            "design": {
+              "const": "UNKNOWN_BACKFILL"
+            },
+            "answerIdentity": {
+              "const": "PASS"
+            },
+            "providerReady": {
+              "const": true
+            },
+            "answerRuntime": {
+              "enum": [
+                "current",
+                "deprecated"
+              ]
+            },
+            "gateVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "design",
+            "answerIdentity",
+            "providerReady",
+            "answerRuntime",
+            "gateVersion"
+          ],
+          "additionalProperties": false
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "backfilled": {
+          "const": true
+        }
+      },
+      "required": [
+        "schema",
+        "host",
+        "url",
+        "dashboardId",
+        "sourceHtmlSha256",
+        "servedShellSha256",
+        "artifactSha256",
+        "staging",
+        "accountProof",
+        "admission",
+        "publishedAt",
+        "backfilled"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

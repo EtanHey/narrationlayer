@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "audio-dashboard.publish-handoff.v2"
+    },
+    "dashboardId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "enum": [
+        "decision-flow",
+        "cinema"
+      ]
+    },
+    "sourcePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "builtHtmlSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "answerRuntimeSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sourceHtmlSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "buildReceiptsSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "answerPersistence": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "UNKNOWN"
+      ]
+    },
+    "answerKeys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "text",
+              "radio",
+              "checkbox",
+              "select"
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "key",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "design": {
+      "type": "object",
+      "properties": {
+        "admission": {
+          "enum": [
+            "COMPARED",
+            "REDESIGN_APPROVED",
+            "FIRST_IN_LINEAGE"
+          ]
+        },
+        "lineage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "predecessorSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "redesign": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "approvedBy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "from": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "reason",
+            "approvedBy",
+            "from"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "admission",
+        "lineage",
+        "predecessorSha256"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "admission": {
+                "const": "FIRST_IN_LINEAGE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "predecessorSha256": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "predecessorSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "admission": {
+                "const": "REDESIGN_APPROVED"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "redesign"
+            ]
+          }
+        }
+      ]
+    },
+    "mediaManifest": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "file",
+          "size",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schema",
+    "dashboardId",
+    "type",
+    "sourcePath",
+    "builtHtmlSha256",
+    "answerRuntimeSha256",
+    "sourceHtmlSha256",
+    "buildReceiptsSha256",
+    "answerPersistence",
+    "answerKeys",
+    "design",
+    "mediaManifest",
+    "createdAt"
+  ],
+  "additionalProperties": false
+}

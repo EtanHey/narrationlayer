@@ -1,0 +1,12 @@
+[
+  {
+    "sha256": "fca1d273b76554ad95d0d6c3788086e068107707c5a8e3d50bce87cb8736d6d2",
+    "status": "current",
+    "note": "golems #1163: clears flush immediately"
+  },
+  {
+    "sha256": "0e411b7aec5e4397fb0652a098a9ce0ef0761cff7aa8f690319b35cde66e3385",
+    "status": "deprecated",
+    "note": "golems #1162: clear-persistence bug; existing-dashboard maintenance only"
+  }
+]
