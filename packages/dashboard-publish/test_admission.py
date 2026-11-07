@@ -25,7 +25,7 @@ class AdmissionTest(unittest.TestCase):
             'type': 'decision-flow', 'builtHtmlSha256': sha(b'single-file BUILD'), 'answerRuntimeSha256': sha(RUNTIME), 'sourcePath': 'build', 'sourceHtmlSha256': sha(RAW),
             'buildReceiptsSha256': sha(b'receipts'), 'answerPersistence': 'PASS',
             'answerKeys': [{'key': 'note', 'kind': 'text'}], 'mediaManifest': [],
-            'design': {'admission': 'FIRST_IN_LINEAGE', 'lineage': 'fixture', 'predecessorSha256': None},
+            'design': {'firstInLineage': {'reason': 'fixture', 'approvedBy': 'fixture-reviewer'}, 'admission': 'FIRST_IN_LINEAGE', 'lineage': 'fixture', 'predecessorSha256': None},
             'createdAt': '2026-01-01T00:00:00Z'}
         self.args = dict(handoff=self.handoff, raw=RAW, shell=SHELL, dashboard_id='fixture-1',
             saved_keys=[{'key': 'note', 'kind': 'text'}], deliveries={},
@@ -52,6 +52,8 @@ class AdmissionTest(unittest.TestCase):
 
     def test_current_runtime_accepted(self):
         self.assertEqual(admit(**self.args)['answerRuntime'], 'current')
+        compared = self.handoff | {'design': {'admission': 'COMPARED', 'lineage': 'fixture', 'predecessorSha256': sha(RAW)}}
+        self.assertEqual(admit(**(self.args | {'handoff': compared}))['answerIdentity'], 'PASS')
 
     def test_runtime_must_match_the_page(self):
         self.reject('ANSWER_RUNTIME_MISMATCH', handoff=self.handoff | {'answerRuntimeSha256': sha(b'wrong')})

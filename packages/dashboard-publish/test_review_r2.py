@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from unittest.mock import patch
 import unittest
 
 import admission as product
@@ -43,6 +44,8 @@ class ReviewAdmissionTest(unittest.TestCase):
 
     def test_second_unrelated_deploy_preserves_accepted_first_shell(self):
         registry = {'fixture': [{'accepted': True, 'dashboardId': 'fixture-1', 'sourceHtmlSha256': sha(RAW)}]}
+        self.assertEqual(admit(**(self.args | {'deliveries': registry}))['answerIdentity'], 'PASS')
+        registry['fixture'].append({'accepted': True, 'dashboardId': 'fixture-b', 'sourceHtmlSha256': sha(b'B')})
         self.assertEqual(admit(**(self.args | {'deliveries': registry}))['answerIdentity'], 'PASS')
         other_raw, other_shell = RAW.replace(b'fixture-1', b'fixture-2'), SHELL.replace(b'fixture-1', b'fixture-2')
         handoff = self.handoff | {'dashboardId': 'fixture-2', 'sourceHtmlSha256': sha(other_raw),
@@ -150,6 +153,50 @@ class ReviewAdmissionTest(unittest.TestCase):
         (source / 'index.html').write_bytes(RAW)
         self.assertEqual(product.read_prepared_index(source), RAW)
 
+    def test_missing_backfill_source_is_a_refusal(self):
+        args = self.backfill_args(); args['backfill'].pop('sourceHtml')
+        self.refuse('BACKFILL_INPUT', delivery, **args)
+
+    def test_missing_format_validators_refuse(self):
+        checker = product.FormatChecker(); checker.checkers = {}
+        with patch.object(product, 'FormatChecker', return_value=checker):
+            self.refuse('FORMAT_VALIDATORS', product.validator, schema={})
+
+    def test_delivery_query_id_is_bound(self):
+        self.refuse('DELIVERY_ORIGIN', delivery, **(self.receipt_args() | {'url': 'https://fixture.invalid/?d=other'}))
+
+    def test_first_approval_missing(self):
+        self.handoff['design'].pop('firstInLineage', None)
+        self.reject('FIRST_IN_LINEAGE_UNAPPROVED')
+
+    def test_first_approval_empty(self):
+        self.handoff['design']['firstInLineage'] = {'reason': 'fixture', 'approvedBy': ''}
+        self.reject('FIRST_IN_LINEAGE_UNAPPROVED')
+
+    def test_first_approval_unrecorded(self):
+        self.handoff['design']['firstInLineage'] = {'reason': 'fixture', 'approvedBy': 'UNRECORDED'}
+        self.reject('FIRST_IN_LINEAGE_UNAPPROVED')
+
+    def test_unknown_staging_mode_refuses(self):
+        args = self.receipt_args()
+        self.refuse('INVALID_STAGING_MODE', delivery, **(args | {'staging': args['staging'] | {'mode': 'invented'}}))
+        self.reject('INVALID_STAGING_MODE', staging={'mode': 'invented'})
+
+    def test_in_place_maintenance_requirements_and_receipt(self):
+        args = self.receipt_args()
+        compared = self.handoff | {'design': {'admission': 'COMPARED', 'lineage': 'fixture', 'predecessorSha256': sha(RAW)}}
+        history = {'fixture': [{'accepted': True, 'dashboardId': 'fixture-1'}]}
+        args.update(handoff=compared, admission=admit(**(self.args | {'handoff': compared})), deliveries=history)
+        args['staging'].update(mode='in-place-maintenance', previousServedShellSha256=sha(b'previous'))
+        for previous in [None, 'bad']:
+            self.refuse('MAINTENANCE_PREVIOUS_SHELL', delivery, **(args | {'staging': args['staging'] | {'previousServedShellSha256': previous}}))
+        self.refuse('MAINTENANCE_DESIGN', delivery, **(args | {'handoff': self.handoff}))
+        self.refuse('MAINTENANCE_NOT_ACCEPTED', delivery, **(args | {'deliveries': {}}))
+        self.reject('MAINTENANCE_NOT_ACCEPTED', handoff=compared, staging=args['staging'])
+        self.assertEqual(admit(**(self.args | {'handoff': compared, 'staging': args['staging'], 'deliveries': history}))['answerIdentity'], 'PASS')
+        receipt = delivery(**args)
+        self.assertEqual(receipt['staging']['mode'], 'in-place-maintenance'); self.assertNotIn('backfilled', receipt)
+
 
 class ReviewRatchetTest(unittest.TestCase):
     def test_each_python_statement_and_command_bypass(self):
@@ -186,3 +233,13 @@ class ReviewRatchetTest(unittest.TestCase):
                     self.assertEqual(check([path]), [])
             path.write_text('function assertPublishAdmission(e){}\nassertPublishAdmission(e);\nfetch(url, {method:"PUT"});')
             self.assertIn('RATCHET_GATE_REDEFINED', [row.split(':')[0] for row in check([path])])
+
+    def test_import_path_is_exact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'publisher.mjs'
+            source = "import {assertPublishAdmission} from './evil-publish-admission.mjs'; assertPublishAdmission(e); fetch(url,{method:'PUT'});"
+            path.write_text(source)
+            self.assertEqual([row.split(':')[0] for row in check([path])], ['RATCHET_GATE_REDEFINED'])
+            path.write_text(source.replace('evil-publish', 'publish')); self.assertEqual(check([path]), [])
+            self.assertEqual(check([path], path.parent / 'publish-admission.mjs'), [])
+            self.assertEqual([row.split(':')[0] for row in check([path], path.parent / 'elsewhere/publish-admission.mjs')], ['RATCHET_GATE_REDEFINED'])

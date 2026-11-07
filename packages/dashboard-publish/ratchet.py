@@ -1,6 +1,7 @@
 """Conservative checks for configured publisher source; not a general program proof."""
 import ast
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -59,7 +60,7 @@ def python_findings(source):
 JS_TOKENS = re.compile(r'''(?P<comment>//[^\n]*|/\*.*?\*/)|(?P<string>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(?P<word>[$a-zA-Z_][$\w]*)|(?P<punct>=>|\?\.|[^\s])''', re.S)
 
 
-def javascript_findings(source):
+def javascript_findings(source, gate_import='./publish-admission.mjs'):
     tokens = [(match.lastgroup, match.group(), source.count('\n', 0, match.start()) + 1)
               for match in JS_TOKENS.finditer(source) if match.lastgroup != 'comment']
     pairs, stack, imports = {}, [], set()
@@ -69,7 +70,7 @@ def javascript_findings(source):
             opening = stack.pop(); pairs[opening] = index; pairs[index] = opening
         if value == 'import':
             end = next((j for j in range(index, len(tokens)) if tokens[j][1] == ';'), len(tokens))
-            if any(kind == 'string' and text[1:-1].endswith('publish-admission.mjs') for kind, text, _ in tokens[index:end]):
+            if any(kind == 'string' and text[1:-1] == gate_import for kind, text, _ in tokens[index:end]):
                 imports.update(range(index, end))
     for index, (kind, value, line) in enumerate(tokens):
         following = tokens[index + 1][1] if index + 1 < len(tokens) else ''
@@ -96,16 +97,19 @@ def javascript_findings(source):
         if not gated: yield 'RATCHET_UNGATED_PUT', line
 
 
-def check(paths):
+def check(paths, gate_module=None):
     failures = []
     for filename in paths:
         path = Path(filename)
-        scan = python_findings if path.suffix == '.py' else javascript_findings
-        for code, line in scan(path.read_text()): failures.append(f'{code}:{path.name}:{line}')
+        gate_import = os.path.relpath(gate_module, path.parent).replace(os.sep, '/') if gate_module else './publish-admission.mjs'
+        if not gate_import.startswith('.'): gate_import = './' + gate_import
+        findings = python_findings(path.read_text()) if path.suffix == '.py' else javascript_findings(path.read_text(), gate_import)
+        for code, line in findings: failures.append(f'{code}:{path.name}:{line}')
     return failures
 
 
 if __name__ == '__main__':
-    errors = check(json.loads(Path(sys.argv[1]).read_text())['paths'])
+    config = json.loads(Path(sys.argv[1]).read_text())
+    errors = check(config['paths'], config.get('gateModule'))
     print(json.dumps({'ungated': errors}))
     sys.exit(bool(errors))
