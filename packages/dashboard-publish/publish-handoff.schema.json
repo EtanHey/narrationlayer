@@ -19,6 +19,10 @@
       "type": "string",
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
     },
+    "builtHtmlSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "sourceHtmlSha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
@@ -199,6 +203,7 @@
     "dashboardId",
     "type",
     "sourcePath",
+    "builtHtmlSha256",
     "sourceHtmlSha256",
     "buildReceiptsSha256",
     "answerPersistence",

@@ -19,7 +19,7 @@ class AdmissionTest(unittest.TestCase):
         self.lock.mkdir()
         (self.lock / 'owner.json').write_text(json.dumps({'pid': os.getpid()}))
         self.handoff = {'schema': 'audio-dashboard.publish-handoff.v2', 'dashboardId': 'fixture-1',
-            'type': 'decision-flow', 'sourcePath': 'build', 'sourceHtmlSha256': sha(RAW),
+            'type': 'decision-flow', 'builtHtmlSha256': sha(b'single-file BUILD'), 'sourcePath': 'build', 'sourceHtmlSha256': sha(RAW),
             'buildReceiptsSha256': sha(b'receipts'), 'answerPersistence': 'PASS',
             'answerKeys': [{'key': 'note', 'kind': 'text'}], 'mediaManifest': [],
             'design': {'admission': 'FIRST_IN_LINEAGE', 'lineage': 'fixture', 'predecessorSha256': None},
@@ -47,6 +47,12 @@ class AdmissionTest(unittest.TestCase):
         for code, changes in cases:
             with self.subTest(code=code): self.reject(code, **changes)
 
+    def test_build_and_prepared_hashes_are_distinct(self):
+        self.assertNotEqual(self.handoff['builtHtmlSha256'], sha(RAW))
+        self.assertEqual(admit(**self.args)['sourceHtmlSha256'], sha(RAW))
+        self.reject('SOURCE_SHA', handoff=self.handoff | {'sourceHtmlSha256': self.handoff['builtHtmlSha256']})
+        self.reject('HANDOFF_SCHEMA', handoff={k: v for k, v in self.handoff.items() if k != 'builtHtmlSha256'})
+
     def test_kind_scope_consumer_and_lineage(self):
         self.reject('ANSWER_IDENTITY', saved_keys=[{'key': 'note', 'kind': 'radio'}])
         for shell in [SHELL.replace(b'dbx:fixture-1', b'dbx:other'), SHELL + RAW]:
@@ -59,7 +65,7 @@ class AdmissionTest(unittest.TestCase):
 
     def test_delivery_is_bound_and_does_not_write_on_failure(self):
         admission = admit(**self.args)
-        proof = {'signedIn': True, 'method': 'note-roundtrip', 'markerSaved': True,
+        proof = {'signedIn': True, 'method': 'note-roundtrip', 'probe': 'existing-empty-field', 'markerSaved': True,
             'restoredAfterLocalKeysCleared': True, 'cleanedUp': True, 'disposableRecord': True,
             'independentClient': True, 'serverAck': True, 'mutationDelta': 2,
             'existingRowsPreserved': 1, 'at': '2026-01-01T00:00:00Z'}
@@ -71,7 +77,9 @@ class AdmissionTest(unittest.TestCase):
             existing_rows=1)
         for changes in [{'shell': SHELL + b' '}, {'staging': args['staging'] | {'accountProof': proof | {'serverAck': False}}},
                         {'url': 'https://other.invalid/?d=fixture-1'}, {'existing_rows': 2}, {'staging': None}, {'handoff': None},
-                        {'staging': args['staging'] | {'mode': 'none-backfill'}}]:
+                        {'staging': args['staging'] | {'mode': 'none-backfill'}},
+                        *[{'staging': args['staging'] | {'accountProof': p}} for p in
+                          [{k: v for k, v in proof.items() if k != 'probe'}, proof | {'probe': 'user-data'}]]]:
             with self.subTest(changes=list(changes)), self.assertRaises(Refusal): delivery(**(args | changes))
             self.assertFalse(output.exists())
         receipt = delivery(**args)
@@ -98,10 +106,12 @@ class BackfillDirectionTest(unittest.TestCase):
             url='https://fixture.invalid/?d=fixture-1', approved_origins=['https://fixture.invalid'], existing_rows=0)
         proof = {key: True for key in ('signedIn', 'independentClient', 'disposableRecord', 'markerSaved',
             'serverAck', 'restoredAfterLocalKeysCleared', 'cleanedUp')}
-        proof.update(method='note-roundtrip', mutationDelta=0, existingRowsPreserved=0, at='2026-01-01T00:00:00Z')
-        explicit = dict(dashboardId='fixture-1', sourceHtmlSha256=sha(RAW), accountProof=proof)
+        proof.update(method='note-roundtrip', probe='dedicated-key', mutationDelta=0, existingRowsPreserved=0, at='2026-01-01T00:00:00Z')
+        explicit = dict(dashboardId='fixture-1', sourceHtmlSha256=sha(RAW), sourceHtml=RAW, accountProof=proof)
         with self.assertRaises(Refusal): delivery(**args, backfill=explicit, handoff=self.handoff)
+        with self.assertRaises(Refusal): delivery(**args, backfill=explicit | {'sourceHtml': b'wrong'})
         receipt = delivery(**args, backfill=explicit)
         self.assertEqual(receipt['admission']['design'], 'UNKNOWN_BACKFILL')
         self.assertEqual(receipt['staging']['mode'], 'none-backfill')
         self.assertTrue(receipt['backfilled'])
+        self.assertEqual(receipt['staging']['servedShellSha256'], sha(SHELL))

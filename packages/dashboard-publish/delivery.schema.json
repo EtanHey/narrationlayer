@@ -60,10 +60,12 @@
               "const": true
             },
             "cleanedUp": {
-              "const": true
+              "const": true,
+              "description": "Restored to the pre-probe value; the row may remain because the API has no row delete."
             },
             "disposableRecord": {
-              "const": true
+              "const": true,
+              "description": "The probed value contained no user data before the probe."
             },
             "independentClient": {
               "const": true
@@ -73,6 +75,12 @@
             },
             "method": {
               "const": "note-roundtrip"
+            },
+            "probe": {
+              "enum": [
+                "existing-empty-field",
+                "dedicated-key"
+              ]
             },
             "mutationDelta": {
               "type": "integer",
@@ -96,6 +104,7 @@
             "independentClient",
             "serverAck",
             "method",
+            "probe",
             "mutationDelta",
             "existingRowsPreserved",
             "at"
@@ -185,10 +194,15 @@
           "properties": {
             "mode": {
               "const": "none-backfill"
+            },
+            "servedShellSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
             }
           },
           "required": [
-            "mode"
+            "mode",
+            "servedShellSha256"
           ],
           "additionalProperties": false
         },
@@ -205,10 +219,12 @@
               "const": true
             },
             "cleanedUp": {
-              "const": true
+              "const": true,
+              "description": "Restored to the pre-probe value; the row may remain because the API has no row delete."
             },
             "disposableRecord": {
-              "const": true
+              "const": true,
+              "description": "The probed value contained no user data before the probe."
             },
             "independentClient": {
               "const": true
@@ -218,6 +234,12 @@
             },
             "method": {
               "const": "note-roundtrip"
+            },
+            "probe": {
+              "enum": [
+                "existing-empty-field",
+                "dedicated-key"
+              ]
             },
             "mutationDelta": {
               "type": "integer",
@@ -241,6 +263,7 @@
             "independentClient",
             "serverAck",
             "method",
+            "probe",
             "mutationDelta",
             "existingRowsPreserved",
             "at"

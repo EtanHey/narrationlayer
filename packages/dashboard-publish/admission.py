@@ -78,7 +78,7 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
     validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
     require(re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', dashboard_id) and len(dashboard_id) <= 96
             and dashboard_id == handoff['dashboardId'], 'DASHBOARD_ID')
-    require(sha(raw) == handoff['sourceHtmlSha256'], 'SOURCE_SHA')
+    require(sha(raw) == handoff['sourceHtmlSha256'], 'SOURCE_SHA')  # Prepared input, never builtHtmlSha256.
     for html in (raw, shell):
         scope = Scope(html)
         require(scope.ids == [dashboard_id] and scope.storage == ['dbx:' + dashboard_id], 'DASHBOARD_ID')
@@ -105,7 +105,8 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
         require(handoff is None and staging is None and admission is None, 'BACKFILL_INPUT')
         dashboard_id, source_sha = backfill['dashboardId'], backfill['sourceHtmlSha256']
         proof = backfill['accountProof']
-        stage = {'mode': 'none-backfill'}
+        require(sha(backfill['sourceHtml']) == source_sha, 'SOURCE_SHA')
+        stage = {'mode': 'none-backfill', 'servedShellSha256': sha(shell)}
         echo = {'design': 'UNKNOWN_BACKFILL', 'answerIdentity': 'PASS', 'providerReady': True, 'gateVersion': '2'}
     else:
         require(handoff is not None and admission is not None and isinstance(staging, dict), 'STAGING_PROOF')
