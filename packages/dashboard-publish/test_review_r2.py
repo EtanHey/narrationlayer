@@ -1,5 +1,6 @@
 """Round-two regressions: exact refusal codes, with all sibling guards satisfied."""
 import json
+import base64
 import os
 from pathlib import Path
 import subprocess
@@ -140,7 +141,7 @@ class ReviewAdmissionTest(unittest.TestCase):
             for value in [bad, None]:
                 observation = args['backfill'] | {field: value}
                 if value is None: observation.pop(field)
-                self.refuse('BACKFILL_OBSERVATIONS', delivery, **(args | {'backfill': observation}))
+                self.refuse('BACKFILL_INPUT' if value is None else 'BACKFILL_OBSERVATIONS', delivery, **(args | {'backfill': observation}))
 
     def test_prepared_index_must_not_be_symlink_or_escape(self):
         source = self.root / 'build'; source.mkdir()
@@ -185,17 +186,60 @@ class ReviewAdmissionTest(unittest.TestCase):
     def test_in_place_maintenance_requirements_and_receipt(self):
         args = self.receipt_args()
         compared = self.handoff | {'design': {'admission': 'COMPARED', 'lineage': 'fixture', 'predecessorSha256': sha(RAW)}}
-        history = {'fixture': [{'accepted': True, 'dashboardId': 'fixture-1'}]}
+        history = {'fixture': [{'accepted': True, 'dashboardId': 'fixture-1', 'servedShellSha256': sha(b'previous')}]}
         args.update(handoff=compared, admission=admit(**(self.args | {'handoff': compared})), deliveries=history)
         args['staging'].update(mode='in-place-maintenance', previousServedShellSha256=sha(b'previous'))
-        for previous in [None, 'bad']:
+        for previous in [None, 'bad', sha(SHELL)]:
             self.refuse('MAINTENANCE_PREVIOUS_SHELL', delivery, **(args | {'staging': args['staging'] | {'previousServedShellSha256': previous}}))
+        wrong = {'fixture': [{'accepted': True, 'dashboardId': 'fixture-1', 'servedShellSha256': sha(b'other') }]}
+        self.refuse('MAINTENANCE_PREVIOUS_SHELL', delivery, **(args | {'deliveries': wrong}))
+        same = {'fixture': [{'accepted': True, 'dashboardId': 'fixture-1', 'servedShellSha256': sha(SHELL)}]}
+        self.refuse('MAINTENANCE_PREVIOUS_SHELL', delivery, **(args | {'deliveries': same, 'staging': args['staging'] | {'previousServedShellSha256': sha(SHELL)}}))
         self.refuse('MAINTENANCE_DESIGN', delivery, **(args | {'handoff': self.handoff}))
         self.refuse('MAINTENANCE_NOT_ACCEPTED', delivery, **(args | {'deliveries': {}}))
         self.reject('MAINTENANCE_NOT_ACCEPTED', handoff=compared, staging=args['staging'])
         self.assertEqual(admit(**(self.args | {'handoff': compared, 'staging': args['staging'], 'deliveries': history}))['answerIdentity'], 'PASS')
         receipt = delivery(**args)
         self.assertEqual(receipt['staging']['mode'], 'in-place-maintenance'); self.assertNotIn('backfilled', receipt)
+
+    def test_existing_id_requires_maintenance_mode(self):
+        args = self.receipt_args()
+        history = {'fixture': [{'accepted': True, 'dashboardId': 'fixture-1', 'sourceHtmlSha256': sha(RAW)}]}
+        self.refuse('MAINTENANCE_REQUIRED', delivery, **(args | {'deliveries': history}))
+        self.reject('MAINTENANCE_REQUIRED', staging=args['staging'], deliveries=history)
+
+    def test_first_reason_is_recorded_and_nonblank(self):
+        for reason in [None, '', '   ']:
+            approval = {'approvedBy': 'fixture-reviewer'}
+            if reason is not None: approval['reason'] = reason
+            self.handoff['design']['firstInLineage'] = approval
+            self.reject('FIRST_IN_LINEAGE_UNAPPROVED')
+
+    def test_unrecorded_owner_is_case_insensitive_in_code_and_schema(self):
+        for owner in ['unrecorded', '  UnReCoRdEd  ']:
+            self.handoff['design']['firstInLineage'] = {'reason': 'fixture', 'approvedBy': owner}
+            self.reject('FIRST_IN_LINEAGE_UNAPPROVED')
+            self.refuse('HANDOFF_SCHEMA', lambda: product.validate(self.handoff, 'publish-handoff', 'HANDOFF_SCHEMA'))
+
+    def test_invalid_staging_through_stdin_gate(self):
+        request = dict(handoff=self.handoff, rawBase64=base64.b64encode(RAW).decode(),
+            shellBase64=base64.b64encode(SHELL).decode(), artifactBase64=base64.b64encode(b'{}').decode(),
+            dashboardId='fixture-1', savedKeys=self.args['saved_keys'], deliveries={}, provider=self.args['provider'],
+            lock=str(self.lock), ownerPid=os.getpid(), runtimeConfig=str(self.runtime_config), staging={'mode': 'invalid'})
+        result = subprocess.run([sys.executable, '-B', str(product.ROOT / 'gate.py')], input=json.dumps(request), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1); self.assertEqual(result.stderr.strip(), 'INVALID_STAGING_MODE')
+
+    def test_each_required_backfill_key_is_checked_up_front(self):
+        args = self.backfill_args()
+        for key in args['backfill']:
+            missing = {k: v for k, v in args['backfill'].items() if k != key}
+            self.refuse('BACKFILL_INPUT', delivery, **(args | {'backfill': missing}))
+
+    def test_registry_shape_is_checked_for_all_lineages(self):
+        args = self.receipt_args()
+        for registry in [[], {'briefings': {}}, {'briefings': [None]}, {'briefings': ['row']}]:
+            self.reject('DELIVERIES_SCHEMA', deliveries=registry)
+            self.refuse('DELIVERIES_SCHEMA', delivery, **(args | {'deliveries': registry}))
 
 
 class ReviewRatchetTest(unittest.TestCase):
