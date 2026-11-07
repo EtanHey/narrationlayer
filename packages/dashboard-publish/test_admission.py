@@ -96,7 +96,7 @@ class AdmissionTest(unittest.TestCase):
             artifact=b'{}', staging={'mode': 'unlisted-candidate',
                 'servedShellSha256': sha(SHELL), 'accountProof': proof},
             url='https://fixture.invalid/?d=fixture-1', approved_origins=['https://fixture.invalid'],
-            existing_rows=1)
+            existing_rows=1, runtime_config=self.runtime_config)
         for changes in [{'shell': SHELL + b' '}, {'staging': args['staging'] | {'accountProof': proof | {'serverAck': False}}},
                         {'url': 'https://other.invalid/?d=fixture-1'}, {'existing_rows': 2}, {'staging': None}, {'handoff': None},
                         {'staging': args['staging'] | {'mode': 'none-backfill'}},
@@ -113,8 +113,9 @@ class AdmissionTest(unittest.TestCase):
         self.assertEqual(receipt['artifactSha256'], sha(b'{}'))
         self.assertEqual(receipt['admission']['answerRuntime'], 'current')
         output.unlink()
-        warned = delivery(**(args | {'admission': admission | {'answerRuntime': 'deprecated'}}))
-        self.assertEqual(warned['admission']['answerRuntime'], 'deprecated')
+        with self.assertRaises(Refusal) as caught:
+            delivery(**(args | {'admission': admission | {'answerRuntime': 'deprecated'}}))
+        self.assertEqual(caught.exception.code, 'ANSWER_RUNTIME_ECHO')
 
 
 
@@ -133,7 +134,7 @@ class BackfillDirectionTest(unittest.TestCase):
         proof = {key: True for key in ('signedIn', 'independentClient', 'disposableRecord', 'markerSaved',
             'serverAck', 'restoredAfterLocalKeysCleared', 'cleanedUp')}
         proof.update(method='note-roundtrip', probe='dedicated-key', mutationDelta=0, existingRowsPreserved=0, at='2026-01-01T00:00:00Z')
-        explicit = dict(dashboardId='fixture-1', sourceHtmlSha256=sha(RAW), sourceHtml=RAW, accountProof=proof)
+        explicit = dict(dashboardId='fixture-1', sourceHtmlSha256=sha(RAW), sourceHtml=RAW, accountProof=proof, answerIdentity='PASS', providerReady=True)
         with self.assertRaises(Refusal): delivery(**args, backfill=explicit, handoff=self.handoff)
         with self.assertRaises(Refusal): delivery(**args, backfill=explicit | {'sourceHtml': b'wrong'})
         receipt = delivery(**args, backfill=explicit)

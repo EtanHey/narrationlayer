@@ -30,9 +30,15 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def validator(schema):
+    checker = FormatChecker()
+    require({'date-time', 'uri'} <= checker.checkers.keys(), 'FORMAT_VALIDATORS')
+    return Draft202012Validator(schema, format_checker=checker)
+
+
 def validate(value, name, code):
     schema = json.loads((ROOT / (name + '.schema.json')).read_text())
-    require(Draft202012Validator(schema, format_checker=FormatChecker()).is_valid(value), code)
+    require(validator(schema).is_valid(value), code)
 
 
 class Scope(HTMLParser):
@@ -55,6 +61,23 @@ class Scope(HTMLParser):
         if tag == 'script' and self.script is not None:
             self.scripts.append(self.script)
             self.script = None
+
+
+def valid_id(value):
+    return isinstance(value, str) and re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', value) and len(value) <= 96
+
+
+def check_scope(html, dashboard_id):
+    scope = Scope(html)
+    require(scope.ids == [dashboard_id] and scope.storage == ['dbx:' + dashboard_id], 'DASHBOARD_ID')
+    return scope
+
+
+def read_prepared_index(source):
+    source = Path(source)
+    index = source / 'index.html'
+    require(not index.is_symlink() and index.resolve().is_relative_to(source.resolve()), 'SOURCE_PATH')
+    return index.read_bytes()
 
 
 def check_lock(lock, owner_pid):
@@ -96,15 +119,15 @@ def runtime_status(digest, config):
 def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider, artifact, lock, owner_pid, runtime_config=ROOT / "answer-runtimes.json"):
     require(handoff is not None, 'HANDOFF_MISSING')
     validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
-    require(re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', dashboard_id) and len(dashboard_id) <= 96
-            and dashboard_id == handoff['dashboardId'], 'DASHBOARD_ID')
+    require(valid_id(dashboard_id) and dashboard_id == handoff['dashboardId'], 'DASHBOARD_ID')
     require(sha(raw) == handoff['sourceHtmlSha256'], 'SOURCE_SHA')  # Prepared input, never builtHtmlSha256.
     for html in (raw, shell):
-        scope = Scope(html)
-        require(scope.ids == [dashboard_id] and scope.storage == ['dbx:' + dashboard_id], 'DASHBOARD_ID')
+        scope = check_scope(html, dashboard_id)
     history = deliveries.get(handoff['design']['lineage'], [])
     require(not (handoff['design']['admission'] == 'FIRST_IN_LINEAGE'
-                 and any(row.get('accepted') is True for row in history)), 'LINEAGE_EXISTS')
+                 and any(row.get('accepted') is True and not (row.get('dashboardId') == dashboard_id
+                         and row.get('sourceHtmlSha256') == handoff['sourceHtmlSha256'])
+                         for row in history)), 'LINEAGE_EXISTS')
     require(handoff['answerPersistence'] == 'PASS', 'ANSWER_PERSISTENCE')
     digest = handoff['answerRuntimeSha256']
     require(runtime_sha(raw) == runtime_sha(shell) == digest, 'ANSWER_RUNTIME_MISMATCH')
@@ -129,18 +152,23 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
     if backfill is not None:
         require(handoff is None and staging is None and admission is None, 'BACKFILL_INPUT')
         dashboard_id, source_sha = backfill['dashboardId'], backfill['sourceHtmlSha256']
-        proof = backfill['accountProof']
+        require(valid_id(dashboard_id), 'DASHBOARD_ID')
+        for html in (backfill['sourceHtml'], shell): check_scope(html, dashboard_id)
+        require(backfill.get('answerIdentity') == 'PASS' and backfill.get('providerReady') is True, 'BACKFILL_OBSERVATIONS')
+        proof = backfill.get('accountProof')
         require(sha(backfill['sourceHtml']) == source_sha, 'SOURCE_SHA')
         stage = {'mode': 'none-backfill', 'servedShellSha256': sha(shell)}
-        echo = {'answerRuntime': runtime_status(runtime_sha(shell), runtime_config), 'design': 'UNKNOWN_BACKFILL', 'answerIdentity': 'PASS', 'providerReady': True, 'gateVersion': '2'}
+        echo = {'answerRuntime': runtime_status(runtime_sha(shell), runtime_config), 'design': 'UNKNOWN_BACKFILL', 'answerIdentity': backfill['answerIdentity'], 'providerReady': backfill['providerReady'], 'gateVersion': '2'}
     else:
         require(handoff is not None and admission is not None and isinstance(staging, dict), 'STAGING_PROOF')
         validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
-        require(staging.get('mode') == 'unlisted-candidate'
-                and staging.get('servedShellSha256') == sha(shell) == admission.get('servedShellSha256')
-                and admission.get('sourceHtmlSha256') == handoff['sourceHtmlSha256']
-                and admission.get('dashboardId') == handoff['dashboardId']
-                and admission.get('design') == handoff['design']['admission'], 'STAGING_PROOF')
+        require(staging.get('mode') == 'unlisted-candidate', 'STAGING_MODE')
+        require(staging.get('servedShellSha256') == sha(shell), 'STAGING_SHELL')
+        require(admission.get('servedShellSha256') == staging['servedShellSha256'], 'ADMISSION_SHELL')
+        require(admission.get('sourceHtmlSha256') == handoff['sourceHtmlSha256'], 'ADMISSION_SOURCE')
+        require(admission.get('dashboardId') == handoff['dashboardId'], 'ADMISSION_ID')
+        require(admission.get('design') == handoff['design']['admission'], 'ADMISSION_DESIGN')
+        require(runtime_status(runtime_sha(shell), runtime_config) == admission.get('answerRuntime'), 'ANSWER_RUNTIME_ECHO')
         dashboard_id, source_sha = handoff['dashboardId'], handoff['sourceHtmlSha256']
         proof = staging.get('accountProof', {})
         stage = {key: staging[key] for key in ('mode', 'servedShellSha256')}
@@ -149,13 +177,16 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
     require(parsed.scheme == 'https' and not parsed.username and not parsed.password
             and parsed.scheme + '://' + parsed.netloc in approved_origins
             and parse_qs(parsed.query).get('d') == [dashboard_id], 'DELIVERY_ORIGIN')
-    require(proof.get('existingRowsPreserved') == existing_rows, 'STAGING_PROOF')
+    proof_schema = json.loads((ROOT / 'delivery.schema.json').read_text())['oneOf'][0]['properties']['accountProof']
+    require(validator(proof_schema).is_valid(proof), 'ACCOUNT_PROOF')
+    require(type(existing_rows) is int and existing_rows >= 0
+            and proof['existingRowsPreserved'] == existing_rows, 'ACCOUNT_PROOF')
     value = {'schema': 'audio-dashboard.delivery.v2', 'host': 'lakebed', 'url': url,
         'dashboardId': dashboard_id, 'sourceHtmlSha256': source_sha,
         'servedShellSha256': sha(shell), 'artifactSha256': sha(artifact),
         'staging': stage, 'accountProof': proof, 'admission': echo,
         'publishedAt': datetime.now(timezone.utc).isoformat()}
     if backfill is not None: value['backfilled'] = True
-    validate(value, 'delivery', 'STAGING_PROOF')
+    validate(value, 'delivery', 'DELIVERY_SCHEMA')
     with Path(path).open('x') as stream: stream.write(json.dumps(value, indent=2) + '\n')
     return value
