@@ -169,7 +169,7 @@ export async function renderSegment(
     throw new Error(`external-command did not create expected audio: ${audioPath}`);
   }
 
-  const words = getWordsFromScript(normalizedScript);
+  const words = getWordsFromScript(segment.script);
   const durationSeconds =
     (await (config.audio_duration_probe ?? probeAudioDurationSeconds)(audioPath)) ??
     segment.duration_seconds ??
@@ -195,7 +195,7 @@ export async function renderSegment(
   return {
     id: segmentId,
     title: segment.title,
-    script: normalizedScript,
+    script: segment.script,
     audio_path: audioPath,
     duration_seconds: Number(durationSeconds.toFixed(3)),
     words_path: wordsPath,

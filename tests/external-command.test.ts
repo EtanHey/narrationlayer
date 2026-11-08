@@ -63,8 +63,8 @@ test("external-command renderer normalizes the script before invoking the comman
     expect(JSON.parse(await Bun.file(markerPath).text())).toEqual({
       script: "Check the P G I D then run tree azh.",
     });
-    // The stored manifest also reflects the normalized script.
-    expect(result.script).toBe("Check the P G I D then run tree azh.");
+    // The stored manifest preserves the authored display script.
+    expect(result.script).toBe("Check the pgid then run triage.");
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }

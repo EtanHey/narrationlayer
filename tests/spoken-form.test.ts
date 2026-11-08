@@ -1,0 +1,67 @@
+import { expect, test } from "bun:test";
+import { deriveSpeechAliases, normalizeForSpeech } from "../src/text-normalize.js";
+import { normalizeWordTimingsForScript } from "../src/word-timing-repair.js";
+
+for (const [input, expected] of [
+  ["9pm", "nine p m"], ["9 pm", "nine p m"], ["9 p.m.", "nine p m"],
+  ["9PM", "nine p m"], ["11:30am", "eleven thirty a m"],
+  ["11:30 a.m.", "eleven thirty a m"], ["at 21:00", "at nine p m"],
+  ["by 21:15", "by nine fifteen p m"], ["9:05pm", "nine oh five p m"],
+  ["at 00:00", "at twelve a m"], ["at 12:00", "at twelve p m"],
+  ["PR #123", "pull request one twenty-three"], ["PR 123", "pull request one twenty-three"],
+  ["pull request #123", "pull request one twenty-three"], ["e.g.", "for example"], ["i.e.", "that is"],
+  ["vs.", "versus"], ["vs", "versus"], ["approx.", "approximately"], ["~5", "about five"],
+  ["5%", "five percent"], ["%", "percent"], ["2.5x", "two point five times"], ["2x", "two times"],
+  ["v2.3", "version two point three"], ["Use v2.3. Try ~5.", "Use version two point three. Try about five."],
+]) test(`spoken form ${input}`, () => expect(normalizeForSpeech(input)).toBe(expected));
+
+for (const input of ["PM spoke with AM about the plan.", "13pm 24:00 9:65pm", "v2beta", "Fix the #1 priority", "See issue #12", "x86", "12:34 long", "10:30 meeting"]) {
+  test(`protected or unchanged ${input}`, () => expect(normalizeForSpeech(input)).toBe(input));
+}
+
+for (const [script, expected] of [
+  ["by 9pm", [["by", 0, .25], ["9pm", .25, 1]]],
+  ["by 9 p.m.", [["by", 0, .25], ["9", .25, .5], ["p.m.", .5, 1]]],
+] satisfies Array<[string, Array<Array<string | number>>]>) test(`align authored ${script}`, () => {
+  const raw = ["by", "nine", "p", "m"].map((word, i) => ({ index: i, word, start: i * .25, end: (i + 1) * .25 }));
+  const copy = structuredClone(raw);
+  const spoken = normalizeForSpeech(script);
+  const result = normalizeWordTimingsForScript(script, raw, 1, deriveSpeechAliases(script, spoken));
+  expect(result.words.map(({ word, start, end }) => [word, start, end])).toEqual(expected);
+  expect(result.estimated).toBe(false);
+  expect(raw).toEqual(copy);
+});
+
+test("explicit alias resolves a changed token with shared LCS pieces", () => {
+  expect(deriveSpeechAliases("by 9pm", "by nine p m")).toContainEqual({ term: "9pm", spoken: "nine p m" });
+  expect(deriveSpeechAliases("by 9pm", "by something else")).not.toContainEqual({ term: "9pm", spoken: "nine p m" });
+});
+
+test("aligns the complete clock span between neighboring words", () => {
+  const raw = ["by", "nine", "p", "m", "tomorrow"].map((word, i) => ({ index: i, word, start: i * .2, end: (i + 1) * .2 }));
+  const script = "by 9pm tomorrow";
+  const result = normalizeWordTimingsForScript(script, raw, 1, deriveSpeechAliases(script, normalizeForSpeech(script)));
+  expect(result.words.map(({ word, start, end }) => [word, start, end])).toEqual([["by", 0, .2], ["9pm", .2, .8], ["tomorrow", .8, 1]]);
+});
+
+test("pronunciation overlays affect only the engine and respect protected spans", async () => {
+  const { prepareSpeechChannels } = await import("../src/text-normalize.js");
+  const display = "Foobar at 9pm `Foobar` https://example.com/Foobar";
+  expect(prepareSpeechChannels(display, [{ term: "Foobar", spoken: "foo bar" }])).toEqual({
+    displayText: display,
+    synthInput: "foo bar at nine p m `foo bar` https://example dot com/foo bar",
+  });
+});
+
+test("protected code and URLs retain legacy speech, without new expansions", () => {
+  expect(normalizeForSpeech("`9pm foo_bar` https://github.com/x86/9pm")).toBe("`9pm foo bar` https://github dot com/x86/9pm");
+});
+
+test("aliases deduplicate normalized forms and never emit partial or merged terms", () => {
+  const text = "i.e. v2.3 and 9pm, then 9pm";
+  const aliases = deriveSpeechAliases(text, normalizeForSpeech(text));
+  const keys = aliases.map(a => `${a.term.toLowerCase().replace(/[^a-z0-9]/g, "")}\0${a.spoken.toLowerCase().replace(/[^a-z0-9]/g, "")}`);
+  expect(new Set(keys).size).toBe(keys.length);
+  expect(aliases.some(a => /\s/.test(a.term) || /^\d$/.test(a.term))).toBe(false);
+  expect(aliases).toContainEqual({ term: "v2.3", spoken: "version two point three" });
+});

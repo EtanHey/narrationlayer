@@ -667,11 +667,7 @@ test("decideTiming RED: timings overrun past the audio duration", () => {
   expect(v.durationPass).toBe(false);
 });
 
-test("scriptTokenCount applies normalizeForSpeech and counts tokens", () => {
-  // "cmux" -> "see mux" (two tokens) after normalization; plain words counted.
-  expect(scriptTokenCount("She ships cmux")).toBe(
-    // "She ships see mux" -> 4 tokens
-    4,
-  );
+test("scriptTokenCount counts authored display tokens", () => {
+  expect(scriptTokenCount("She ships cmux")).toBe(3);
   expect(scriptTokenCount("Hello there world.")).toBe(3);
 });

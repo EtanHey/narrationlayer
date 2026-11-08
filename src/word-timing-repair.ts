@@ -1,4 +1,5 @@
 import type { WordTiming } from "./schema.js";
+import { normalizeForSpeech } from "./text-normalize.js";
 
 export interface WordTimingRepairResult {
   rawWords: WordTiming[];
@@ -8,7 +9,14 @@ export interface WordTimingRepairResult {
   estimated?: boolean;
 }
 
-function scriptWords(script: string): string[] {
+export interface WordTimingAlias {
+  /** Original display phrase. */
+  term: string;
+  /** Deterministic synth-input phrase. */
+  spoken: string;
+}
+
+export function scriptWords(script: string): string[] {
   return String(script || "")
     .trim()
     .split(/\s+/)
@@ -116,12 +124,34 @@ function editDistance(a: string, b: string): number {
   return previous[b.length];
 }
 
-function blockMatchCost(scriptNorm: string, timingNorm: string, scriptCount: number, timingCount: number): number | null {
+function compileAliasSignatures(aliases: WordTimingAlias[]): Map<string, Set<string>> {
+  const signatures = new Map<string, Set<string>>();
+  for (const alias of aliases) {
+    const display = comparable(alias.term);
+    const spoken = comparable(alias.spoken);
+    if (!display || !spoken) continue;
+    const candidates = signatures.get(display) ?? new Set<string>();
+    candidates.add(spoken);
+    signatures.set(display, candidates);
+  }
+  return signatures;
+}
+
+function blockMatchCost(
+  scriptNorm: string,
+  timingNorm: string,
+  scriptCount: number,
+  timingCount: number,
+  aliasSignatures: Map<string, Set<string>>,
+): number | null {
   if (!scriptNorm || !timingNorm) {
     return null;
   }
   if (scriptNorm === timingNorm) {
     return 0.01 * (scriptCount + timingCount - 2);
+  }
+  if (aliasSignatures.get(scriptNorm)?.has(timingNorm)) {
+    return 0.02 + 0.01 * (scriptCount + timingCount - 2);
   }
 
   // A small fuzzy allowance handles common Whisper spelling variants while
@@ -148,9 +178,14 @@ function maybeUpdate(cells: AlignmentCell[][], i: number, j: number, nextI: numb
   }
 }
 
-function alignmentSteps(scriptTokens: string[], timings: WordTiming[]): AlignmentStep[] {
+function alignmentSteps(
+  scriptTokens: string[],
+  timings: WordTiming[],
+  aliases: WordTimingAlias[],
+): AlignmentStep[] {
   const scriptNorms = scriptTokens.map(comparable);
   const timingNorms = timings.map((timing) => comparable(timing.word));
+  const aliasSignatures = compileAliasSignatures(aliases);
   const scriptCount = scriptTokens.length;
   const timingCount = timings.length;
   const cells: AlignmentCell[][] = Array.from({ length: scriptCount + 1 }, () =>
@@ -163,8 +198,14 @@ function alignmentSteps(scriptTokens: string[], timings: WordTiming[]): Alignmen
   );
   cells[0][0] = { cost: 0, prevI: -1, prevJ: -1, step: null };
 
-  const maxScriptBlock = 4;
-  const maxTimingBlock = 4;
+  const maxScriptBlock = Math.max(
+    4,
+    ...aliases.map((alias) => scriptWords(alias.term).length),
+  );
+  const maxTimingBlock = Math.max(
+    4,
+    ...aliases.map((alias) => scriptWords(alias.spoken).length),
+  );
   for (let i = 0; i <= scriptCount; i += 1) {
     for (let j = 0; j <= timingCount; j += 1) {
       if (!Number.isFinite(cells[i][j].cost)) {
@@ -192,7 +233,11 @@ function alignmentSteps(scriptTokens: string[], timings: WordTiming[]): Alignmen
         const scriptNorm = scriptNorms.slice(i, i + a).join("");
         for (let b = 1; b <= maxTimingBlock && j + b <= timingCount; b += 1) {
           const timingNorm = timingNorms.slice(j, j + b).join("");
-          const cost = blockMatchCost(scriptNorm, timingNorm, a, b);
+          let cost = blockMatchCost(scriptNorm, timingNorm, a, b, aliasSignatures);
+          const phrase = scriptTokens.slice(i, i + a).join(" ");
+          if (cost === null && a === 2 && /^\d{1,2}(?::\d{2})?\s+[ap]\.?(?:m)\.?$/i.test(phrase) && comparable(normalizeForSpeech(phrase)) === timingNorm) {
+            cost = 0.02 + 0.01 * (a + b - 2);
+          }
           if (cost === null) {
             continue;
           }
@@ -302,9 +347,10 @@ function alignWordTimingsToScript(
   scriptTokens: string[],
   timings: WordTiming[],
   durationSeconds: number,
+  aliases: WordTimingAlias[],
 ): { words: WordTiming[]; matchedScriptWords: number } {
   const assignments: Array<AlignmentAssignment | undefined> = new Array(scriptTokens.length);
-  const steps = alignmentSteps(scriptTokens, timings);
+  const steps = alignmentSteps(scriptTokens, timings, aliases);
   let matchedScriptWords = 0;
   for (const step of steps) {
     if (step.kind === "match") {
@@ -336,6 +382,7 @@ export function normalizeWordTimingsForScript(
   script: string,
   timings: WordTiming[],
   durationSeconds: number,
+  aliases: WordTimingAlias[] = [],
 ): WordTimingRepairResult {
   const expectedWords = scriptWords(script);
   if (!expectedWords.length) {
@@ -343,7 +390,7 @@ export function normalizeWordTimingsForScript(
   }
 
   if (!wordsMatchScript(expectedWords, timings)) {
-    const alignment = alignWordTimingsToScript(expectedWords, timings, durationSeconds);
+    const alignment = alignWordTimingsToScript(expectedWords, timings, durationSeconds, aliases);
     return {
       rawWords: timings,
       words: alignment.words,

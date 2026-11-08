@@ -542,3 +542,57 @@ test("VoiceLayer Qwen3 adapter cleans audio before duration probing and alignmen
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("renderer aligns the authored script using persisted speech bytes", async () => {
+  const dataDir = createTempDir();
+  let requestedText = "";
+  const raw = ["by", "nine", "p", "m", "tomorrow"].map((word, i) => ({ index: i, word, start: i * .2, end: (i + 1) * .2 }));
+  const snapshot = structuredClone(raw);
+  try {
+    const result = await renderSegment("clock", { title: "Clock", script: "by 9pm tomorrow" }, {
+      artifactsDir: path.join(dataDir, "artifacts"), dataDir, jobId: "job", voiceProfile: "test",
+      fetch: async (_url, init) => {
+        requestedText = JSON.parse(String(init?.body)).text;
+        return new Response(JSON.stringify({ audio_b64: Buffer.from("fake audio").toString("base64") }), { status: 200 });
+      },
+    }, {
+      auth_token: "test-token", reference_clip: "/tmp/public-placeholder.wav", reference_text: "reference",
+      audio_duration_probe: async () => 1, repair_word_timings: true,
+      word_timing_provider: async ({ audioPath }) => {
+        expect(await Bun.file(`${audioPath}.spoken.txt`).text()).toBe(requestedText);
+        return raw;
+      },
+    });
+    expect(requestedText).toBe("by nine p m tomorrow");
+    expect(result.script).toBe("by 9pm tomorrow");
+    const payload = await Bun.file(result.words_path).json();
+    expect(payload.words.map(({ word, start, end }: { word: string; start: number; end: number }) => [word, start, end])).toEqual([["by", 0, .2], ["9pm", .2, .8], ["tomorrow", .8, 1]]);
+    expect(raw).toEqual(snapshot);
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("backend timings align to authored words and pass narration timing gate", async () => {
+  const { decideTiming, scriptTokenCount } = await import("../bin/narration-gate.js");
+  const dataDir = createTempDir();
+  try {
+    for (const [script, spokenWords] of [
+      ["Hello there", ["Hello", "there"]],
+      ["Check the pgid then run triage.", ["Check", "the", "P", "G", "I", "D", "then", "run", "tree", "azh"]],
+      ["by 9pm tomorrow", ["by", "nine", "p", "m", "tomorrow"]],
+    ] satisfies Array<[string, string[]]>) {
+      const raw = spokenWords.map((word, i) => ({ word, start: i / spokenWords.length, end: (i + 1) / spokenWords.length }));
+      const result = await renderSegment("clock", { title: "Clock", script }, {
+        artifactsDir: path.join(dataDir, "artifacts"), dataDir, jobId: "job", voiceProfile: "test",
+        fetch: async () => new Response(JSON.stringify({ audio_b64: Buffer.from("fake audio").toString("base64"), words: raw }), { status: 200 }),
+      }, { auth_token: "test-token", reference_clip: "/tmp/public-placeholder.wav", reference_text: "reference", audio_duration_probe: async () => 1 });
+      const payload = await Bun.file(result.words_path).json();
+      expect(payload.words.length).toBeGreaterThan(0);
+      expect(payload.words.map((word: { word: string }) => word.word)).toEqual(script.split(/\s+/));
+      expect(decideTiming(payload.words, scriptTokenCount(result.script), 1).pass).toBe(true);
+    }
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
