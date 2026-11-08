@@ -876,7 +876,11 @@ async function loudnessNormalizeInPlace(
   return { applied: true, measuredDb, gainDb };
 }
 
-async function main(): Promise<void> {
+function defaultPrepareSpeechChannels(displayText: string) {
+  return { displayText, synthInput: normalizeForSpeech(displayText) };
+}
+
+export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (!args.text || !args.text.trim())
     fail("--text is required and must be non-empty");
@@ -899,7 +903,7 @@ async function main(): Promise<void> {
   // Pronunciation normalization (the TERM_MAP respellings) MUST happen here,
   // before the daemon, exactly as renderSegment does. The DISPLAY is unaffected:
   // the build reads the script .md, not this runner's TTS-feed text.
-  const spokenText = normalizeForSpeech(args.text);
+  const { synthInput: spokenText } = prepareSpeechChannels(args.text);
 
   // CONTENT-HASH FREEZE (determinism layer). The key is computed over the literal
   // spoken text + reference identity + the OUTPUT-affecting synth params. On a HIT

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { normalizeForSpeech } from "../src/text-normalize.js";
 
 import {
   buildMonoS16WavArgs,
@@ -13,6 +14,37 @@ import {
   writeTakeCacheReceipt,
   type CacheKeyParams,
 } from "../bin/local-tts-runner.js";
+
+test("runner defaults and injected speech preparation preserve the authored input", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-speech-seam-"));
+  try {
+    const reference = path.join(dir, "reference.wav");
+    const token = path.join(dir, "token");
+    const cache = path.join(dir, "cache");
+    mkdirSync(cache);
+    writeFileSync(reference, "reference");
+    writeFileSync(token, "token");
+    const input = "Check pgid and surface.select.split.";
+    const custom = "Custom engine words";
+    for (const spokenText of [normalizeForSpeech(input), custom]) {
+      const key = computeContentHashKey({ spokenText, referenceClip: reference, referenceText: "reference transcript", params: {} });
+      writeFileSync(path.join(cache, `${key}.wav`), "frozen-wave");
+    }
+    const runner = path.resolve(import.meta.dir, "..", "bin", "local-tts-runner.ts");
+    const wrapper = path.join(dir, "wrapper.ts");
+    writeFileSync(wrapper, `import { main } from ${JSON.stringify(runner)};\nawait main((displayText) => ({ displayText, synthInput: ${JSON.stringify(custom)} }));\n`);
+    for (const [entry, expected] of [[runner, normalizeForSpeech(input)], [wrapper, custom]]) {
+      const output = path.join(dir, path.basename(entry) + ".wav");
+      const result = Bun.spawnSync({ cmd: ["bun", entry, "--text", input, "--output", output, "--reference", reference, "--reference-text", "reference transcript", "--auth-token-file", token, "--cache-dir", cache], stdout: "pipe", stderr: "pipe" });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr.toString()).toContain("cache HIT");
+      expect(readFileSync(`${output}.spoken.txt`, "utf8")).toBe(expected);
+      expect(input).toBe("Check pgid and surface.select.split.");
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("synth provenance is committed only after the selected WAV is validated", () => {
   const runnerSource = readFileSync(
