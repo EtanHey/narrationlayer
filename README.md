@@ -48,6 +48,12 @@ bun run narrationlayer list-jobs
 bun run narrationlayer watch <job-id>
 ```
 
+`words.json` files rendered before PR #33 can fail the narration gate's COUNT
+check for respelled terms because they may contain spoken tokens instead of
+authored display words. Re-render the job with the current version using
+`bun run narrationlayer render <job-id>` to regenerate its timing artifacts;
+this invokes the job's configured renderer and replaces its output artifacts.
+
 Use `--json` with `doctor`, `create-job`, `render`, `bakeoff-create`,
 `qwen3-lora-prepare`, and `qwen3-lora-preflight` for machine-readable stdout.
 `status`, `result`, `dashboard`, and `list-jobs` always emit JSON.
