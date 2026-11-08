@@ -33,7 +33,7 @@ class ReviewAdmissionTest(unittest.TestCase):
             shell=SHELL, artifact=b'{}', staging={'mode': 'unlisted-candidate',
             'servedShellSha256': sha(SHELL), 'accountProof': proof},
             url='https://fixture.invalid/?d=fixture-1', approved_origins=['https://fixture.invalid'],
-            existing_rows=0, runtime_config=self.runtime_config)
+            existing_rows=0, runtime_config=self.runtime_config, deliveries={})
 
     def backfill_args(self):
         args = self.receipt_args()

@@ -105,11 +105,26 @@
           "properties": {
             "reason": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S",
+              "not": {
+                "pattern": "[\\r\\n\\v\\f\\x1c-\\x1e\\x85\\u2028\\u2029]"
+              }
             },
             "approvedBy": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "\\S",
+              "not": {
+                "pattern": "[\\r\\n\\v\\f\\x1c-\\x1e\\x85\\u2028\\u2029]"
+              },
+              "allOf": [
+                {
+                  "not": {
+                    "pattern": "^\\s*[uU][nN][rR][eE][cC][oO][rR][dD][eE][dD]\\s*$"
+                  }
+                }
+              ]
             },
             "from": {
               "type": "string",
@@ -129,10 +144,25 @@
             "reason": {
               "type": "string",
               "minLength": 1,
-              "pattern": "\\S"
+              "pattern": "\\S",
+              "not": {
+                "pattern": "[\\r\\n\\v\\f\\x1c-\\x1e\\x85\\u2028\\u2029]"
+              }
             },
             "approvedBy": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "not": {
+                "pattern": "[\\r\\n\\v\\f\\x1c-\\x1e\\x85\\u2028\\u2029]"
+              },
+              "allOf": [
+                {
+                  "not": {
+                    "pattern": "^\\s*[uU][nN][rR][eE][cC][oO][rR][dD][eE][dD]\\s*$"
+                  }
+                }
+              ]
             }
           },
           "required": [
