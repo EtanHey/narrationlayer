@@ -140,7 +140,7 @@ export function deriveSpeechAliases(displayText: string, synthInput: string): Te
   const addAlias = (term: string, spoken: string) => {
     const displayKey = term.toLocaleLowerCase("en-US").replace(/[^\p{L}\p{N}]+/gu, "");
     const spokenKey = spoken.toLocaleLowerCase("en-US").replace(/[^\p{L}\p{N}]+/gu, "");
-    if (!displayKey || !spokenKey || /^\d$/.test(displayKey) || /\s/.test(term)) return;
+    if (!displayKey || !spokenKey || /^\d$/.test(displayKey) || (/\s/.test(term) && !/^[A-Z](?: [A-Z])+$/.test(term))) return;
     aliases.set(`${displayKey}\u0000${spokenKey}`, { term, spoken });
   };
   let displayIndex = 0;
@@ -148,7 +148,7 @@ export function deriveSpeechAliases(displayText: string, synthInput: string): Te
   let displayGap: SpeechAliasToken[] = [];
   let synthGap: SpeechAliasToken[] = [];
   const flushGap = () => {
-    if (displayGap.length === 1 && synthGap.length) {
+    if ((displayGap.length === 1 || /^[A-Z](?: [A-Z])+$/.test(displayGap.map(token => token.word).join(" "))) && synthGap.length) {
       const term = displayGap.map((token) => token.word).join(" ");
       const spoken = synthGap.map((token) => token.word).join(" ");
       addAlias(term, spoken);
@@ -183,7 +183,13 @@ export function deriveSpeechAliases(displayText: string, synthInput: string): Te
   return [...aliases.values()].sort((left, right) => right.term.length - left.term.length);
 }
 
-function normalizeLegacy(text: string, configuredRules: TermRule[]): string {
+const SPACED_CAPITALS_RULE = /(?<![A-Za-z0-9])([A-Z](?:[ \t]+[A-Z]){1,})(?![A-Za-z0-9])/g;
+
+export function normalizeLegacy(text: string, configuredRules: TermRule[] = []): string {
+  return normalizeLegacyCore(text.replace(SPACED_CAPITALS_RULE, match => match.replace(/[ \t]+/g, "")), configuredRules);
+}
+
+function normalizeLegacyCore(text: string, configuredRules: TermRule[]): string {
   if (!text) {
     return text;
   }
@@ -277,7 +283,7 @@ function normalizeSpokenRules(text: string): string {
 }
 
 export function normalizeForSpeech(text: string, pronunciationRules: TermRule[] = []): string {
-  return normalizeLegacy(mapProse(text, normalizeSpokenRules), pronunciationRules);
+  return normalizeLegacyCore(mapProse(text, normalizeSpokenRules), pronunciationRules);
 }
 
 export interface SpeechChannels { displayText: string; synthInput: string }
