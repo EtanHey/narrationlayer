@@ -90,3 +90,20 @@ test.each([
 ])("keeps ambiguous identifier speech at its legacy form: %s", (input, expected) => {
   expect(normalizeForSpeech(input)).toBe(expected);
 });
+
+test.each([
+  ["9am-5pm", "nine a m-five p m"],
+  ["9 a.m.-5 p.m.", "nine a m-five p m"],
+  ["9:30pm-10pm", "nine thirty p m-ten p m"],
+  ["10am-12pm", "ten a m-twelve p m"],
+  ["from 9pm-11pm", "from nine p m-eleven p m"],
+  ["1am-2am", "one a m-two a m"],
+  ["9am - 5pm", "nine a m - five p m"],
+  ["9pm–10pm", "nine p m–ten p m"],
+  ["6pm-mini", "6pm-mini"],
+  ["6 p.m.-mini", "6 p dot m.-mini"],
+  ["~98.5%", "about ninety-eight point five percent"],
+  ["VS", "VS"], ["Vs.", "Vs."],
+])("speech contract %s", (input, expected) => {
+  expect(normalizeForSpeech(input)).toBe(expected);
+});
