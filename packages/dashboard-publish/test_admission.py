@@ -17,7 +17,7 @@ class AdmissionTest(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.runtime_config = self.root / 'runtimes.json'
-        self.runtime_config.write_text(json.dumps([{'sha256': sha(RUNTIME), 'status': 'current', 'note': 'fixture'}]))
+        self.runtime_config.write_text(json.dumps([{'sha256': sha(RUNTIME), 'status': 'current', 'note': 'fixture', 'consumerMarkers': ['__answerStore', '.load(', '.save(', '.onStatus(']}]))
         self.lock = self.root / 'lock'
         self.lock.mkdir()
         (self.lock / 'owner.json').write_text(json.dumps({'pid': os.getpid()}))
@@ -65,7 +65,7 @@ class AdmissionTest(unittest.TestCase):
         self.reject('ANSWER_RUNTIME_NOT_ALLOWED')
 
     def test_deprecated_runtime_is_only_for_delivered_ids(self):
-        self.runtime_config.write_text(json.dumps([{'sha256': sha(RUNTIME), 'status': 'deprecated', 'note': 'fixture'}]))
+        self.runtime_config.write_text(json.dumps([{'sha256': sha(RUNTIME), 'status': 'deprecated', 'note': 'fixture', 'consumerMarkers': ['__answerStore', '.load(', '.save(', '.onStatus(']}]))
         self.reject('ANSWER_RUNTIME_DEPRECATED_NEW')
         history = {'other-lineage': [{'accepted': True, 'dashboardId': 'fixture-1'}]}
         self.assertEqual(admit(**(self.args | {'deliveries': history}))['answerRuntime'], 'deprecated')

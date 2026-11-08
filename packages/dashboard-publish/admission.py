@@ -102,18 +102,24 @@ def runtime_sha(html):
     return sha(blocks[0].strip().encode())
 
 
-def runtime_status(digest, config):
+def runtime_entry(digest, config):
     try:
         entries = json.loads(Path(config).read_text())
         require(isinstance(entries, list) and all(isinstance(row, dict) and
                 re.fullmatch('[a-f0-9]{64}', row.get('sha256', '')) and row.get('status') in ('current', 'deprecated')
-                and isinstance(row.get('note'), str) for row in entries), 'ANSWER_RUNTIME_CONFIG')
+                and isinstance(row.get('note'), str) and isinstance(row.get('consumerMarkers'), list)
+                and row['consumerMarkers'] and all(isinstance(marker, str) and marker.strip()
+                    for marker in row['consumerMarkers']) for row in entries), 'ANSWER_RUNTIME_CONFIG')
         matches = [row for row in entries if row['sha256'] == digest]
         require(len(matches) == 1, 'ANSWER_RUNTIME_NOT_ALLOWED')
-        return matches[0]['status']
+        return matches[0]
     except (OSError, ValueError, TypeError) as error:
         if isinstance(error, Refusal): raise
         raise Refusal('ANSWER_RUNTIME_CONFIG') from None
+
+
+def runtime_status(digest, config):
+    return runtime_entry(digest, config)['status']
 
 
 def validate_deliveries(deliveries):
@@ -165,13 +171,14 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
     require(handoff['answerPersistence'] == 'PASS', 'ANSWER_PERSISTENCE')
     digest = handoff['answerRuntimeSha256']
     require(runtime_sha(raw) == runtime_sha(shell) == digest, 'ANSWER_RUNTIME_MISMATCH')
-    status = runtime_status(digest, runtime_config)
+    entry = runtime_entry(digest, runtime_config)
+    status = entry['status']
     require(status != 'deprecated' or any(row.get('accepted') is True and row.get('dashboardId') == dashboard_id
             for rows in deliveries.values() for row in rows), 'ANSWER_RUNTIME_DEPRECATED_NEW')
     keys = {row['key']: row['kind'] for row in handoff['answerKeys']}
     require(len(keys) == len(handoff['answerKeys']) and all(
         keys.get(row['key']) == row['kind'] for row in saved_keys), 'ANSWER_IDENTITY')
-    require(any(all(token in script for token in ('__answerStore', '.load(', '.save(', '.onStatus('))
+    require(any(all(marker in script for marker in entry['consumerMarkers'])
                 for script in scope.scripts) and provider.get('providerReady') is True
             and provider.get('servedShellSha256') == sha(shell), 'PROVIDER_NOT_READY')
     require(provider.get('savedSemantics') == 'serverAck', 'SAVED_LOCAL_ONLY')
