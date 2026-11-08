@@ -65,3 +65,28 @@ test("aliases deduplicate normalized forms and never emit partial or merged term
   expect(aliases.some(a => /\s/.test(a.term) || /^\d$/.test(a.term))).toBe(false);
   expect(aliases).toContainEqual({ term: "v2.3", spoken: "version two point three" });
 });
+
+test.each([
+  "~21:00Z", "21:5x", "~21:0x", "PR 1/2", "PR 2026-10-22]",
+  "~2026-11-01", "4b-1x", "PR #275/#276/#277", "~200–400ms", "6pm-mini",
+])("leaves structured text untouched: %s", (text) => {
+  expect(normalizeForSpeech(text)).toBe(text);
+});
+
+test.each([
+  ["~30/30 GB", "~30/30 GB"],
+  ["stable VS", "stable VS"],
+  ["bge-large-en-v1.5", "bge-large-en-v1 dot 5"],
+  ["v2026.10.27-0abede3", "v2026 dot 10 dot 27-0abede3"],
+  ["v0.1.3-nightly", "v0 dot 1 dot 3-nightly"],
+  ["fable 5x high", "fable 5x high"],
+  ["Opus 5x high", "Opus 5x high"],
+  ["fable 5x\nhigh", "fable 5x\nhigh"],
+  ["PR #137 + #138", "PR #137 + #138"],
+  ["at 21:00-mini", "at 21:00-mini"],
+  ["6 p.m.-mini", "6 p dot m.-mini"],
+  ["| 6x | Secret alerts", "| 6x | Secret alerts"],
+  ["/node/v22.22.0/bin/node", "/node/v22 dot 22 dot 0/bin/node"],
+])("keeps ambiguous identifier speech at its legacy form: %s", (input, expected) => {
+  expect(normalizeForSpeech(input)).toBe(expected);
+});
