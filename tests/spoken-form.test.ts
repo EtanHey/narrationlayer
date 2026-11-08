@@ -107,3 +107,19 @@ test.each([
 ])("speech contract %s", (input, expected) => {
   expect(normalizeForSpeech(input)).toBe(expected);
 });
+
+test.each([
+  ["~5%", "about five percent"],
+  ["~50% of users", "about fifty percent of users"],
+  ["~100%", "about one hundred percent"],
+  ["~98.5%", "about ninety-eight point five percent"],
+  ["9am-5pm-ish", "9am-5pm-ish"],
+  ["1pm-2pm-mini", "1pm-2pm-mini"],
+  ["5pm-6pm-7pm", "five p m-six p m-seven p m"],
+  ["5pm-6pm-7pm-mini", "5pm-6pm-7pm-mini"],
+  ["9 a.m.-5 p.m.-mini", "9 a dot m.-5 p dot m.-mini"],
+  ["9-10pm", "9-ten p m"],
+  ["~98.5%-99%", "~ninety-eight point five percent-ninety-nine percent"],
+])("percentage and complete range contract %s", (input, expected) => {
+  expect(normalizeForSpeech(input)).toBe(expected);
+});

@@ -259,12 +259,13 @@ function mapProse(text: string, transform: (prose: string) => string): string {
 }
 
 const SPOKEN_RULES: Array<[RegExp, (...args: string[]) => string]> = [
-  [/(?<![\w:.])(1[0-2]|0?[1-9])(?::([0-5]\d))?[ \t]*([ap])(?:\.m\.?|m)(?!\w|\.?-(?![ \t]*(?:1[0-2]|0?[1-9])(?::[0-5]\d)?[ \t]*[ap]\.?m(?:\.|(?!\w)))\w)/gi, (_, h, m, p) => clock(h, m, p.toLowerCase())],
+  [/(?<![\w:.])((?:1[0-2]|0?[1-9])(?::[0-5]\d)?[ \t]*[ap](?:\.m\.?|m)(?!\w)(?:-[ \t]*(?:1[0-2]|0?[1-9])(?::[0-5]\d)?[ \t]*[ap](?:\.m\.?|m)(?!\w))*)(-\w+)?/gi,
+    (match, times, suffix) => suffix ? match : times.replace(/(1[0-2]|0?[1-9])(?::([0-5]\d))?[ \t]*([ap])(?:\.m\.?|m)/gi, (_: string, h: string, m: string, p: string) => clock(h, m, p.toLowerCase()))],
   [/\b(at|by|until|from)([ \t]+)([01]\d|2[0-3]):([0-5]\d)(?![\w:]|-\w|[ \t]*[ap]\.?m)/gi, (_, prefix, space, h, m) => `${prefix}${space}${clock(Number(h) % 12 || 12, m, Number(h) < 12 ? "a" : "p")}`],
   [/(?<![\w#])(?:PR|pull[ \t]+request)[ \t]+#?(\d{1,6})(?![\w/]|-\d|[ \t]*[+&,][ \t]*#\d)/gi, (_, n) => `pull request ${referenceNumber(n)}`],
   [/\be\.g\./gi, () => "for example"], [/\bi\.e\./gi, () => "that is"],
   [/(?<![\w-])vs\b\.?(?!-)/g, () => "versus"], [/\bapprox\./gi, () => "approximately"],
-  [/(?<![\w:])~(\d{1,6})(?:\.(\d+)(%))?(?![\w:/–—-]|\.\d)/g, (_, n, fraction, percent) => `about ${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}${percent ? " percent" : ""}` : ""}`],
+  [/(?<![\w:])~(\d{1,6})(?:(?:\.(\d+))?(%))?(?![\w:/–—-]|\.\d)/g, (_, n, fraction, percent) => `about ${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""}${percent ? " percent" : ""}`],
   [/(?<![\w.])(\d{1,6})(?:\.(\d+))?%/g, (_, n, fraction) => `${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""} percent`],
   [/%/g, () => "percent"],
   [/(?<![\w.:–—-])(?<!\|[ \t])(\d{1,6})(?:\.(\d+))?x(?![\w:–—-]|\s+(?:high|max|medium|low)\b)/gi, (_, n, fraction) => `${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""} times`],
