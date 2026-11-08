@@ -1,3 +1,6 @@
+export type VoiceLayerQwen3Config = import("./profile-renderer-types.js").VoiceLayerQwen3Config;
+export type ExternalCommandConfig = import("./profile-renderer-types.js").ExternalCommandConfig;
+
 export type RendererName = "fake" | "voicelayer-qwen3" | "external-command";
 export type SegmentStatus = "pending" | "rendered" | "failed" | "skipped";
 export type TimingSource = RendererName | "whisper-cli" | "estimated";

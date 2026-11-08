@@ -3,8 +3,8 @@ import { constants } from "node:fs";
 import path from "node:path";
 
 import type { RendererName } from "./schema.js";
-import type { ExternalCommandConfig } from "./renderers/external-command.js";
-import type { VoiceLayerQwen3Config } from "./renderers/voicelayer-qwen3.js";
+import type { ExternalCommandConfig } from "./schema.js";
+import type { VoiceLayerQwen3Config } from "./schema.js";
 
 export interface NarrationProfile {
   id: string;
