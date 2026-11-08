@@ -7,7 +7,7 @@ import { assembleAudioWithSilence, trimAudioSilence, applyAudioEq, type AudioAss
 import { probeAudioDurationSeconds } from "../audio.js";
 import { planNarrationUtterances, type NarrationPacingConfig } from "../narration-plan.js";
 import type { RenderManifestSegment, TimingSource, WordTiming, WordsFile } from "../schema.js";
-import { normalizeForSpeech } from "../text-normalize.js";
+import { deriveSpeechAliases, normalizeForSpeech } from "../text-normalize.js";
 import type { RenderSegmentOptions } from "./types.js";
 import { runWhisperCliWordTimings, type WordTimingResult } from "../word-timings.js";
 import { normalizeWordTimingsForScript } from "../word-timing-repair.js";
@@ -451,6 +451,10 @@ export async function renderSegment(
     });
   }
 
+  // Persist the accepted utterances: these are the exact strings sent to TTS.
+  const spokenPath = `${audioPath}.spoken.txt`;
+  await writeFile(spokenPath, plannedUtterances.map(utterance => utterance.text).join(" "), "utf8");
+
   const measuredDuration =
     segment.duration_seconds ??
     normalizeDuration(await (config.audio_duration_probe ?? probeAudioDurationSeconds)(audioPath)) ??
@@ -486,7 +490,8 @@ export async function renderSegment(
     }
   }
   if (returnedTimings.length > 0 && (config.repair_word_timings ?? config.timing_backend === "whisper-cli")) {
-    const repair = normalizeWordTimingsForScript(normalizedScript, returnedTimings, measuredDuration);
+    const spokenText = await readFile(spokenPath, "utf8");
+    const repair = normalizeWordTimingsForScript(segment.script, returnedTimings, measuredDuration, deriveSpeechAliases(segment.script, spokenText));
     returnedTimings = repair.words;
     if (repair.estimated) {
       timingSource = "estimated";
@@ -511,7 +516,7 @@ export async function renderSegment(
   return {
     id: segmentId,
     title: segment.title,
-    script: normalizedScript,
+    script: segment.script,
     audio_path: audioPath,
     duration_seconds: measuredDuration,
     words_path: wordsPath,

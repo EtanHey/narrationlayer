@@ -40,7 +40,7 @@ import os from "node:os";
 import { spawn } from "node:child_process";
 
 import { findProfile, qwenConfigFromProfile, warnIfNonAcceptedProfile } from "../src/profiles.js";
-import { normalizeForSpeech } from "../src/text-normalize.js";
+import { prepareSpeechChannels as prepareDefaultChannels, type TermRule, type SpeechChannels } from "../src/text-normalize.js";
 
 interface Args {
   text?: string;
@@ -876,9 +876,8 @@ async function loudnessNormalizeInPlace(
   return { applied: true, measuredDb, gainDb };
 }
 
-function defaultPrepareSpeechChannels(displayText: string) {
-  return { displayText, synthInput: normalizeForSpeech(displayText) };
-}
+export type SpeechPreparation = (text: string, pronunciationRules: TermRule[]) => SpeechChannels;
+const defaultPrepareSpeechChannels: SpeechPreparation = prepareDefaultChannels;
 
 export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
@@ -903,7 +902,10 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
   // Pronunciation normalization (the TERM_MAP respellings) MUST happen here,
   // before the daemon, exactly as renderSegment does. The DISPLAY is unaffected:
   // the build reads the script .md, not this runner's TTS-feed text.
-  const { synthInput: spokenText } = prepareSpeechChannels(args.text);
+  const channels = prepareSpeechChannels(args.text, []);
+  const spokenText = channels?.synthInput;
+  if (typeof spokenText !== "string" || !spokenText.trim())
+    fail("speech preparation must return a nonblank synthInput string synchronously");
 
   // CONTENT-HASH FREEZE (determinism layer). The key is computed over the literal
   // spoken text + reference identity + the OUTPUT-affecting synth params. On a HIT

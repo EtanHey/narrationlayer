@@ -460,3 +460,24 @@ test("local runner warns loudly for direct superseded profiles", () => {
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("runner rejects asynchronous or missing speech input before synthesis", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-invalid-speech-"));
+  try {
+    const reference = path.join(dir, "reference.wav");
+    const token = path.join(dir, "token");
+    writeFileSync(reference, "reference");
+    writeFileSync(token, "token");
+    const runner = path.resolve(import.meta.dir, "..", "bin", "local-tts-runner.ts");
+    for (const callback of ["async text => ({ displayText: text, synthInput: text })", "text => ({ displayText: text })", "text => ({ displayText: text, synthInput: '  ' })"]) {
+      const wrapper = path.join(dir, "invalid.mjs");
+      writeFileSync(wrapper, `import { main } from ${JSON.stringify(runner)};\nawait main(${callback});\n`);
+      const result = Bun.spawnSync({ cmd: ["bun", wrapper, "--text", "hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "reference transcript", "--auth-token-file", token], stdout: "pipe", stderr: "pipe" });
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr.toString()).toContain("speech preparation must return a nonblank synthInput string synchronously");
+      expect(existsSync(path.join(dir, "out.wav"))).toBe(false);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
