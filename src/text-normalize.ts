@@ -265,9 +265,9 @@ const SPOKEN_RULES: Array<[RegExp, (...args: string[]) => string]> = [
   [/(?<![\w#])(?:PR|pull[ \t]+request)[ \t]+#?(\d{1,6})(?![\w/]|-\d|[ \t]*[+&,][ \t]*#\d)/gi, (_, n) => `pull request ${referenceNumber(n)}`],
   [/\be\.g\./gi, () => "for example"], [/\bi\.e\./gi, () => "that is"],
   [/(?<![\w-])vs\b\.?(?!-)/g, () => "versus"], [/\bapprox\./gi, () => "approximately"],
-  [/(?<![\w:])~(\d{1,6})(?:(?:\.(\d+))?(%))?(?![\w:/–—-]|\.\d)/g, (_, n, fraction, percent) => `about ${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""}${percent ? " percent" : ""}`],
+  [/(?<![\w:])~(\d{1,6})(?:(?:\.(\d+))?(%)|(?![\w:/–—%-]|\.\d))/g, (_, n, fraction, percent) => `about ${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""}${percent ? " percent" : ""}`],
   [/(?<![\w.])(\d{1,6})(?:\.(\d+))?%/g, (_, n, fraction) => `${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""} percent`],
-  [/%/g, () => "percent"],
+  [/(\p{L}|\p{N})?%/gu, (_, preceding) => preceding ? `${preceding} percent` : "percent"],
   [/(?<![\w.:–—-])(?<!\|[ \t])(\d{1,6})(?:\.(\d+))?x(?![\w:–—-]|\s+(?:high|max|medium|low)\b)/gi, (_, n, fraction) => `${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""} times`],
   [/(?<![\w./-])v(\d{1,6}(?:\.\d{1,6})+)(?![\w/-]|\.\d)/gi, (_, version) => `version ${version.split(".").map(cardinal).join(" point ")}`],
 ];
