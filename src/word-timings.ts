@@ -65,6 +65,13 @@ async function resolveFirstExisting(candidates: string[]): Promise<string | unde
   return undefined;
 }
 
+export async function resolveWhisperBinary(override?: string): Promise<string> {
+  return override || (await resolveFirstExisting([
+    path.join("/opt/homebrew", "bin", "whisper-cli"),
+    path.join("/usr/local", "bin", "whisper-cli"),
+  ])) || "whisper-cli";
+}
+
 function numberFrom(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -188,10 +195,7 @@ export async function runWhisperCliWordTimings(
   audioPath: string,
   options: WhisperTimingOptions = {},
 ): Promise<WordTimingResult> {
-  const binary =
-    options.whisper_binary ||
-    (await resolveFirstExisting(["/opt/homebrew/bin/whisper-cli", "/usr/local/bin/whisper-cli"])) ||
-    "whisper-cli";
+  const binary = await resolveWhisperBinary(options.whisper_binary);
   const model =
     options.whisper_model ||
     process.env.NARRATIONLAYER_WHISPER_MODEL ||

@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 
-import { wordsFromWhisperJson } from "../src/word-timings.js";
+import { resolveWhisperBinary, wordsFromWhisperJson } from "../src/word-timings.js";
+
+test("whisper discovery retains override and existing Homebrew precedence", async () => {
+  const previousCandidates = ["/opt/homebrew/bin/whisper-cli", "/usr/local/bin/whisper-cli"];
+  expect(await resolveWhisperBinary()).toBe(previousCandidates.find(existsSync) ?? "whisper-cli");
+  expect(await resolveWhisperBinary("custom-whisper")).toBe("custom-whisper");
+});
 
 test("Whisper token timestamps merge subword tokens and punctuation into word timings", () => {
   const words = wordsFromWhisperJson({
