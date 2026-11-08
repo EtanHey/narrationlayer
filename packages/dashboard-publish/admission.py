@@ -137,14 +137,19 @@ def check_staging(staging, design, dashboard_id, deliveries, served_shell_sha256
         require(recorded is None or recorded == previous, 'MAINTENANCE_PREVIOUS_SHELL')
 
 
+def recorded_approval(approval):
+    return (isinstance(approval, dict) and all(isinstance(approval.get(field), str)
+        and approval[field].strip() and not re.search(r'[\r\n\v\f\x1c-\x1e\x85\u2028\u2029]', approval[field])
+        for field in ('reason', 'approvedBy')) and approval['approvedBy'].strip().upper() != 'UNRECORDED')
+
+
 def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider, artifact, lock, owner_pid, runtime_config=ROOT / "answer-runtimes.json", staging=None):
     require(handoff is not None, 'HANDOFF_MISSING')
     design = handoff.get('design', {}) if isinstance(handoff, dict) else {}
     if isinstance(design, dict) and design.get('admission') == 'FIRST_IN_LINEAGE':
-        approval = design.get('firstInLineage')
-        owner = approval.get('approvedBy') if isinstance(approval, dict) else None
-        reason = approval.get('reason') if isinstance(approval, dict) else None
-        require(isinstance(owner, str) and owner.strip() and owner.strip().upper() != 'UNRECORDED' and isinstance(reason, str) and reason.strip(), 'FIRST_IN_LINEAGE_UNAPPROVED')
+        require(recorded_approval(design.get('firstInLineage')), 'FIRST_IN_LINEAGE_UNAPPROVED')
+    if isinstance(design, dict) and design.get('admission') == 'REDESIGN_APPROVED':
+        require(recorded_approval(design.get('redesign')), 'REDESIGN_UNAPPROVED')
     validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
     require(valid_id(dashboard_id) and dashboard_id == handoff['dashboardId'], 'DASHBOARD_ID')
     require(sha(raw) == handoff['sourceHtmlSha256'], 'SOURCE_SHA')  # Prepared input, never builtHtmlSha256.
@@ -178,7 +183,7 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
 
 def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
              handoff=None, admission=None, staging=None, backfill=None, runtime_config=ROOT / "answer-runtimes.json", deliveries=None):
-    deliveries = validate_deliveries({} if deliveries is None else deliveries)
+    deliveries = validate_deliveries(deliveries) if backfill is None or deliveries is not None else {}
     if backfill is not None:
         require(isinstance(backfill, dict) and {'dashboardId', 'sourceHtmlSha256', 'sourceHtml', 'accountProof', 'answerIdentity', 'providerReady'} <= backfill.keys(), 'BACKFILL_INPUT')
         require(handoff is None and staging is None and admission is None, 'BACKFILL_INPUT')

@@ -98,7 +98,7 @@ class AdmissionTest(unittest.TestCase):
             artifact=b'{}', staging={'mode': 'unlisted-candidate',
                 'servedShellSha256': sha(SHELL), 'accountProof': proof},
             url='https://fixture.invalid/?d=fixture-1', approved_origins=['https://fixture.invalid'],
-            existing_rows=1, runtime_config=self.runtime_config)
+            existing_rows=1, runtime_config=self.runtime_config, deliveries={})
         for changes in [{'shell': SHELL + b' '}, {'staging': args['staging'] | {'accountProof': proof | {'serverAck': False}}},
                         {'url': 'https://other.invalid/?d=fixture-1'}, {'existing_rows': 2}, {'staging': None}, {'handoff': None},
                         {'staging': args['staging'] | {'mode': 'none-backfill'}},
@@ -127,7 +127,7 @@ class BackfillDirectionTest(unittest.TestCase):
         with self.assertRaises(Refusal):
             delivery(path=self.root / 'normal.json', handoff=self.handoff, admission=admit(**self.args),
                 shell=SHELL, artifact=b'{}', url='https://fixture.invalid/?d=fixture-1',
-                approved_origins=['https://fixture.invalid'], existing_rows=0, runtime_config=self.runtime_config)
+                approved_origins=['https://fixture.invalid'], existing_rows=0, runtime_config=self.runtime_config, deliveries={})
         self.assertFalse((self.root / 'normal.json').exists())
 
     def test_backfill_requires_explicit_input_and_no_handoff(self):
