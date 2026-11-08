@@ -99,7 +99,7 @@ class ReviewAdmissionTest(unittest.TestCase):
     def test_forged_current_and_deprecated_runtime_echoes(self):
         args = self.receipt_args()
         self.refuse('ANSWER_RUNTIME_ECHO', delivery, **(args | {'admission': args['admission'] | {'answerRuntime': 'deprecated'}}))
-        self.runtime_config.write_text(json.dumps([{'sha256': sha(RUNTIME), 'status': 'deprecated', 'note': 'fixture'}]))
+        self.runtime_config.write_text(json.dumps([{'sha256': sha(RUNTIME), 'status': 'deprecated', 'note': 'fixture', 'consumerMarkers': ['__answerStore', '.load(', '.save(', '.onStatus(']}]))
         args['admission']['answerRuntime'] = 'current'
         self.refuse('ANSWER_RUNTIME_ECHO', delivery, **args)
         args['admission']['answerRuntime'] = 'deprecated'
