@@ -195,3 +195,16 @@ test("email-like @ inside a word is not treated as a leading @-tag", () => {
 test("empty string returns empty string", () => {
   expect(normalizeForSpeech("")).toBe("");
 });
+
+test("legacy preparation skips spoken forms while preserving other normalization", async () => {
+  const { normalizeLegacy } = await import("../src/text-normalize.js");
+  expect(normalizeLegacy("Meet at 9pm: PR #123, e.g. ~5% on foo_bar.")).toBe("Meet at 9pm: PR #123, e dot g. ~5% on foo bar.");
+  expect(normalizeLegacy("P R and Q A", [{ term: "PR", spoken: "pull request" }, { term: "QA", spoken: "quality assurance" }])).toBe("pull request and quality assurance");
+  expect(normalizeLegacy("P\nR")).toBe("P\nR");
+  expect(normalizeForSpeech("P R and Q A")).toBe("P R and Q A");
+});
+
+test("initialism speech aliases retain the authored multiword phrase", async () => {
+  const { deriveSpeechAliases } = await import("../src/text-normalize.js");
+  expect(deriveSpeechAliases("Read P R now", "Read pull request now")).toContainEqual({ term: "P R", spoken: "pull request" });
+});
