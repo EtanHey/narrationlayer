@@ -13,18 +13,8 @@ import { normalizeForSpeech } from "../text-normalize.js";
 import { getWordsFromScript } from "./voicelayer-qwen3.js";
 import type { RenderSegmentOptions } from "./types.js";
 
-export interface ExternalCommandConfig {
-  command?: string;
-  args?: string[];
-  cwd?: string;
-  timeout_ms?: number;
-  output_ext?: string;
-  reference_clip?: string;
-  reference_text?: string;
-  reference_text_path?: string;
-  timing_backend?: "estimated" | "none";
-  audio_duration_probe?: (audioPath: string) => Promise<number | undefined>;
-}
+export type { ExternalCommandConfig } from "../profile-renderer-types.js";
+import type { ExternalCommandConfig } from "../profile-renderer-types.js";
 
 interface CommandResult {
   code: number;
