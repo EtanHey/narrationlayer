@@ -38,8 +38,8 @@ import { detectSilences, type DetectedSilence } from "../src/audio.js";
 import {
   TERM_MAP,
   buildTermRegExp,
-  normalizeForSpeech,
 } from "../src/text-normalize.js";
+import { scriptWords } from "../src/word-timing-repair.js";
 
 // ---- Named thresholds (tune here) ------------------------------------------
 
@@ -1608,7 +1608,7 @@ export interface TimingWord {
 
 export interface TimingVerdict {
   pass: boolean;
-  /** words.json word count == script token count (post-normalizeForSpeech). */
+  /** words.json word count == authored script token count. */
   countPass: boolean;
   /** Starts are monotonic non-decreasing (no start[i] < start[i-1]). */
   monotonicPass: boolean;
@@ -1630,7 +1630,7 @@ export interface TimingVerdict {
  * Pure TIMING decision for ONE segment. No I/O — unit-testable. Catches the
  * aftercode teleprompter-drift signature: clean script words mapped onto a raw
  * whisper timeline by crude proportion. A correctly ALIGNED words.json has:
- *   COUNT       — exactly one timing per script token (post normalizeForSpeech).
+ *   COUNT       — exactly one timing per authored script token.
  *   MONOTONIC   — starts never go backwards (start[i] >= start[i-1]).
  *   SPAN        — every word has end>=start and end−start <= TIMING_MAX_WORD_SPAN_S.
  *   DURATION    — last word's end within ±TIMING_END_TOL_S of the mp3 duration.
@@ -1687,17 +1687,11 @@ export function decideTiming(
 
 /**
  * Count script tokens EXACTLY as the aligner (src/word-timing-repair.ts
- * scriptWords) does, after running the raw script through normalizeForSpeech —
- * the same spoken-feed transform the synth used. This is the count an aligned
- * words.json must match.
+ * scriptWords) does, against authored display text. This is the count an
+ * aligned words.json must match.
  */
 export function scriptTokenCount(rawScript: string): number {
-  const spoken = normalizeForSpeech(String(rawScript || ""));
-  return spoken
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.replace(/^[^\w]+|[^\w.?!,;:]+$/g, ""))
-    .filter(Boolean).length;
+  return scriptWords(rawScript).length;
 }
 
 /** Read a words.json into TimingWord[]; null if absent/unparseable/empty. */

@@ -1,4 +1,5 @@
 import type { WordTiming } from "./schema.js";
+import { normalizeForSpeech } from "./text-normalize.js";
 
 export interface WordTimingRepairResult {
   rawWords: WordTiming[];
@@ -15,7 +16,7 @@ export interface WordTimingAlias {
   spoken: string;
 }
 
-function scriptWords(script: string): string[] {
+export function scriptWords(script: string): string[] {
   return String(script || "")
     .trim()
     .split(/\s+/)
@@ -232,7 +233,11 @@ function alignmentSteps(
         const scriptNorm = scriptNorms.slice(i, i + a).join("");
         for (let b = 1; b <= maxTimingBlock && j + b <= timingCount; b += 1) {
           const timingNorm = timingNorms.slice(j, j + b).join("");
-          const cost = blockMatchCost(scriptNorm, timingNorm, a, b, aliasSignatures);
+          let cost = blockMatchCost(scriptNorm, timingNorm, a, b, aliasSignatures);
+          const phrase = scriptTokens.slice(i, i + a).join(" ");
+          if (cost === null && a === 2 && /^\d{1,2}(?::\d{2})?\s+[ap]\.?(?:m)\.?$/i.test(phrase) && comparable(normalizeForSpeech(phrase)) === timingNorm) {
+            cost = 0.02 + 0.01 * (a + b - 2);
+          }
           if (cost === null) {
             continue;
           }

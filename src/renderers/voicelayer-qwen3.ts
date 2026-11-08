@@ -489,8 +489,8 @@ export async function renderSegment(
       timingUnavailableReason = `word_timing_backend_failed: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
-  if (returnedTimings.length > 0 && (config.repair_word_timings ?? config.timing_backend === "whisper-cli")) {
-    const spokenText = await readFile(spokenPath, "utf8");
+  const spokenText = await readFile(spokenPath, "utf8");
+  if (returnedTimings.length > 0 && (segment.script !== spokenText || (config.repair_word_timings ?? config.timing_backend === "whisper-cli"))) {
     const repair = normalizeWordTimingsForScript(segment.script, returnedTimings, measuredDuration, deriveSpeechAliases(segment.script, spokenText));
     returnedTimings = repair.words;
     if (repair.estimated) {

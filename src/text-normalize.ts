@@ -137,19 +137,21 @@ export function deriveSpeechAliases(displayText: string, synthInput: string): Te
   }
 
   const aliases = new Map<string, TermRule>();
+  const addAlias = (term: string, spoken: string) => {
+    const displayKey = term.toLocaleLowerCase("en-US").replace(/[^\p{L}\p{N}]+/gu, "");
+    const spokenKey = spoken.toLocaleLowerCase("en-US").replace(/[^\p{L}\p{N}]+/gu, "");
+    if (!displayKey || !spokenKey || /^\d$/.test(displayKey) || /\s/.test(term)) return;
+    aliases.set(`${displayKey}\u0000${spokenKey}`, { term, spoken });
+  };
   let displayIndex = 0;
   let synthIndex = 0;
   let displayGap: SpeechAliasToken[] = [];
   let synthGap: SpeechAliasToken[] = [];
   const flushGap = () => {
-    if (displayGap.length && synthGap.length) {
+    if (displayGap.length === 1 && synthGap.length) {
       const term = displayGap.map((token) => token.word).join(" ");
       const spoken = synthGap.map((token) => token.word).join(" ");
-      const key = displayGap.map((token) => token.comparable).join("");
-      aliases.set(`${key}\u0000${synthGap.map((token) => token.comparable).join("")}`, {
-        term,
-        spoken,
-      });
+      addAlias(term, spoken);
     }
     displayGap = [];
     synthGap = [];
@@ -174,7 +176,7 @@ export function deriveSpeechAliases(displayText: string, synthInput: string): Te
   mapProse(displayText, prose => {
     for (const term of prose.match(/\S+/g) ?? []) {
       const spoken = normalizeSpokenRules(term);
-      if (spoken !== term && synthInput.includes(spoken)) aliases.set(`${term}\u0000${spoken}`, { term, spoken });
+      if (spoken !== term && synthInput.includes(spoken)) addAlias(term, spoken);
     }
     return prose;
   });
@@ -258,14 +260,14 @@ function mapProse(text: string, transform: (prose: string) => string): string {
 
 const SPOKEN_RULES: Array<[RegExp, (...args: string[]) => string]> = [
   [/(?<![\w:.])(1[0-2]|0?[1-9])(?::([0-5]\d))?[ \t]*([ap])(?:\.m\.?|m)(?!\w)/gi, (_, h, m, p) => clock(h, m, p.toLowerCase())],
-  [/(?<![\w:.])([01]\d|2[0-3]):([0-5]\d)(?![\w:]|[ \t]*[ap]\.?m)/gi, (_, h, m) => clock(Number(h) % 12 || 12, m, Number(h) < 12 ? "a" : "p")],
-  [/(?<![\w#])(?:PR[ \t]+#?|#)(\d{1,6})(?!\w)/gi, (_, n) => `pull request ${referenceNumber(n)}`],
+  [/\b(at|by|until|from)([ \t]+)([01]\d|2[0-3]):([0-5]\d)(?![\w:]|[ \t]*[ap]\.?m)/gi, (_, prefix, space, h, m) => `${prefix}${space}${clock(Number(h) % 12 || 12, m, Number(h) < 12 ? "a" : "p")}`],
+  [/(?<![\w#])(?:PR|pull[ \t]+request)[ \t]+#?(\d{1,6})(?!\w)/gi, (_, n) => `pull request ${referenceNumber(n)}`],
   [/\be\.g\./gi, () => "for example"], [/\bi\.e\./gi, () => "that is"],
   [/(?<![\w-])vs\b\.?(?!-)/gi, () => "versus"], [/\bapprox\./gi, () => "approximately"],
   [/(?<!\w)~(\d{1,6})(?!\w|\.\d)/g, (_, n) => `about ${cardinal(n)}`],
   [/(?<![\w.])(\d{1,6})(?:\.(\d+))?%/g, (_, n, fraction) => `${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""} percent`],
   [/%/g, () => "percent"],
-  [/(?<!\w)(?:x(\d{1,6})|(\d{1,6})x)(?!\w)/gi, (_, a, b) => `${cardinal(a || b)} times`],
+  [/(?<![\w.])(\d{1,6})(?:\.(\d+))?x(?!\w)/gi, (_, n, fraction) => `${cardinal(n)}${fraction ? ` point ${[...fraction].map(d => SMALL[Number(d)]).join(" ")}` : ""} times`],
   [/(?<![\w.])v(\d{1,6}(?:\.\d{1,6})+)(?!\w|\.\d)/gi, (_, version) => `version ${version.split(".").map(cardinal).join(" point ")}`],
 ];
 
@@ -274,7 +276,7 @@ function normalizeSpokenRules(text: string): string {
 }
 
 export function normalizeForSpeech(text: string, pronunciationRules: TermRule[] = []): string {
-  return mapProse(text, prose => normalizeLegacy(normalizeSpokenRules(prose), pronunciationRules));
+  return normalizeLegacy(mapProse(text, normalizeSpokenRules), pronunciationRules);
 }
 
 export interface SpeechChannels { displayText: string; synthInput: string }
