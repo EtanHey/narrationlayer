@@ -13,3 +13,5 @@ jobs:
         run: python3 scripts/check-upload-links.py
       - name: Prove tracked and staged leak rejection
         run: python3 -m unittest discover -s tests -p 'test_upload_link_guard.py' -v
+      - name: Runtime probe client-health and transition tests
+        run: python3 -m unittest discover -s tests -p 'test_runtime_probe.py' -v
