@@ -189,6 +189,27 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(self.notices().count('runtime CONFIG-ERROR'), 2)
         self.assertEqual(self.notices().count('runtime RECOVERY'), 1)
 
+    def test_wake_requests_after_real_sleep_is_not_a_wake(self):
+        # Real pmset lines; omit other system requests after the first bracket.
+        self.power = (
+            "2026-11-11 22:58:38 +0200 Sleep               \tEntering Sleep state due to 'Maintenance Sleep':TCPKeepAlive=active Using Batt (Charge:50%) 3 secs    \n"
+            '2026-11-11 22:58:40 +0200 Wake Requests       \t[process=mDNSResponder request=Maintenance deltaSecs=7198 wakeAt=2026-11-12 00:58:38 info="upkeep wake"]\n'
+        )
+        now = datetime.datetime.fromisoformat('2026-11-11T23:08:38+02:00')
+        class Clock(datetime.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return now.astimezone(tz)
+        self.failed = True
+        with patch.object(self.probe.datetime, 'datetime', Clock):
+            code, state = self.invoke()
+        self.assertEqual(state['client']['power']['event'], 'Sleep')
+        self.assertEqual(state['client']['power']['age_seconds'], 600)
+        self.assertEqual(state['status'], 'SKIPPED client-asleep')
+        self.assertEqual(code, 0)
+        self.assertEqual(len(self.urls), 2)
+        self.assertFalse(self.notices())
+
     def test_old_sleep_or_darkwake_does_not_hide_remote_failure(self):
         self.failed = True
         for kind in ('Sleep', 'DarkWake'):

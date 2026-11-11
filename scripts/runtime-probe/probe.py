@@ -107,7 +107,7 @@ def client_health(config, now):
                             '--write-out', '%{http_code}', '--max-time', '10', 'https://' + host])
         evidence[host] = {'dns': dns, 'head': code == 0 and bool(re.fullmatch(r'2[0-9]{2}', status))}
     code, log = run(['/usr/bin/pmset', '-g', 'log'])
-    events = re.findall(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d [+-]\d{4})\s+(Sleep|DarkWake|Wake)\s', log, re.M)
+    events = re.findall(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d [+-]\d{4})\s+(Sleep|DarkWake|Wake)(?=\t| {2,})', log, re.M)
     evidence['power'] = 'unavailable'
     asleep = False
     if code == 0 and events:
