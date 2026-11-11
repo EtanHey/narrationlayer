@@ -25,7 +25,7 @@ def load_config():
     for key, env in OVERRIDES.items():
         if env in os.environ:
             config[key] = os.environ[env]
-    for key in ('host', 'app', 'clip_url', 'relay_url', 'audio_url'):
+    for key in ('app', 'clip_url', 'relay_url', 'audio_url'):
         value = urlsplit(config[key])
         if value.scheme != 'https' or not value.hostname or value.username or value.password:
             raise ValueError('invalid URL field')
@@ -41,9 +41,10 @@ def load_config():
         raise ValueError('missing launchd labels')
     if type(config['funnel_port']) is not int or not 1 <= config['funnel_port'] <= 65535:
         raise ValueError('invalid port')
-    config['wake_grace_minutes'] = float(config.get('wake_grace_minutes', 5))
-    if not math.isfinite(config['wake_grace_minutes']) or config['wake_grace_minutes'] < 0:
-        raise ValueError('invalid grace period')
+    for key, default in (('wake_grace_minutes', 5), ('sleep_event_max_age_minutes', 30), ('skip_notice_hours', 2)):
+        config[key] = float(config.get(key, default))
+        if not math.isfinite(config[key]) or config[key] < 0:
+            raise ValueError('invalid time threshold')
     return config
 
 
@@ -104,7 +105,7 @@ def client_health(config, now):
             dns = False
         code, status = run(['/usr/bin/curl', '--head', '--silent', '--output', '/dev/null',
                             '--write-out', '%{http_code}', '--max-time', '10', 'https://' + host])
-        evidence[host] = {'dns': dns, 'head': code == 0 and status.startswith(('2', '3'))}
+        evidence[host] = {'dns': dns, 'head': code == 0 and bool(re.fullmatch(r'2[0-9]{2}', status))}
     code, log = run(['/usr/bin/pmset', '-g', 'log'])
     events = re.findall(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d [+-]\d{4})\s+(Sleep|DarkWake|Wake)\s', log, re.M)
     evidence['power'] = 'unavailable'
@@ -113,7 +114,8 @@ def client_health(config, now):
         stamp, kind = events[-1]
         age = (now - datetime.datetime.strptime(stamp, '%Y-%m-%d %H:%M:%S %z')).total_seconds()
         evidence['power'] = {'event': kind, 'time': stamp, 'age_seconds': age}
-        asleep = kind in ('Sleep', 'DarkWake') or age < config['wake_grace_minutes'] * 60
+        limit = config['sleep_event_max_age_minutes'] if kind in ('Sleep', 'DarkWake') else config['wake_grace_minutes']
+        asleep = 0 <= age < limit * 60
     if asleep:
         return 'SKIPPED client-asleep', evidence
     if not any(item['dns'] and item['head'] for host, item in evidence.items() if host != 'power'):
@@ -148,6 +150,7 @@ def main():
             phase = 'client power history'
             status, state['client'] = client_health(config, now)
             if status is None:
+                phase = 'remote checks'
                 state['checks'] = {
                     'clip': http(config['clip_url'], 206, ranged=True),
                     'relay': http(config['relay_url'], 206, ranged=True, authenticated=True, token_file=config['token_file']),
@@ -160,20 +163,34 @@ def main():
                 status = 'HEALTHY' if state['healthy'] else 'FAIL'
         except (OSError, ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
             status = 'CONFIG-ERROR'
-            state['checks'] = {phase: f'{type(error).__name__}: check external config and pmset access'}
+            state['checks'] = {phase: f'{type(error).__name__}: check {phase} settings and access'}
         state.update(status=status, inbox_path=inbox_path)
+        notice = None
+        lines = ''
         if status.startswith('SKIPPED'):
             state['last_status'] = old_status
+            since = previous.get('skip_since', state['time'])
+            try:
+                elapsed = (now - datetime.datetime.fromisoformat(since)).total_seconds()
+            except (TypeError, ValueError):
+                since, elapsed = state['time'], 0
+            state.update(skip_since=since, skip_notified=previous.get('skip_notified') is True)
+            hours = config['skip_notice_hours']
+            if elapsed >= hours * 3600 and not state['skip_notified']:
+                notice = 'SKIP-NOTICE'
+                lines = f'- probe skipped continuously for over {hours:g} hours; since {since}; {status}\n'
+                state['skip_notified'] = True
         else:
             if status != old_status and (status != 'HEALTHY' or old_status in ('FAIL', 'CONFIG-ERROR')):
                 notice = 'RECOVERY' if status == 'HEALTHY' else status
                 lines = ''.join(f'- {key}: {value}\n' for key, value in state['checks'].items() if value)
-                with Path(inbox_path).expanduser().open('a') as inbox:
-                    fcntl.flock(inbox, fcntl.LOCK_EX)
-                    inbox.write(f'\n### narrationlayer-probe → @orc @narrationlayer: dashboard runtime {notice} ({state["time"]})\n{lines or "- All checks healthy."}\n')
-                    inbox.flush()
-                    os.fsync(inbox.fileno())
             state['last_status'] = status
+        if notice:
+            with Path(inbox_path).expanduser().open('a') as inbox:
+                fcntl.flock(inbox, fcntl.LOCK_EX)
+                inbox.write(f'\n### narrationlayer-probe → @orc @narrationlayer: dashboard runtime {notice} ({state["time"]})\n{lines or "- All checks healthy."}\n')
+                inbox.flush()
+                os.fsync(inbox.fileno())
         with tempfile.NamedTemporaryFile(mode='w', dir=STATE, delete=False) as tmp:
             json.dump(state, tmp, indent=2)
             tmp.write('\n')

@@ -1,5 +1,4 @@
 {
-  "host": "https://media.example",
   "app": "https://app.example/",
   "clip_url": "https://media.example:8447/current/assets/clip.mp3",
   "relay_url": "https://media.example:8443/audio/relay/current/assets/clip.mp3",
@@ -9,5 +8,7 @@
   "launchd_labels": ["org.example.media", "org.example.relay"],
   "funnel_port": 8443,
   "wake_grace_minutes": 5,
+  "sleep_event_max_age_minutes": 30,
+  "skip_notice_hours": 2,
   "tailscale_command": "/usr/local/bin/tailscale"
 }
