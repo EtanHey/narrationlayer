@@ -1,0 +1,38 @@
+{
+  "fresh": {
+    "code": 1,
+    "stderr": "daemon /synthesize failed (500): synthetic failure"
+  },
+  "stale": {
+    "code": 1,
+    "stderr": "daemon /synthesize failed (500): synthetic failure"
+  },
+  "requests": [
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference."
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference."
+      }
+    }
+  ]
+}

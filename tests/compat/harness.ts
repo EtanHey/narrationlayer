@@ -1,0 +1,86 @@
+import { expect } from "bun:test";
+import { mkdtemp, mkdir, readFile, writeFile, rm, chmod } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import os from "node:os";
+import path from "node:path";
+export const repo = path.resolve(import.meta.dir, "../..");
+export const digest = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
+export type Mode = "ok" | "http" | "malformed" | "timeout";
+export async function fixture(mp3 = false) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "nl-compat-"));
+  const pcm = Buffer.alloc(4800 * 2);
+  for (let i = 0; i < 4800; i++) pcm.writeInt16LE(Math.round(4000 * Math.sin(i * Math.PI / 30)), i * 2);
+  const header = Buffer.alloc(44);
+  header.write("RIFF"); header.writeUInt32LE(36 + pcm.length, 4); header.write("WAVEfmt ", 8);
+  header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(24000, 24); header.writeUInt32LE(48000, 28);
+  header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34); header.write("data", 36); header.writeUInt32LE(pcm.length, 40);
+  const wav = Buffer.concat([header, pcm]);
+  await writeFile(path.join(root, "reference.wav"), wav);
+  await writeFile(path.join(root, "auth"), "synthetic-token\n");
+  const encoded = mp3 ? Bun.spawnSync([tool("ffmpeg"), "-v", "error", "-i", path.join(root, "reference.wav"), "-f", "mp3", "pipe:1"]) : undefined;
+  if (encoded && encoded.exitCode !== 0) throw new Error(encoded.stderr.toString());
+  const audio = encoded?.stdout ?? wav;
+  const requests: unknown[] = [];
+  let mode: Mode = "ok";
+  let failAt = Infinity;
+  let failure: Mode = "http";
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
+    const body = await request.json();
+    expect(request.headers.get("host")).toBe(new URL(request.url).host);
+    expect(Number(request.headers.get("content-length"))).toBe(Buffer.byteLength(JSON.stringify(body)));
+    requests.push({ method: request.method, url: request.url, headers: { "content-type": request.headers.get("content-type"), authorization: request.headers.get("authorization") }, body });
+    const selected = requests.length >= failAt ? failure : mode;
+    if (selected === "timeout") return new Promise<Response>(() => {});
+    if (selected === "http") return new Response("synthetic failure", { status: 500 });
+    return Response.json(selected === "malformed" ? {} : { audio_b64: audio.toString("base64"), audio_duration_ms: 200, duration_ms: 7 });
+  } });
+  const url = `http://127.0.0.1:${server.port}`;
+  // Canonicalization table: fixture root -> $FIXTURE; ephemeral daemon origin -> $DAEMON;
+  // created_at/updated_at wall-clock strings -> $TIME. No identity/provenance fields masked.
+  const canonical = (value: unknown): unknown => {
+    if (typeof value === "string") return value.replaceAll(root, "$FIXTURE").replaceAll(url, "$DAEMON");
+    if (Array.isArray(value)) return value.map(canonical);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, /^(created_at|updated_at)$/.test(k) ? "$TIME" : canonical(v)]));
+    return value;
+  };
+  return { root, wav, url, requests, canonical, setMode(value: Mode) { mode = value; }, failAt(value: number, selected: Mode = "http") { failAt = value; failure = selected; }, async close() { server.stop(true); await rm(root, { recursive: true, force: true }); } };
+}
+export async function golden(name: string, value: unknown) {
+  const file = path.join(import.meta.dir, "fixtures", `${name}.golden.json`);
+  if (process.env.UPDATE_COMPAT_GOLDENS === "1") await writeFile(file, JSON.stringify(value, null, 2) + "\n");
+  expect(value).toEqual(JSON.parse(await readFile(file, "utf8")));
+}
+export function tool(name: string): string {
+  const found = Bun.which(name);
+  if (!found) throw new Error(`Characterization requires ${name} on PATH; install it before running this test.`);
+  return found;
+}
+export async function wrappers(root: string) {
+  const dir = path.join(root, "tools");
+  await mkdir(dir);
+  for (const name of ["ffmpeg", "ffprobe"]) {
+    const real = tool(name);
+    const file = path.join(dir, name);
+    await writeFile(file, `#!${process.execPath}\nimport {appendFileSync} from 'node:fs';\nappendFileSync(process.env.COMPAT_ARGV, JSON.stringify({tool:${JSON.stringify(name)},args:process.argv.slice(2)})+'\\n');\nconst child=Bun.spawn([${JSON.stringify(real)},...process.argv.slice(2)],{stdin:'inherit',stdout:'inherit',stderr:'inherit'});\nprocess.exit(await child.exited);\n`);
+    await chmod(file, 0o755);
+  }
+  return dir;
+}
+export async function argvLog(root: string) {
+  const text = await Bun.file(path.join(root, "argv.jsonl")).text().catch(() => "");
+  return text.trim() ? text.trim().split("\n").map(line => JSON.parse(line)) : [];
+}
+export async function runner(f: Awaited<ReturnType<typeof fixture>>, args: string[], profileFile = true) {
+  const child = Bun.spawn([tool("bun"), path.join(repo, "bin/local-tts-runner.ts"), ...args], {
+    cwd: f.root, env: { PATH: `${path.join(f.root, "tools")}${path.delimiter}${process.env.PATH}`, HOME: f.root,
+      COMPAT_ARGV: path.join(f.root, "argv.jsonl"), NARRATIONLAYER_PROFILES_FILE: profileFile ? path.join(f.root, "profiles.yaml") : undefined,
+      NARRATIONLAYER_QWEN3_DAEMON_URL: "http://127.0.0.1:1", NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE: "ignored-env-token" },
+    stdout: "pipe", stderr: "pipe",
+  });
+  const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+  return { code, stderr };
+}
+export function stderrClass(stderr: string) {
+  return stderr.match(/local-tts-runner: (cache HIT|ok|daemon \/synthesize failed \(500\): synthetic failure|daemon response missing audio_b64|[^\n]*abort[^\n]*)/i)?.[1] ?? stderr;
+}

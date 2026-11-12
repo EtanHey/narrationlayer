@@ -1,0 +1,970 @@
+{
+  "requests": [
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m;",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "version version one point two runs three times faster.",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Release checklist - Ready. - Check the logs. - Confirm every public interface.",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "- Review all changes before the release.",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "- Publish the final report after each independent check has completed successfully.",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "The public example explains a deliberately long paragraph,",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "with enough words to cross the planning boundary:",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "every reader can follow the sequence (including the parenthetical detail),",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "while each synthetic sentence remains independent of private source materials and each additional clause",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "exercises the established punctuation policy.",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello, reader: wait;",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "go — now! Really? Yes (certainly).",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    }
+  ],
+  "manifest": {
+    "job_id": "compat-job",
+    "created_at": "$TIME",
+    "voice_profile": "compat-voice",
+    "renderer": "voicelayer-qwen3",
+    "segments": [
+      {
+        "id": "segment-0",
+        "title": "Synthetic 0",
+        "script": "PR #1225 improves 42% at 09:05; version v1.2 runs 3x faster.",
+        "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/segment-0.mp3",
+        "duration_seconds": 0.816,
+        "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/words.json",
+        "status": "rendered",
+        "provenance": {
+          "profile_id": "compat-voice",
+          "profile_version": "synthetic-v1",
+          "reference_clip_sha": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
+          "model": "synthetic-model",
+          "narrationlayer_commit": "f7faa86717f697bf79847eb981da2c3fb1279b67"
+        }
+      },
+      {
+        "id": "segment-1",
+        "title": "Synthetic 1",
+        "script": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.\n- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
+        "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/segment-1.mp3",
+        "duration_seconds": 1.968,
+        "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/words.json",
+        "status": "rendered",
+        "provenance": {
+          "profile_id": "compat-voice",
+          "profile_version": "synthetic-v1",
+          "reference_clip_sha": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
+          "model": "synthetic-model",
+          "narrationlayer_commit": "f7faa86717f697bf79847eb981da2c3fb1279b67"
+        }
+      },
+      {
+        "id": "segment-2",
+        "title": "Synthetic 2",
+        "script": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+        "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/segment-2.mp3",
+        "duration_seconds": 2.544,
+        "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/words.json",
+        "status": "rendered",
+        "provenance": {
+          "profile_id": "compat-voice",
+          "profile_version": "synthetic-v1",
+          "reference_clip_sha": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
+          "model": "synthetic-model",
+          "narrationlayer_commit": "f7faa86717f697bf79847eb981da2c3fb1279b67"
+        }
+      },
+      {
+        "id": "segment-3",
+        "title": "Synthetic 3",
+        "script": "Hello, reader: wait; go — now! Really? Yes (certainly).",
+        "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/segment-3.mp3",
+        "duration_seconds": 0.816,
+        "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/words.json",
+        "status": "rendered",
+        "provenance": {
+          "profile_id": "compat-voice",
+          "profile_version": "synthetic-v1",
+          "reference_clip_sha": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
+          "model": "synthetic-model",
+          "narrationlayer_commit": "f7faa86717f697bf79847eb981da2c3fb1279b67"
+        }
+      },
+      {
+        "id": "segment-4",
+        "title": "Synthetic 4",
+        "script": "Hello",
+        "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-4/segment-4.mp3",
+        "duration_seconds": 0.264,
+        "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-4/words.json",
+        "status": "rendered",
+        "provenance": {
+          "profile_id": "compat-voice",
+          "profile_version": "synthetic-v1",
+          "reference_clip_sha": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
+          "model": "synthetic-model",
+          "narrationlayer_commit": "f7faa86717f697bf79847eb981da2c3fb1279b67"
+        }
+      }
+    ],
+    "total_duration_seconds": 6.408,
+    "artifacts_dir": "$FIXTURE/data/jobs/compat-job/artifacts",
+    "errors": []
+  },
+  "status": {
+    "job_id": "compat-job",
+    "status": "done",
+    "created_at": "$TIME",
+    "updated_at": "$TIME",
+    "progress": {
+      "completed_segments": 5,
+      "total_segments": 5
+    },
+    "errors": [],
+    "current_step": "complete"
+  },
+  "words": [
+    {
+      "job_id": "compat-job",
+      "segment_id": "segment-0",
+      "timing": {
+        "status": "available",
+        "source": "whisper-cli"
+      },
+      "words": [
+        {
+          "index": 0,
+          "word": "PR",
+          "start": 0,
+          "end": 0.114
+        },
+        {
+          "index": 1,
+          "word": "1225",
+          "start": 0.114,
+          "end": 0.228
+        },
+        {
+          "index": 2,
+          "word": "improves",
+          "start": 0.228,
+          "end": 0.261
+        },
+        {
+          "index": 3,
+          "word": "42",
+          "start": 0.261,
+          "end": 0.326
+        },
+        {
+          "index": 4,
+          "word": "at",
+          "start": 0.326,
+          "end": 0.359
+        },
+        {
+          "index": 5,
+          "word": "09:05;",
+          "start": 0.359,
+          "end": 0.49
+        },
+        {
+          "index": 6,
+          "word": "version",
+          "start": 0.49,
+          "end": 0.555
+        },
+        {
+          "index": 7,
+          "word": "v1.2",
+          "start": 0.555,
+          "end": 0.685
+        },
+        {
+          "index": 8,
+          "word": "runs",
+          "start": 0.685,
+          "end": 0.718
+        },
+        {
+          "index": 9,
+          "word": "3x",
+          "start": 0.718,
+          "end": 0.783
+        },
+        {
+          "index": 10,
+          "word": "faster.",
+          "start": 0.783,
+          "end": 0.816
+        }
+      ]
+    },
+    {
+      "job_id": "compat-job",
+      "segment_id": "segment-1",
+      "timing": {
+        "status": "available",
+        "source": "whisper-cli"
+      },
+      "words": [
+        {
+          "index": 0,
+          "word": "Release",
+          "start": 0,
+          "end": 0.061
+        },
+        {
+          "index": 1,
+          "word": "checklist",
+          "start": 0.061,
+          "end": 0.123
+        },
+        {
+          "index": 2,
+          "word": "Ready.",
+          "start": 0.123,
+          "end": 0.246
+        },
+        {
+          "index": 3,
+          "word": "Check",
+          "start": 0.246,
+          "end": 0.369
+        },
+        {
+          "index": 4,
+          "word": "the",
+          "start": 0.369,
+          "end": 0.43
+        },
+        {
+          "index": 5,
+          "word": "logs.",
+          "start": 0.43,
+          "end": 0.492
+        },
+        {
+          "index": 6,
+          "word": "Confirm",
+          "start": 0.492,
+          "end": 0.615
+        },
+        {
+          "index": 7,
+          "word": "every",
+          "start": 0.615,
+          "end": 0.676
+        },
+        {
+          "index": 8,
+          "word": "public",
+          "start": 0.676,
+          "end": 0.738
+        },
+        {
+          "index": 9,
+          "word": "interface.",
+          "start": 0.738,
+          "end": 0.799
+        },
+        {
+          "index": 10,
+          "word": "Review",
+          "start": 0.799,
+          "end": 0.922
+        },
+        {
+          "index": 11,
+          "word": "all",
+          "start": 0.922,
+          "end": 0.984
+        },
+        {
+          "index": 12,
+          "word": "changes",
+          "start": 0.984,
+          "end": 1.046
+        },
+        {
+          "index": 13,
+          "word": "before",
+          "start": 1.046,
+          "end": 1.107
+        },
+        {
+          "index": 14,
+          "word": "the",
+          "start": 1.107,
+          "end": 1.168
+        },
+        {
+          "index": 15,
+          "word": "release.",
+          "start": 1.168,
+          "end": 1.23
+        },
+        {
+          "index": 16,
+          "word": "Publish",
+          "start": 1.23,
+          "end": 1.353
+        },
+        {
+          "index": 17,
+          "word": "the",
+          "start": 1.353,
+          "end": 1.414
+        },
+        {
+          "index": 18,
+          "word": "final",
+          "start": 1.414,
+          "end": 1.476
+        },
+        {
+          "index": 19,
+          "word": "report",
+          "start": 1.476,
+          "end": 1.538
+        },
+        {
+          "index": 20,
+          "word": "after",
+          "start": 1.538,
+          "end": 1.599
+        },
+        {
+          "index": 21,
+          "word": "each",
+          "start": 1.599,
+          "end": 1.66
+        },
+        {
+          "index": 22,
+          "word": "independent",
+          "start": 1.66,
+          "end": 1.722
+        },
+        {
+          "index": 23,
+          "word": "check",
+          "start": 1.722,
+          "end": 1.784
+        },
+        {
+          "index": 24,
+          "word": "has",
+          "start": 1.784,
+          "end": 1.845
+        },
+        {
+          "index": 25,
+          "word": "completed",
+          "start": 1.845,
+          "end": 1.906
+        },
+        {
+          "index": 26,
+          "word": "successfully.",
+          "start": 1.906,
+          "end": 1.968
+        }
+      ]
+    },
+    {
+      "job_id": "compat-job",
+      "segment_id": "segment-2",
+      "timing": {
+        "status": "available",
+        "source": "whisper-cli"
+      },
+      "words": [
+        {
+          "index": 0,
+          "word": "The",
+          "start": 0,
+          "end": 0.05653333333333333
+        },
+        {
+          "index": 1,
+          "word": "public",
+          "start": 0.05653333333333333,
+          "end": 0.11306666666666666
+        },
+        {
+          "index": 2,
+          "word": "example",
+          "start": 0.11306666666666666,
+          "end": 0.1696
+        },
+        {
+          "index": 3,
+          "word": "explains",
+          "start": 0.1696,
+          "end": 0.22613333333333333
+        },
+        {
+          "index": 4,
+          "word": "a",
+          "start": 0.22613333333333333,
+          "end": 0.2826666666666667
+        },
+        {
+          "index": 5,
+          "word": "deliberately",
+          "start": 0.2826666666666667,
+          "end": 0.3392
+        },
+        {
+          "index": 6,
+          "word": "long",
+          "start": 0.3392,
+          "end": 0.3957333333333333
+        },
+        {
+          "index": 7,
+          "word": "paragraph,",
+          "start": 0.3957333333333333,
+          "end": 0.45226666666666665
+        },
+        {
+          "index": 8,
+          "word": "with",
+          "start": 0.45226666666666665,
+          "end": 0.5088
+        },
+        {
+          "index": 9,
+          "word": "enough",
+          "start": 0.5088,
+          "end": 0.5653333333333334
+        },
+        {
+          "index": 10,
+          "word": "words",
+          "start": 0.5653333333333334,
+          "end": 0.6218666666666667
+        },
+        {
+          "index": 11,
+          "word": "to",
+          "start": 0.6218666666666667,
+          "end": 0.6784
+        },
+        {
+          "index": 12,
+          "word": "cross",
+          "start": 0.6784,
+          "end": 0.7349333333333334
+        },
+        {
+          "index": 13,
+          "word": "the",
+          "start": 0.7349333333333334,
+          "end": 0.7914666666666667
+        },
+        {
+          "index": 14,
+          "word": "planning",
+          "start": 0.7914666666666667,
+          "end": 0.8480000000000001
+        },
+        {
+          "index": 15,
+          "word": "boundary:",
+          "start": 0.8480000000000001,
+          "end": 0.9045333333333333
+        },
+        {
+          "index": 16,
+          "word": "every",
+          "start": 0.9045333333333333,
+          "end": 0.9610666666666666
+        },
+        {
+          "index": 17,
+          "word": "reader",
+          "start": 0.9610666666666666,
+          "end": 1.0176
+        },
+        {
+          "index": 18,
+          "word": "can",
+          "start": 1.0176,
+          "end": 1.0741333333333334
+        },
+        {
+          "index": 19,
+          "word": "follow",
+          "start": 1.0741333333333334,
+          "end": 1.1306666666666667
+        },
+        {
+          "index": 20,
+          "word": "the",
+          "start": 1.1306666666666667,
+          "end": 1.1872
+        },
+        {
+          "index": 21,
+          "word": "sequence",
+          "start": 1.1872,
+          "end": 1.2437333333333334
+        },
+        {
+          "index": 22,
+          "word": "(including",
+          "start": 1.2437333333333334,
+          "end": 1.3002666666666667
+        },
+        {
+          "index": 23,
+          "word": "the",
+          "start": 1.3002666666666667,
+          "end": 1.3568
+        },
+        {
+          "index": 24,
+          "word": "parenthetical",
+          "start": 1.3568,
+          "end": 1.4133333333333333
+        },
+        {
+          "index": 25,
+          "word": "detail),",
+          "start": 1.4133333333333333,
+          "end": 1.4698666666666669
+        },
+        {
+          "index": 26,
+          "word": "while",
+          "start": 1.4698666666666669,
+          "end": 1.5264
+        },
+        {
+          "index": 27,
+          "word": "each",
+          "start": 1.5264,
+          "end": 1.5829333333333333
+        },
+        {
+          "index": 28,
+          "word": "synthetic",
+          "start": 1.5829333333333333,
+          "end": 1.6394666666666666
+        },
+        {
+          "index": 29,
+          "word": "sentence",
+          "start": 1.6394666666666666,
+          "end": 1.6960000000000002
+        },
+        {
+          "index": 30,
+          "word": "remains",
+          "start": 1.6960000000000002,
+          "end": 1.7525333333333335
+        },
+        {
+          "index": 31,
+          "word": "independent",
+          "start": 1.7525333333333335,
+          "end": 1.8090666666666666
+        },
+        {
+          "index": 32,
+          "word": "of",
+          "start": 1.8090666666666666,
+          "end": 1.8656
+        },
+        {
+          "index": 33,
+          "word": "private",
+          "start": 1.8656,
+          "end": 1.9221333333333332
+        },
+        {
+          "index": 34,
+          "word": "source",
+          "start": 1.9221333333333332,
+          "end": 1.9786666666666668
+        },
+        {
+          "index": 35,
+          "word": "materials",
+          "start": 1.9786666666666668,
+          "end": 2.0352
+        },
+        {
+          "index": 36,
+          "word": "and",
+          "start": 2.0352,
+          "end": 2.0917333333333334
+        },
+        {
+          "index": 37,
+          "word": "each",
+          "start": 2.0917333333333334,
+          "end": 2.1482666666666668
+        },
+        {
+          "index": 38,
+          "word": "additional",
+          "start": 2.1482666666666668,
+          "end": 2.2048
+        },
+        {
+          "index": 39,
+          "word": "clause",
+          "start": 2.2048,
+          "end": 2.2613333333333334
+        },
+        {
+          "index": 40,
+          "word": "exercises",
+          "start": 2.2613333333333334,
+          "end": 2.3178666666666667
+        },
+        {
+          "index": 41,
+          "word": "the",
+          "start": 2.3178666666666667,
+          "end": 2.3744
+        },
+        {
+          "index": 42,
+          "word": "established",
+          "start": 2.3744,
+          "end": 2.4309333333333334
+        },
+        {
+          "index": 43,
+          "word": "punctuation",
+          "start": 2.4309333333333334,
+          "end": 2.4874666666666667
+        },
+        {
+          "index": 44,
+          "word": "policy.",
+          "start": 2.4874666666666667,
+          "end": 2.544
+        }
+      ]
+    },
+    {
+      "job_id": "compat-job",
+      "segment_id": "segment-3",
+      "timing": {
+        "status": "available",
+        "source": "whisper-cli"
+      },
+      "words": [
+        {
+          "index": 0,
+          "word": "Hello,",
+          "start": 0,
+          "end": 0.09066666666666666
+        },
+        {
+          "index": 1,
+          "word": "reader:",
+          "start": 0.09066666666666666,
+          "end": 0.18133333333333332
+        },
+        {
+          "index": 2,
+          "word": "wait;",
+          "start": 0.18133333333333332,
+          "end": 0.272
+        },
+        {
+          "index": 3,
+          "word": "go",
+          "start": 0.272,
+          "end": 0.36266666666666664
+        },
+        {
+          "index": 4,
+          "word": "—",
+          "start": 0.36266666666666664,
+          "end": 0.45333333333333337
+        },
+        {
+          "index": 5,
+          "word": "now!",
+          "start": 0.45333333333333337,
+          "end": 0.544
+        },
+        {
+          "index": 6,
+          "word": "Really?",
+          "start": 0.544,
+          "end": 0.6346666666666666
+        },
+        {
+          "index": 7,
+          "word": "Yes",
+          "start": 0.6346666666666666,
+          "end": 0.7253333333333333
+        },
+        {
+          "index": 8,
+          "word": "(certainly).",
+          "start": 0.7253333333333333,
+          "end": 0.816
+        }
+      ]
+    },
+    {
+      "job_id": "compat-job",
+      "segment_id": "segment-4",
+      "timing": {
+        "status": "available",
+        "source": "whisper-cli"
+      },
+      "words": [
+        {
+          "index": 0,
+          "word": "Hello",
+          "start": 0,
+          "end": 0.264
+        }
+      ]
+    }
+  ],
+  "spoken": [
+    "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m; version version one point two runs three times faster.",
+    "Release checklist - Ready. - Check the logs. - Confirm every public interface. - Review all changes before the release. - Publish the final report after each independent check has completed successfully.",
+    "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+    "Hello, reader: wait; go — now! Really? Yes (certainly).",
+    "Hello"
+  ],
+  "planned": [
+    [
+      {
+        "text": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m;",
+        "pause_after_seconds": 0.25
+      },
+      {
+        "text": "version version one point two runs three times faster.",
+        "pause_after_seconds": 0
+      }
+    ],
+    [
+      {
+        "text": "Release checklist - Ready. - Check the logs. - Confirm every public interface.",
+        "pause_after_seconds": 0.55
+      },
+      {
+        "text": "- Review all changes before the release.",
+        "pause_after_seconds": 0.55
+      },
+      {
+        "text": "- Publish the final report after each independent check has completed successfully.",
+        "pause_after_seconds": 0
+      }
+    ],
+    [
+      {
+        "text": "The public example explains a deliberately long paragraph,",
+        "pause_after_seconds": 0.25
+      },
+      {
+        "text": "with enough words to cross the planning boundary:",
+        "pause_after_seconds": 0.25
+      },
+      {
+        "text": "every reader can follow the sequence (including the parenthetical detail),",
+        "pause_after_seconds": 0.25
+      },
+      {
+        "text": "while each synthetic sentence remains independent of private source materials and each additional clause",
+        "pause_after_seconds": 0.25
+      },
+      {
+        "text": "exercises the established punctuation policy.",
+        "pause_after_seconds": 0
+      }
+    ],
+    [
+      {
+        "text": "Hello, reader: wait;",
+        "pause_after_seconds": 0.25
+      },
+      {
+        "text": "go — now! Really? Yes (certainly).",
+        "pause_after_seconds": 0
+      }
+    ],
+    [
+      {
+        "text": "Hello",
+        "pause_after_seconds": 0
+      }
+    ]
+  ]
+}

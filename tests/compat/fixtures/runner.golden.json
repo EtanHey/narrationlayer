@@ -1,0 +1,863 @@
+{
+  "results": [
+    {
+      "requests": [
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m; version version one point two runs three times faster.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        }
+      ],
+      "spoken": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m; version version one point two runs three times faster.",
+      "keyPreimage": {
+        "spokenText": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m; version version one point two runs three times faster.",
+        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceText": "Synthetic reference.",
+        "params": {}
+      },
+      "receipt": {
+        "version": 1,
+        "cacheKey": "482070a98590215925852ed2714742ec677b6a452083e5e2bb1b59946508fe6f",
+        "cacheEnabled": true
+      },
+      "pieces": [
+        {
+          "text": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m",
+          "padAfterSeconds": 0.22
+        },
+        {
+          "text": "version version one point two runs three times faster.",
+          "padAfterSeconds": 0
+        }
+      ],
+      "format": [
+        {
+          "codec_name": "pcm_s16le",
+          "sample_rate": "24000",
+          "channels": 1,
+          "bits_per_sample": 16
+        }
+      ],
+      "exit": 0,
+      "stderr": "ok"
+    },
+    {
+      "requests": [
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.\n- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        }
+      ],
+      "spoken": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.\n- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
+      "keyPreimage": {
+        "spokenText": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.\n- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
+        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceText": "Synthetic reference.",
+        "params": {}
+      },
+      "receipt": {
+        "version": 1,
+        "cacheKey": "dfcf6cb3d7e7223bc893975cc26f0bf6345c46b571683de86ddef3f28ce2c577",
+        "cacheEnabled": true
+      },
+      "pieces": [
+        {
+          "text": "Release checklist\n- Ready.",
+          "padAfterSeconds": 0.55
+        },
+        {
+          "text": "- Check the logs.",
+          "padAfterSeconds": 0.55
+        },
+        {
+          "text": "- Confirm every public interface.",
+          "padAfterSeconds": 0.55
+        },
+        {
+          "text": "- Review all changes before the release.",
+          "padAfterSeconds": 0.55
+        },
+        {
+          "text": "- Publish the final report after each independent check has completed successfully.",
+          "padAfterSeconds": 0
+        }
+      ],
+      "format": [
+        {
+          "codec_name": "pcm_s16le",
+          "sample_rate": "24000",
+          "channels": 1,
+          "bits_per_sample": 16
+        }
+      ],
+      "exit": 0,
+      "stderr": "ok"
+    },
+    {
+      "requests": [
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        }
+      ],
+      "spoken": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+      "keyPreimage": {
+        "spokenText": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceText": "Synthetic reference.",
+        "params": {}
+      },
+      "receipt": {
+        "version": 1,
+        "cacheKey": "dcfe2cb62c01cce982c72dee7447064f6bc7303195a0c29894979513df8d70de",
+        "cacheEnabled": true
+      },
+      "pieces": [
+        {
+          "text": "The public example explains a deliberately long paragraph",
+          "padAfterSeconds": 0.22
+        },
+        {
+          "text": "with enough words to cross the planning boundary",
+          "padAfterSeconds": 0.22
+        },
+        {
+          "text": "every reader can follow the sequence (including the parenthetical detail)",
+          "padAfterSeconds": 0.22
+        },
+        {
+          "text": "while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+          "padAfterSeconds": 0
+        }
+      ],
+      "format": [
+        {
+          "codec_name": "pcm_s16le",
+          "sample_rate": "24000",
+          "channels": 1,
+          "bits_per_sample": 16
+        }
+      ],
+      "exit": 0,
+      "stderr": "ok"
+    },
+    {
+      "requests": [
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "Hello, reader: wait; go — now! Really? Yes (certainly).",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "Hello",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "reader",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "wait",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "go",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "now!",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "Really?",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "Yes (certainly).",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        }
+      ],
+      "spoken": "Hello, reader: wait; go — now! Really? Yes (certainly).",
+      "keyPreimage": {
+        "spokenText": "Hello, reader: wait; go — now! Really? Yes (certainly).",
+        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceText": "Synthetic reference.",
+        "profileId": "compat-voice",
+        "profileVersion": "synthetic-v1",
+        "model": "synthetic-model",
+        "params": {
+          "eqHighshelfHz": 4000,
+          "eqHighshelfGainDb": 0,
+          "loudnessTargetDb": -20,
+          "atempo": 1,
+          "commaPauseSeconds": 0.22
+        }
+      },
+      "receipt": {
+        "version": 1,
+        "cacheKey": "e01dd238034ff15d98fc67469f921b82bad5af3d1780125190b82271c4383ac4",
+        "cacheEnabled": true
+      },
+      "pieces": [
+        {
+          "text": "Hello",
+          "padAfterSeconds": 0.22
+        },
+        {
+          "text": "reader",
+          "padAfterSeconds": 0.22
+        },
+        {
+          "text": "wait",
+          "padAfterSeconds": 0.22
+        },
+        {
+          "text": "go",
+          "padAfterSeconds": 0.22
+        },
+        {
+          "text": "now!",
+          "padAfterSeconds": 0.55
+        },
+        {
+          "text": "Really?",
+          "padAfterSeconds": 0.55
+        },
+        {
+          "text": "Yes (certainly).",
+          "padAfterSeconds": 0
+        }
+      ],
+      "format": [
+        {
+          "codec_name": "pcm_s16le",
+          "sample_rate": "24000",
+          "channels": 1,
+          "bits_per_sample": 16
+        }
+      ],
+      "exit": 0,
+      "stderr": "ok"
+    },
+    {
+      "requests": [
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "Hello",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        }
+      ],
+      "spoken": "Hello",
+      "keyPreimage": {
+        "spokenText": "Hello",
+        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceText": "Synthetic reference.",
+        "params": {}
+      },
+      "receipt": {
+        "version": 1,
+        "cacheKey": "1d1d1f97f28695575a9a17e61ee8b5fc2b2f67393b4174339618e3a22b1aa7f3",
+        "cacheEnabled": true
+      },
+      "pieces": [
+        {
+          "text": "Hello",
+          "padAfterSeconds": 0
+        }
+      ],
+      "format": [
+        {
+          "codec_name": "pcm_s16le",
+          "sample_rate": "24000",
+          "channels": 1,
+          "bits_per_sample": 16
+        }
+      ],
+      "exit": 0,
+      "stderr": "ok"
+    }
+  ],
+  "argv": [
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "highshelf=f=4000:g=0",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-0.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "highshelf=f=4000:g=0",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-0.wav",
+        "-af",
+        "atempo=1",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-0.tempo.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.22",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-1.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "highshelf=f=4000:g=0",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-1.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-1.wav",
+        "-af",
+        "atempo=1",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-1.tempo.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.22",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-1.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-2.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "highshelf=f=4000:g=0",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-2.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-2.wav",
+        "-af",
+        "atempo=1",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-2.tempo.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.22",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-2.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-3.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "highshelf=f=4000:g=0",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-3.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-3.wav",
+        "-af",
+        "atempo=1",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-3.tempo.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.22",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-3.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-4.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "highshelf=f=4000:g=0",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-4.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-4.wav",
+        "-af",
+        "atempo=1",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-4.tempo.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.55",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-4.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-5.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "highshelf=f=4000:g=0",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-5.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-5.wav",
+        "-af",
+        "atempo=1",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-5.tempo.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.55",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-5.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-6.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "highshelf=f=4000:g=0",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-6.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-6.wav",
+        "-af",
+        "atempo=1",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-6.tempo.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        "$FIXTURE/out.wav.breath.concat.txt",
+        "-c",
+        "copy",
+        "$FIXTURE/out.wav.breath.out.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-hide_banner",
+        "-nostats",
+        "-i",
+        "$FIXTURE/out.wav",
+        "-af",
+        "volumedetect",
+        "-f",
+        "null",
+        "-"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        "volume=5.100000000000001dB,alimiter=limit=0.95",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.loud.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav"
+      ]
+    }
+  ]
+}
