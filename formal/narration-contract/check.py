@@ -89,8 +89,29 @@ for source, expected_hash in coverage["source_sha256"].items():
 
 # Mutate actual source, execute its exports, then restore the identical bytes.
 # The replacement selects the function, not the earlier initializeJob unlink.
+# The scratch copy sits in OUT/src beside byte copies of its transitive relative
+# imports, so the probe runs a closed module graph of real product code.
 original = (ROOT / "src/job-store.ts").read_text()
-source = OUT / "job-store.ts"
+SCRATCH_SRC = OUT / "src"
+SCRATCH_SRC.mkdir()
+IMPORT = re.compile(r"""(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.{1,2}/[^"']+)["']""")
+pending, scratch_modules = [ROOT / "src/job-store.ts"], {}
+while pending:
+    module = pending.pop()
+    relative = module.relative_to(ROOT / "src").as_posix()
+    if relative in scratch_modules:
+        continue
+    (SCRATCH_SRC / relative).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(module, SCRATCH_SRC / relative)
+    scratch_modules[relative] = hashlib.sha256(module.read_bytes()).hexdigest()
+    for spec in IMPORT.findall(module.read_text()):
+        target = (module.parent / spec).resolve()
+        target = target.with_suffix(".ts") if target.suffix == ".js" else target
+        require(target.is_file() and (ROOT / "src") in target.parents,
+                ("Scratch module graph not closed", relative, spec))
+        pending.append(target)
+results["scratch_modules"] = scratch_modules
+source = SCRATCH_SRC / "job-store.ts"
 for variant, function, unlink in [("baseline", None, None),
                                  ("break-done", "markDone", "failedPath"),
                                  ("break-failed", "markFailed", "donePath"),
