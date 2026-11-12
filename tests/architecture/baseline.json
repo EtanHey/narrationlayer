@@ -1,5 +1,9 @@
 [
   "upward src/profile-renderer-types.ts -> src/audio.ts",
   "upward src/profile-renderer-types.ts -> src/narration-plan.ts",
-  "upward src/profile-renderer-types.ts -> src/word-timings.ts"
+  "upward src/profile-renderer-types.ts -> src/word-timings.ts",
+  "via-reexport src/profiles.ts -> src/schema.ts (ExternalCommandConfig)",
+  "via-reexport src/profiles.ts -> src/schema.ts (VoiceLayerQwen3Config)",
+  "via-reexport src/service.ts -> src/renderers/external-command.ts (ExternalCommandConfig)",
+  "via-reexport src/service.ts -> src/renderers/voicelayer-qwen3.ts (VoiceLayerQwen3Config)"
 ]
