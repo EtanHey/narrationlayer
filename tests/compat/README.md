@@ -21,8 +21,8 @@ Bun, ffmpeg and ffprobe must be on PATH; missing dependencies fail explicitly.
   1. change the code;
   2. regenerate all the goldens the harness writes, with
      `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat` (it exits 1 after writing),
-     then run `bun test tests/compat` without the variable; that rewrites twelve of
-     the thirteen files, the keyed runner goldens included, and only those the
+     then run `bun test tests/compat` without the variable; that rewrites fifteen of
+     the sixteen files, the keyed runner goldens included, and only those the
      change touches differ. `plan-pieces.golden.json` has no writer: if the change
      moves its rows, its test fails and the rows are edited by hand. That complete
      behaviour diff, with the reason, goes in the PR: it is the review item;
