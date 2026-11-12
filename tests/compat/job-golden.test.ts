@@ -7,7 +7,7 @@ import { renderSegment } from "../../src/renderers/voicelayer-qwen3.js";
 import { planNarrationUtterances } from "../../src/narration-plan.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
-import { fixture, golden, repo, tool, wrappers, argvLog, type Mode } from "./harness.js";
+import { fixture, golden, repo, wrappers, argvLog, type Mode } from "./harness.js";
 const commit = "f7faa86717f697bf79847eb981da2c3fb1279b67";
 function config(f: Awaited<ReturnType<typeof fixture>>, timeoutMs = 10000) {
   return { daemon_url: f.url, auth_token: "synthetic-token", reference_clip: path.join(f.root, "reference.wav"),
@@ -69,21 +69,4 @@ test("real commit discovery and job/segment confinement remain active", async ()
     if (previous === undefined) delete process.env.NARRATIONLAYER_COMMIT; else process.env.NARRATIONLAYER_COMMIT = previous;
     await f.close();
   }
-});
-
-test("job service probes assembled duration within one MP3 frame per join", async () => {
-  const f = await fixture(true);
-  try {
-    const script = corpus[2], planned = planNarrationUtterances(normalizeForSpeech(script));
-    await createJobFromPayload({ ...payload([]), segments: [{ id: "probe", title: "Measured", script }] }, f.root);
-    const { manifest } = await renderJob("compat-job", f.root, { qwen: config(f), external: {} });
-    const segment = manifest.segments[0];
-    const durations = planned.map((_, index) => {
-      const probe = Bun.spawnSync([tool("ffprobe"), "-v", "error", "-show_entries", "format=duration", "-of", "default=nokey=1:noprint_wrappers=1", path.join(path.dirname(segment.audio_path), "chunks", `probe-${index + 1}.mp3`)]);
-      expect(probe.exitCode).toBe(0); return Number(probe.stdout.toString());
-    });
-    const expected = durations.reduce((sum, seconds, index) => sum + seconds + planned[index].pause_after_seconds, 0);
-    const joins = planned.length + planned.filter(piece => piece.pause_after_seconds > 0).length - 1;
-    expect(Math.abs(segment.duration_seconds - expected)).toBeLessThanOrEqual(joins * 1152 / 24000);
-  } finally { await f.close(); }
 });

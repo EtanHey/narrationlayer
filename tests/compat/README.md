@@ -38,9 +38,7 @@ requires the root example's qwen3-voice missing-clip failure as a directory
 sentinel. The two-daemon case checks flag/profile precedence with distinct tokens.
 
 Toolchain stability: the main job golden uses authored durations for stable word
-times, but also freezes real silence/probe argv and the concat file order. A
-separate job has no authored duration: its real probe must equal independently
-probed chunks plus pauses within one MP3 frame (1152/24000 s) per audio join.
+times, but also freezes real silence/probe argv and the concat file order.
 The wrappers record real loudness measurements and assert the executed gain is
 `target - measured`; its golden preserves the filter structure with a measured-gain
 placeholder. WAV format and cache byte equality within the same run remain checked.

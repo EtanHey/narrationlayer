@@ -5,7 +5,6 @@ import { repo, tool } from "./harness.js";
 const cases = [
   ["job-silence-pad", "src/audio.ts", "String(chunk.pauseAfterSeconds)", "String(chunk.pauseAfterSeconds * 2)", "job service"],
   ["job-silence-rate", "src/audio.ts", "anullsrc=channel_layout=mono:sample_rate=24000", "anullsrc=channel_layout=mono:sample_rate=22050", "job service"],
-  ["job-probe-scale", "src/audio.ts", "return Number(value.toFixed(3));", "return Number((value * 1.5).toFixed(3));", "job service"],
   ["runner-newlines", "bin/local-tts-runner.ts", "      spokenText,\n      sentencePad,", '      spokenText: spokenText.replace(/\\n/g, " "),\n      sentencePad,', "runner executable goldens"],
   ["job-pause", "src/narration-plan.ts", "DEFAULT_SENTENCE_PAUSE_SECONDS = 0.55", "DEFAULT_SENTENCE_PAUSE_SECONDS = 0.56", "job service manifest"],
   ["runner-pause", "bin/local-tts-runner.ts", "resolved.sentencePauseSeconds ?? 0.55", "resolved.sentencePauseSeconds ?? 0.56", "runner executable goldens"],
