@@ -47,9 +47,9 @@ export async function snapshot(runtimePath, baselineDirs = []) {
 }
 const hasContent = value => value && typeof value === 'object' ? Object.values(value).some(hasContent) : value !== null && value !== '' && value !== false && value !== undefined;
 const clean = value => String(value).replace(/\s+/g, ' ').trim();
-const md = value => clean(value).replace(/[*_`\[\]<|]/g, '\\$&').replace(/^([#>+\-])/, '\\$1').replace(/^(\d+)([.)])/, '$1\\$2');
+const md = value => clean(value).replace(/\\/g, '\\\\').replace(/[*_`\[\]<|]/g, '\\$&').replace(/^([#>+\-])/, '\\$1').replace(/^(\d+)([.)])/, '$1\\$2');
 const code = value => {
-  const text = String(value);
+  const text = String(value).replace(/[\x00-\x1f\x7f]/g, char => JSON.stringify(char).slice(1, -1));
   const fence = '`'.repeat(Math.max(1, ...[...text.matchAll(/`+/g)].map(match => match[0].length + 1)));
   const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
   return fence + pad + text + pad + fence;
@@ -68,7 +68,7 @@ export function report(snapshot, ids, jobs = {}) {
     if (!Object.hasOwn(snapshot.shells, id + '.html')) refuse('DASHBOARD_SHELL_MISSING');
     const win = new Window({settings: {disableJavaScriptFileLoading: true, disableCSSFileLoading: true, navigation: {disableMainFrameNavigation: true, disableChildFrameNavigation: true, disableChildPageNavigation: true}}});
     const settings = win.happyDOM.settings;
-    if (settings.enableJavaScriptEvaluation || !settings.navigation.disableMainFrameNavigation || !settings.navigation.disableChildFrameNavigation || !settings.navigation.disableChildPageNavigation) refuse('UNSAFE_HTML_SETTINGS');
+    if (!settings.disableCSSFileLoading || !settings.disableJavaScriptFileLoading || settings.enableJavaScriptEvaluation || !settings.navigation.disableMainFrameNavigation || !settings.navigation.disableChildFrameNavigation || !settings.navigation.disableChildPageNavigation) refuse('UNSAFE_HTML_SETTINGS');
     const doc = win.document;
     doc.body.innerHTML = snapshot.shells[id + '.html'];
     const cards = [...doc.querySelectorAll('[data-decision]')];

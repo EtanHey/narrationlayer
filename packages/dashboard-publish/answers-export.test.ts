@@ -1,4 +1,6 @@
 import {test, expect} from 'bun:test';
+import {createServer} from 'node:http';
+import {createHash} from 'node:crypto';
 import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -86,4 +88,49 @@ test('metadata code spans preserve copyable ids, keys, hashes, revisions and tim
  expect(result.markdown).toContain('\\# leading # heading - v1.2: ready');
  expect(result.markdown).not.toContain('\n# heading');expect(result.markdown).not.toContain('synthetic\\-');
  expect(result.markdown).toContain('```json\n"unchanged"\n```');
+});
+
+test('served stylesheet and script sources cause zero requests', async () => {
+ const requests: string[] = [];
+ const server = createServer((request, response) => {requests.push(request.url ?? '');response.end('synthetic');});
+ await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+ try {
+  const address = server.address();
+  if (!address || typeof address === 'string') throw Error('Expected local TCP listener');
+  const origin = 'http://127.0.0.1:' + address.port;
+  const shell = page + `<link rel="stylesheet" href="${origin}/synthetic.css"><script src="${origin}/synthetic.js"></script>`;
+  expect(()=>report({at:'synthetic',artifactHash:'hash',shells:{'synthetic.html':shell},rows:[]},['synthetic'])).not.toThrow();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  expect(requests).toEqual([]);
+ } finally {await new Promise<void>((resolve,reject) => server.close(error => error ? reject(error) : resolve()));}
+});
+test('title and label backslashes cannot cancel HTML or link escaping', () => {
+ const shell = String.raw`<article data-decision="html" data-title="\<img onerror>"><label><input type="radio" name="html" value="yes">\&lt;img onerror&gt;</label></article><article data-decision="link" data-title="\[x\](url)"><label><input type="radio" name="link" value="yes">\[x\](url)</label></article>`;
+ const result=report({at:'synthetic',artifactHash:'hash',shells:{'synthetic.html':shell},rows:[]},['synthetic']);
+ for (const escaped of [String.raw`\\\<img onerror>`,String.raw`\\\[x\\\](url)`]) {
+  expect(result.markdown.split(escaped).length - 1).toBe(2);
+ }
+});
+test('newlines in unmatched and bookkeeping keys are visible inside code spans', () => {
+ const result=renderRows([row('orphan\n## INJECTED_KEY','Synthetic'),row('__position\n## INJECTED_BOOKKEEPING','Not printed')]);
+ const unmatched=result.markdown.split('### Unmatched keys')[1].split('### App bookkeeping')[0];
+ const bookkeeping=result.markdown.split('### App bookkeeping')[1];
+ expect(unmatched).toContain('`orphan\\n## INJECTED_KEY`');expect(bookkeeping).toContain('`__position\\n## INJECTED_BOOKKEEPING`');
+ expect(result.markdown).not.toContain('\n## INJECTED');expect(bookkeeping).not.toContain('Not printed');
+});
+test('each owner group contains only that owners rows on a shared card', () => {
+ const ownerA='synthetic-owner-a',ownerB='synthetic-owner-b';
+ const hash=(owner: string)=>createHash('sha256').update(owner).digest('hex').slice(0,12);
+ const result=renderRows([{...row('choice-free','ONLY_A'),ownerId:ownerA},{...row('choice-free','ONLY_B'),ownerId:ownerB}]);
+ const groups=result.markdown.split(/Owner `[a-f0-9]{12}`:/).slice(1);
+ expect(groups.length).toBe(2);
+ const first=result.markdown.split('Owner `'+hash(ownerA)+'`:')[1].split('Owner `'+hash(ownerB)+'`:')[0];
+ const second=result.markdown.split('Owner `'+hash(ownerB)+'`:')[1];
+ expect(first).toContain('ONLY_A');expect(first).not.toContain('ONLY_B');expect(second).toContain('ONLY_B');expect(second).not.toContain('ONLY_A');
+});
+test('off-list radio row itself is labelled saved value, never Picked', () => {
+ const result=renderRows([row('choice','off-list')]);
+ const section=result.markdown.split('Synthetic choice (decision)')[1].split('Synthetic later (decision)')[0];
+ expect(section).toContain('Saved value not among the options; key `choice`');
+ expect(section).not.toContain('Picked;');
 });
