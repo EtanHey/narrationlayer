@@ -1,3 +1,4 @@
+import type { ExternalCommandConfig, VoiceLayerQwen3Config } from "./core/render-types.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -15,9 +16,9 @@ import {
   writeManifest,
   writeStatus,
 } from "./job-store.js";
-import { renderSegment as renderExternalSegment, type ExternalCommandConfig } from "./renderers/external-command.js";
+import { renderSegment as renderExternalSegment } from "./renderers/external-command.js";
 import { renderSegment as renderFakeSegment } from "./renderers/fake.js";
-import { renderSegment as renderQwenSegment, type VoiceLayerQwen3Config } from "./renderers/voicelayer-qwen3.js";
+import { renderSegment as renderQwenSegment } from "./renderers/voicelayer-qwen3.js";
 import {
   externalCommandConfigFromProfile,
   findProfile,

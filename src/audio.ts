@@ -3,10 +3,8 @@ import { copyFile, mkdtemp, rm, rename, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-export interface AudioAssemblyChunk {
-  audioPath: string;
-  pauseAfterSeconds: number;
-}
+import type { AudioAssemblyChunk } from "./core/render-types.js";
+export type { AudioAssemblyChunk } from "./core/render-types.js";
 
 export interface TrimAudioSilenceOptions {
   thresholdDb?: number;

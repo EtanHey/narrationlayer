@@ -13,8 +13,8 @@ import { normalizeForSpeech } from "../text-normalize.js";
 import { getWordsFromScript } from "./voicelayer-qwen3.js";
 import type { RenderSegmentOptions } from "./types.js";
 
-export type { ExternalCommandConfig } from "../profile-renderer-types.js";
-import type { ExternalCommandConfig } from "../profile-renderer-types.js";
+export type { ExternalCommandConfig } from "../core/render-types.js";
+import type { ExternalCommandConfig } from "../core/render-types.js";
 
 interface CommandResult {
   code: number;

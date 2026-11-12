@@ -1,9 +1,10 @@
+import type { AudioAssemblyChunk } from "../core/render-types.js";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 import { resolveWithinRoot } from "../path-safety.js";
 
-import { assembleAudioWithSilence, trimAudioSilence, applyAudioEq, type AudioAssemblyChunk } from "../audio.js";
+import { assembleAudioWithSilence, trimAudioSilence, applyAudioEq } from "../audio.js";
 import { probeAudioDurationSeconds } from "../audio.js";
 import { planNarrationUtterances } from "../narration-plan.js";
 import type { RenderManifestSegment, TimingSource, WordTiming, WordsFile } from "../schema.js";
@@ -12,8 +13,8 @@ import type { RenderSegmentOptions } from "./types.js";
 import { runWhisperCliWordTimings } from "../word-timings.js";
 import { normalizeWordTimingsForScript } from "../word-timing-repair.js";
 
-export type { VoiceLayerQwen3Config } from "../profile-renderer-types.js";
-import type { VoiceLayerQwen3Config } from "../profile-renderer-types.js";
+export type { VoiceLayerQwen3Config } from "../core/render-types.js";
+import type { VoiceLayerQwen3Config } from "../core/render-types.js";
 
 interface VoiceLayerTimingCandidate {
   index?: unknown;
