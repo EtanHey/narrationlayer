@@ -168,11 +168,11 @@ set the constant, regenerate every runner golden that records a cache key or key
 preimage, which it lists with the test files that write them, and append a row);
 if it did not (independent steps reordered, a temporary or preparatory step, a
 renamed role), re-record the printed entries and add the reason, and how it was
-shown, to the row's `rerecorded` list. A raise is the one sanctioned case in which
-a frozen golden is regenerated: every runner golden that records a cache key or
-key preimage, and each regenerated file may differ from the one before only in
-key material (the version in each key preimage and the cache keys); a diff
-beyond that is a review stop. A case whose key inputs changed (a normalization change, say) asks for
+shown, to the row's `rerecorded` list. A raise's own regeneration (every runner
+golden that records a cache key or key preimage) comes after the behaviour
+regeneration described in `tests/compat/README.md`, so each file it rewrites may
+differ from the one before only in key material (the version in each key preimage
+and the cache keys); a diff beyond that is a review stop. A case whose key inputs changed (a normalization change, say) asks for
 its entries to be replaced, not for a raise: its key changed by itself. A new
 golden case alone is added to the current row without a raise; but if it was added
 to show a change to the runner's cutting, pauses or ffmpeg chain, that change is
