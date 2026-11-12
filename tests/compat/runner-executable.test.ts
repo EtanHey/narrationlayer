@@ -4,7 +4,7 @@ import path from "node:path";
 import { splitForBreathing } from "../../bin/local-tts-runner.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
-import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, tool, type Mode } from "./harness.js";
+import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, type Mode } from "./harness.js";
 const exists = (file: string) => access(file).then(() => true, () => false);
 const argsFor = (f: Awaited<ReturnType<typeof fixture>>, text: string, reference = path.join(f.root, "reference.wav")) => [
   "--text", text, "--output", path.join(f.root, "out.wav"), "--reference", reference,
@@ -45,6 +45,7 @@ test("runner executable goldens: direct reference, named profile, cache, real to
     await golden("runner", { results, argv: f.canonical(await stableArgv(f.root)) });
     // The runner currently never calls ffprobe. The wrapper's empty trace is deliberate.
     expect((await argvLog(f.root)).filter(call => call.tool === "ffprobe")).toEqual([]);
+    await assertRootProfile("neutral-public");
     const base = await runner(f, argsFor(f, "Hello", "neutral-public"));
     expect(base.code).toBe(1); expect(base.stderr).toContain('uses renderer "fake"');
   } finally { await f.close(); }
@@ -104,10 +105,29 @@ test("named profile keeps absent-field flags and overrides them when daemon and 
 test("runner entry root lookup without profile-file environment", async () => {
   const f = await fixture();
   try {
+    await assertRootProfile("qwen3-voice");
     const result = await runner(f, argsFor(f, "Hello", "qwen3-voice"), false);
     expect(result.code).toBe(1);
     expect(result.stderr).toContain('voice profile "qwen3-voice" reference clip missing on disk: /absolute/path/to/local/reference.wav');
     expect(result.stderr).not.toContain("is not registered");
     expect(f.requests).toHaveLength(0);
   } finally { await f.close(); }
+});
+
+test("root profile overrides fail with a public fixture-conflict diagnostic", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(path.join(f.root, "profiles.local.yaml"), "profiles:\n  - id: qwen3-voice\n");
+    await expect(assertRootProfile("qwen3-voice", f.root)).rejects.toThrow("Characterization fixture conflict: profiles.local.yaml overrides qwen3-voice; use a clean worktree");
+  } finally { await f.close(); }
+});
+test("golden update mode fails visibly and is forbidden in CI", async () => {
+  const file = path.join(import.meta.dir, "fixtures/runner.golden.json"), original = await readFile(file, "utf8");
+  const script = `import {golden} from ${JSON.stringify(path.join(import.meta.dir, "harness.ts"))}; await golden("runner", JSON.parse(await Bun.file(${JSON.stringify(file)}).text()));`;
+  for (const CI of [undefined, "1"]) {
+    const child = Bun.spawn([process.execPath, "-e", script], { cwd: repo, env: { ...process.env, CI, UPDATE_COMPAT_GOLDENS: "1" }, stdout: "pipe", stderr: "pipe" });
+    const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+    expect(code).toBe(1); expect(stderr).toContain(CI ? "Golden updates are forbidden in CI" : "re-run without UPDATE_COMPAT_GOLDENS");
+    expect(await readFile(file, "utf8")).toBe(original);
+  }
 });

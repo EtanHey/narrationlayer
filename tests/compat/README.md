@@ -6,7 +6,8 @@ Bun, ffmpeg and ffprobe must be on PATH; missing dependencies fail explicitly.
 
 - Run: `bun test tests/compat`
 - Regenerate the eight generated `fixtures/*.golden.json` files:
-  `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat`
+  `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat` (intentionally exits 1 after
+  writing; re-run without the variable to verify; forbidden when CI is set)
 - Prove sensitivity: `bun tests/compat/mutations.ts`. This sequential command
   temporarily mutates production files, restores them in `finally`, and checks
   FAIL then PASS for each mutation. Do not run other tests concurrently with it.
@@ -36,15 +37,19 @@ covers the env-file profile; a separate invocation unsets that variable and
 requires the root example's qwen3-voice missing-clip failure as a directory
 sentinel. The two-daemon case checks flag/profile precedence with distinct tokens.
 
-Toolchain stability: job fixtures author a 12-second segment duration, so manifest
-and word times do not freeze MP3 frame padding or decoder-specific durations.
+Toolchain stability: the main job golden uses authored durations for stable word
+times, but also freezes real silence/probe argv and the concat file order. A
+separate job has no authored duration: its real probe must equal independently
+probed chunks plus pauses within one MP3 frame (1152/24000 s) per audio join.
 The wrappers record real loudness measurements and assert the executed gain is
 `target - measured`; its golden preserves the filter structure with a measured-gain
 placeholder. WAV format and cache byte equality within the same run remain checked.
 Success requests use a 10-second timeout; only timeout tests use 150 ms.
 Bun AbortError name/message remain frozen. Any golden regeneration after a toolchain
 bump requires a stated reason and a review of the diff; never refresh only to turn
-a failing test green. The only alignment substitution remains word_timing_provider.
+a failing test green. Timeout handlers settle on request abort. Root-profile
+conflicts fail with a public diagnostic before the root-lookup assertions. The only
+alignment substitution remains word_timing_provider.
 
 Known baseline defects are deliberately preserved: failed attempts retain a
 pre-existing output WAV; a failure during breathing can retain the initial full

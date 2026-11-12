@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { loadProfiles } from "../../src/profiles.js";
 import { mkdtemp, mkdir, readFile, writeFile, rm, chmod } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import os from "node:os";
@@ -31,7 +32,7 @@ export async function fixture(mp3 = false) {
     expect(Number(request.headers.get("content-length"))).toBe(Buffer.byteLength(JSON.stringify(body)));
     requests.push({ method: request.method, url: request.url, headers: { "content-type": request.headers.get("content-type"), authorization: request.headers.get("authorization") }, body });
     const selected = requests.length >= failAt ? failure : mode;
-    if (selected === "timeout") return new Promise<Response>(() => {});
+    if (selected === "timeout") return new Promise<Response>(resolve => { const abort = () => resolve(new Response(null, { status: 499 })); if (request.signal.aborted) abort(); else request.signal.addEventListener("abort", abort, { once: true }); });
     if (selected === "http") return new Response("synthetic failure", { status: 500 });
     return Response.json(selected === "malformed" ? {} : { audio_b64: audio.toString("base64"), audio_duration_ms: 200, duration_ms: 7 });
   } });
@@ -48,7 +49,11 @@ export async function fixture(mp3 = false) {
 }
 export async function golden(name: string, value: unknown) {
   const file = path.join(import.meta.dir, "fixtures", `${name}.golden.json`);
-  if (process.env.UPDATE_COMPAT_GOLDENS === "1") await writeFile(file, JSON.stringify(value, null, 2) + "\n");
+  if (process.env.UPDATE_COMPAT_GOLDENS === "1") {
+    if (process.env.CI) throw new Error("Golden updates are forbidden in CI");
+    await writeFile(file, JSON.stringify(value, null, 2) + "\n");
+    throw new Error("Goldens updated; re-run without UPDATE_COMPAT_GOLDENS to verify");
+  }
   expect(value).toEqual(JSON.parse(await readFile(file, "utf8")));
 }
 export function tool(name: string): string {
@@ -62,7 +67,7 @@ export async function wrappers(root: string) {
   for (const name of ["ffmpeg", "ffprobe"]) {
     const real = tool(name);
     const file = path.join(dir, name);
-    await writeFile(file, `#!${process.execPath}\nimport {appendFileSync} from 'node:fs';\nappendFileSync(process.env.COMPAT_ARGV, JSON.stringify({tool:${JSON.stringify(name)},args:process.argv.slice(2)})+'\\n');\nconst child=Bun.spawn([${JSON.stringify(real)},...process.argv.slice(2)],{stdin:'inherit',stdout:'inherit',stderr:'pipe'});\nconst stderr=await new Response(child.stderr).text(); process.stderr.write(stderr);\nif(process.argv.includes('volumedetect')) appendFileSync(process.env.COMPAT_ARGV+'.volume',Number(stderr.match(/mean_volume:\\s*(-?[0-9.]+)/)?.[1])+'\\n');\nprocess.exit(await child.exited);\n`);
+    await writeFile(file, `#!${process.execPath}\nimport {appendFileSync,readFileSync} from 'node:fs';\nappendFileSync(process.env.COMPAT_ARGV, JSON.stringify({tool:${JSON.stringify(name)},args:process.argv.slice(2),...(process.argv.includes('concat')?{concat:readFileSync(process.argv[process.argv.indexOf('-i')+1],'utf8')}:{})})+'\\n');\nconst child=Bun.spawn([${JSON.stringify(real)},...process.argv.slice(2)],{stdin:'inherit',stdout:'inherit',stderr:'pipe'});\nconst stderr=await new Response(child.stderr).text(); process.stderr.write(stderr);\nif(process.argv.includes('volumedetect')) appendFileSync(process.env.COMPAT_ARGV+'.volume',Number(stderr.match(/mean_volume:\\s*(-?[0-9.]+)/)?.[1])+'\\n');\nprocess.exit(await child.exited);\n`);
     await chmod(file, 0o755);
   }
   return dir;
@@ -86,6 +91,14 @@ export async function stableArgv(root: string) {
   }) }));
   expect(measurements).toHaveLength(0);
   return stable;
+}
+export async function assertRootProfile(id: string, base = repo) {
+  const previous = process.env.NARRATIONLAYER_PROFILES_FILE;
+  try {
+    delete process.env.NARRATIONLAYER_PROFILES_FILE;
+    if ((await loadProfiles(base)).some(p => p.id === id && p.source_path === path.join(base, "profiles.local.yaml")))
+      throw new Error(`Characterization fixture conflict: profiles.local.yaml overrides ${id}; use a clean worktree`);
+  } finally { if (previous === undefined) delete process.env.NARRATIONLAYER_PROFILES_FILE; else process.env.NARRATIONLAYER_PROFILES_FILE = previous; }
 }
 export async function runner(f: Awaited<ReturnType<typeof fixture>>, args: string[], profileFile = true) {
   const child = Bun.spawn([tool("bun"), path.join(repo, "bin/local-tts-runner.ts"), ...args], {

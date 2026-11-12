@@ -7,7 +7,7 @@ import { renderSegment } from "../../src/renderers/voicelayer-qwen3.js";
 import { planNarrationUtterances } from "../../src/narration-plan.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
-import { fixture, golden, repo, tool, type Mode } from "./harness.js";
+import { fixture, golden, repo, tool, wrappers, argvLog, type Mode } from "./harness.js";
 const commit = "f7faa86717f697bf79847eb981da2c3fb1279b67";
 function config(f: Awaited<ReturnType<typeof fixture>>, timeoutMs = 10000) {
   return { daemon_url: f.url, auth_token: "synthetic-token", reference_clip: path.join(f.root, "reference.wav"),
@@ -18,18 +18,25 @@ function config(f: Awaited<ReturnType<typeof fixture>>, timeoutMs = 10000) {
 const payload = (scripts: string[]) => ({ job_id: "compat-job", renderer: "voicelayer-qwen3", voice_profile: "compat-voice", segments: scripts.map((script, index) => ({ id: `segment-${index}`, title: `Synthetic ${index}`, duration_seconds: 12, script })) });
 test("job service manifest, words, requests and planner goldens", async () => {
   const f = await fixture(true);
-  const previous = process.env.NARRATIONLAYER_DATA_DIR;
+  const previous = { PATH: process.env.PATH, TMPDIR: process.env.TMPDIR, COMPAT_ARGV: process.env.COMPAT_ARGV, NARRATIONLAYER_DATA_DIR: process.env.NARRATIONLAYER_DATA_DIR };
   try {
-    tool("ffmpeg"); tool("ffprobe"); process.env.NARRATIONLAYER_DATA_DIR = path.join(f.root, "data");
+    process.env.PATH = `${await wrappers(f.root)}${path.delimiter}${previous.PATH}`;
+    process.env.COMPAT_ARGV = path.join(f.root, "argv.jsonl"); process.env.TMPDIR = f.root;
+    process.env.NARRATIONLAYER_DATA_DIR = path.join(f.root, "data");
     expect(getDataDir()).toBe(path.join(f.root, "data"));
     await createJobFromPayload(payload(corpus));
     const result = await renderJob("compat-job", undefined, { qwen: config(f), external: {} });
     const words = await Promise.all(result.manifest.segments.map(async segment => JSON.parse(await readFile(segment.words_path, "utf8"))));
     const spoken = await Promise.all(result.manifest.segments.map(segment => readFile(`${segment.audio_path}.spoken.txt`, "utf8")));
-    await golden("job", f.canonical({ requests: f.requests, manifest: await getManifest("compat-job"), status: await getStatus("compat-job"), words, spoken,
+    const temporaries = new Map<string, string>();
+    const argv = JSON.parse(JSON.stringify(f.canonical(await argvLog(f.root))).replace(/narrationlayer-audio-[A-Za-z0-9]+/g, name => {
+      if (!temporaries.has(name)) temporaries.set(name, `$ASSEMBLY_${temporaries.size}`);
+      return temporaries.get(name) ?? name;
+    }));
+    await golden("job", f.canonical({ argv, requests: f.requests, manifest: await getManifest("compat-job"), status: await getStatus("compat-job"), words, spoken,
       planned: corpus.map(text => planNarrationUtterances(normalizeForSpeech(text))) }));
   } finally {
-    if (previous === undefined) delete process.env.NARRATIONLAYER_DATA_DIR; else process.env.NARRATIONLAYER_DATA_DIR = previous;
+    for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
     await f.close();
   }
 }, 30000);
@@ -62,4 +69,21 @@ test("real commit discovery and job/segment confinement remain active", async ()
     if (previous === undefined) delete process.env.NARRATIONLAYER_COMMIT; else process.env.NARRATIONLAYER_COMMIT = previous;
     await f.close();
   }
+});
+
+test("job service probes assembled duration within one MP3 frame per join", async () => {
+  const f = await fixture(true);
+  try {
+    const script = corpus[2], planned = planNarrationUtterances(normalizeForSpeech(script));
+    await createJobFromPayload({ ...payload([]), segments: [{ id: "probe", title: "Measured", script }] }, f.root);
+    const { manifest } = await renderJob("compat-job", f.root, { qwen: config(f), external: {} });
+    const segment = manifest.segments[0];
+    const durations = planned.map((_, index) => {
+      const probe = Bun.spawnSync([tool("ffprobe"), "-v", "error", "-show_entries", "format=duration", "-of", "default=nokey=1:noprint_wrappers=1", path.join(path.dirname(segment.audio_path), "chunks", `probe-${index + 1}.mp3`)]);
+      expect(probe.exitCode).toBe(0); return Number(probe.stdout.toString());
+    });
+    const expected = durations.reduce((sum, seconds, index) => sum + seconds + planned[index].pause_after_seconds, 0);
+    const joins = planned.length + planned.filter(piece => piece.pause_after_seconds > 0).length - 1;
+    expect(Math.abs(segment.duration_seconds - expected)).toBeLessThanOrEqual(joins * 1152 / 24000);
+  } finally { await f.close(); }
 });
