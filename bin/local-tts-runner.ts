@@ -34,7 +34,6 @@ import {
   unlink,
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
@@ -42,6 +41,40 @@ import { spawn } from "node:child_process";
 import { synthesizeQwen3, Qwen3DaemonError } from "../src/backends/qwen3-daemon.js";
 import { findProfile, qwenConfigFromProfile, warnIfNonAcceptedProfile } from "../src/profiles.js";
 import { prepareSpeechChannels as prepareDefaultChannels, type TermRule, type SpeechChannels } from "../src/text-normalize.js";
+
+import {
+  buildMonoS16WavArgs,
+  computeLoudnessGainDb,
+  buildLoudnessNormalizeArgs,
+  buildAtempoArgs,
+  buildPcmSilenceArgs,
+  escapeConcatPath,
+  buildWavConcatArgs,
+  type MonoS16WavOptions,
+} from "../src/audio/ffmpeg-args.js";
+import { splitForBreathing } from "../src/plan/breathing.js";
+import {
+  computeContentHashKey,
+  writeTakeCacheReceipt,
+  clearTakeCacheReceipt,
+  type CacheKeyParams,
+} from "../src/pipelines/local-tts/take-cache.js";
+
+export {
+  buildMonoS16WavArgs,
+  computeLoudnessGainDb,
+  buildLoudnessNormalizeArgs,
+  buildAtempoArgs,
+  buildPcmSilenceArgs,
+  buildWavConcatArgs,
+} from "../src/audio/ffmpeg-args.js";
+export { splitForBreathing } from "../src/plan/breathing.js";
+export {
+  type CacheKeyParams,
+  computeContentHashKey,
+  writeTakeCacheReceipt,
+  clearTakeCacheReceipt,
+} from "../src/pipelines/local-tts/take-cache.js";
 
 interface Args {
   text?: string;
@@ -157,95 +190,6 @@ Options:
 
 Fail-closed: a missing profile/reference exits non-zero. Never falls back to system TTS.
 `;
-
-/**
- * Synth params that affect the OUTPUT bytes. The content-hash key is computed over
- * the normalized spoken text + reference identity + this param object, so any change
- * that would change the audio yields a different key (and a fresh synth), while an
- * identical request reuses the frozen accepted take. Exported for tests.
- */
-export interface CacheKeyParams {
-  eqHighshelfHz?: number;
-  eqHighshelfGainDb?: number;
-  loudnessTargetDb?: number;
-  atempo?: number;
-  sentencePauseSeconds?: number;
-  commaPauseSeconds?: number;
-}
-
-/**
- * Compute the content-hash freeze key (sha256, hex) for a synth request. The key is
- * the determinism layer: qwen3 is non-deterministic, so freezing an accepted take by
- * its key is the canonical mechanism for reproducibility. The hash covers the LITERAL
- * normalized spoken text (what the daemon receives), the reference clip path + ref
- * text (voice identity), and the JSON of the OUTPUT-affecting synth params. Param keys
- * are serialized in a STABLE order so the key is independent of object construction
- * order; undefined params are omitted (a profile that never sets atempo hashes the same
- * with or without an explicit undefined). Exported for tests.
- */
-export function computeContentHashKey(input: {
-  spokenText: string;
-  referenceClip: string;
-  referenceText: string;
-  profileId?: string;
-  profileVersion?: string;
-  model?: string;
-  params: CacheKeyParams;
-}): string {
-  // Stable, explicit param ordering — never rely on object key insertion order.
-  const p = input.params;
-  const orderedParams = {
-    eqHighshelfHz: p.eqHighshelfHz,
-    eqHighshelfGainDb: p.eqHighshelfGainDb,
-    loudnessTargetDb: p.loudnessTargetDb,
-    atempo: p.atempo,
-    sentencePauseSeconds: p.sentencePauseSeconds,
-    commaPauseSeconds: p.commaPauseSeconds,
-  };
-  // JSON.stringify drops undefined values, so absent params don't perturb the key.
-  const payload = JSON.stringify({
-    spokenText: input.spokenText,
-    referenceClip: input.referenceClip,
-    referenceText: input.referenceText,
-    profileId: input.profileId,
-    profileVersion: input.profileVersion,
-    model: input.model,
-    params: orderedParams,
-  });
-  return createHash("sha256").update(payload, "utf8").digest("hex");
-}
-
-/**
- * Persist the cache decision that produced a take. The sidecar is replaced
- * atomically so downstream consumers never observe a partial receipt.
- */
-export async function writeTakeCacheReceipt(
-  output: string,
-  cacheKey: string,
-  options: { cacheEnabled: boolean },
-): Promise<string> {
-  if (!/^[a-f0-9]{64}$/.test(cacheKey)) {
-    throw new Error(`invalid cache key for take receipt: ${cacheKey}`);
-  }
-  const receiptPath = `${output}.cache.json`;
-  const temporaryPath = `${receiptPath}.tmp-${process.pid}`;
-  await writeFile(
-    temporaryPath,
-    `${JSON.stringify({ version: 1, cacheKey, cacheEnabled: options.cacheEnabled })}\n`,
-    "utf8",
-  );
-  await rename(temporaryPath, receiptPath);
-  return receiptPath;
-}
-
-/** Clear stale evidence before beginning a new attempt. Missing receipts are fine. */
-export async function clearTakeCacheReceipt(output: string): Promise<void> {
-  try {
-    await unlink(`${output}.cache.json`);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
-}
 
 async function resolveReference(args: Args): Promise<{
   referenceClip: string;
@@ -399,37 +343,6 @@ async function synthesize(opts: {
   }
 }
 
-interface MonoS16WavOptions {
-  /** De-muffle high-shelf EQ frequency (Hz). Profile-gated; only set for eq-bearing profiles. */
-  eqHighshelfHz?: number;
-  /** De-muffle high-shelf EQ gain (dB). */
-  eqHighshelfGainDb?: number;
-}
-
-/**
- * Build the ffmpeg argv for the single mono s16le WAV pass. Exported for tests.
- * When EITHER eq param is set, a `highshelf=f=<hz>:g=<gain>` filter (mirroring
- * src/audio.ts applyAudioEq, same defaults hz=4000/g=0) is composed into a single
- * `-af` — no second re-encode pass. When neither is set, no `-af` is added.
- */
-export function buildMonoS16WavArgs(
-  inputPath: string,
-  outputPath: string,
-  sampleRate: number,
-  options: MonoS16WavOptions = {},
-): string[] {
-  const { eqHighshelfHz, eqHighshelfGainDb } = options;
-  // -ac 1 (mono), -c:a pcm_s16le (16-bit PCM), -ar <rate> (target sample rate).
-  const args = ["-y", "-i", inputPath, "-ac", "1", "-ar", String(sampleRate)];
-  if (eqHighshelfHz !== undefined || eqHighshelfGainDb !== undefined) {
-    const hz = eqHighshelfHz ?? 4000;
-    const gain = eqHighshelfGainDb ?? 0;
-    args.push("-af", `highshelf=f=${hz}:g=${gain}`);
-  }
-  args.push("-c:a", "pcm_s16le", outputPath);
-  return args;
-}
-
 function ffmpegToMonoS16Wav(
   inputPath: string,
   outputPath: string,
@@ -454,73 +367,6 @@ function ffmpegToMonoS16Wav(
   });
 }
 
-/**
- * Compute the dB gain needed to bring a measured mean_volume up/down to a target.
- * gainDb = target - measured. Exported for tests.
- */
-export function computeLoudnessGainDb(
-  measuredMeanVolumeDb: number,
-  targetDb: number,
-): number {
-  return targetDb - measuredMeanVolumeDb;
-}
-
-/**
- * Build the ffmpeg argv for the loudness-normalize re-encode pass. Applies
- * `volume=<gainDb>dB` to hit the target RMS, followed by `alimiter=limit=0.95`
- * to prevent clipping on boost, keeping mono/s16le/sampleRate. Exported for tests.
- */
-export function buildLoudnessNormalizeArgs(
-  inputPath: string,
-  outputPath: string,
-  sampleRate: number,
-  gainDb: number,
-): string[] {
-  return [
-    "-y",
-    "-i",
-    inputPath,
-    "-ac",
-    "1",
-    "-ar",
-    String(sampleRate),
-    "-af",
-    `volume=${gainDb}dB,alimiter=limit=0.95`,
-    "-c:a",
-    "pcm_s16le",
-    outputPath,
-  ];
-}
-
-/**
- * Build the ffmpeg argv for the per-profile ATEMPO (speed) pass. `atempo=<v>` is a
- * pitch-PRESERVING tempo change (no timbre / identity shift), so slowing a clone to
- * v=0.90 lengthens it ~11% without lowering its pitch. We re-assert mono / target
- * sample rate / s16le so the output stays a clean AfterCode-readable WAV. Exported
- * for tests. Runs AFTER ffmpegToMonoS16Wav and BEFORE loudness normalization.
- */
-export function buildAtempoArgs(
-  inputPath: string,
-  outputPath: string,
-  sampleRate: number,
-  v: number,
-): string[] {
-  return [
-    "-y",
-    "-i",
-    inputPath,
-    "-af",
-    `atempo=${v}`,
-    "-ac",
-    "1",
-    "-ar",
-    String(sampleRate),
-    "-c:a",
-    "pcm_s16le",
-    outputPath,
-  ];
-}
-
 function ffmpegRun(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const ff = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] });
@@ -543,143 +389,6 @@ function ffmpegAtempo(
   v: number,
 ): Promise<void> {
   return ffmpegRun(buildAtempoArgs(inputPath, outputPath, sampleRate, v));
-}
-
-/**
- * Split normalized speech text into pieces on sentence-ending punctuation (. ? !)
- * and long pauses (em-dash / semicolon / colon), tagging each piece with the pause
- * (seconds) that should FOLLOW it. Sentence-enders => sentencePad; comma/clause
- * separators (, ; : —) => commaPad. The final piece carries no trailing pad (0).
- * Exported for tests. A piece with no detectable terminator keeps the text intact.
- */
-export function splitForBreathing(
-  text: string,
-  sentencePad: number,
-  commaPad: number,
-): Array<{ text: string; padAfterSeconds: number }> {
-  const pieces: Array<{ text: string; padAfterSeconds: number }> = [];
-  const sentenceEnders = new Set([".", "?", "!"]);
-  const clauseEnders = new Set([";", ":", "—", ","]);
-  const closingAfterSentence = new Set([
-    '"',
-    "'",
-    "”",
-    "’",
-    ")",
-    "]",
-    "}",
-    "»",
-  ]);
-  let pieceStart = 0;
-
-  const pushPiece = (
-    spokenEnd: number,
-    nextStart: number,
-    padAfterSeconds: number,
-  ) => {
-    const spoken = text.slice(pieceStart, spokenEnd).trim();
-    if (spoken) {
-      pieces.push({ text: spoken, padAfterSeconds });
-    }
-    pieceStart = nextStart;
-    while (pieceStart < text.length && /\s/.test(text[pieceStart])) {
-      pieceStart += 1;
-    }
-  };
-
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-    if (sentenceEnders.has(ch)) {
-      let end = i + 1;
-      while (end < text.length && sentenceEnders.has(text[end])) {
-        end += 1;
-      }
-      while (end < text.length && closingAfterSentence.has(text[end])) {
-        end += 1;
-      }
-      if (end === text.length || /\s/.test(text[end])) {
-        pushPiece(end, end, sentencePad);
-        i = pieceStart - 1;
-      }
-      continue;
-    }
-
-    if (commaPad > 0 && clauseEnders.has(ch)) {
-      const end = i + 1;
-      if (end === text.length || /\s/.test(text[end])) {
-        pushPiece(i, end, commaPad);
-        i = pieceStart - 1;
-      }
-    }
-  }
-
-  const tail = text.slice(pieceStart).trim();
-  if (tail) pieces.push({ text: tail, padAfterSeconds: 0 });
-
-  if (pieces.length > 0) {
-    // The last piece ends the utterance — no trailing breath needed.
-    pieces[pieces.length - 1].padAfterSeconds = 0;
-  } else if (text.trim()) {
-    pieces.push({ text: text.trim(), padAfterSeconds: 0 });
-  }
-  return pieces;
-}
-
-/**
- * Build the ffmpeg argv for a PCM (s16le) silence clip of `seconds` duration.
- * CRITICAL: we generate silence as PCM (NOT mp3) so the silence shares the exact
- * WAV codec/rate/layout as the synthesized pieces; this lets the final assembly use
- * `concat -c copy` WITHOUT the non-monotonic-DTS error that an mp3-silence segment
- * triggers on the WAV demuxer path. Exported for tests.
- */
-export function buildPcmSilenceArgs(
-  outputPath: string,
-  seconds: number,
-  sampleRate: number,
-): string[] {
-  return [
-    "-y",
-    "-f",
-    "lavfi",
-    "-i",
-    `anullsrc=channel_layout=mono:sample_rate=${sampleRate}`,
-    "-t",
-    String(seconds),
-    "-ac",
-    "1",
-    "-ar",
-    String(sampleRate),
-    "-c:a",
-    "pcm_s16le",
-    outputPath,
-  ];
-}
-
-function escapeConcatPath(filePath: string): string {
-  return path.resolve(filePath).replace(/'/g, "'\\''");
-}
-
-/**
- * Build the ffmpeg argv for the `concat` demuxer stream-copy over a WAV concat list.
- * `-c copy` is safe ONLY because every entry (pieces + PCM silence) is mono s16le at
- * the same sample rate. Exported for tests.
- */
-export function buildWavConcatArgs(
-  concatListPath: string,
-  outputPath: string,
-): string[] {
-  return [
-    "-y",
-    "-f",
-    "concat",
-    "-safe",
-    "0",
-    "-i",
-    concatListPath,
-    "-c",
-    "copy",
-    outputPath,
-  ];
 }
 
 /**

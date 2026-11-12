@@ -4,16 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { normalizeForSpeech } from "../src/text-normalize.js";
 
-import {
-  buildMonoS16WavArgs,
-  buildLoudnessNormalizeArgs,
-  clearTakeCacheReceipt,
-  computeLoudnessGainDb,
-  computeContentHashKey,
-  splitForBreathing,
-  writeTakeCacheReceipt,
-  type CacheKeyParams,
-} from "../bin/local-tts-runner.js";
+import { buildMonoS16WavArgs, buildLoudnessNormalizeArgs, computeLoudnessGainDb } from "../src/audio/ffmpeg-args.js";
+import { clearTakeCacheReceipt, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "../src/pipelines/local-tts/take-cache.js";
+import { splitForBreathing } from "../src/plan/breathing.js";
 
 test("runner defaults and injected speech preparation preserve the authored input", () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-speech-seam-"));
