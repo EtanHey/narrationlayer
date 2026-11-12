@@ -98,7 +98,7 @@ function symbolize(calls: Call[]) {
 
 /**
  * One fingerprint per golden case, over what decides the audio for an unchanged cache key:
- * - runner.golden.json, per run: the daemon request bodies in order, the breathing pieces
+ * - runner.golden.json and runner-defaults-*.golden.json, per run: request bodies, breathing pieces
  *   and pads, and the ffmpeg argument lists in order (paths symbolized). Not headers, URLs,
  *   stderr, exit codes, the receipt or the probed format. The case id is a hash of the
  *   run's cache-key preimage without the render version, so a change to what the key
@@ -109,20 +109,24 @@ function symbolize(calls: Call[]) {
  *   The utterance rows belong to the job path, not the runner.
  */
 function computeCases(): Record<string, string> {
-  const runner = read("runner.golden.json") as { results: RunnerResult[]; argv: Call[] };
   const plan = read("plan-pieces.golden.json") as { rows: { text: string; breathing: unknown }[] };
-  const runs = splitRuns(runner.results, runner.argv);
   const cases: Record<string, string> = {};
   const add = (id: string, value: unknown) => {
     if (id in cases) throw failure([`take-cache version test: duplicate case id ${id}`]);
     cases[id] = sha(stable(value));
   };
-  runner.results.forEach((result, i) => {
-    const { renderVersion: _version, ...key } = result.keyPreimage;
-    add(`runner/${result.referenceKind}/${sha(stable(key)).slice(0, 12)}`, {
-      bodies: result.requests.map(request => request.body), pieces: result.pieces, ffmpeg: symbolize(runs[i]!),
+  for (const name of ["runner", "runner-defaults-sentence-only", "runner-defaults-comma-only", "runner-defaults-no-tempo"]) {
+    const runner = read(`${name}.golden.json`) as { results: RunnerResult[]; argv: Call[] };
+    const runs = splitRuns(runner.results, runner.argv);
+    runner.results.forEach((result, i) => {
+      const { renderVersion: _version, ...key } = result.keyPreimage;
+      // The defaults fixtures are named-profile runs; they omit referenceKind.
+      const referenceKind = name === "runner" ? result.referenceKind : "profile";
+      add(`runner/${referenceKind}/${sha(stable(key)).slice(0, 12)}`, {
+        bodies: result.requests.map(request => request.body), pieces: result.pieces, ffmpeg: symbolize(runs[i]!),
+      });
     });
-  });
+  }
   for (const row of plan.rows) add(`breathing/${sha(row.text).slice(0, 12)}`, row.breathing);
   return cases;
 }
