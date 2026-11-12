@@ -1,3 +1,4 @@
+import { synthesizeQwen3, Qwen3DaemonError, type Qwen3Synthesis } from "../backends/qwen3-daemon.js";
 import type { AudioAssemblyChunk } from "../core/render-types.js";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
@@ -29,15 +30,6 @@ interface VoiceLayerTimingCandidate {
   confidence?: unknown;
 }
 
-interface VoiceLayerSynthesizeResponse {
-  audio_b64?: unknown;
-  duration_ms?: unknown;
-  audio_duration_ms?: unknown;
-  words?: unknown;
-  word_timings?: unknown;
-  word_boundaries?: unknown;
-  lora_applied?: unknown;
-}
 
 const DEFAULT_MAX_CHUNK_DURATION_SECONDS = 45;
 const DEFAULT_MAX_CHUNK_SECONDS_PER_WORD = 3;
@@ -106,7 +98,7 @@ function coerceTiming(candidate: VoiceLayerTimingCandidate, index: number): Word
   };
 }
 
-function normalizeReturnedTimings(payload: VoiceLayerSynthesizeResponse): WordTiming[] {
+function normalizeReturnedTimings(payload: Qwen3Synthesis): WordTiming[] {
   const raw = payload.word_timings ?? payload.words ?? payload.word_boundaries;
   if (!Array.isArray(raw)) {
     return [];
@@ -144,7 +136,7 @@ function getGeneratedChunkDurationLimitSeconds(text: string, config: VoiceLayerQ
 }
 
 async function getGeneratedChunkDurationSeconds(args: {
-  payload: VoiceLayerSynthesizeResponse;
+  payload: Qwen3Synthesis;
   audioPath: string;
   config: VoiceLayerQwen3Config;
 }): Promise<number | undefined> {
@@ -158,7 +150,7 @@ async function assertGeneratedChunkDuration(args: {
   segmentId: string;
   chunkIndex: number;
   text: string;
-  payload: VoiceLayerSynthesizeResponse;
+  payload: Qwen3Synthesis;
   audioPath: string;
   config: VoiceLayerQwen3Config;
 }): Promise<void> {
@@ -187,48 +179,40 @@ async function synthesizeText(args: {
   text: string;
   fetchImpl: NonNullable<RenderSegmentOptions["fetch"]>;
   timeoutMs: number;
-}): Promise<VoiceLayerSynthesizeResponse> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), args.timeoutMs);
-  let response: Response;
+}): Promise<Qwen3Synthesis> {
+  let payload: Qwen3Synthesis;
   try {
-    response = await args.fetchImpl(`${args.daemonUrl}/synthesize`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${args.authToken}`,
-      },
-      body: JSON.stringify({
+    payload = await synthesizeQwen3({
+      url: `${args.daemonUrl}/synthesize`,
+      authToken: args.authToken,
+      body: {
         text: args.text,
         reference_wav: args.referenceClip,
         reference_text: args.referenceText,
         ...(args.model ? { model: args.model } : {}),
         ...(args.loraAdapterPath ? { lora_adapter_path: args.loraAdapterPath } : {}),
         ...(args.loraScale === undefined ? {} : { lora_scale: args.loraScale }),
-      }),
-      signal: controller.signal,
+      },
+      timeoutMs: args.timeoutMs,
+      fetchImpl: args.fetchImpl,
     });
-  } finally {
-    clearTimeout(timeout);
+  } catch (error) {
+    if (!(error instanceof Qwen3DaemonError)) throw error;
+    const failure = error.failure;
+    if (failure.kind === "http") {
+      throw new Error(`voicelayer-qwen3 synthesize failed (${failure.status}): ${failure.body || failure.statusText}`);
+    }
+    if (failure.kind === "missing-audio") throw new Error("voicelayer-qwen3 response missing audio_b64");
+    throw failure.cause;
   }
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`voicelayer-qwen3 synthesize failed (${response.status}): ${body || response.statusText}`);
-  }
-
-  const payload = (await response.json()) as VoiceLayerSynthesizeResponse;
-  if (typeof payload.audio_b64 !== "string" || !payload.audio_b64) {
-    throw new Error("voicelayer-qwen3 response missing audio_b64");
-  }
-  if (args.loraAdapterPath && payload.lora_applied !== true) {
+  if (args.loraAdapterPath && payload.loraApplied !== true) {
     throw new Error("voicelayer-qwen3 daemon did not confirm LoRA adapter application");
   }
   return payload;
 }
 
-function getPayloadDurationSeconds(payload: VoiceLayerSynthesizeResponse): number | undefined {
-  const payloadDurationMs = coerceNumber(payload.audio_duration_ms) ?? coerceNumber(payload.duration_ms);
+function getPayloadDurationSeconds(payload: Qwen3Synthesis): number | undefined {
+  const payloadDurationMs = coerceNumber(payload.audioDurationMs) ?? coerceNumber(payload.elapsedGenerationMs);
   return payloadDurationMs === undefined ? undefined : normalizeDuration(payloadDurationMs / 1000);
 }
 
@@ -327,12 +311,12 @@ export async function renderSegment(
   }
 
   const audioChunks: AudioAssemblyChunk[] = [];
-  let lastPayload: VoiceLayerSynthesizeResponse | undefined;
+  let lastPayload: Qwen3Synthesis | undefined;
   let fallbackDurationSeconds = 0;
   const maxChunkRetries = cleanNonNegativeInteger(config.max_chunk_retries, DEFAULT_MAX_CHUNK_RETRIES);
   for (let index = 0; index < plannedUtterances.length; index += 1) {
     const utterance = plannedUtterances[index];
-    let acceptedPayload: VoiceLayerSynthesizeResponse | undefined;
+    let acceptedPayload: Qwen3Synthesis | undefined;
     let acceptedChunkPath: string | undefined;
     for (let attempt = 0; attempt <= maxChunkRetries; attempt += 1) {
       const payload = await synthesizeText({
@@ -353,7 +337,7 @@ export async function renderSegment(
         : shouldAssemble
           ? resolveWithinRoot(chunksRoot, `${suffix}.mp3`)
           : audioPath;
-      await writeFile(rawChunkPath, Buffer.from(payload.audio_b64 as string, "base64"));
+      await writeFile(rawChunkPath, Buffer.from(payload.audioBase64, "base64"));
       const chunkPath = shouldTrim
         ? shouldAssemble
           ? resolveWithinRoot(chunksRoot, `${suffix}.mp3`)

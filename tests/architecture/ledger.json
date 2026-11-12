@@ -13,6 +13,7 @@
     "bin/narration-gate.ts": { "layer": 5, "area": "surfaces", "entry": ["if (import.meta.main)"], "exempt": "named exemption: quality gate, not on the VoiceLayer path" },
     "scripts/dev/boundaries.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
     "scripts/dev/snapshot-exports.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
+    "src/backends/qwen3-daemon.ts": { "layer": 2, "area": "backends", "owner": "P1.1" },
     "src/core/render-types.ts": { "layer": 0, "area": "core", "owner": "P1.1b" },
     "src/audio.ts": { "layer": 2, "area": "audio", "owner": "P1.3" },
     "src/bakeoff.ts": { "layer": 4, "area": "service", "exempt": "named exemption: bakeoff" },

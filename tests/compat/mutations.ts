@@ -8,12 +8,12 @@ const cases = [
   ["runner-newlines", "bin/local-tts-runner.ts", "      spokenText,\n      sentencePad,", '      spokenText: spokenText.replace(/\\n/g, " "),\n      sentencePad,', "runner executable goldens"],
   ["job-pause", "src/narration-plan.ts", "DEFAULT_SENTENCE_PAUSE_SECONDS = 0.55", "DEFAULT_SENTENCE_PAUSE_SECONDS = 0.56", "job service manifest"],
   ["runner-pause", "bin/local-tts-runner.ts", "resolved.sentencePauseSeconds ?? 0.55", "resolved.sentencePauseSeconds ?? 0.56", "runner executable goldens"],
-  ["runner-auth", "bin/local-tts-runner.ts", "Authorization: `Bearer ${opts.authToken}`", '"X-Dropped-Authorization": `Bearer ${opts.authToken}`', "runner executable"],
-  ["job-auth", "src/renderers/voicelayer-qwen3.ts", "Authorization: `Bearer ${args.authToken}`", '"X-Dropped-Authorization": `Bearer ${args.authToken}`', "job service"],
+  ["runner-auth", "src/backends/qwen3-daemon.ts", "Authorization: `Bearer ${args.authToken}`", '"X-Dropped-Authorization": `Bearer ${args.authToken}`', "runner executable"],
+  ["job-auth", "src/backends/qwen3-daemon.ts", "Authorization: `Bearer ${args.authToken}`", '"X-Dropped-Authorization": `Bearer ${args.authToken}`', "job service"],
   ["profile-base", "bin/local-tts-runner.ts", 'findProfile(ref, path.resolve(import.meta.dir, ".."))', 'findProfile(ref, path.resolve(import.meta.dir, "../.."))', "runner entry root lookup without profile-file environment"],
   ["failure-cleanup", "bin/local-tts-runner.ts", "await unlink(p);", "/* scratch: leave intermediate output behind */", "runner removes intermediate output"],
   ["spoken-form", "src/text-normalize.ts", '`pull request ${referenceNumber(n)}`', '`changed request ${referenceNumber(n)}`', "runner executable goldens"],
-  ["silent-http", "src/renderers/voicelayer-qwen3.ts", "throw new Error(`voicelayer-qwen3 synthesize failed (${response.status}): ${body || response.statusText}`);", "return {};", "job service thrown error golden: http"],
+  ["silent-http", "src/renderers/voicelayer-qwen3.ts", "throw new Error(`voicelayer-qwen3 synthesize failed (${failure.status}): ${failure.body || failure.statusText}`);", "return {};", "job service thrown error golden: http"],
   ["job-probe-default", "src/renderers/voicelayer-qwen3.ts", "normalizeDuration(await (config.audio_duration_probe ?? probeAudioDurationSeconds)(audioPath))", "normalizeDuration(await (config.audio_duration_probe ?? (async () => undefined))(audioPath))", "job service probes unauthored"],
   ["job-probe-scale-1.05", "src/audio.ts", "return Number(value.toFixed(3));", "return Number((value * 1.05).toFixed(3));", "job service probes unauthored"],
   ["job-probe-scale-0.9", "src/audio.ts", "return Number(value.toFixed(3));", "return Number((value * 0.9).toFixed(3));", "job service probes unauthored"],
@@ -26,7 +26,7 @@ const cases = [
   ["job-env-auth_token_file", "src/service.ts", "process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE ?? overrides.auth_token_file", "overrides.auth_token_file ?? process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE", "job service daemon auth"],
   ["stderr-abort-class", "tests/compat/harness.ts", "The operation was aborted\\.(?=\\r?$)", "[^\\n]*abort[^\\n]*", "stderr timeout classification"],
   ["job-assembly-dir", "src/audio.ts", "path.join(os.tmpdir(), \"narrationlayer-audio-\")", "path.join(path.dirname(outputPath), \"narrationlayer-audio-\")", "job service manifest"],
-  ["runner-http-exit", "bin/local-tts-runner.ts", "fail(\n      `daemon /synthesize failed", "throw new Error(\n      `daemon /synthesize failed", "runner HTTP failure during breathing"],
+  ["runner-http-exit", "bin/local-tts-runner.ts", "fail(\n        `daemon /synthesize failed", "throw new Error(\n        `daemon /synthesize failed", "runner HTTP failure during breathing"],
 ] satisfies string[][];
 await mkdir(path.join(repo, "docs.local/characterization"), { recursive: true });
 for (const [name, relative, before, after, pattern] of cases) {
