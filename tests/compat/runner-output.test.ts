@@ -69,7 +69,9 @@ async function outputGolden(name: string, measures: Measure[]) {
     const was = pinned[i];
     if (JSON.stringify(now.format) !== JSON.stringify(was.format)) moved.push(`${now.run}: format moved: pinned ${JSON.stringify(was.format)}, now ${JSON.stringify(now.format)}`);
     if (now.samples !== was.samples) moved.push(`${now.run}: samples moved: pinned ${was.samples}, now ${now.samples}`);
-    if (now.rmsDb === null || was.rmsDb === null ? now.rmsDb !== was.rmsDb : Math.abs(now.rmsDb - was.rmsDb) > RMS_TOLERANCE_DB)
+    // Both levels are rounded to 0.1 dB; compare in whole tenths so 0.3 is not 0.30000000000000071.
+    const tenths = (db: number) => Math.round(db * 10);
+    if (now.rmsDb === null || was.rmsDb === null ? now.rmsDb !== was.rmsDb : Math.abs(tenths(now.rmsDb) - tenths(was.rmsDb)) > tenths(RMS_TOLERANCE_DB))
       moved.push(`${now.run}: rmsDb moved: pinned ${was.rmsDb}, now ${now.rmsDb} (tolerance ${RMS_TOLERANCE_DB} dB)`);
   });
   expect(moved, `${name}: the output audio moved\n${moved.join("\n")}`).toEqual([]);
