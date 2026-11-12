@@ -25,7 +25,7 @@ The harness contains the canonicalization table. Fixture paths and wall-clock
 fields vary; the ephemeral HTTP origin also needs a stable name. Application
 headers (content type and authorization) are frozen; transport-generated Host
 and Content-Length are checked against each actual request. Provenance is pinned
-through `narrationlayer_commit`, and storage through `NARRATIONLAYER_DATA_DIR`.
+through `narrationlayer_commit`, and storage through an explicit service data-dir argument.
 The runner's real path-dependent cache hash is asserted against an independently
 constructed preimage; the golden then stores that preimage with canonical paths
 and its hash. No arbitrary cache key or commit is masked.
@@ -52,6 +52,29 @@ alignment substitution remains word_timing_provider.
 Known baseline defects are deliberately preserved: failed attempts retain a
 pre-existing output WAV; a failure during breathing can retain the initial full
 take. HTTP failures call `process.exit`, bypassing intermediate-file cleanup;
-abort exceptions do run cleanup. Receipts are removed before a new attempt.
+abort exceptions do run cleanup.
+The HTTP breathing intermediate is frozen as-is, so the daemon-client slice must
+change it deliberately. Receipts are removed before a new attempt.
 The cleanup mutation leaves a breathing intermediate WAV after an abort and must
 fail its executable test. Fixing stale final output needs a separate change.
+
+Follow-up assertions compare unauthored manifest duration with real ffprobe of
+that same final file (rounded to three decimals), and named-profile final WAV
+mean volume with the requested -20 dB target (within 1 dB). These measurements
+bypass the PATH wrappers. The HIT sidecar is removed before each cache replay.
+Auth cases use only synthetic token files, through env resolution and renderJob;
+they freeze config token > config file > daemon-secret env > legacy-token env,
+and env-over-config URL, token and token-file precedence, including missing-token rejection.
+Timeout classification accepts only the exact known abort diagnostic; unrelated
+errors mentioning abort remain intact.
+
+The job golden passes its data directory explicitly and never changes TMPDIR or
+NARRATIONLAYER_DATA_DIR. Only os.tmpdir() and its realpath assembly roots become
+$TMPDIR/$ASSEMBLY_n, preserving temp-directory location in argv and concat. PATH and
+COMPAT_ARGV remain process-global only around renderJob because the service/audio
+API has no subprocess env argument. The whole NARRATIONLAYER_QWEN3_ env family
+and auth fallback variables are similarly scoped to config resolution and renderJob; every changed key is restored in
+finally before fixture deletion. Commit/profile discovery tests also retain their
+narrow, restored env overrides. Run compat tests sequentially: concurrent tests
+in the same process can still observe these unavoidable global overrides.
+Runner child processes receive explicit env objects and do not change parent env.
