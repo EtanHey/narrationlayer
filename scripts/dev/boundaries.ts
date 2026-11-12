@@ -14,18 +14,9 @@ export const LEDGER_PATH = path.join(ROOT, "tests/architecture/ledger.json");
 export const BASELINE_PATH = path.join(ROOT, "tests/architecture/baseline.json");
 const IN_SCOPE = /^(src|bin|scripts)\/.*\.ts$/;
 
-export interface LedgerEntry {
-  layer: 0 | 1 | 2 | 3 | 4 | 5 | "api";
-  area: string;
-  shim?: true;
-  entry?: string[];
-  owner?: string;
-  exempt?: string;
-}
-export interface Ledger {
-  layers: Record<string, string>;
-  files: Record<string, LedgerEntry>;
-}
+/** One row per file: layer, area, owner slice XOR exemption; `shim` must agree with detection; `entry` lists required markers. */
+export type LedgerEntry = { layer: 0 | 1 | 2 | 3 | 4 | 5 | "api"; area: string; shim?: true; entry?: string[]; owner?: string; exempt?: string };
+export type Ledger = { layers: Record<string, string>; files: Record<string, LedgerEntry> };
 
 export function readJson<T>(file: string): T {
   return JSON.parse(readFileSync(file, "utf8")) as T;

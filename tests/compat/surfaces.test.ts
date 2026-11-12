@@ -37,13 +37,8 @@ test("package.json bin map matches the frozen snapshot", () => {
 test("the MCP server process completes initialize and tools/list over stdio", async () => {
   const dataDir = scratchDir("mcp");
   try {
-    const proc = Bun.spawn([BUN, "src/mcp-server.ts"], {
-      cwd: ROOT,
-      env: { ...process.env, NARRATIONLAYER_DATA_DIR: dataDir },
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const env = { ...process.env, NARRATIONLAYER_DATA_DIR: dataDir };
+    const proc = Bun.spawn([BUN, "src/mcp-server.ts"], { cwd: ROOT, env, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
     const send = (msg: object) => proc.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", ...msg })}\n`);
     send({ id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "surfaces-test", version: "0" } } });
     send({ method: "notifications/initialized" });

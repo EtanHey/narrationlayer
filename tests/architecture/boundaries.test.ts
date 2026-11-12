@@ -1,18 +1,6 @@
 // Invariant I-D: import rules only tighten. See scripts/dev/boundaries.ts and tests/architecture/ledger.json.
 import { expect, test } from "bun:test";
-
-import {
-  BASELINE_PATH,
-  entryProblems,
-  importSpecifiers,
-  isReexportOnly,
-  isShim,
-  LEDGER_PATH,
-  ledgerProblems,
-  readJson,
-  violations,
-  type Ledger,
-} from "../../scripts/dev/boundaries.js";
+import { BASELINE_PATH, entryProblems, importSpecifiers, isReexportOnly, isShim, LEDGER_PATH, ledgerProblems, readJson, violations, type Ledger } from "../../scripts/dev/boundaries.js";
 
 const ledger = readJson<Ledger>(LEDGER_PATH);
 const baseline = readJson<string[]>(BASELINE_PATH);
