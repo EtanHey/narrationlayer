@@ -1,0 +1,246 @@
+{
+  "sha256": "453d476fe6ba769e8bcc7ffaa4b001202080f53e78215e0b579883e309fe0fb0",
+  "files": {
+    "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
+    "src/api/index.d.ts": "48b2c9861c0a35b627114245116e0249e68fd3f1517e07fa6e398dcf14e72648",
+    "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
+    "src/core/render-types.d.ts": "2917a9ecd2d5107d4d8a8a01aa27be8fa2cdd609c1feb0c6ffc0f6ddf77da119",
+    "src/pipelines/local-tts/take-cache.d.ts": "837fafb42ec312d8a7f2634bb8efc66fa551f25f74c465ce6b894f06b155752a",
+    "src/plan/breathing.d.ts": "2739c58b646df90a7fb04e7bf3699292ddfd41a8cc201d751ebf7f7a60d27099",
+    "src/plan/index.d.ts": "ea5e3770a94cfac13fc9d8625c3c2243142525d6134351c2dfcad5feb13d8079",
+    "src/plan/utterances.d.ts": "14f6b4ad810911a23fb7e26665c90541004e954958936a5b8469adb2941693c8",
+    "src/profiles.d.ts": "e796d269216e1197deec9d0c04fee297433a34042ec4fc660cccd1df3d48c872",
+    "src/schema.d.ts": "2617a03e8be28866be4bc854a89a8766d29731e352e21439753f529851e9e512",
+    "src/service.d.ts": "6b83f9d77ef312bde23323e863f8f602163d676e5942c52d79e47d53ddddfd13",
+    "src/teleprompter.d.ts": "dffeccecefebcbe6e356214890434509b8e6778f7aa3166a98859e309d482df7",
+    "src/text-normalize.d.ts": "ecf93cb2d8b2358aba439edbd889d97ba92b861603fbfdb2bc25439c1d7f2301",
+    "src/word-timing-repair.d.ts": "7a162b0529b576290064a7d6ad2eb8288c5a7d64b7f527fba7a3c1e83f10f1c8",
+    "src/word-timings.d.ts": "7f81d232d1beef095a283dcf62e7cb247d1c34ca09976747d503180b0fb6cc57"
+  },
+  "names": {
+    "AudioAssemblyChunk": {
+      "kind": "type",
+      "declaration": "// src/core/render-types.d.ts\nexport interface AudioAssemblyChunk {\n    audioPath: string;\n    pauseAfterSeconds: number;\n}"
+    },
+    "breathingV1": {
+      "kind": "value",
+      "declaration": "// src/plan/index.d.ts\nexport declare function breathingV1(text: string, sentencePad: number, commaPad: number): Piece[];"
+    },
+    "CacheKeyParams": {
+      "kind": "type",
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface CacheKeyParams {\n    eqHighshelfHz?: number;\n    eqHighshelfGainDb?: number;\n    loudnessTargetDb?: number;\n    atempo?: number;\n    sentencePauseSeconds?: number;\n    commaPauseSeconds?: number;\n}"
+    },
+    "clearTakeCacheReceipt": {
+      "kind": "value",
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function clearTakeCacheReceipt(output: string): Promise<void>;"
+    },
+    "computeContentHashKey": {
+      "kind": "value",
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function computeContentHashKey(input: {\n    spokenText: string;\n    referenceClip: string;\n    referenceText: string;\n    profileId?: string;\n    profileVersion?: string;\n    model?: string;\n    params: CacheKeyParams;\n}): string;"
+    },
+    "CreatedJobResult": {
+      "kind": "type",
+      "declaration": "// src/service.d.ts\nexport interface CreatedJobResult {\n    job_id: string;\n    job_path: string;\n    status_path: string;\n    manifest_path: string;\n}"
+    },
+    "createJobFromFile": {
+      "kind": "value",
+      "declaration": "// src/service.d.ts\nexport declare function createJobFromFile(jobFilePath: string, dataDir?: string): Promise<CreatedJobResult>;"
+    },
+    "createJobFromPayload": {
+      "kind": "value",
+      "declaration": "// src/service.d.ts\nexport declare function createJobFromPayload(payload: unknown, dataDir?: string): Promise<CreatedJobResult>;"
+    },
+    "deriveSpeechAliases": {
+      "kind": "value",
+      "declaration": "// src/text-normalize.d.ts\nexport declare function deriveSpeechAliases(displayText: string, synthInput: string): TermRule[];"
+    },
+    "ExternalCommandConfig": {
+      "kind": "type",
+      "declaration": "// src/core/render-types.d.ts\nexport interface ExternalCommandConfig {\n    command?: string;\n    args?: string[];\n    cwd?: string;\n    timeout_ms?: number;\n    output_ext?: string;\n    reference_clip?: string;\n    reference_text?: string;\n    reference_text_path?: string;\n    timing_backend?: \"estimated\" | \"none\";\n    audio_duration_probe?: (audioPath: string) => Promise<number | undefined>;\n}"
+    },
+    "getDoctorSummary": {
+      "kind": "value",
+      "declaration": "// src/service.d.ts\nexport declare function getDoctorSummary(): Promise<{\n    service: string;\n    version: string;\n    data_dir: string;\n    jobs_dir: string;\n    default_renderer: string;\n    profiles: import(\"./profiles.js\").ProfileSummary;\n}>;"
+    },
+    "getJobResult": {
+      "kind": "value",
+      "declaration": "// src/service.d.ts\nexport declare function getJobResult(jobId: string, dataDir?: string): Promise<{\n    job: import(\"./schema.js\").NormalizedNarrationJob;\n    manifest: RenderManifest;\n}>;"
+    },
+    "getStatusSummary": {
+      "kind": "value",
+      "declaration": "// src/service.d.ts\nexport declare function getStatusSummary(jobId: string, dataDir?: string): Promise<StatusSummary>;"
+    },
+    "JobStatus": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface JobStatus {\n    job_id: string;\n    status: \"queued\" | \"rendering\" | \"done\" | \"failed\";\n    updated_at: string;\n    created_at: string;\n    progress: {\n        completed_segments: number;\n        total_segments: number;\n    };\n    current_step?: string;\n    errors: string[];\n}"
+    },
+    "listJobIds": {
+      "kind": "value",
+      "declaration": "// src/service.d.ts\nexport declare function listJobIds(dataDir?: string): Promise<string[]>;"
+    },
+    "NarrationJobInput": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface NarrationJobInput {\n    job_id?: string;\n    created_at?: string;\n    voice_profile: string;\n    renderer?: RendererName;\n    segments: NarrationSegmentInput[];\n}"
+    },
+    "NarrationPacingConfig": {
+      "kind": "type",
+      "declaration": "// src/core/render-types.d.ts\nexport interface NarrationPacingConfig {\n    pause_strategy?: PauseStrategy;\n    max_utterance_words?: number;\n    min_utterance_words?: number;\n    sentence_pause_seconds?: number;\n    comma_pause_seconds?: number;\n}"
+    },
+    "NarrationSegmentInput": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface NarrationSegmentInput {\n    id?: string;\n    title: string;\n    script: string;\n    duration_seconds?: number;\n    notes?: string;\n}"
+    },
+    "NormalizedNarrationJob": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface NormalizedNarrationJob extends Omit<NarrationJobInput, \"segments\"> {\n    job_id: string;\n    created_at: string;\n    voice_profile: string;\n    renderer: RendererName;\n    segments: NormalizedNarrationSegment[];\n}"
+    },
+    "NormalizedNarrationSegment": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface NormalizedNarrationSegment extends NarrationSegmentInput {\n    id: string;\n    title: string;\n    script: string;\n    duration_seconds?: number;\n}"
+    },
+    "normalizeForSpeech": {
+      "kind": "value",
+      "declaration": "// src/text-normalize.d.ts\nexport declare function normalizeForSpeech(text: string, pronunciationRules?: TermRule[]): string;"
+    },
+    "normalizeLegacy": {
+      "kind": "value",
+      "declaration": "// src/text-normalize.d.ts\nexport declare function normalizeLegacy(text: string, configuredRules?: TermRule[]): string;"
+    },
+    "normalizeWordTimingsForScript": {
+      "kind": "value",
+      "declaration": "// src/word-timing-repair.d.ts\nexport declare function normalizeWordTimingsForScript(script: string, timings: WordTiming[], durationSeconds: number, aliases?: WordTimingAlias[]): WordTimingRepairResult;"
+    },
+    "PauseStrategy": {
+      "kind": "type",
+      "declaration": "// src/core/render-types.d.ts\nexport type PauseStrategy = \"none\" | \"punctuation\";"
+    },
+    "Piece": {
+      "kind": "type",
+      "declaration": "// src/plan/index.d.ts\nexport interface Piece {\n    text: string;\n    pauseAfterSeconds: number;\n}"
+    },
+    "prepareSpeechChannels": {
+      "kind": "value",
+      "declaration": "// src/text-normalize.d.ts\nexport declare function prepareSpeechChannels(displayText: string, pronunciationRules?: TermRule[]): SpeechChannels;"
+    },
+    "ProfileSummary": {
+      "kind": "type",
+      "declaration": "// src/profiles.d.ts\nexport interface ProfileSummary {\n    files: string[];\n    profiles: Array<{\n        id: string;\n        renderer?: RendererName;\n        source: \"example\" | \"local\" | \"env\";\n    }>;\n}"
+    },
+    "RendererName": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport type RendererName = \"fake\" | \"voicelayer-qwen3\" | \"external-command\";"
+    },
+    "RendererRuntimeConfig": {
+      "kind": "type",
+      "declaration": "// src/service.d.ts\nexport interface RendererRuntimeConfig {\n    qwen: VoiceLayerQwen3Config;\n    external: ExternalCommandConfig;\n}"
+    },
+    "renderJob": {
+      "kind": "value",
+      "declaration": "// src/service.d.ts\nexport declare function renderJob(jobId: string, dataDir?: string, config?: RendererRuntimeConfig): Promise<RenderJobResult>;"
+    },
+    "RenderJobResult": {
+      "kind": "type",
+      "declaration": "// src/service.d.ts\nexport interface RenderJobResult {\n    status: JobStatus;\n    manifest: RenderManifest;\n}"
+    },
+    "RenderManifest": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface RenderManifest {\n    job_id: string;\n    created_at: string;\n    voice_profile: string;\n    renderer: RendererName;\n    segments: RenderManifestSegment[];\n    total_duration_seconds: number;\n    artifacts_dir: string;\n    errors: string[];\n}"
+    },
+    "RenderManifestSegment": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface RenderManifestSegment {\n    id: string;\n    title: string;\n    script: string;\n    audio_path: string;\n    duration_seconds: number;\n    words_path: string;\n    status: SegmentStatus;\n    error?: string;\n    provenance?: {\n        profile_id: string;\n        profile_version: string;\n        reference_clip_sha: string;\n        model: string;\n        narrationlayer_commit: string;\n    };\n}"
+    },
+    "renderTeleprompterMarkup": {
+      "kind": "value",
+      "declaration": "// src/teleprompter.d.ts\nexport declare function renderTeleprompterMarkup(payload: TeleprompterPayload): string;"
+    },
+    "runLocalTtsCli": {
+      "kind": "value",
+      "declaration": "// bin/local-tts-runner.d.ts\nexport declare function main(prepareSpeechChannels?: SpeechPreparation): Promise<void>;"
+    },
+    "runWhisperCliWordTimings": {
+      "kind": "value",
+      "declaration": "// src/word-timings.d.ts\nexport declare function runWhisperCliWordTimings(audioPath: string, options?: WhisperTimingOptions): Promise<WordTimingResult>;"
+    },
+    "SegmentStatus": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport type SegmentStatus = \"pending\" | \"rendered\" | \"failed\" | \"skipped\";"
+    },
+    "SpeechChannels": {
+      "kind": "type",
+      "declaration": "// src/text-normalize.d.ts\nexport interface SpeechChannels {\n    displayText: string;\n    synthInput: string;\n}"
+    },
+    "SpeechPreparation": {
+      "kind": "type",
+      "declaration": "// bin/local-tts-runner.d.ts\nexport type SpeechPreparation = (text: string, pronunciationRules: TermRule[]) => SpeechChannels;"
+    },
+    "StatusSummary": {
+      "kind": "type",
+      "declaration": "// src/service.d.ts\nexport interface StatusSummary {\n    status: JobStatus;\n    done: boolean;\n    failed: boolean;\n    manifest_exists: boolean;\n    manifest: RenderManifest | null;\n}"
+    },
+    "TeleprompterPayload": {
+      "kind": "type",
+      "declaration": "// src/teleprompter.d.ts\nexport interface TeleprompterPayload {\n    manifest: RenderManifest;\n    segments: TeleprompterSegment[];\n}"
+    },
+    "teleprompterRuntimeScript": {
+      "kind": "value",
+      "declaration": "// src/teleprompter.d.ts\nexport declare function teleprompterRuntimeScript(): string;"
+    },
+    "TeleprompterSegment": {
+      "kind": "type",
+      "declaration": "// src/teleprompter.d.ts\nexport interface TeleprompterSegment {\n    id: string;\n    title: string;\n    script: string;\n    audio_path: string;\n    audio_url: string;\n    duration_seconds: number;\n    words_path: string;\n    words: WordsFile;\n}"
+    },
+    "TermRule": {
+      "kind": "type",
+      "declaration": "// src/text-normalize.d.ts\nexport interface TermRule {\n    /** The literal token (case-insensitive) to replace. */\n    term: string;\n    /** Spoken replacement. */\n    spoken: string;\n}"
+    },
+    "TimingSource": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport type TimingSource = RendererName | \"whisper-cli\" | \"estimated\";"
+    },
+    "TimingStatus": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport type TimingStatus = \"available\" | \"unavailable\";"
+    },
+    "utterancesV1": {
+      "kind": "value",
+      "declaration": "// src/plan/index.d.ts\nexport declare function utterancesV1(text: string, config?: NarrationPacingConfig): Piece[];"
+    },
+    "VoiceLayerQwen3Config": {
+      "kind": "type",
+      "declaration": "// src/core/render-types.d.ts\nexport interface VoiceLayerQwen3Config extends NarrationPacingConfig {\n    profile_id?: string;\n    profile_version?: string;\n    reference_clip_sha?: string;\n    model?: string;\n    narrationlayer_commit?: string;\n    daemon_url?: string;\n    auth_token?: string;\n    auth_token_file?: string;\n    reference_clip?: string;\n    reference_text?: string;\n    reference_text_path?: string;\n    reference_clips?: string[];\n    lora_adapter_path?: string;\n    lora_scale?: number;\n    timeout_ms?: number;\n    timing_backend?: \"none\" | \"whisper-cli\";\n    whisper_binary?: string;\n    whisper_model?: string;\n    trim_silence?: boolean;\n    silence_threshold_db?: number;\n    eq_highshelf_hz?: number;\n    eq_highshelf_gain_db?: number;\n    loudness_target_db?: number;\n    atempo?: number;\n    silence_padding_seconds?: number;\n    repair_word_timings?: boolean;\n    max_chunk_duration_seconds?: number;\n    max_chunk_seconds_per_word?: number;\n    max_chunk_retries?: number;\n    audio_duration_probe?: (audioPath: string) => Promise<number | undefined>;\n    audio_postprocessor?: (args: {\n        inputPath: string;\n        outputPath: string;\n    }) => Promise<void>;\n    audio_assembler?: (args: {\n        chunks: AudioAssemblyChunk[];\n        outputPath: string;\n    }) => Promise<void>;\n    word_timing_provider?: (args: {\n        audioPath: string;\n        script: string;\n        durationSeconds: number;\n    }) => Promise<WordTiming[] | WordTimingResult>;\n}"
+    },
+    "WhisperTimingOptions": {
+      "kind": "type",
+      "declaration": "// src/word-timings.d.ts\nexport interface WhisperTimingOptions {\n    whisper_binary?: string;\n    whisper_model?: string;\n    language?: string;\n}"
+    },
+    "WordsFile": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface WordsFile {\n    job_id: string;\n    segment_id: string;\n    timing: WordsTimingMetadata;\n    words: WordTiming[];\n}"
+    },
+    "WordsTimingMetadata": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface WordsTimingMetadata {\n    status: TimingStatus;\n    source: TimingSource;\n    reason?: string;\n}"
+    },
+    "WordTiming": {
+      "kind": "type",
+      "declaration": "// src/schema.d.ts\nexport interface WordTiming {\n    index: number;\n    word: string;\n    start: number;\n    end: number;\n    confidence?: number;\n}"
+    },
+    "WordTimingAlias": {
+      "kind": "type",
+      "declaration": "// src/word-timing-repair.d.ts\nexport interface WordTimingAlias {\n    /** Original display phrase. */\n    term: string;\n    /** Deterministic synth-input phrase. */\n    spoken: string;\n}"
+    },
+    "WordTimingRepairResult": {
+      "kind": "type",
+      "declaration": "// src/word-timing-repair.d.ts\nexport interface WordTimingRepairResult {\n    rawWords: WordTiming[];\n    words: WordTiming[];\n    repaired: boolean;\n    reason?: \"word_mismatch\" | \"suspicious_timing\";\n    estimated?: boolean;\n}"
+    },
+    "WordTimingResult": {
+      "kind": "type",
+      "declaration": "// src/core/render-types.d.ts\nexport interface WordTimingResult {\n    source: TimingSource;\n    words: WordTiming[];\n}"
+    },
+    "writeTakeCacheReceipt": {
+      "kind": "value",
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function writeTakeCacheReceipt(output: string, cacheKey: string, options: {\n    cacheEnabled: boolean;\n}): Promise<string>;"
+    }
+  }
+}

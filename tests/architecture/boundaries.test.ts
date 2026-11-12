@@ -45,6 +45,22 @@ test("cross-area and via-api imports fail", () => {
   expect(fixture({ "src/core/a.ts": `import { f } from "../api/index.js";\nexport const x = f;\n` }).violations).toEqual(["via-api src/core/a.ts -> src/api/index.ts"]);
 });
 
+test("the package's own name and absolute paths are imports of the repo: judged through exports like any other edge", () => {
+  const pkg = JSON.stringify({ name: "pkg", exports: { ".": "./src/api/index.ts", "./src/audio/impl.ts": "./src/audio/impl.ts", "./package.json": "./package.json" } });
+  const withPkg = (source: string) => {
+    const all: Record<string, string> = { "package.json": pkg, "src/core/a.ts": source, "src/audio/impl.ts": "export const f = 1;\n", "src/timing/t.ts": "export const t = 1;\n", "src/api/index.ts": `export { f } from "../audio/impl.js";\n`, "src/main.ts": "export {};\n" };
+    const tracked = new Set(Object.keys(all));
+    return analyze(fixtureLedger, { files: [...tracked].filter((f) => f.endsWith(".ts")).sort(), tracked, read: (f) => all[f], root: "/checkout" });
+  };
+  const VIA = { violations: ["via-api src/core/a.ts -> src/api/index.ts"], unresolved: [] };
+  for (const form of [`import { f } from "pkg";`, `import * as api from "pkg";`, `import type { f } from "pkg";`, `import { type f } from "pkg";`, `export { f } from "pkg";`, `export * from "pkg";`, `const api = import("pkg");`, `type F = typeof import("pkg");`, `const api = require("pkg");`, `import "/checkout/src/api/index.ts";`, `import "/checkout/src/api/index.js";`, `import "file:///checkout/src/api/index.ts";`]) {
+    expect({ form, ...withPkg(`${form}\nexport const x = 1;\n`) }).toEqual({ form, ...VIA });
+  }
+  expect(withPkg(`import { f } from "pkg/src/audio/impl.ts";\nexport const x = f;\n`)).toEqual({ violations: [UP], unresolved: [] }); // an exported legacy subpath gets the layer rule
+  expect(withPkg(`import "pkg/src/timing/t.ts";\nimport "/elsewhere/x.ts";\nexport {};\n`).unresolved).toEqual(["unresolved import src/core/a.ts -> /elsewhere/x.ts", "unresolved import src/core/a.ts -> pkg/src/timing/t.ts"]);
+  expect(withPkg(`import "pkgx";\nimport "node:fs";\nexport {};\n`)).toEqual({ violations: [], unresolved: [] }); // other packages and builtins are not ours
+});
+
 test("a relative import that resolves to no file is a hard failure, in every form", () => {
   const found = fixture({ "src/core/a.ts": `import "./gone1.js";\nexport type M = import("./gone2.js").M;\nexport const r = require("./gone3.js");\n` });
   expect(found.unresolved).toEqual(["./gone1.js", "./gone2.js", "./gone3.js"].map((s) => `unresolved import src/core/a.ts -> ${s}`));

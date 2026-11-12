@@ -32,6 +32,15 @@ repo identity stays neutral.
 bun install
 ```
 
+## Library Use
+
+The package's front door is `src/api/index.ts` (`import { renderJob } from "narrationlayer"`):
+jobs, spoken-form text, the planning `Piece` and its two policies, word timing, the
+local TTS runner and its take cache, and the teleprompter. Other modules are not
+importable by package name, except the legacy file paths kept for existing callers.
+The module map, the import rules and the tests that enforce them are in
+[docs/architecture.md](docs/architecture.md).
+
 ## CLI
 
 ```bash
@@ -187,7 +196,7 @@ are documented in `docs/mcp-tools.json` and drift-tested against
 - `src/mcp-server.ts` — MCP stdio server
 - `src/job-store.ts` — filesystem storage helpers
 - `src/renderers/fake.ts` — deterministic fake renderer for local smoke tests
-- `src/renderers/voicelayer-qwen3.ts` — local VoiceLayer/Qwen3 HTTP adapter
+- `src/renderers/voicelayer-qwen3.ts` — legacy path: re-exports the Qwen3 job renderer (`src/pipelines/job-render/`), `getWordsFromScript` (`src/timing/script-words.ts`) and its config type (`src/core/render-types.ts`); the daemon client is `src/backends/qwen3-daemon.ts`
 - `src/renderers/external-command.ts` — configurable local runner adapter
 - `src/renderers/types.ts` — shared renderer interface
 - `src/qwen3-lora.ts` — Qwen3 LoRA dataset preparation and preflight helpers
