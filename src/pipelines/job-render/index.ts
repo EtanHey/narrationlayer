@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 import { resolveWithinRoot } from "../../path-safety.js";
 import { assembleAudioWithSilence, trimAudioSilence, applyAudioEq, probeAudioDurationSeconds } from "../../audio.js";
-import { planNarrationUtterances } from "../../narration-plan.js";
+import { utterancesV1, toPlannedUtterances } from "../../plan/index.js";
 import type { RenderManifestSegment, TimingSource, WordsFile } from "../../schema.js";
 import { deriveSpeechAliases, normalizeForSpeech } from "../../text-normalize.js";
 import type { RenderSegmentOptions } from "../../renderers/types.js";
@@ -35,7 +35,7 @@ export async function renderSegment(
   const audioPath = resolveWithinRoot(artifactsRoot, `${segmentId}.mp3`);
   const wordsPath = resolveWithinRoot(artifactsRoot, "words.json");
   await mkdir(artifactsRoot, { recursive: true });
-  const plannedUtterances = planNarrationUtterances(normalizedScript, config);
+  const plannedUtterances = toPlannedUtterances(utterancesV1(normalizedScript, config));
   const shouldTrim = config.trim_silence === true;
   const chunksRoot = resolveWithinRoot(artifactsRoot, "chunks");
   const shouldAssemble = plannedUtterances.length > 1 || plannedUtterances.some((item) => item.pause_after_seconds > 0);
