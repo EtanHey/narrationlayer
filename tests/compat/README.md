@@ -5,9 +5,11 @@ All voice inputs are generated tones and public synthetic text. Nothing is playe
 Bun, ffmpeg and ffprobe must be on PATH; missing dependencies fail explicitly.
 
 - Run: `bun test tests/compat`
-- Regenerate the eight generated `fixtures/*.golden.json` files:
-  `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat` (intentionally exits 1 after
-  writing; re-run without the variable to verify; forbidden when CI is set)
+- There are thirteen `fixtures/*.golden.json` files. The original nine (including
+  `plan-pieces.golden.json`) are frozen. Generate only the four new defaults files:
+  `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat/runner-defaults.test.ts tests/compat/job-defaults.test.ts`
+  (intentionally exits 1 after writing; re-run without the variable to verify;
+  forbidden when CI is set). Do not regenerate the frozen files.
 - Prove sensitivity: `bun tests/compat/mutations.ts`. This sequential command
   temporarily mutates production files, restores them in `finally`, and checks
   FAIL then PASS for each mutation. Do not run other tests concurrently with it.
@@ -78,3 +80,13 @@ finally before fixture deletion. Commit/profile discovery tests also retain thei
 narrow, restored env overrides. Run compat tests sequentially: concurrent tests
 in the same process can still observe these unavoidable global overrides.
 Runner child processes receive explicit env objects and do not change parent env.
+
+The defaults cases use the same stub daemon and real tool wrappers. Three runner
+goldens cover sentence-only and comma-only pause profiles (the omitted pause
+defaults to 0.22 s and 0.55 s respectively), and breathing with both pauses set
+but no `atempo`. Each freezes requests in order, pieces and pads, cache-key
+preimage and receipt, output format, executed argv and concat entries, and the
+summary's breathing note. The job defaults golden renders a gain-only profile
+and freezes the executed EQ filter's default 4000 Hz corner. Every new test has
+a 30-second budget; synchronous fixture encoding and output probes have their
+own 10-second timeout.

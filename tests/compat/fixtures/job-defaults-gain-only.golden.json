@@ -1,0 +1,46 @@
+{
+  "argv": [
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/data/jobs/compat-eq-job/artifacts/segments/segment/segment.mp3",
+        "-af",
+        "highshelf=f=4000:g=3",
+        "-codec:a",
+        "libmp3lame",
+        "-q:a",
+        "3",
+        "$FIXTURE/data/jobs/compat-eq-job/artifacts/segments/segment/segment.mp3.eq.mp3"
+      ]
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=nokey=1:noprint_wrappers=1",
+        "$FIXTURE/data/jobs/compat-eq-job/artifacts/segments/segment/segment.mp3"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference."
+      }
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "results": [
+    {
+      "requests": [
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "First clause, second clause. Last sentence.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "First clause",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "second clause.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "Last sentence.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        }
+      ],
+      "spoken": "First clause, second clause. Last sentence.",
+      "keyPreimage": {
+        "spokenText": "First clause, second clause. Last sentence.",
+        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceText": "Synthetic reference.",
+        "profileId": "compat-defaults",
+        "profileVersion": "synthetic-v1",
+        "model": "synthetic-model",
+        "params": {
+          "sentencePauseSeconds": 0.41,
+          "commaPauseSeconds": 0.17
+        }
+      },
+      "receipt": {
+        "version": 1,
+        "cacheKey": "20eee6bd5717bd4ce4e55ab50b8b8821d72f67a7f20284af135b2ad2215d5341",
+        "cacheEnabled": true
+      },
+      "pieces": [
+        {
+          "text": "First clause",
+          "padAfterSeconds": 0.17
+        },
+        {
+          "text": "second clause.",
+          "padAfterSeconds": 0.41
+        },
+        {
+          "text": "Last sentence.",
+          "padAfterSeconds": 0
+        }
+      ],
+      "format": [
+        {
+          "codec_name": "pcm_s16le",
+          "sample_rate": "24000",
+          "channels": 1,
+          "bits_per_sample": 16
+        }
+      ],
+      "exit": 0,
+      "stderr": "ok",
+      "breathingNote": " breathing=3pc(sent=0.41s,comma=0.17s)"
+    }
+  ],
+  "argv": [
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-0.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.17",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-1.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-1.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.41",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-1.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-2.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-2.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        "$FIXTURE/out.wav.breath.concat.txt",
+        "-c",
+        "copy",
+        "$FIXTURE/out.wav.breath.out.wav"
+      ],
+      "concat": "file '$FIXTURE/out.wav.breath-0.wav'\nfile '$FIXTURE/out.wav.sil-0.wav'\nfile '$FIXTURE/out.wav.breath-1.wav'\nfile '$FIXTURE/out.wav.sil-1.wav'\nfile '$FIXTURE/out.wav.breath-2.wav'"
+    }
+  ]
+}

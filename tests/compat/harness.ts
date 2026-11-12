@@ -19,7 +19,7 @@ export async function fixture(mp3 = false) {
   const wav = Buffer.concat([header, pcm]);
   await writeFile(path.join(root, "reference.wav"), wav);
   await writeFile(path.join(root, "auth"), "synthetic-token\n");
-  const encoded = mp3 ? Bun.spawnSync([tool("ffmpeg"), "-v", "error", "-i", path.join(root, "reference.wav"), "-f", "mp3", "pipe:1"]) : undefined;
+  const encoded = mp3 ? Bun.spawnSync([tool("ffmpeg"), "-v", "error", "-i", path.join(root, "reference.wav"), "-f", "mp3", "pipe:1"], { timeout: 10000 }) : undefined;
   if (encoded && encoded.exitCode !== 0) throw new Error(encoded.stderr.toString());
   const audio = encoded?.stdout ?? wav;
   const requests: unknown[] = [];
