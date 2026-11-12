@@ -80,7 +80,7 @@ Named exemptions (a ledger `exempt` instead of an owner slice): `bin/narration-g
 | Under `src/` and `bin/`, `src/backends/qwen3-daemon.ts` is the one module with a call whose type-checked return type is `Promise<Response>` (an HTTP transport call, however the callee is spelled). It does not check where the URL or body is built. | `tests/architecture/daemon-client.test.ts` |
 | `src/renderers/fake.ts` and `src/renderers/external-command.ts` have no relative import of `src/renderers/voicelayer-qwen3.ts` or of any file under `src/pipelines/` (the Qwen3 job-render pipeline, its provenance, the take cache). Both files are themselves in the pipelines area; the test does not look at `src/backends/`. | `tests/architecture/renderer-split.test.ts` |
 | Functions moved out of the runner are declared once, in their library module. | `tests/architecture/runner-split.test.ts` |
-| A file flagged `"shim": true` in the ledger holds only re-export statements; only files under `tests/compat/` import it (every import form and spelling, as for the layer rule); a pure re-export file without the flag fails; `src/api/index.ts` is not a shim. The flagged shims: `src/narration-plan.ts`, `src/profile-renderer-types.ts`, `src/renderers/voicelayer-qwen3.ts`. | `tests/architecture/shims.test.ts` |
+| A file flagged `"shim": true` in the ledger holds only re-export statements; only files under `tests/compat/` import it (every import form and spelling, as for the layer rule, from any tracked source file); a tracked file under `src/` or `bin/` that holds only re-export statements and has no flag fails, except `src/api/index.ts`, which may not be a shim (the same file under `scripts/` or `tests/` is not checked unless flagged). The flagged shims: `src/narration-plan.ts`, `src/profile-renderer-types.ts`, `src/renderers/voicelayer-qwen3.ts`. | `tests/architecture/shims.test.ts` |
 | Both planning policies return the one `Piece` type. | `tests/architecture/plan-type.test.ts` (under `tsc`) |
 | Every legacy module path, exported name and its meaning (value or type) still resolves. | `tests/compat/legacy-paths.test.ts` |
 | The public surface matches its snapshot (declaration-output hash); every repo type a public declaration names is public; no public declaration names a third-party package type; `src/api/index.ts` holds named re-exports only. | `tests/api/surface.test.ts` |
@@ -174,9 +174,10 @@ Every new file gets a ledger row (layer, area, owner).
   - the renderer name in `RendererName` and the parse branch in `normalizeRenderer` (`src/schema.ts`), which turns any unknown name into `fake`;
   - the `isRenderer` lists in `src/profiles.ts` and `src/bakeoff.ts`, and a profile-to-config function in `src/profiles.ts` (like `qwenConfigFromProfile`);
   - in `src/service.ts`, a field in `RendererRuntimeConfig`, its fill in `getRendererConfigFromEnv` and `getRendererConfigForVoiceProfile`, and a branch in `renderJob`;
+  - a type re-export in `src/api/index.ts` for the new config type and any other repo type it newly makes public: `RendererRuntimeConfig` is public, and `tests/api/surface.test.ts` fails, and `bun scripts/dev/snapshot-surface.ts --update` refuses to write, while a public declaration names an unexported repo type;
   - the runner path, if the runner is to use it: `bin/local-tts-runner.ts` calls `synthesizeQwen3` with its own body;
   - `tests/architecture/daemon-client.test.ts`, which fails by design for a second HTTP transport module and must be changed on purpose;
-  - the public surface snapshot, because `RendererName` is public.
+  - then the public surface snapshot (`bun scripts/dev/snapshot-surface.ts --update`, with the reason in the PR), because `RendererName` and `RendererRuntimeConfig` are public.
 - A new audio step: argv builders in `src/audio/ffmpeg-args.ts`, ffmpeg calls in `src/audio.ts`.
 - A new timing step: `src/timing/`.
 - A new planning policy: `src/plan/`, returning `Piece[]`, exported from `src/plan/index.ts`.
