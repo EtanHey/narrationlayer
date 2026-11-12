@@ -38,6 +38,7 @@ export async function snapshot(runtimePath, baselineDirs = []) {
     throw Error('Authenticated export failed: check developer login, retained artifact and publisher readback tooling. No report written.');
   }
 }
+const hasContent = value => value && typeof value === 'object' ? Object.values(value).some(hasContent) : value !== null && value !== '' && value !== false && value !== undefined;
 const literal = value => '\n' + JSON.stringify(value) + '\n';
 export function report(snapshot, ids, jobs = {}) {
   const counts = {}; let unmatched = 0;
@@ -49,43 +50,49 @@ export function report(snapshot, ids, jobs = {}) {
     doc.body.innerHTML = snapshot.shells[id + '.html'];
     const cards = [...doc.querySelectorAll('[data-decision]')];
     if (!cards.length) throw Error('Unsupported dashboard: no decision cards.');
-    const rows = snapshot.rows.filter(row => row.dashboardId === id); const used = new Set(); let answered = 0, decisions = 0; const lines = [`## ${id}`];
-    for (const card of cards) {
+    const rows = snapshot.rows.filter(row => row.dashboardId === id); const used = new Set(); let optionPicked = 0, decisions = 0, notesCards = 0, noteOnlyDecisions = 0; const lines = [`## ${id}`];
+    for (const [index, card] of cards.entries()) {
       const key = card.getAttribute('data-decision');
       const radios = [...card.querySelectorAll('input[type="radio"]')];
       const checks = [...card.querySelectorAll('input[type="checkbox"]')];
-      if (!radios.length && !checks.length) continue;
-      decisions++; const title = card.getAttribute('data-title') ?? card.querySelector('h2,h3')?.textContent ?? key;
+      const isDecision = radios.length > 0 || checks.length > 0;
+      if (isDecision) decisions++;
+      const title = card.getAttribute('data-title') ?? card.querySelector('h2,h3')?.textContent ?? key;
       const job = jobs[id]?.decisions?.find(item => item.id === key);
       if (jobs[id] && (!job || job.title !== title)) throw Error('Build input and hosted title differ.');
-      lines.push(`### ${decisions}. ${title}`);
-      lines.push('Options (hosted labels and saved values):');
+      lines.push(`### ${index + 1}. ${title} (${isDecision ? 'decision' : 'note card'})`);
+      if (isDecision) lines.push('Options (hosted labels and saved values):');
       for (const input of [...radios, ...checks]) {
         lines.push(`- ${input.closest('label')?.textContent.trim() ?? input.value} [${input.value}]`);
       }
       if (job) lines.push('Build input options: ' + JSON.stringify(job.options));
-      let hasAnswer = false;
+      let picked = false, hasNote = false;
       const keys = new Set([key, ...radios.map(input => input.name), key + '-free', key + '-checks', key + '-notes']);
       for (const row of rows.filter(row => keys.has(row.key))) {
         used.add(row);
         const value = JSON.parse(row.value);
-        const empty = value === null || value === '' || (Array.isArray(value) && !value.length);
-        if (!empty) hasAnswer = true;
-        lines.push(`${empty ? 'Empty/probe marker' : row.key.endsWith('-free') ? 'Free text (verbatim JSON string)' : 'Picked / saved value (verbatim JSON)'}; key ${row.key}; revision ${row.revision}; ${row.updatedAt ? 'row updated ' + row.updatedAt : 'time not recorded'}:` + literal(value));
+        const empty = !hasContent(value);
+        const note = !isDecision || row.key === key + '-free' || row.key === key + '-notes';
+        const selected = !note && !empty && (radios.some(input => input.name === row.key && input.value === value) || checks.length > 0 && [key, key + '-checks', ...checks.map(input => input.name)].includes(row.key));
+        if (!empty && note) hasNote = true;
+        if (selected) picked = true;
+        lines.push(`${empty ? "empty (the publisher's probe uses this key)" : note || row.key === key + '-checks' ? "Owner's text (verbatim JSON)" : 'Picked / saved value (verbatim JSON)'}; key ${row.key}; revision ${row.revision}; ${row.updatedAt ? 'row updated ' + row.updatedAt : 'time not recorded'}:` + literal(value));
       }
-      if (hasAnswer) answered++; else lines.push('Unanswered.');
+      if (hasNote) notesCards++;
+      if (picked) optionPicked++;
+      if (isDecision && hasNote && !picked) noteOnlyDecisions++;
+      lines.push(isDecision ? picked ? 'Option picked.' : hasNote ? 'Note only; no option picked.' : 'Unanswered; no option picked.' : hasNote ? 'Note recorded.' : 'No note recorded.');
     }
-    lines.push('### Unmatched / publisher probe markers');
+    lines.push('### Unmatched keys');
     for (const row of rows.filter(row => !used.has(row))) {
       const value = JSON.parse(row.value);
-      const empty = value == null || value === '' || (Array.isArray(value) && !value.length);
-      if (!empty) unmatched++;
-      lines.push(`${empty ? 'Empty/probe marker' : 'Unmatched'}; key ${row.key}; revision ${row.revision}; ${row.updatedAt ?? 'time not recorded'}:` + literal(value));
+      unmatched++;
+      lines.push(`Unmatched; key ${row.key}; revision ${row.revision}; ${row.updatedAt ?? 'time not recorded'}:` + literal(value));
     }
-    counts[id] = {answered, decisions}; sections.push(lines.join('\n\n'));
+    counts[id] = {optionPicked, decisions, notesCards, noteOnlyDecisions}; sections.push(lines.join('\n\n'));
     win.close();
   }
-  return {markdown: `Read ${snapshot.at}; hosted artifact ${snapshot.artifactHash}; ${Object.entries(counts).map(([id,c]) => `${id}: ${c.answered}/${c.decisions} decisions answered`).join('; ')}; read-only: no row, page or setting was changed.\n\nValues are JSON encoded to preserve verbatim strings, including newlines. Row update times describe the whole saved value, not individual selections.\n\n` + sections.join('\n\n'), counts, unmatched};
+  return {markdown: `Read ${snapshot.at}; hosted artifact ${snapshot.artifactHash}; ${Object.entries(counts).map(([id,c]) => `${id}: ${c.optionPicked}/${c.decisions} decisions with an option picked; free-text notes on ${c.notesCards} cards; ${c.noteOnlyDecisions} decision cards with note only`).join('; ')}; read-only: no row, page or setting was changed.\n\nValues are JSON encoded to preserve verbatim strings, including newlines. Row update times describe the whole saved value, not individual selections.\n\n` + sections.join('\n\n'), counts, unmatched};
 }
 export async function main(args) {
   if (args.shift() !== 'export') throw Error('Usage: answers-export.mjs export --dashboard <id> --out <file.md> --runtime <local publish-runtime.mjs> [--baseline-dir <dir>] [--jobs-dir <dir>]');

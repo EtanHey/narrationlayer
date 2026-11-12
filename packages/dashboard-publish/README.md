@@ -34,5 +34,5 @@ After `bun install --frozen-lockfile`, run `bun run answers export --dashboard s
 The local untracked publisher module supplies `api` and `deployId` (or set its path with `NARRATIONLAYER_PUBLISH_RUNTIME`). Its capsule needs the Lakebed package, existing developer login and `scripts/publish_readback.py`; deployment identifiers and credentials stay outside this public repository.
 This read-only command reads the database once, checks the publish lock/truncation and binds shells to the hosted artifact hash. It never deploys, mutates, opens a browser or prints answers.
 Private Markdown includes page-order decisions/options, verbatim JSON-encoded values, row timestamps/revisions, unanswered cards, empty/probe markers and unmatched keys. Row timestamps describe a saved field, not individual selections.
-Only radio/checkbox cards count toward decision totals; other saved fields remain unmatched. Multiple owners' rows are retained separately.
+Every card is listed in page order. Radio/checkbox cards count toward option-picked totals; note cards and decision notes count separately as free-text notes. Empty known fields stay under their card as probe keys; unmatched means no card matched. Multiple owners' rows are retained separately.
 Authentication, lock, capped reads, drift or unavailable retained shells fail nonzero without writing a report.
