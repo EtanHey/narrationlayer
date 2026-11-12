@@ -22,7 +22,8 @@
     "mcp-server": "bun run ./src/mcp-server.ts",
     "doctor": "bun run ./src/cli.ts doctor",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "answers": "node ./packages/dashboard-publish/answers-export.mjs"
   },
   "devDependencies": {
     "@types/bun": "^1.3.3",
