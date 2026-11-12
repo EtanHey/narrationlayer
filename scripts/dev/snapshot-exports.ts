@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Legacy-path freeze for invariant I-A. Writes tests/compat/legacy-paths.manifest.json: every tracked
+// Legacy-path freeze for invariant I-A. Writes tests/compat/legacy-paths.manifest.generated.json: every tracked
 // src/**/*.ts and bin/*.ts module with its exported names, split into runtime values and type-only names.
 // Re-running only adds: a path or name already in the manifest is never dropped.
 // Importing a bin module is safe: each bin starts only under `if (import.meta.main)`.
@@ -10,7 +10,7 @@ import ts from "typescript";
 
 import { readJson, ROOT } from "./boundaries.js";
 
-export const MANIFEST_PATH = path.join(ROOT, "tests/compat/legacy-paths.manifest.json");
+export const MANIFEST_PATH = path.join(ROOT, "tests/compat/legacy-paths.manifest.generated.json");
 export type Manifest = Record<string, { values: string[]; types: string[] }>;
 
 export function legacyModules(): string[] {

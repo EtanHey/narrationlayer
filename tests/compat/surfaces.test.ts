@@ -10,7 +10,7 @@ import { NARRATION_MCP_TOOLS } from "../../src/contract.js";
 import { readJson, ROOT } from "../../scripts/dev/boundaries.js";
 
 type Snapshot = { mcpTools: { name: string; inputSchema: object }[]; cliVerbs: string[]; bin: Record<string, string> };
-const snapshot = readJson<Snapshot>(path.join(ROOT, "tests/compat/surfaces.snapshot.json"));
+const snapshot = readJson<Snapshot>(path.join(ROOT, "tests/compat/surfaces.snapshot.generated.json"));
 const BUN = process.execPath;
 
 function scratchDir(label: string): string {

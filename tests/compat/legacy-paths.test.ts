@@ -1,5 +1,5 @@
 // Invariant I-A: every module path and exported name that existed at f7faa867 still resolves.
-// Manifest: tests/compat/legacy-paths.manifest.json, written by scripts/dev/snapshot-exports.ts.
+// Manifest: tests/compat/legacy-paths.manifest.generated.json, written by scripts/dev/snapshot-exports.ts.
 import { expect, test } from "bun:test";
 import path from "node:path";
 
