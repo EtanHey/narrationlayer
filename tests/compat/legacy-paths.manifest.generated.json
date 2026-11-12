@@ -1,0 +1,252 @@
+{
+  "bin/local-tts-runner.ts": {
+    "buildAtempoArgs": "value",
+    "buildLoudnessNormalizeArgs": "value",
+    "buildMonoS16WavArgs": "value",
+    "buildPcmSilenceArgs": "value",
+    "buildWavConcatArgs": "value",
+    "CacheKeyParams": "type",
+    "clearTakeCacheReceipt": "value",
+    "computeContentHashKey": "value",
+    "computeLoudnessGainDb": "value",
+    "main": "value",
+    "SpeechPreparation": "type",
+    "splitForBreathing": "value",
+    "writeTakeCacheReceipt": "value"
+  },
+  "bin/narration-gate.ts": {
+    "BODY_SPREAD_TOL_DB": "value",
+    "BODY_TOL_DB": "value",
+    "BREATH_EDGE_GUARD_S": "value",
+    "BREATH_INTERNAL_MIN_S": "value",
+    "BREATH_LONG_MIN_S": "value",
+    "BREATH_PER_BOUNDARY_RATIO": "value",
+    "BreathMeasurements": "type",
+    "BreathVerdict": "type",
+    "checkDisplay": "value",
+    "countSentenceEnders": "value",
+    "decideBreathing": "value",
+    "decidePronunciation": "value",
+    "decideSpeed": "value",
+    "decideStutter": "value",
+    "decideTiming": "value",
+    "decideTone": "value",
+    "EXPERT_WPM_MAX": "value",
+    "EXPERT_WPM_MIN": "value",
+    "extractDisplay": "value",
+    "HOST_WPM_MAX": "value",
+    "HOST_WPM_MIN": "value",
+    "internalBreaths": "value",
+    "normalizeStutterToken": "value",
+    "parseArgs": "value",
+    "parseScriptSegments": "value",
+    "PronVerdict": "type",
+    "runGate": "value",
+    "scriptTokenCount": "value",
+    "SPECTRAL_FLOOR_MAX_DEFICIT_DB": "value",
+    "SpeedMeasurements": "type",
+    "SpeedVerdict": "type",
+    "STUTTER_FRAGMENT_MAX_LEN": "value",
+    "STUTTER_FRAGMENT_RUN": "value",
+    "STUTTER_GLITCH_ABS": "value",
+    "STUTTER_GLITCH_RATIO": "value",
+    "STUTTER_HARD_REPEAT_RUN": "value",
+    "STUTTER_REPEAT_ALLOWLIST": "value",
+    "STUTTER_SOFT_REPEAT_RUN": "value",
+    "STUTTER_ZERODUR_RUN": "value",
+    "StutterFlag": "type",
+    "StutterVerdict": "type",
+    "StutterWord": "type",
+    "TIMING_END_TOL_S": "value",
+    "TIMING_MAX_WORD_SPAN_S": "value",
+    "TimingVerdict": "type",
+    "TimingWord": "type",
+    "TONE_TOL_DB": "value",
+    "ToneMeasurements": "type",
+    "ToneVerdict": "type",
+    "WHISPER_GARBLE_DENYLIST": "value",
+    "WPM_CEILING": "value",
+    "WPM_RATIO_OVER_HOST": "value"
+  },
+  "src/audio.ts": {
+    "applyAudioEq": "value",
+    "assembleAudioWithSilence": "value",
+    "AudioAssemblyChunk": "type",
+    "AudioEqOptions": "type",
+    "DetectedSilence": "type",
+    "detectSilences": "value",
+    "findTailCutoffSeconds": "value",
+    "parseSilenceDetectOutput": "value",
+    "probeAudioDurationSeconds": "value",
+    "trimAudioSilence": "value",
+    "TrimAudioSilenceOptions": "type"
+  },
+  "src/bakeoff.ts": {
+    "BakeoffCandidateInput": "type",
+    "BakeoffCreatedJob": "type",
+    "BakeoffCreateResult": "type",
+    "BakeoffJobPlan": "type",
+    "BakeoffPlan": "type",
+    "BakeoffSpecInput": "type",
+    "createBakeoffJobsFromFile": "value",
+    "parseBakeoffSpec": "value"
+  },
+  "src/cli.ts": {
+    "main": "value"
+  },
+  "src/contract.ts": {
+    "McpToolContract": "type",
+    "NARRATION_MCP_TOOLS": "value"
+  },
+  "src/dashboard.ts": {
+    "createDashboardDemo": "value",
+    "DashboardOptions": "type"
+  },
+  "src/job-store.ts": {
+    "ensureDirectory": "value",
+    "fileExists": "value",
+    "getAllJobIds": "value",
+    "getDataDir": "value",
+    "getJob": "value",
+    "getJobDir": "value",
+    "getManifest": "value",
+    "getStatus": "value",
+    "initializeJob": "value",
+    "JobPaths": "type",
+    "JobStoreRecord": "type",
+    "markDone": "value",
+    "markFailed": "value",
+    "pathsForJob": "value",
+    "readJobJson": "value",
+    "writeJobJson": "value",
+    "writeManifest": "value",
+    "writeStatus": "value"
+  },
+  "src/mcp-server.ts": {
+    "handleMcpToolCall": "value",
+    "listMcpTools": "value",
+    "main": "value"
+  },
+  "src/narration-plan.ts": {
+    "NarrationPacingConfig": "type",
+    "PauseStrategy": "type",
+    "planNarrationUtterances": "value",
+    "PlannedUtterance": "type"
+  },
+  "src/path-safety.ts": {
+    "resolveWithinRoot": "value"
+  },
+  "src/profile-renderer-types.ts": {
+    "ExternalCommandConfig": "type",
+    "VoiceLayerQwen3Config": "type"
+  },
+  "src/profiles.ts": {
+    "externalCommandConfigFromProfile": "value",
+    "findProfile": "value",
+    "getProfileSummary": "value",
+    "loadProfiles": "value",
+    "NarrationProfile": "type",
+    "parseProfilesYaml": "value",
+    "ProfileSummary": "type",
+    "qwenConfigFromProfile": "value",
+    "warnIfNonAcceptedProfile": "value"
+  },
+  "src/qwen3-lora.ts": {
+    "normalizeQwen3LoraPrepareInput": "value",
+    "preflightQwen3LoraRun": "value",
+    "prepareQwen3LoraDataset": "value",
+    "prepareQwen3LoraDatasetFromFile": "value",
+    "Qwen3LoraPreflightCheck": "type",
+    "Qwen3LoraPreflightInput": "type",
+    "Qwen3LoraPreflightResult": "type",
+    "Qwen3LoraPreflightStatus": "type",
+    "Qwen3LoraPrepareInput": "type",
+    "Qwen3LoraPrepareResult": "type",
+    "Qwen3LoraSkippedRow": "type"
+  },
+  "src/renderers/external-command.ts": {
+    "ExternalCommandConfig": "type",
+    "renderSegment": "value"
+  },
+  "src/renderers/fake.ts": {
+    "renderSegment": "value"
+  },
+  "src/renderers/types.ts": {
+    "FetchLike": "type",
+    "RenderSegmentOptions": "type",
+    "SegmentRenderer": "type"
+  },
+  "src/renderers/voicelayer-qwen3.ts": {
+    "getQwen3ReferencePath": "value",
+    "getWordsFromScript": "value",
+    "renderSegment": "value",
+    "VoiceLayerQwen3Config": "type"
+  },
+  "src/schema.ts": {
+    "ExternalCommandConfig": "type",
+    "JobStatus": "type",
+    "McpCreateJobArgs": "type",
+    "McpGetArgs": "type",
+    "NarrationJobInput": "type",
+    "NarrationSegmentInput": "type",
+    "NormalizedNarrationJob": "type",
+    "NormalizedNarrationSegment": "type",
+    "parseNarrationJob": "value",
+    "parsePathId": "value",
+    "RendererName": "type",
+    "RenderManifest": "type",
+    "RenderManifestSegment": "type",
+    "SegmentStatus": "type",
+    "TimingSource": "type",
+    "TimingStatus": "type",
+    "VoiceLayerQwen3Config": "type",
+    "WordsFile": "type",
+    "WordsTimingMetadata": "type",
+    "WordTiming": "type"
+  },
+  "src/service.ts": {
+    "CreatedJobResult": "type",
+    "createJobFromFile": "value",
+    "createJobFromPayload": "value",
+    "getDoctorSummary": "value",
+    "getJobResult": "value",
+    "getRendererConfigForVoiceProfile": "value",
+    "getRendererConfigFromEnv": "value",
+    "getStatusSummary": "value",
+    "listJobIds": "value",
+    "RendererRuntimeConfig": "type",
+    "renderJob": "value",
+    "RenderJobResult": "type",
+    "StatusSummary": "type"
+  },
+  "src/teleprompter.ts": {
+    "renderTeleprompterMarkup": "value",
+    "TeleprompterPayload": "type",
+    "teleprompterRuntimeScript": "value",
+    "TeleprompterSegment": "type",
+    "teleprompterStyles": "value"
+  },
+  "src/text-normalize.ts": {
+    "buildTermRegExp": "value",
+    "deriveSpeechAliases": "value",
+    "normalizeForSpeech": "value",
+    "normalizeLegacy": "value",
+    "prepareSpeechChannels": "value",
+    "SpeechChannels": "type",
+    "TERM_MAP": "value",
+    "TermRule": "type"
+  },
+  "src/word-timing-repair.ts": {
+    "normalizeWordTimingsForScript": "value",
+    "scriptWords": "value",
+    "WordTimingAlias": "type",
+    "WordTimingRepairResult": "type"
+  },
+  "src/word-timings.ts": {
+    "resolveWhisperBinary": "value",
+    "runWhisperCliWordTimings": "value",
+    "WhisperTimingOptions": "type",
+    "wordsFromWhisperJson": "value",
+    "WordTimingResult": "type"
+  }
+}
