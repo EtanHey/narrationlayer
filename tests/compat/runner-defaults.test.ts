@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
+import { LOCAL_TTS_RENDER_VERSION } from "../../src/pipelines/local-tts/take-cache.js";
 import { argvLog, digest, fixture, golden, runner, stderrClass, tool, wrappers } from "./harness.js";
 
 const cases = [
@@ -28,6 +29,7 @@ for (const variant of cases) test(`runner defaults: ${variant.name}`, async () =
     const preimage = {
       spokenText: normalizeForSpeech(text), referenceClip: path.join(f.root, "reference.wav"), referenceText: "Synthetic reference.",
       profileId: "compat-defaults", profileVersion: "synthetic-v1", model: "synthetic-model", params: variant.params,
+      ...(LOCAL_TTS_RENDER_VERSION === 1 ? {} : { renderVersion: LOCAL_TTS_RENDER_VERSION }),
     };
     const receipt = JSON.parse(await readFile(`${output}.cache.json`, "utf8"));
     expect(receipt.cacheKey).toBe(digest(JSON.stringify(preimage)));
