@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { createJobFromPayload, renderJob, getRendererConfigFromEnv } from "../../src/service.js";
 import { getManifest, getStatus, pathsForJob } from "../../src/job-store.js";
-import { renderSegment } from "../../src/renderers/voicelayer-qwen3.js";
+import { renderSegment } from "../../src/pipelines/job-render/index.js";
 import { planNarrationUtterances } from "../../src/narration-plan.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";

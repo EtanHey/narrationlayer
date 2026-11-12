@@ -18,7 +18,7 @@ import {
 } from "./job-store.js";
 import { renderSegment as renderExternalSegment } from "./renderers/external-command.js";
 import { renderSegment as renderFakeSegment } from "./renderers/fake.js";
-import { renderSegment as renderQwenSegment } from "./renderers/voicelayer-qwen3.js";
+import { renderSegment as renderQwenSegment } from "./pipelines/job-render/index.js";
 import {
   externalCommandConfigFromProfile,
   findProfile,

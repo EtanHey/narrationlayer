@@ -6,7 +6,7 @@ import * as schema from "../src/schema.js";
 import { resolveWithinRoot } from "../src/path-safety.js";
 import { renderSegment as renderFake } from "../src/renderers/fake.js";
 import { renderSegment as renderExternal } from "../src/renderers/external-command.js";
-import { renderSegment as renderQwen } from "../src/renderers/voicelayer-qwen3.js";
+import { renderSegment as renderQwen } from "../src/pipelines/job-render/index.js";
 import { getJob, getJobDir, getManifest, getStatus, initializeJob } from "../src/job-store.js";
 import { handleMcpToolCall } from "../src/mcp-server.js";
 import { parseNarrationJob } from "../src/schema.js";

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "bun:test";
 
-import { renderSegment } from "../src/renderers/voicelayer-qwen3.js";
+import { renderSegment } from "../src/pipelines/job-render/index.js";
 
 function createTempDir(): string {
   return mkdtempSync(path.join(os.tmpdir(), "narrationlayer-qwen3-"));
