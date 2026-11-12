@@ -1,0 +1,104 @@
+{
+  "mcpTools": [
+    {
+      "name": "create_narration_job",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job": {
+            "type": "object"
+          },
+          "job_path": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": []
+      }
+    },
+    {
+      "name": "render_narration_job",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    {
+      "name": "get_narration_status",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    {
+      "name": "get_narration_result",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    {
+      "name": "list_narration_jobs",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false,
+        "required": []
+      }
+    }
+  ],
+  "cliVerbs": [
+    "doctor",
+    "create-job",
+    "render",
+    "status",
+    "result",
+    "dashboard",
+    "bakeoff-create",
+    "qwen3-lora-prepare",
+    "qwen3-lora-preflight",
+    "list-jobs",
+    "watch"
+  ],
+  "bin": {
+    "narrationlayer": "./src/cli.ts",
+    "narrationlayer-mcp": "./src/mcp-server.ts",
+    "narrationlayer-local-tts": "./bin/local-tts-runner.ts"
+  }
+}
