@@ -12,10 +12,11 @@ export const MANIFEST_PATH = path.join(ROOT, "tests/compat/legacy-paths.manifest
 export type Meaning = "value" | "type" | "both" | "none"; // none: exported, but neither a runtime value nor a type
 export type Manifest = Record<string, Record<string, Meaning>>;
 
+export const LEGACY_MODULE = /^(src\/.*|bin\/[^/]+)(?<!\.d)\.ts$/; // declaration files are not modules
 export function legacyModules(): string[] {
   const out = spawnSync("git", ["ls-files", "--cached", "src", "bin"], { cwd: ROOT, encoding: "utf8" });
   if (out.status !== 0) throw new Error(`git ls-files failed: ${out.stderr}`);
-  return out.stdout.split("\n").filter((f) => /^(src\/.*|bin\/[^/]+)\.ts$/.test(f)).sort();
+  return out.stdout.split("\n").filter((f) => LEGACY_MODULE.test(f)).sort();
 }
 
 /** Every exported name per module, following re-exports, and whether its resolved symbol is a type (alias, interface, class, enum); a namespace is not. */

@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { readJson, ROOT } from "../../scripts/dev/boundaries.js";
-import { lostMeanings, MANIFEST_PATH, meanings, typeSides, type Manifest } from "../../scripts/dev/snapshot-exports.js";
+import { LEGACY_MODULE, lostMeanings, MANIFEST_PATH, meanings, typeSides, type Manifest } from "../../scripts/dev/snapshot-exports.js";
 
 const manifest = readJson<Manifest>(MANIFEST_PATH);
 const types = typeSides(Object.keys(manifest));
@@ -13,6 +13,7 @@ const types = typeSides(Object.keys(manifest));
 test("the legacy-path manifest covers src/ and bin/ modules", () => {
   expect(Object.keys(manifest)).toContain("src/schema.ts");
   expect(Object.keys(manifest)).toContain("bin/local-tts-runner.ts");
+  expect(["src/a.ts", "src/x.d.ts", "bin/b.ts", "bin/c.d.ts", "bin/sub/d.ts"].filter((f) => LEGACY_MODULE.test(f))).toEqual(["src/a.ts", "bin/b.ts"]);
 });
 
 for (const [file, frozen] of Object.entries(manifest)) {
