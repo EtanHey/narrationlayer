@@ -174,7 +174,14 @@ key preimage, and each regenerated file may differ from the one before only in
 key material (the version in each key preimage and the cache keys); a diff
 beyond that is a review stop. A case whose key inputs changed (a normalization change, say) asks for
 its entries to be replaced, not for a raise: its key changed by itself. A new
-golden case is added to the current row without a raise. The table can always be
+golden case alone is added to the current row without a raise; but if it was added
+to show a change to the runner's cutting, pauses or ffmpeg chain, that change is
+audible for texts already cached and raises the version, even though no recorded
+case moved (the test prints the raise steps there too). The guard sees only the
+corpus texts and the recorded request bodies, pieces and ffmpeg arguments: a rule
+that no corpus text exercises (an abbreviation rule, say), or a stage whose
+arguments stay the same while its result changes, alters the audio without tripping
+it, and still requires a raise. The table can always be
 edited to agree with the goldens, so review holds the rest:
 An existing entry of a recorded row changes in only three ways, each named by
 this test: a version raise appends a new row; a change to a case's cache-key

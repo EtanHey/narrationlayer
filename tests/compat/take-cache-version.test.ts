@@ -250,9 +250,14 @@ test("render version: the runner's audible behaviour matches the row recorded fo
     "plus an unrelated new one looks the same, so a reviewer must look at what was removed.",
   ]);
   if (added.length) throw failure([
-    `${added.length} golden case(s) are not recorded for render version ${row.version}. A new case is not a change: add these`,
-    `entries to the "cases" of the version ${row.version} row in ${TABLE} (no version raise needed):`,
+    `${added.length} golden case(s) are not recorded for render version ${row.version}. A new case alone needs no raise: add these`,
+    `entries to the "cases" of the version ${row.version} row in ${TABLE}:`,
     ...entries(added, now),
+    "",
+    "But if you added it to show a change you made to the runner's cutting, pauses or ffmpeg chain, that change is audible",
+    "for texts already cached: raise the version, even though no recorded case moved. This test sees only what the recorded",
+    "cases exercise. Instead of the entries above:",
+    raiseSteps(row.version + 1),
   ]);
 });
 

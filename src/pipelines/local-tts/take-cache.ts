@@ -24,8 +24,10 @@ export interface CacheKeyParams {
  * None of that is in the key's other inputs, so an audible change to it must
  * raise this number; otherwise every consumer keeps replaying takes frozen by the old
  * code. Raising it makes every cached take miss once, on purpose.
- * `tests/compat/take-cache-version.test.ts` fails when the runner's audible behaviour
- * changed without a raise; the history lives in
+ * `tests/compat/take-cache-version.test.ts` fails when a recorded case's behaviour
+ * changed without a raise or an attested re-record; it catches only the changes the
+ * goldens record, so an audible change raises this whether it tripped or not. The
+ * history lives in
  * `tests/compat/fixtures/take-cache-render-versions.json`.
  */
 export const LOCAL_TTS_RENDER_VERSION: number = 1;
