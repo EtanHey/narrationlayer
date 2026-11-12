@@ -15,6 +15,7 @@
     "bin/local-tts-runner.ts": { "layer": 5, "area": "surfaces", "owner": "P1.3", "entry": ["if (import.meta.main)", "path.resolve(import.meta.dir, \"..\")"] },
     "bin/narration-gate.ts": { "layer": 5, "area": "surfaces", "entry": ["if (import.meta.main)"], "exempt": "named exemption: quality gate, not on the VoiceLayer path" },
     "scripts/dev/boundaries.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
+    "scripts/dev/importers.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
     "scripts/dev/snapshot-exports.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
     "src/backends/qwen3-daemon.ts": { "layer": 2, "area": "backends", "owner": "P1.1" },
     "src/core/render-types.ts": { "layer": 0, "area": "core", "owner": "P1.1b" },

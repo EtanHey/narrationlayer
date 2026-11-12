@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { parseSilenceDetectOutput } from "../src/audio.js";
-import { renderSegment } from "../src/renderers/voicelayer-qwen3.js";
+import { renderSegment } from "../src/pipelines/job-render/index.js";
 import { parseArgs, runGate } from "../bin/narration-gate.js";
 
 async function temporary<T>(run: (root: string) => Promise<T>): Promise<T> {

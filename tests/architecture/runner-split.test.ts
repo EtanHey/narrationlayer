@@ -8,9 +8,16 @@ const declarations = new Map<string, string[]>();
 for (const dir of ["src", "bin"]) {
   for (const file of new Bun.Glob("**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}").scanSync({ cwd: path.join(root, dir), absolute: true })) {
     const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+    // A second copy counts in any declaring form: function, interface, type alias, or a const holding a function.
+    const copyName = (node: ts.Node): string | undefined => {
+      if ((ts.isFunctionDeclaration(node) && node.body || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) && node.name) return node.name.text;
+      let init = ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) ? node.initializer : undefined;
+      while (init && (ts.isParenthesizedExpression(init) || ts.isAsExpression(init) || ts.isSatisfiesExpression(init))) init = init.expression;
+      if (init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))) return ((node as ts.VariableDeclaration).name as ts.Identifier).text;
+    };
     const visit = (node: ts.Node): void => {
-      if ((ts.isFunctionDeclaration(node) && node.body || ts.isInterfaceDeclaration(node)) && node.name) {
-        const name = node.name.text;
+      const name = copyName(node);
+      if (name) {
         declarations.set(name, [...declarations.get(name) ?? [], path.relative(root, file)]);
       }
       ts.forEachChild(node, visit);
