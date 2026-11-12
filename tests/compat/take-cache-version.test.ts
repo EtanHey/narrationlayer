@@ -246,7 +246,8 @@ test("render version: the runner's audible behaviour matches the row recorded fo
     "with these:",
     ...entries(added, now).map(line => line.replace(/^ {2}/, "  + add ")),
     "If the cutting, the pauses or the ffmpeg chain changed in the same edit, the cases whose key did not change (and the",
-    "breathing rows) ask for the raise instead. The test matches cases by kind and count only, not by descent: a removed case",
+    "breathing rows) ask for the raise only if they exercise that change. None did, or this message would not show, so if",
+    "that change is audible, raise the version anyway. The test matches cases by kind and count only, not by descent: a removed case",
     "plus an unrelated new one looks the same, so a reviewer must look at what was removed.",
   ]);
   if (added.length) throw failure([
