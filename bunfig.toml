@@ -1,2 +1,2 @@
 [test]
-pathIgnorePatterns = ["**/docs.local/**", "**/.worktrees/**", "**/node_modules/**"]
+pathIgnorePatterns = ["**/docs.local/**", "**/.worktrees/**", "**/node_modules/**", "**/examples/phone-sync-prototype/**"]

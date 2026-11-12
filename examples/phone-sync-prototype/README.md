@@ -27,7 +27,9 @@ Layout (`capsule/` is a Lakebed v0 capsule; its build resolves imports only insi
   Cursors are bound to the scoped query. `receipt(dashboardId, deviceId, opId)` returns the original
   stored receipt or null; a stored dashboard mismatch is denied. Revocation denies historical reads.
 
-Run `bun test examples/phone-sync-prototype`. `store.test.ts` runs `store.ts` against
+From the repository root, run `(cd examples/phone-sync-prototype && bun test)`
+to run the 63 prototype tests. Plain `bun test` at the repository root excludes
+them, matching the hosted product gate. `store.test.ts` runs `store.ts` against
 `memory-db.ts`, a **local in-memory adapter: evidence about this code, not Lakebed proof**. It models only
 the subset above, serialized writes, and throw-means-rollback; identities are injected in the test.
 `reads.test.ts` runs every P1c case twice: that adapter and Lakebed's exported `MemoryCapsuleStore`
