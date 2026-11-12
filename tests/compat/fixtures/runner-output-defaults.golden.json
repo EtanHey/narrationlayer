@@ -1,0 +1,37 @@
+{
+  "runs": [
+    {
+      "run": "defaults sentence-only",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 29520,
+      "rmsDb": -24.4
+    },
+    {
+      "run": "defaults comma-only",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 31680,
+      "rmsDb": -24.7
+    },
+    {
+      "run": "defaults no-tempo",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 28320,
+      "rmsDb": -24.2
+    }
+  ]
+}

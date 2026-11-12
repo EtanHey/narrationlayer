@@ -5,12 +5,18 @@ All voice inputs are generated tones and public synthetic text. Nothing is playe
 Bun, ffmpeg and ffprobe must be on PATH; missing dependencies fail explicitly.
 
 - Run: `bun test tests/compat`
-- There are thirteen `fixtures/*.golden.json` files, all frozen: the original nine
-  (including `plan-pieces.golden.json`) and the four defaults files, which were
+- There are sixteen `fixtures/*.golden.json` files, all frozen: the original nine
+  (including `plan-pieces.golden.json`), the four defaults files, which were
   written once with
   `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat/runner-defaults.test.ts tests/compat/job-defaults.test.ts`
   (intentionally exits 1 after writing; re-run without the variable to verify;
-  forbidden when CI is set). A frozen file is regenerated only when the code
+  forbidden when CI is set), and the three `runner-output-*` files, written the
+  same way by `tests/compat/runner-output.test.ts`. Those three pin what the
+  runner writes for each run: the output WAV's PCM format, exact sample count
+  (also checked against the count its pieces, tempo and pauses imply) and RMS
+  level within 0.3 dB, so they prove a stage's result reached the output file;
+  they do not judge how it sounds, and pin no content hash because the hosted
+  ffmpeg is unpinned. A frozen file is regenerated only when the code
   behind it changed on purpose, in this sequence:
   1. change the code;
   2. regenerate the goldens that show the change, with the reason and the diff in

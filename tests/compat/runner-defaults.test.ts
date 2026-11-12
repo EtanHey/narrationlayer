@@ -1,27 +1,17 @@
 import { expect, test } from "bun:test";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import { LOCAL_TTS_RENDER_VERSION } from "../../src/pipelines/local-tts/take-cache.js";
-import { argvLog, digest, fixture, golden, runner, stderrClass, tool, wrappers } from "./harness.js";
-
-const cases = [
-  { name: "sentence-only", render: { sentence_pause_seconds: 0.41, atempo: 1 }, params: { atempo: 1, sentencePauseSeconds: 0.41 }, sentence: 0.41, comma: 0.22 },
-  { name: "comma-only", render: { comma_pause_seconds: 0.17, atempo: 1 }, params: { atempo: 1, commaPauseSeconds: 0.17 }, sentence: 0.55, comma: 0.17 },
-  { name: "no-tempo", render: { sentence_pause_seconds: 0.41, comma_pause_seconds: 0.17 }, params: { sentencePauseSeconds: 0.41, commaPauseSeconds: 0.17 }, sentence: 0.41, comma: 0.17 },
-];
+import { argvLog, defaultsCases as cases, defaultsProfile, defaultsText, digest, fixture, golden, runner, stderrClass, tool, wrappers } from "./harness.js";
 
 for (const variant of cases) test(`runner defaults: ${variant.name}`, async () => {
   const f = await fixture();
   try {
     await wrappers(f.root);
-    const render = {
-      reference_clip: path.join(f.root, "reference.wav"), reference_text: "Synthetic reference.",
-      daemon_url: f.url, auth_token_file: path.join(f.root, "auth"), model: "synthetic-model", ...variant.render,
-    };
-    await writeFile(path.join(f.root, "profiles.yaml"), `profiles:\n  - id: compat-defaults\n    accepted: true\n    renderer: voicelayer-qwen3\n    profile_version: synthetic-v1\n    render:\n${Object.entries(render).map(([key, value]) => `      ${key}: ${value}\n`).join("")}`);
-    const text = "First clause, second clause. Last sentence.";
+    await defaultsProfile(f, variant.render);
+    const text = defaultsText;
     const output = path.join(f.root, "out.wav");
     const result = await runner(f, ["--text", text, "--output", output, "--reference", "compat-defaults",
       "--reference-text", "Synthetic reference.", "--cache-dir", path.join(f.root, "cache"), "--timeout-ms", "10000"]);
