@@ -68,10 +68,30 @@ export function resolveImport(from: string, spec: string): string | null {
 
 const rank = (e: LedgerEntry): number => (e.layer === "api" ? 6 : e.layer);
 
+/**
+ * True when a module body is only re-exports: `export … from`, `import` + bare `export { … }`, and
+ * `export type X = import("…").X` aliases. One statement of its own code makes it a real module.
+ */
+export function isReexportOnly(source: string, fileName = "x.ts"): boolean {
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
+  const reexport = (s: ts.Statement): boolean =>
+    ts.isExportDeclaration(s) ||
+    ts.isImportDeclaration(s) ||
+    (ts.isTypeAliasDeclaration(s) && ts.isImportTypeNode(s.type) && !!s.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword));
+  return sf.statements.some((s) => !ts.isImportDeclaration(s)) && sf.statements.every(reexport);
+}
+
+/** Shim status is detected, never declared: a re-export-only file under src/ or bin/ outside the api layer. */
+export function isShim(file: string, ledger: Ledger): boolean {
+  return /^(src|bin)\//.test(file) && ledger.files[file]?.layer !== "api" && isReexportOnly(readFileSync(path.join(ROOT, file), "utf8"), file);
+}
+
 /** Sorted, de-duplicated "<rule> <from> -> <to>" lines for every import that breaks a layer rule. */
 export function violations(ledger: Ledger): string[] {
   const found = new Set<string>();
-  for (const from of scopedFiles()) {
+  const files = scopedFiles();
+  const shims = new Set(files.filter((f) => isShim(f, ledger)));
+  for (const from of files) {
     const src = ledger.files[from];
     if (!src) continue; // reported by ledgerProblems
     for (const spec of importSpecifiers(readFileSync(path.join(ROOT, from), "utf8"), from)) {
@@ -79,8 +99,8 @@ export function violations(ledger: Ledger): string[] {
       const dst = to ? ledger.files[to] : undefined;
       if (!to || !dst) continue;
       if (dst.layer === "api") found.add(`via-api ${from} -> ${to}`);
-      else if (dst.shim) found.add(`via-shim ${from} -> ${to}`);
-      else if (src.shim || src.layer === "api") continue; // re-export-only files may point anywhere below
+      else if (shims.has(to)) found.add(`via-shim ${from} -> ${to}`);
+      else if (shims.has(from) || src.layer === "api") continue; // re-export-only files may point anywhere below
       else if (rank(dst) > rank(src)) found.add(`upward ${from} -> ${to}`);
       else if (src.layer === 2 && dst.layer === 2 && src.area !== dst.area) found.add(`cross-area ${from} -> ${to}`);
     }
@@ -88,7 +108,7 @@ export function violations(ledger: Ledger): string[] {
   return [...found].sort();
 }
 
-/** Hard failures that no baseline can hold: ledger gaps, stale rows, malformed rows, fake shims. */
+/** Hard failures that no baseline can hold: ledger gaps, stale rows, malformed rows, shim flags that disagree with detection. */
 export function ledgerProblems(ledger: Ledger): string[] {
   const problems: string[] = [];
   const files = scopedFiles();
@@ -97,10 +117,11 @@ export function ledgerProblems(ledger: Ledger): string[] {
     if (!files.includes(f)) problems.push(`ledger row for a file that does not exist: ${f}`);
     if (!(e.layer === "api" || [0, 1, 2, 3, 4, 5].includes(e.layer))) problems.push(`bad layer: ${f}`);
     if (!e.owner === !e.exempt) problems.push(`needs exactly one of owner/exempt: ${f}`);
-    if ((e.shim || e.layer === "api") && files.includes(f)) {
-      const sf = ts.createSourceFile(f, readFileSync(path.join(ROOT, f), "utf8"), ts.ScriptTarget.Latest);
-      if (!sf.statements.every((s) => ts.isExportDeclaration(s) && s.moduleSpecifier)) problems.push(`shim or api file is not re-export-only: ${f}`);
-    }
+    if (!files.includes(f)) continue;
+    const detected = isShim(f, ledger);
+    if (detected && !e.shim) problems.push(`re-export-only file is a shim but its ledger row lacks "shim": true: ${f}`);
+    if (e.shim && !detected) problems.push(`ledger marks a shim that is not a re-export-only src/ or bin/ file: ${f}`);
+    if (e.layer === "api" && !isReexportOnly(readFileSync(path.join(ROOT, f), "utf8"), f)) problems.push(`api file is not re-export-only: ${f}`);
   }
   return problems;
 }

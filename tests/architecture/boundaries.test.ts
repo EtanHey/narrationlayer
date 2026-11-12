@@ -5,6 +5,8 @@ import {
   BASELINE_PATH,
   entryProblems,
   importSpecifiers,
+  isReexportOnly,
+  isShim,
   LEDGER_PATH,
   ledgerProblems,
   readJson,
@@ -29,6 +31,14 @@ test("the parser sees every import form, including type-only ones", () => {
     `import i = require("./i.js");`,
   ].join("\n");
   expect(importSpecifiers(source)).toEqual(["./a.js", "./b.js", "./c.js", "./d.js", "./e.js", "./f.js", "./g.js", "./h.js", "./i.js"]);
+});
+
+test("shim detection: re-export-only bodies are shims, a real module that also re-exports is not", () => {
+  expect(isReexportOnly(`export * from "./audio/impl.js";`)).toBe(true);
+  expect(isReexportOnly(`import { a } from "./a.js";\nexport { a };\nexport type B = import("./b.js").B;`)).toBe(true);
+  expect(isReexportOnly(`export type B = import("./b.js").B;\nexport const c = 1;`)).toBe(false);
+  expect(isReexportOnly(`import "./side-effect.js";`)).toBe(false);
+  expect(isShim("src/schema.ts", ledger)).toBe(false);
 });
 
 test("every .ts file under src/, bin/ and scripts/ has one well-formed ledger row", () => {

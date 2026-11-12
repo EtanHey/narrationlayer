@@ -54,7 +54,8 @@ test("the MCP server process completes initialize and tools/list over stdio", as
     clearTimeout(timer);
     const replies = out.split("\n").filter(Boolean).map((line) => JSON.parse(line));
     expect(replies.find((r) => r.id === 1)?.result?.serverInfo?.name).toBe("narrationlayer-mcp");
-    expect(replies.find((r) => r.id === 2)?.result?.tools?.map((t: { name: string }) => t.name)).toEqual(snapshot.mcpTools.map((t) => t.name));
+    const tools: { name: string; inputSchema: object }[] = replies.find((r) => r.id === 2)?.result?.tools ?? [];
+    expect(tools.map(({ name, inputSchema }) => ({ name, inputSchema }))).toEqual(snapshot.mcpTools);
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
