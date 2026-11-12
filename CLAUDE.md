@@ -27,3 +27,17 @@ Before assuming success, run:
 - `bun run narrationlayer create-job examples/sample-job.json`
 - `bun run narrationlayer render <job-id>`
 - `bun run narrationlayer status <job-id>`
+
+### Module rules
+
+- Each file's layer is its row in `tests/architecture/ledger.json` (0 core; 1 text, plan; 2 backends, audio, timing;
+  3 pipelines; 4 service; 5 surfaces; `api`). A file imports only from its own layer or lower; layer-2 areas never
+  import each other; every new file gets a ledger row.
+- Import a name from the module that declares it, never through a legacy path (the modules in
+  `tests/compat/legacy-paths.manifest.generated.json`). Legacy paths exist for outside callers only.
+- Public means `src/api/index.ts`, the package's `"."` export; nothing in `src/`, `bin/` or `scripts/` imports it.
+  Changing it needs `bun scripts/dev/snapshot-surface.ts --update` and the reason in the PR.
+- The root checkout is run by an outside consumer: entry files stay at their paths and master must always work.
+- Module map, import rules and where new work goes: `docs/architecture.md`.
+- Gates: `bun install --frozen-lockfile`, `bun test`, `bunx tsc --noEmit`, `bun tests/compat/mutations.ts`,
+  `formal/narration-contract/check.sh`.

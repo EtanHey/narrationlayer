@@ -9,6 +9,8 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/api/index.ts": { "layer": "api", "area": "api", "owner": "P1.5" },
+    "scripts/dev/snapshot-surface.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
     "src/plan/utterances.ts": { "layer": 1, "area": "plan", "owner": "P1.4" },
     "src/plan/index.ts": { "layer": 1, "area": "plan", "owner": "P1.4" },
     "src/pipelines/local-tts/take-cache.ts": { "layer": 3, "area": "pipelines", "owner": "P1.3" },

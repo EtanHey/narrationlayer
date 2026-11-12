@@ -32,6 +32,15 @@ repo identity stays neutral.
 bun install
 ```
 
+## Library Use
+
+The package's front door is `src/api/index.ts` (`import { renderJob } from "narrationlayer"`):
+jobs, spoken-form text, the planning `Piece` and its two policies, word timing, the
+local TTS runner and its take cache, and the teleprompter. Other modules are not
+importable by package name, except the legacy file paths kept for existing callers.
+The module map, the import rules and the tests that enforce them are in
+[docs/architecture.md](docs/architecture.md).
+
 ## CLI
 
 ```bash
