@@ -1,0 +1,39 @@
+{
+  "layers": {
+    "0": "core: plain data shapes, ids, path safety; no I/O",
+    "1": "text and plan: spoken/display projection, piece planning; pure",
+    "2": "backends, audio, timing: I/O leaves; areas never import each other",
+    "3": "pipelines: job render and local TTS orchestration, runtime ports",
+    "4": "service: job store and service, profiles, bakeoff, LoRA tools",
+    "5": "surfaces: CLI, MCP server, bins, dashboard, teleprompter, dev scripts",
+    "api": "public re-exports only; nothing inside the repo imports it"
+  },
+  "files": {
+    "bin/local-tts-runner.ts": { "layer": 5, "area": "surfaces", "owner": "P1.3", "entry": ["if (import.meta.main)", "path.resolve(import.meta.dir, \"..\")"] },
+    "bin/narration-gate.ts": { "layer": 5, "area": "surfaces", "exempt": "named exemption: quality gate, not on the VoiceLayer path" },
+    "scripts/dev/boundaries.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
+    "scripts/dev/snapshot-exports.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
+    "src/audio.ts": { "layer": 2, "area": "audio", "owner": "P1.3" },
+    "src/bakeoff.ts": { "layer": 4, "area": "service", "exempt": "named exemption: bakeoff" },
+    "src/cli.ts": { "layer": 5, "area": "surfaces", "owner": "P1.5", "entry": ["if (import.meta.main)"] },
+    "src/contract.ts": { "layer": 5, "area": "surfaces", "owner": "P1.5" },
+    "src/dashboard.ts": { "layer": 5, "area": "surfaces", "exempt": "named exemption: dashboard" },
+    "src/job-store.ts": { "layer": 4, "area": "service", "exempt": "not edited in phase 1: formal model pins its hash" },
+    "src/mcp-server.ts": { "layer": 5, "area": "surfaces", "owner": "P1.5", "entry": ["if (import.meta.main)"] },
+    "src/narration-plan.ts": { "layer": 1, "area": "plan", "owner": "P1.4" },
+    "src/path-safety.ts": { "layer": 0, "area": "core", "owner": "P1.1b" },
+    "src/profile-renderer-types.ts": { "layer": 0, "area": "core", "owner": "P1.1b" },
+    "src/profiles.ts": { "layer": 4, "area": "service", "owner": "P1.5" },
+    "src/qwen3-lora.ts": { "layer": 4, "area": "service", "exempt": "named exemption: LoRA tools" },
+    "src/renderers/external-command.ts": { "layer": 3, "area": "pipelines", "owner": "P1.2" },
+    "src/renderers/fake.ts": { "layer": 3, "area": "pipelines", "owner": "P1.2" },
+    "src/renderers/types.ts": { "layer": 3, "area": "pipelines", "owner": "P1.1b" },
+    "src/renderers/voicelayer-qwen3.ts": { "layer": 3, "area": "pipelines", "owner": "P1.2" },
+    "src/schema.ts": { "layer": 0, "area": "core", "owner": "P1.1b" },
+    "src/service.ts": { "layer": 4, "area": "service", "owner": "P1.5" },
+    "src/teleprompter.ts": { "layer": 5, "area": "surfaces", "exempt": "named exemption: teleprompter" },
+    "src/text-normalize.ts": { "layer": 1, "area": "text", "owner": "P1.2" },
+    "src/word-timing-repair.ts": { "layer": 2, "area": "timing", "owner": "P1.2" },
+    "src/word-timings.ts": { "layer": 2, "area": "timing", "owner": "P1.2" }
+  }
+}
