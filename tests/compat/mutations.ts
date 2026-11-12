@@ -3,6 +3,10 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { repo, tool } from "./harness.js";
 const cases = [
+  ["job-daemon-timeout", "src/renderers/voicelayer-qwen3.ts", "timeoutMs: config.timeout_ms ?? 30_000", "timeoutMs: config.timeout_ms ?? 31_000", "job daemon observables"],
+  ["runner-daemon-timeout", "bin/local-tts-runner.ts", "timeoutMs: 120_000", "timeoutMs: 121_000", "runner daemon observables"],
+  ["job-daemon-slash", "src/renderers/voicelayer-qwen3.ts", '.replace(/\\/+$/, "")', "", "job daemon observables"],
+  ["runner-daemon-slash", "bin/local-tts-runner.ts", '.replace(/\\/+$/, "")', "", "runner daemon observables"],
   ["job-silence-pad", "src/audio.ts", "String(chunk.pauseAfterSeconds)", "String(chunk.pauseAfterSeconds * 2)", "job service"],
   ["job-silence-rate", "src/audio.ts", "anullsrc=channel_layout=mono:sample_rate=24000", "anullsrc=channel_layout=mono:sample_rate=22050", "job service"],
   ["runner-newlines", "bin/local-tts-runner.ts", "      spokenText,\n      sentencePad,", '      spokenText: spokenText.replace(/\\n/g, " "),\n      sentencePad,', "runner executable goldens"],
