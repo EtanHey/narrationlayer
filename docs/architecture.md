@@ -127,6 +127,17 @@ renders one text to one WAV:
 9. loudness normalization when a target is set
 10. `.spoken.txt` and the receipt written; when caching is on, the take is copied into the cache, and a failed copy is logged, not an error
 
+The cache key does not cover the code that makes the audio (the breathing cuts,
+the default pauses, the ffmpeg chain, the order of the stages), so
+`LOCAL_TTS_RENDER_VERSION` in `src/pipelines/local-tts/take-cache.ts` stands in
+for it. An audible change to that code raises the version, which makes every
+consumer's cached take miss once; version 1 is left out of the hashed text, so
+keys from before the version existed still hit.
+`tests/compat/take-cache-version.test.ts` fingerprints each golden case's daemon
+request bodies, breathing pieces and ffmpeg calls and fails, with the row to
+append to `tests/compat/fixtures/take-cache-render-versions.json`, when they move
+without a raise. A new golden case is added to the current row without a raise.
+
 ## Legacy paths
 
 `tests/compat/legacy-paths.manifest.generated.json` freezes 24 modules (every

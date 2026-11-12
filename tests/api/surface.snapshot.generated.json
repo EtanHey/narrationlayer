@@ -1,11 +1,11 @@
 {
-  "sha256": "453d476fe6ba769e8bcc7ffaa4b001202080f53e78215e0b579883e309fe0fb0",
+  "sha256": "a3bdfaf69dab74ba254cadfa3589a2c6dea5ac9c8a607e9159235d7fcba9d4e0",
   "files": {
     "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
     "src/api/index.d.ts": "48b2c9861c0a35b627114245116e0249e68fd3f1517e07fa6e398dcf14e72648",
     "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
     "src/core/render-types.d.ts": "2917a9ecd2d5107d4d8a8a01aa27be8fa2cdd609c1feb0c6ffc0f6ddf77da119",
-    "src/pipelines/local-tts/take-cache.d.ts": "837fafb42ec312d8a7f2634bb8efc66fa551f25f74c465ce6b894f06b155752a",
+    "src/pipelines/local-tts/take-cache.d.ts": "27e5482fe45d06a94d3a19cf8a0e2aa883120fd23020f5c35d16bb13a042de74",
     "src/plan/breathing.d.ts": "2739c58b646df90a7fb04e7bf3699292ddfd41a8cc201d751ebf7f7a60d27099",
     "src/plan/index.d.ts": "ea5e3770a94cfac13fc9d8625c3c2243142525d6134351c2dfcad5feb13d8079",
     "src/plan/utterances.d.ts": "14f6b4ad810911a23fb7e26665c90541004e954958936a5b8469adb2941693c8",
@@ -36,7 +36,7 @@
     },
     "computeContentHashKey": {
       "kind": "value",
-      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function computeContentHashKey(input: {\n    spokenText: string;\n    referenceClip: string;\n    referenceText: string;\n    profileId?: string;\n    profileVersion?: string;\n    model?: string;\n    params: CacheKeyParams;\n}): string;"
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function computeContentHashKey(input: {\n    spokenText: string;\n    referenceClip: string;\n    referenceText: string;\n    profileId?: string;\n    profileVersion?: string;\n    model?: string;\n    params: CacheKeyParams;\n    renderVersion?: number;\n}): string;"
     },
     "CreatedJobResult": {
       "kind": "type",

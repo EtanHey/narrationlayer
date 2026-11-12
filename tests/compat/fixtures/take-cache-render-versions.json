@@ -1,0 +1,47 @@
+{
+  "about": "Append-only history of LOCAL_TTS_RENDER_VERSION (src/pipelines/local-tts/take-cache.ts). Each row records, per golden case, a fingerprint of what the runner does for that case: daemon request bodies, breathing pieces and pads, ffmpeg calls. tests/compat/take-cache-version.test.ts fails when the current behaviour differs from the current row; its message prints the row to append. Never edit or remove an older row.",
+  "rows": [
+    {
+      "version": 1,
+      "reason": "The first recorded render version: the runner as of origin/master 5a100adf (phase 1). Version 1 is left out of the cache key's hashed text, so every take cached before the render version existed still hits.",
+      "cases": {
+        "runner/direct/057dd927b227": "c2b0a6adc6e3b87c7fdf7a9fbef9af85cfa2a74876ba34644b3393c4e8f1519a",
+        "runner/profile/057dd927b227": "be809a64266ce4b1678814d1f4f44376c3e7e8cdc5f3bb716b1232b2a75ff0ab",
+        "runner/direct/4751540d0886": "f6cf4a8db380a8f13e81f3ffb3b04f3931ec9ef3744a86f54396c2741455540a",
+        "runner/profile/4751540d0886": "2a8a55f4e86447ff48d333aa6fcae0905652177d3e169834a5eb1943e1cc8b36",
+        "runner/direct/2ac3961705b1": "495bc6f528c70614fd7e86308d70aa0493ef3eb7b74ba5c10fe22079c084a733",
+        "runner/profile/2ac3961705b1": "66e1ab5ca3e6c696d0fdf8f64de86d421e00846906a461e8d28a487440bef5c5",
+        "runner/direct/39bb85cb1a22": "5c60e2e9f4d98cfd2d42fdd249537cb8f2fec7103f2537ca4e5c2d0d071378a8",
+        "runner/profile/39bb85cb1a22": "a3414daf5b6315ac56f12ae0cc2776cf465d24dfb2efd318cf17f7b6c747661e",
+        "runner/direct/185f8db32271": "7ede79ba41324e7a1f8496b3cb4dc4e4aefe721138b8192cdfc445fc585af132",
+        "runner/profile/185f8db32271": "1ba1377a08a92de0e6d7913818ced657ca515113b91a77fbf60c630362e67773",
+        "breathing/e60b602dcb79": "44406b1bfdd012ea0ca78f7d2c62228c891435906ae9ca78cee6df60158f0af9",
+        "breathing/4751540d0886": "2f2c3d54730863e3b6e006fbe1d1a355eb3ad1fb5f231393a322088f255faf97",
+        "breathing/2ac3961705b1": "f8e501f9e2635a896050e825da2ecc918f05a9e0c93503c481bede45299a0843",
+        "breathing/39bb85cb1a22": "89fc70d6892d61c33cea8cbf37895c04e38a9cae744da8ecfcacdc104bbe0ed9",
+        "breathing/185f8db32271": "12e3be30500ef99d6e5f105a0cfc11d87a54a5bcab0aead1b210a236868d3c27",
+        "breathing/e3b0c44298fc": "52b761bfc2ed52f1781205eee90c9c52dc415fe18357d6ee99118cce0ea6d24e",
+        "breathing/792fee090ff9": "52b761bfc2ed52f1781205eee90c9c52dc415fe18357d6ee99118cce0ea6d24e",
+        "breathing/1f2f81b6c0d3": "44dff5bca8f58a1d55d2b30ead5c110841f0cb810fa08fd42bb279a8638a7d31",
+        "breathing/1bdf886adae7": "0d5559aa95ca33ba5884435a11dfa5d98967cf7a027bd00159356630efebd012",
+        "breathing/4a767bcfa000": "dbcbfc8bf1869d8d9c66961fea2ba3d873d7b6e53b3588bf2ed6c60528099afb",
+        "breathing/957451ef35fb": "99579786f4215789a0e5358bdecd2a1df691cb78269dbe539235fc18161aa096",
+        "breathing/fbceea0970da": "6f04e8b511b7cc30f8c812a68f718a2b337c63d5cd22141d35d1f490026ebb59",
+        "breathing/39ab7810920d": "37eb9ce78ca99abde681238e2615f981f886ac75e570d5ad6bde8961f9907afc",
+        "breathing/821273df46cd": "9506eb21bd827d27c464a76febfb5cf049ad98ad89223364903a9440f9e381b7",
+        "breathing/a91f31b1690a": "76462063d2d72647031f0d03c5ee11a27a6fd7e555bfabd63e68c41c7e2eb14d",
+        "breathing/f8c3bf62a9aa": "c446d61fbf91c0ab481114b7e3596dc3f85a5171efad90bcb7dd8b77c905c48d",
+        "breathing/7b7299ad7793": "6d220e4cb4d29564e76c64fe5f9b873dff30e36da1335e864f28e6c984a147f1",
+        "breathing/a8db19f2ee47": "d5d128a414d5ff48eb7d6dd211f9e5a44dab5a33f4310f51b8c7248b8bd8d1ca",
+        "breathing/210894589b77": "89fa106b9db6cffc5e4531f05341cd3bc83ab9b189476a621f9064e9f25ceee0",
+        "breathing/36edc67e161a": "ea77ad4dbc2b5a40f7a280d7fb606f23609b2760230df00846c3f8a2915eeecc",
+        "breathing/24afcc8295b9": "de3986477e7c78c7a003401b272d6efd17c611b0176d4f0675d84c92b290743e",
+        "breathing/c6c59c2d602c": "902f43c7440c513bb57d8d43d31085a690e0399dcd90df26210c6598374f91cd",
+        "breathing/bf564276697f": "3aa68cf9a9a0d614b800941d2e1b5ba394a37508fdf27fd92b24f1704e42c132",
+        "breathing/9991e122f03b": "30495719cc4671ee3c0fa1e1cb87c9003f9345b6fc080843b318b798ff28ee22",
+        "breathing/03ddb586b7ed": "d8ce53d15165facf79cd42474f792f08692912a89c72647ebee108af075fdd32",
+        "breathing/56f2fcb5dc3d": "015b86e8fbfebd444f04ecb9475edf93530eec1521e43c19fbf62e2aa8df0623"
+      }
+    }
+  ]
+}

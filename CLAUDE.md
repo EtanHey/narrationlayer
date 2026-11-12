@@ -38,6 +38,8 @@ Before assuming success, run:
 - Public means `src/api/index.ts`, the package's `"."` export; nothing in `src/`, `bin/` or `scripts/` imports it.
   Changing it needs `bun scripts/dev/snapshot-surface.ts --update` and the reason in the PR.
 - The root checkout is run by an outside consumer: entry files stay at their paths and master must always work.
+- An audible change to the runner's cutting, pauses or ffmpeg chain raises `LOCAL_TTS_RENDER_VERSION`
+  (`src/pipelines/local-tts/take-cache.ts`); `tests/compat/take-cache-version.test.ts` says when.
 - Module map, import rules and where new work goes: `docs/architecture.md`.
 - Gates: `bun install --frozen-lockfile`, `bun test`, `bunx tsc --noEmit`, `bun tests/compat/mutations.ts`,
   `formal/narration-contract/check.sh`.
