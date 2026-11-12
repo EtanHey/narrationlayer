@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -156,7 +156,7 @@ test("render version table: contiguous from 1, chained, and has a row for the co
       if (typeof item?.reason !== "string" || !item.reason.trim()) errors.push(`version ${row.version} rerecorded[${j}] has no reason: say why the audio is the same, and how that was shown`);
       const ids = item?.cases;
       if (ids !== "all" && (!Array.isArray(ids) || !ids.length)) errors.push(`version ${row.version} rerecorded[${j}] names no cases: list case ids or "all"`);
-      else if (Array.isArray(ids)) for (const id of ids) if (!(id in (row.cases ?? {}))) errors.push(`version ${row.version} rerecorded[${j}] names ${id}, which is not a case of that row`);
+      else if (Array.isArray(ids)) for (const id of ids) if (!Object.hasOwn(row.cases ?? {}, id)) errors.push(`version ${row.version} rerecorded[${j}] names ${id}, which is not a case of that row`);
     }
     const expected = i === 0 ? undefined : rowDigest(rows[i - 1]!);
     if (row.previous !== expected) errors.push(i === 0
@@ -241,14 +241,22 @@ const PIN_MINIMAL = { spokenText: "Hello", referenceClip: "/synthetic/reference.
 const PIN_MINIMAL_V1 = "bc769d5b4f60d6fd587c94bfa080890bc19b04fad884a5a2e78e89abbef3250e";
 
 test("render version 1 keeps the pre-version key byte for byte; any other version changes it", () => {
-  expect(computeContentHashKey({ ...PIN_INPUT, renderVersion: 1 })).toBe(PIN_V1);
-  expect(computeContentHashKey({ ...PIN_MINIMAL, renderVersion: 1 })).toBe(PIN_MINIMAL_V1);
+  const check = (ok: boolean, what: string, expected: string, received: string) => {
+    if (!ok) throw failure([`take-cache key pin: ${what}. Expected ${expected}, received ${received}.`, "Version-1 keys must stay byte for byte the keys from before the render version existed; do not edit the pins."]);
+  };
+  const pinned = computeContentHashKey({ ...PIN_INPUT, renderVersion: 1 });
+  check(pinned === PIN_V1, "PIN_V1 (full synthetic input at version 1) changed", PIN_V1, pinned);
+  const minimal = computeContentHashKey({ ...PIN_MINIMAL, renderVersion: 1 });
+  check(minimal === PIN_MINIMAL_V1, "PIN_MINIMAL_V1 (minimal synthetic input at version 1) changed", PIN_MINIMAL_V1, minimal);
   const current = computeContentHashKey(PIN_INPUT);
-  if (LOCAL_TTS_RENDER_VERSION === 1) expect(current).toBe(PIN_V1);
-  else expect(current).not.toBe(PIN_V1);
+  check((current === PIN_V1) === (LOCAL_TTS_RENDER_VERSION === 1), `the default key at version ${LOCAL_TTS_RENDER_VERSION} must ${LOCAL_TTS_RENDER_VERSION === 1 ? "equal" : "differ from"} PIN_V1`, LOCAL_TTS_RENDER_VERSION === 1 ? PIN_V1 : `not ${PIN_V1}`, current);
   const v2 = computeContentHashKey({ ...PIN_INPUT, renderVersion: 2 });
-  expect(v2).toMatch(/^[a-f0-9]{64}$/);
-  expect(v2).not.toBe(PIN_V1);
-  expect(computeContentHashKey({ ...PIN_INPUT, renderVersion: 3 })).not.toBe(v2);
-  for (const bad of [0, -1, 1.5, Number.NaN]) expect(() => computeContentHashKey({ ...PIN_INPUT, renderVersion: bad })).toThrow("invalid render version");
+  check(/^[a-f0-9]{64}$/.test(v2) && v2 !== PIN_V1, "the version-2 key must be a sha256 hex different from PIN_V1", `64 hex, not ${PIN_V1}`, v2);
+  const v3 = computeContentHashKey({ ...PIN_INPUT, renderVersion: 3 });
+  check(v3 !== v2, "versions 2 and 3 must give different keys", `not ${v2}`, v3);
+  for (const bad of [0, -1, 1.5, Number.NaN]) {
+    let message = "no error";
+    try { computeContentHashKey({ ...PIN_INPUT, renderVersion: bad }); } catch (error) { message = (error as Error).message; }
+    check(message.includes("invalid render version"), `renderVersion ${bad} must throw "invalid render version"`, "that error", message);
+  }
 });
