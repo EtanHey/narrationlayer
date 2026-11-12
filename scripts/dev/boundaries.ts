@@ -13,13 +13,13 @@ import ts from "typescript";
 export const ROOT = path.resolve(import.meta.dir, "..", "..");
 export const LEDGER_PATH = path.join(ROOT, "tests/architecture/ledger.json");
 export const BASELINE_PATH = path.join(ROOT, "tests/architecture/baseline.json");
-const IN_SCOPE = /^(src|bin|scripts)\/.*\.ts$/;
+const IN_SCOPE = /^(src|bin|scripts)\/.*(?<!\.d)\.ts$/; // declaration files are not modules to ledger
 
 /** One row per file: layer, area, owner slice XOR exemption; `entry` lists markers an entry file must keep. */
 export type LedgerEntry = { layer: 0 | 1 | 2 | 3 | 4 | 5 | "api"; area: string; entry?: string[]; owner?: string; exempt?: string };
 export type Ledger = { layers: Record<string, string>; files: Record<string, LedgerEntry> };
-/** The files to check and a reader that returns undefined for a path that is not a file. */
-export type Repo = { files: string[]; read: (file: string) => string | undefined };
+/** The in-scope files to check, every tracked path (imports resolve only to these, by exact string), and a reader. */
+export type Repo = { files: string[]; tracked: Set<string>; read: (file: string) => string | undefined };
 
 export function readJson<T>(file: string): T {
   return JSON.parse(readFileSync(file, "utf8")) as T;
@@ -30,8 +30,9 @@ export function diskRepo(root = ROOT): Repo {
   const out = spawnSync("git", ["ls-files", "--cached"], { cwd: root, encoding: "utf8" });
   if (out.status !== 0) throw new Error(`git ls-files failed: ${out.stderr}`);
   const isFile = (f: string) => existsSync(path.join(root, f)) && statSync(path.join(root, f)).isFile();
-  const files = out.stdout.split("\n").filter((f) => IN_SCOPE.test(f) && isFile(f)).sort();
-  return { files, read: (f) => (isFile(f) ? readFileSync(path.join(root, f), "utf8") : undefined) };
+  const tracked = new Set(out.stdout.split("\n").filter((f) => f && isFile(f)));
+  const files = [...tracked].filter((f) => IN_SCOPE.test(f)).sort();
+  return { files, tracked, read: (f) => (isFile(f) ? readFileSync(path.join(root, f), "utf8") : undefined) };
 }
 
 /** Every module specifier: import, import type, export from, import(), require(), import = require, import("…") type nodes. */
@@ -49,17 +50,18 @@ export function importSpecifiers(source: string, fileName = "x.ts"): string[] {
   return specs;
 }
 
-/** Repo-relative target of a relative specifier; null for packages and builtins; "" when no file matches. */
+/** Tracked target of a relative specifier by exact string (so a wrong-case or untracked target is unresolved even on a
+ * case-insensitive disk); null for packages and builtins; "" when nothing matches. */
 export function resolveImport(repo: Repo, from: string, spec: string): string | null {
   if (!spec.startsWith(".")) return null;
   const base = path.join(path.dirname(from), spec);
   const candidates = [base.replace(/\.(m?js)$/, ".ts"), base, `${base}.ts`, path.join(base, "index.ts")];
-  return candidates.find((c) => repo.read(c) !== undefined) ?? "";
+  return candidates.find((c) => repo.tracked.has(c)) ?? "";
 }
 
 const rank = (e: LedgerEntry): number => (e.layer === "api" ? 6 : e.layer);
 
-/** Sorted "<rule> <from> -> <to>" layer violations, and the relative imports that resolve to no file. */
+/** Sorted "<rule> <from> -> <to>" layer violations, and the hard failures: unresolved imports and imports of unledgered in-scope files. */
 export function analyze(ledger: Ledger, repo: Repo = diskRepo()): { violations: string[]; unresolved: string[] } {
   const found = new Set<string>();
   const unresolved = new Set<string>();
@@ -69,8 +71,10 @@ export function analyze(ledger: Ledger, repo: Repo = diskRepo()): { violations: 
     for (const spec of importSpecifiers(repo.read(from) ?? "", from)) {
       const to = resolveImport(repo, from, spec);
       if (to === "") unresolved.add(`unresolved import ${from} -> ${spec}`);
-      const dst = to ? ledger.files[to] : undefined;
-      if (!to || !dst) continue;
+      if (!to) continue;
+      const dst = ledger.files[to];
+      if (!dst && IN_SCOPE.test(to)) unresolved.add(`import of an unledgered file ${from} -> ${to}`);
+      if (!dst) continue; // tracked targets outside src/, bin/ and scripts/ .ts (package.json, tests/, data files) are not layered
       if (dst.layer === "api") found.add(`via-api ${from} -> ${to}`);
       else if (rank(dst) > rank(src)) found.add(`upward ${from} -> ${to}`);
       else if (src.layer === 2 && dst.layer === 2 && src.area !== dst.area) found.add(`cross-area ${from} -> ${to}`);
@@ -94,11 +98,12 @@ export function ledgerProblems(ledger: Ledger, repo: Repo = diskRepo()): string[
 }
 
 const squash = (s: string) => s.replace(/\s+/g, "");
+const unwrap = (e: ts.Expression): ts.Expression => (ts.isParenthesizedExpression(e) ? unwrap(e.expression) : e);
 /** A marker "if (X)" needs a top-level if statement on condition X; any other marker needs a code node with that text. Comments never count. */
 export function hasMarker(source: string, marker: string): boolean {
   const sf = ts.createSourceFile("x.ts", source, ts.ScriptTarget.Latest, true);
   const condition = /^if \((.*)\)$/.exec(marker)?.[1];
-  if (condition) return sf.statements.some((s) => ts.isIfStatement(s) && squash(s.expression.getText(sf)) === squash(condition));
+  if (condition) return sf.statements.some((s) => ts.isIfStatement(s) && squash(unwrap(s.expression).getText(sf)) === squash(condition));
   const visit = (n: ts.Node): boolean => squash(n.getText(sf)) === squash(marker) || (ts.forEachChild(n, visit) ?? false);
   return ts.forEachChild(sf, visit) ?? false;
 }
@@ -113,28 +118,16 @@ export function entryProblems(ledger: Ledger, repo: Repo = diskRepo()): string[]
   });
 }
 
-function writeBaseline(entries: string[]): void {
-  writeFileSync(BASELINE_PATH, `${JSON.stringify(entries, null, 2)}\n`);
-}
-
 if (import.meta.main) {
-  const ledger = readJson<Ledger>(LEDGER_PATH);
-  const current = violations(ledger);
+  const current = violations(readJson<Ledger>(LEDGER_PATH));
   const flag = process.argv[2];
-  if (flag === "--init") {
-    if (existsSync(BASELINE_PATH)) throw new Error("baseline.json exists; use --update, which can only shrink it");
-    writeBaseline(current);
-  } else {
-    const baseline = readJson<string[]>(BASELINE_PATH);
-    const added = current.filter((v) => !baseline.includes(v));
-    const fixed = baseline.filter((v) => !current.includes(v));
-    console.log(JSON.stringify({ current, added, fixed }, null, 2));
-    if (flag === "--update") {
-      if (added.length > 0) {
-        console.error(`refusing to add ${added.length} new violation(s) to the baseline; fix them instead`);
-        process.exit(1);
-      }
-      writeBaseline(current);
-    }
+  if (flag === "--init" && existsSync(BASELINE_PATH)) throw new Error("baseline.json exists; use --update, which can only shrink it");
+  const baseline = flag === "--init" ? current : readJson<string[]>(BASELINE_PATH);
+  const added = current.filter((v) => !baseline.includes(v));
+  console.log(JSON.stringify({ current, added, fixed: baseline.filter((v) => !current.includes(v)) }, null, 2));
+  if (flag === "--update" && added.length > 0) {
+    console.error(`refusing to add ${added.length} new violation(s) to the baseline; fix them instead`);
+    process.exit(1);
   }
+  if (flag === "--init" || flag === "--update") writeFileSync(BASELINE_PATH, `${JSON.stringify(current, null, 2)}\n`);
 }

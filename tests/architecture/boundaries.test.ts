@@ -12,9 +12,10 @@ const current = violations(ledger);
 // In-memory fixture: src/core/a.ts (L0) is the importer under test.
 const row = (layer: 0 | 2 | "api", area: string, entry?: string[]) => ({ layer, area, owner: "fixture", ...(entry ? { entry } : {}) });
 const fixtureLedger: Ledger = { layers: {}, files: { "src/core/a.ts": row(0, "core"), "src/audio/impl.ts": row(2, "audio"), "src/timing/t.ts": row(2, "timing"), "src/api/index.ts": row("api", "api"), "src/main.ts": row(0, "core", ["if (import.meta.main)", `path.resolve(import.meta.dir, "..")`]) } };
-function fixture(files: Record<string, string>) {
+function fixture(files: Record<string, string>, untracked: Record<string, string> = {}) {
   const all: Record<string, string> = { "src/core/a.ts": "export const a = 1;\n", "src/audio/impl.ts": "export type T = { n: number };\nexport const f = () => 1;\n", "src/timing/t.ts": "export const t = 1;\n", "src/api/index.ts": `export { f } from "../audio/impl.js";\n`, "src/main.ts": `const root = path.resolve(import.meta.dir, "..");\nif (import.meta.main) {}\n`, ...files };
-  const repo = { files: Object.keys(all).sort(), read: (f: string) => all[f] };
+  const tracked = new Set(Object.keys(all));
+  const repo = { files: [...tracked].filter((f) => /^src\/.*(?<!\.d)\.ts$/.test(f)).sort(), tracked, read: (f: string) => all[f] ?? untracked[f] };
   return { ...analyze(fixtureLedger, repo), ledger: ledgerProblems(fixtureLedger, repo), entry: entryProblems(fixtureLedger, repo) };
 }
 const UP = "upward src/core/a.ts -> src/audio/impl.ts";
@@ -50,9 +51,22 @@ test("a relative import that resolves to no file is a hard failure, in every for
   expect(found.ledger).toEqual(found.unresolved);
 });
 
+test("imports resolve only to tracked paths by exact string: wrong case and untracked targets are unresolved", () => {
+  const found = fixture({ "src/core/a.ts": `import { f } from "../audio/Impl.js";\nimport "./stray.js";\n` }, { "src/audio/Impl.ts": "export const f = 1;\n", "src/core/stray.ts": "export {};\n" });
+  expect(found.unresolved).toEqual(["unresolved import src/core/a.ts -> ../audio/Impl.js", "unresolved import src/core/a.ts -> ./stray.js"]);
+});
+
+test("an import of a tracked in-scope file with no ledger row names importer and target; out-of-scope targets are ignored", () => {
+  const found = fixture({ "src/core/extra.ts": "export const e = 1;\n", "package.json": "{}\n", "src/core/a.ts": `import "./extra.js";\nimport pkg from "../../package.json";\nexport const p = pkg;\n` });
+  expect(found.unresolved).toEqual(["import of an unledgered file src/core/a.ts -> src/core/extra.ts"]);
+  expect(found.ledger).toEqual(["missing from ledger: src/core/extra.ts", ...found.unresolved]);
+  expect(fixture({ "src/core/types.d.ts": "declare const x: number;\n" }).ledger).toEqual([]); // declaration files are out of scope
+});
+
 test("an unledgered file and a lost or unlisted entry marker are hard failures", () => {
   expect(fixture({ "src/core/new.ts": "export const n = 1;\n" }).ledger).toEqual(["missing from ledger: src/core/new.ts"]);
   expect(fixture({}).entry).toEqual([]);
+  expect(fixture({ "src/main.ts": `const root = path.resolve(import.meta.dir, "..");\nif ((import.meta.main)) {}\n` }).entry).toEqual([]);
   const commentsOnly = `// const root = path.resolve(import.meta.dir, "..");\n// if (import.meta.main) {}\nexport const s = "if (import.meta.main)";\n`;
   expect(fixture({ "src/main.ts": commentsOnly }).entry).toEqual(["src/main.ts lost entry marker: if (import.meta.main)", `src/main.ts lost entry marker: path.resolve(import.meta.dir, "..")`]);
   expect(fixture({ "src/core/a.ts": "if (import.meta.main) {}\n" }).entry).toEqual(["src/core/a.ts has an import.meta.main block but no entry row"]);
@@ -65,8 +79,7 @@ test("only tracked files need a ledger row: an untracked stray file does not fai
     const git = (...args: string[]) => expect(spawnSync("git", args, { cwd: dir }).status).toBe(0);
     git("init", "-q");
     mkdirSync(path.join(dir, "src"));
-    writeFileSync(path.join(dir, "src/tracked.ts"), "export const a = 1;\n");
-    writeFileSync(path.join(dir, "src/untracked.ts"), "export const b = 1;\n");
+    for (const name of ["tracked", "untracked"]) writeFileSync(path.join(dir, `src/${name}.ts`), "export const a = 1;\n");
     git("add", "src/tracked.ts");
     expect(ledgerProblems({ layers: {}, files: {} }, diskRepo(dir))).toEqual(["missing from ledger: src/tracked.ts"]);
   } finally {
