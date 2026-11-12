@@ -24,6 +24,12 @@ jobs:
           python-version: '3.13'
       - run: python -m pip install -r packages/dashboard-publish/requirements.txt
       - run: bun install --frozen-lockfile
+      - name: Install ffmpeg
+        run: brew install ffmpeg
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+      - run: ffmpeg -version && ffprobe -version
       - run: bun test
       - run: bunx tsc --noEmit
         if: ${{ !cancelled() }}
