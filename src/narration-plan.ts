@@ -1,12 +1,5 @@
-export type PauseStrategy = "none" | "punctuation";
-
-export interface NarrationPacingConfig {
-  pause_strategy?: PauseStrategy;
-  max_utterance_words?: number;
-  min_utterance_words?: number;
-  sentence_pause_seconds?: number;
-  comma_pause_seconds?: number;
-}
+import type { NarrationPacingConfig } from "./core/render-types.js";
+export type { NarrationPacingConfig, PauseStrategy } from "./core/render-types.js";
 
 export interface PlannedUtterance {
   text: string;

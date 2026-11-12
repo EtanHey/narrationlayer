@@ -25,10 +25,8 @@ interface WhisperJson {
   segments?: unknown;
 }
 
-export interface WordTimingResult {
-  source: TimingSource;
-  words: WordTiming[];
-}
+import type { WordTimingResult } from "./core/render-types.js";
+export type { WordTimingResult } from "./core/render-types.js";
 
 export interface WhisperTimingOptions {
   whisper_binary?: string;
