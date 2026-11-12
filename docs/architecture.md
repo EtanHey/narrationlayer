@@ -148,6 +148,41 @@ must not call it in its own process; it runs it in a child process.
 9. loudness normalization (`src/pipelines/local-tts/loudness.ts`) when a target is set
 10. `.spoken.txt` and the receipt written; when caching is on, the take is copied into the cache, and a failed copy is logged, not an error
 
+The cache key does not cover the code that turns its inputs into audio: the
+breathing cuts and default pauses (`src/plan/`, `src/pipelines/local-tts/breathing.ts`),
+the synthesis requests (`src/pipelines/local-tts/synthesis.ts`), the ffmpeg chain
+(`src/audio/ffmpeg-args.ts`, `src/audio/ffmpeg-run.ts`, `src/pipelines/local-tts/loudness.ts`)
+and the order of the stages (`src/pipelines/local-tts/index.ts`). So
+`LOCAL_TTS_RENDER_VERSION` in `src/pipelines/local-tts/take-cache.ts` stands in
+for it. An audible change to that code raises the version, which makes every
+consumer's cached take miss once; version 1 is left out of the hashed text, so
+keys from before the version existed still hit.
+`tests/compat/take-cache-version.test.ts` fingerprints each golden case (one
+runner run, keyed by its cache-key inputs, or one breathing row of the
+plan-pieces golden) over its daemon request bodies, breathing pieces and ffmpeg
+calls, and compares with the current row of
+`tests/compat/fixtures/take-cache-render-versions.json`. It is a tripwire, not a
+judge of audibility. When a case whose key is unchanged moves, someone decides:
+if the audio for that key changed, raise the version (the test prints the three
+files a raise touches); if it did not (independent steps reordered, a temporary
+or preparatory step, a renamed role), re-record the printed entries and add the
+reason, and how it was shown, to the row's `rerecorded` list. A raise is the one
+sanctioned case in which the frozen runner golden is regenerated, and the
+regenerated file may differ from the one before only in key material (the
+version in each key preimage and the cache keys); a diff beyond that is a review
+stop. A case whose key inputs changed (a normalization change, say) asks for
+its entries to be replaced, not for a raise: its key changed by itself. A new
+golden case is added to the current row without a raise. The table can always be
+edited to agree with the goldens, so review holds the rest:
+An existing entry of a recorded row changes in only three ways, each named by
+this test: a version raise appends a new row; a change to a case's cache-key
+inputs (its spoken text, reference, profile or parameters) replaces the entries
+the test prints; and when the audio for an unchanged key did not change, an
+attested re-record rewrites the entries the test prints and adds a line with its
+reason to the row's rerecorded list. Anything else, and any change to the
+projection or the run split in tests/compat/take-cache-version.test.ts, is a
+review stop.
+
 ## Legacy paths
 
 `tests/compat/legacy-paths.manifest.generated.json` freezes 24 modules (every
