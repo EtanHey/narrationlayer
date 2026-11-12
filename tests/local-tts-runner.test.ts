@@ -41,7 +41,7 @@ test("runner defaults and injected speech preparation preserve the authored inpu
 
 test("synth provenance is committed only after the selected WAV is validated", () => {
   const runnerSource = readFileSync(
-    path.resolve(import.meta.dir, "..", "bin", "local-tts-runner.ts"),
+    path.resolve(import.meta.dir, "..", "src", "pipelines", "local-tts", "index.ts"),
     "utf8",
   );
   const sidecarWrite = "await writeFile(`${output}.spoken.txt`, spokenText, \"utf8\")";
@@ -474,3 +474,25 @@ test("runner rejects asynchronous or missing speech input before synthesis", () 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test.each([
+  ["still rejects an ordinary speech preparation error", '() => { throw new Error("synthetic preparation failed"); }', 23, "caught: synthetic preparation failed\n"],
+  ["exits on an invalid speech preparation result", "() => ({})", 1, "local-tts-runner: speech preparation must return a nonblank synthInput string synchronously\n"],
+])("imported runner main %s", (_description, callback, exitCode, stderr) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-preparation-error-"));
+  try {
+    const reference = path.join(dir, "reference.wav");
+    const token = path.join(dir, "token");
+    writeFileSync(reference, "reference"); writeFileSync(token, "token");
+    const entry = path.resolve(import.meta.dir, "../bin/local-tts-runner.ts");
+    const wrapper = path.join(dir, "wrapper.ts");
+    writeFileSync(wrapper, `import { main } from ${JSON.stringify(entry)};
+try { await main(${callback}); }
+catch (error) { process.stderr.write("caught: " + error.message + "\\n"); process.exit(23); }
+`);
+    const result = Bun.spawnSync([process.execPath, wrapper, "--text", "Hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "Synthetic reference.", "--auth-token-file", token], { timeout: 20000 });
+    expect(result.exitCode).toBe(exitCode);
+    expect(result.stderr.toString()).toBe(stderr);
+    expect(existsSync(path.join(dir, "out.wav"))).toBe(false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}, 30000);

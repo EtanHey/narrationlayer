@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { readFile, writeFile, access, unlink } from "node:fs/promises";
+import { readFile, writeFile, access, unlink, readdir } from "node:fs/promises";
 import path from "node:path";
 import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
@@ -106,6 +106,31 @@ test("runner HTTP failure during breathing leaves the baseline intermediate file
     expect(await exists(path.join(f.root, "out.wav"))).toBe(true);
   } finally { await f.close(); }
 }, 30000);
+
+// Characterize process.exit versus throw before moving orchestration into a library.
+for (const mode of ["http", "malformed", "timeout"] satisfies Mode[]) for (const call of [1, 2, 3]) {
+  test(`runner failure custody: ${mode} at synthesis ${call}`, async () => {
+    const f = await fixture();
+    try {
+      await wrappers(f.root); await profile(f); f.failAt(call, mode);
+      const result = await runner(f, [...argsFor(f, "First. Second.", "compat-voice"), "--timeout-ms", "150"]);
+      expect(result.code).toBe(1);
+      const message = mode === "http" ? "daemon /synthesize failed (500): synthetic failure"
+        : mode === "malformed" ? "daemon response missing audio_b64" : "The operation was aborted.";
+      expect(result.stderr).toBe(`local-tts-runner: ${message}\n`);
+      expect(f.requests).toHaveLength(call);
+      const leftovers = (await readdir(f.root)).filter(name => name.startsWith("out.wav")).sort();
+      const preserved = ["out.wav.breath-0.raw", "out.wav.breath-0.tempo.wav", "out.wav.breath-0.wav", "out.wav.sil-0.wav"];
+      expect(leftovers).toEqual(call === 1 ? [] : ["out.wav", ...(call === 3 && mode !== "timeout" ? preserved : [])]);
+      if (call > 1) {
+        const output = await readFile(path.join(f.root, "out.wav"));
+        expect(output.subarray(0, 4).toString()).toBe("RIFF");
+        expect(output.length).toBeGreaterThan(44);
+      }
+      if (call === 3 && mode !== "timeout") expect(await readFile(path.join(f.root, "out.wav.breath-0.raw"))).toEqual(f.wav);
+    } finally { await f.close(); }
+  }, 30000);
+}
 test("named profile keeps absent-field flags and overrides them when daemon and token are set", async () => {
   const cli = await fixture(); const selected = await fixture();
   try {
