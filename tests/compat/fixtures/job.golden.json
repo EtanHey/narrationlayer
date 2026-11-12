@@ -194,7 +194,7 @@
         "title": "Synthetic 0",
         "script": "PR #1225 improves 42% at 09:05; version v1.2 runs 3x faster.",
         "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/segment-0.mp3",
-        "duration_seconds": 0.816,
+        "duration_seconds": 12,
         "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/words.json",
         "status": "rendered",
         "provenance": {
@@ -210,7 +210,7 @@
         "title": "Synthetic 1",
         "script": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.\n- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
         "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/segment-1.mp3",
-        "duration_seconds": 1.968,
+        "duration_seconds": 12,
         "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/words.json",
         "status": "rendered",
         "provenance": {
@@ -226,7 +226,7 @@
         "title": "Synthetic 2",
         "script": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
         "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/segment-2.mp3",
-        "duration_seconds": 2.544,
+        "duration_seconds": 12,
         "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/words.json",
         "status": "rendered",
         "provenance": {
@@ -242,7 +242,7 @@
         "title": "Synthetic 3",
         "script": "Hello, reader: wait; go — now! Really? Yes (certainly).",
         "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/segment-3.mp3",
-        "duration_seconds": 0.816,
+        "duration_seconds": 12,
         "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/words.json",
         "status": "rendered",
         "provenance": {
@@ -258,7 +258,7 @@
         "title": "Synthetic 4",
         "script": "Hello",
         "audio_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-4/segment-4.mp3",
-        "duration_seconds": 0.264,
+        "duration_seconds": 12,
         "words_path": "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-4/words.json",
         "status": "rendered",
         "provenance": {
@@ -270,7 +270,7 @@
         }
       }
     ],
-    "total_duration_seconds": 6.408,
+    "total_duration_seconds": 60,
     "artifacts_dir": "$FIXTURE/data/jobs/compat-job/artifacts",
     "errors": []
   },
@@ -299,67 +299,67 @@
           "index": 0,
           "word": "PR",
           "start": 0,
-          "end": 0.114
+          "end": 1.68
         },
         {
           "index": 1,
           "word": "1225",
-          "start": 0.114,
-          "end": 0.228
+          "start": 1.68,
+          "end": 3.36
         },
         {
           "index": 2,
           "word": "improves",
-          "start": 0.228,
-          "end": 0.261
+          "start": 3.36,
+          "end": 3.84
         },
         {
           "index": 3,
           "word": "42",
-          "start": 0.261,
-          "end": 0.326
+          "start": 3.84,
+          "end": 4.8
         },
         {
           "index": 4,
           "word": "at",
-          "start": 0.326,
-          "end": 0.359
+          "start": 4.8,
+          "end": 5.28
         },
         {
           "index": 5,
           "word": "09:05;",
-          "start": 0.359,
-          "end": 0.49
+          "start": 5.28,
+          "end": 7.2
         },
         {
           "index": 6,
           "word": "version",
-          "start": 0.49,
-          "end": 0.555
+          "start": 7.2,
+          "end": 8.16
         },
         {
           "index": 7,
           "word": "v1.2",
-          "start": 0.555,
-          "end": 0.685
+          "start": 8.16,
+          "end": 10.08
         },
         {
           "index": 8,
           "word": "runs",
-          "start": 0.685,
-          "end": 0.718
+          "start": 10.08,
+          "end": 10.56
         },
         {
           "index": 9,
           "word": "3x",
-          "start": 0.718,
-          "end": 0.783
+          "start": 10.56,
+          "end": 11.52
         },
         {
           "index": 10,
           "word": "faster.",
-          "start": 0.783,
-          "end": 0.816
+          "start": 11.52,
+          "end": 12
         }
       ]
     },
@@ -375,163 +375,163 @@
           "index": 0,
           "word": "Release",
           "start": 0,
-          "end": 0.061
+          "end": 0.375
         },
         {
           "index": 1,
           "word": "checklist",
-          "start": 0.061,
-          "end": 0.123
+          "start": 0.375,
+          "end": 0.75
         },
         {
           "index": 2,
           "word": "Ready.",
-          "start": 0.123,
-          "end": 0.246
+          "start": 0.75,
+          "end": 1.5
         },
         {
           "index": 3,
           "word": "Check",
-          "start": 0.246,
-          "end": 0.369
+          "start": 1.5,
+          "end": 2.25
         },
         {
           "index": 4,
           "word": "the",
-          "start": 0.369,
-          "end": 0.43
+          "start": 2.25,
+          "end": 2.625
         },
         {
           "index": 5,
           "word": "logs.",
-          "start": 0.43,
-          "end": 0.492
+          "start": 2.625,
+          "end": 3
         },
         {
           "index": 6,
           "word": "Confirm",
-          "start": 0.492,
-          "end": 0.615
+          "start": 3,
+          "end": 3.75
         },
         {
           "index": 7,
           "word": "every",
-          "start": 0.615,
-          "end": 0.676
+          "start": 3.75,
+          "end": 4.125
         },
         {
           "index": 8,
           "word": "public",
-          "start": 0.676,
-          "end": 0.738
+          "start": 4.125,
+          "end": 4.5
         },
         {
           "index": 9,
           "word": "interface.",
-          "start": 0.738,
-          "end": 0.799
+          "start": 4.5,
+          "end": 4.875
         },
         {
           "index": 10,
           "word": "Review",
-          "start": 0.799,
-          "end": 0.922
+          "start": 4.875,
+          "end": 5.625
         },
         {
           "index": 11,
           "word": "all",
-          "start": 0.922,
-          "end": 0.984
+          "start": 5.625,
+          "end": 6
         },
         {
           "index": 12,
           "word": "changes",
-          "start": 0.984,
-          "end": 1.046
+          "start": 6,
+          "end": 6.375
         },
         {
           "index": 13,
           "word": "before",
-          "start": 1.046,
-          "end": 1.107
+          "start": 6.375,
+          "end": 6.75
         },
         {
           "index": 14,
           "word": "the",
-          "start": 1.107,
-          "end": 1.168
+          "start": 6.75,
+          "end": 7.125
         },
         {
           "index": 15,
           "word": "release.",
-          "start": 1.168,
-          "end": 1.23
+          "start": 7.125,
+          "end": 7.5
         },
         {
           "index": 16,
           "word": "Publish",
-          "start": 1.23,
-          "end": 1.353
+          "start": 7.5,
+          "end": 8.25
         },
         {
           "index": 17,
           "word": "the",
-          "start": 1.353,
-          "end": 1.414
+          "start": 8.25,
+          "end": 8.625
         },
         {
           "index": 18,
           "word": "final",
-          "start": 1.414,
-          "end": 1.476
+          "start": 8.625,
+          "end": 9
         },
         {
           "index": 19,
           "word": "report",
-          "start": 1.476,
-          "end": 1.538
+          "start": 9,
+          "end": 9.375
         },
         {
           "index": 20,
           "word": "after",
-          "start": 1.538,
-          "end": 1.599
+          "start": 9.375,
+          "end": 9.75
         },
         {
           "index": 21,
           "word": "each",
-          "start": 1.599,
-          "end": 1.66
+          "start": 9.75,
+          "end": 10.125
         },
         {
           "index": 22,
           "word": "independent",
-          "start": 1.66,
-          "end": 1.722
+          "start": 10.125,
+          "end": 10.5
         },
         {
           "index": 23,
           "word": "check",
-          "start": 1.722,
-          "end": 1.784
+          "start": 10.5,
+          "end": 10.875
         },
         {
           "index": 24,
           "word": "has",
-          "start": 1.784,
-          "end": 1.845
+          "start": 10.875,
+          "end": 11.25
         },
         {
           "index": 25,
           "word": "completed",
-          "start": 1.845,
-          "end": 1.906
+          "start": 11.25,
+          "end": 11.625
         },
         {
           "index": 26,
           "word": "successfully.",
-          "start": 1.906,
-          "end": 1.968
+          "start": 11.625,
+          "end": 12
         }
       ]
     },
@@ -547,271 +547,271 @@
           "index": 0,
           "word": "The",
           "start": 0,
-          "end": 0.05653333333333333
+          "end": 0.26666666666666666
         },
         {
           "index": 1,
           "word": "public",
-          "start": 0.05653333333333333,
-          "end": 0.11306666666666666
+          "start": 0.26666666666666666,
+          "end": 0.5333333333333333
         },
         {
           "index": 2,
           "word": "example",
-          "start": 0.11306666666666666,
-          "end": 0.1696
+          "start": 0.5333333333333333,
+          "end": 0.8
         },
         {
           "index": 3,
           "word": "explains",
-          "start": 0.1696,
-          "end": 0.22613333333333333
+          "start": 0.8,
+          "end": 1.0666666666666667
         },
         {
           "index": 4,
           "word": "a",
-          "start": 0.22613333333333333,
-          "end": 0.2826666666666667
+          "start": 1.0666666666666667,
+          "end": 1.3333333333333333
         },
         {
           "index": 5,
           "word": "deliberately",
-          "start": 0.2826666666666667,
-          "end": 0.3392
+          "start": 1.3333333333333333,
+          "end": 1.6
         },
         {
           "index": 6,
           "word": "long",
-          "start": 0.3392,
-          "end": 0.3957333333333333
+          "start": 1.6,
+          "end": 1.8666666666666667
         },
         {
           "index": 7,
           "word": "paragraph,",
-          "start": 0.3957333333333333,
-          "end": 0.45226666666666665
+          "start": 1.8666666666666667,
+          "end": 2.1333333333333333
         },
         {
           "index": 8,
           "word": "with",
-          "start": 0.45226666666666665,
-          "end": 0.5088
+          "start": 2.1333333333333333,
+          "end": 2.4
         },
         {
           "index": 9,
           "word": "enough",
-          "start": 0.5088,
-          "end": 0.5653333333333334
+          "start": 2.4,
+          "end": 2.6666666666666665
         },
         {
           "index": 10,
           "word": "words",
-          "start": 0.5653333333333334,
-          "end": 0.6218666666666667
+          "start": 2.6666666666666665,
+          "end": 2.933333333333333
         },
         {
           "index": 11,
           "word": "to",
-          "start": 0.6218666666666667,
-          "end": 0.6784
+          "start": 2.933333333333333,
+          "end": 3.2
         },
         {
           "index": 12,
           "word": "cross",
-          "start": 0.6784,
-          "end": 0.7349333333333334
+          "start": 3.2,
+          "end": 3.466666666666667
         },
         {
           "index": 13,
           "word": "the",
-          "start": 0.7349333333333334,
-          "end": 0.7914666666666667
+          "start": 3.466666666666667,
+          "end": 3.7333333333333334
         },
         {
           "index": 14,
           "word": "planning",
-          "start": 0.7914666666666667,
-          "end": 0.8480000000000001
+          "start": 3.7333333333333334,
+          "end": 4
         },
         {
           "index": 15,
           "word": "boundary:",
-          "start": 0.8480000000000001,
-          "end": 0.9045333333333333
+          "start": 4,
+          "end": 4.266666666666667
         },
         {
           "index": 16,
           "word": "every",
-          "start": 0.9045333333333333,
-          "end": 0.9610666666666666
+          "start": 4.266666666666667,
+          "end": 4.533333333333333
         },
         {
           "index": 17,
           "word": "reader",
-          "start": 0.9610666666666666,
-          "end": 1.0176
+          "start": 4.533333333333333,
+          "end": 4.8
         },
         {
           "index": 18,
           "word": "can",
-          "start": 1.0176,
-          "end": 1.0741333333333334
+          "start": 4.8,
+          "end": 5.066666666666666
         },
         {
           "index": 19,
           "word": "follow",
-          "start": 1.0741333333333334,
-          "end": 1.1306666666666667
+          "start": 5.066666666666666,
+          "end": 5.333333333333333
         },
         {
           "index": 20,
           "word": "the",
-          "start": 1.1306666666666667,
-          "end": 1.1872
+          "start": 5.333333333333333,
+          "end": 5.6
         },
         {
           "index": 21,
           "word": "sequence",
-          "start": 1.1872,
-          "end": 1.2437333333333334
+          "start": 5.6,
+          "end": 5.866666666666666
         },
         {
           "index": 22,
           "word": "(including",
-          "start": 1.2437333333333334,
-          "end": 1.3002666666666667
+          "start": 5.866666666666666,
+          "end": 6.133333333333334
         },
         {
           "index": 23,
           "word": "the",
-          "start": 1.3002666666666667,
-          "end": 1.3568
+          "start": 6.133333333333334,
+          "end": 6.4
         },
         {
           "index": 24,
           "word": "parenthetical",
-          "start": 1.3568,
-          "end": 1.4133333333333333
+          "start": 6.4,
+          "end": 6.666666666666667
         },
         {
           "index": 25,
           "word": "detail),",
-          "start": 1.4133333333333333,
-          "end": 1.4698666666666669
+          "start": 6.666666666666667,
+          "end": 6.933333333333334
         },
         {
           "index": 26,
           "word": "while",
-          "start": 1.4698666666666669,
-          "end": 1.5264
+          "start": 6.933333333333334,
+          "end": 7.2
         },
         {
           "index": 27,
           "word": "each",
-          "start": 1.5264,
-          "end": 1.5829333333333333
+          "start": 7.2,
+          "end": 7.466666666666667
         },
         {
           "index": 28,
           "word": "synthetic",
-          "start": 1.5829333333333333,
-          "end": 1.6394666666666666
+          "start": 7.466666666666667,
+          "end": 7.733333333333333
         },
         {
           "index": 29,
           "word": "sentence",
-          "start": 1.6394666666666666,
-          "end": 1.6960000000000002
+          "start": 7.733333333333333,
+          "end": 8
         },
         {
           "index": 30,
           "word": "remains",
-          "start": 1.6960000000000002,
-          "end": 1.7525333333333335
+          "start": 8,
+          "end": 8.266666666666667
         },
         {
           "index": 31,
           "word": "independent",
-          "start": 1.7525333333333335,
-          "end": 1.8090666666666666
+          "start": 8.266666666666667,
+          "end": 8.533333333333333
         },
         {
           "index": 32,
           "word": "of",
-          "start": 1.8090666666666666,
-          "end": 1.8656
+          "start": 8.533333333333333,
+          "end": 8.8
         },
         {
           "index": 33,
           "word": "private",
-          "start": 1.8656,
-          "end": 1.9221333333333332
+          "start": 8.8,
+          "end": 9.066666666666666
         },
         {
           "index": 34,
           "word": "source",
-          "start": 1.9221333333333332,
-          "end": 1.9786666666666668
+          "start": 9.066666666666666,
+          "end": 9.333333333333334
         },
         {
           "index": 35,
           "word": "materials",
-          "start": 1.9786666666666668,
-          "end": 2.0352
+          "start": 9.333333333333334,
+          "end": 9.6
         },
         {
           "index": 36,
           "word": "and",
-          "start": 2.0352,
-          "end": 2.0917333333333334
+          "start": 9.6,
+          "end": 9.866666666666667
         },
         {
           "index": 37,
           "word": "each",
-          "start": 2.0917333333333334,
-          "end": 2.1482666666666668
+          "start": 9.866666666666667,
+          "end": 10.133333333333333
         },
         {
           "index": 38,
           "word": "additional",
-          "start": 2.1482666666666668,
-          "end": 2.2048
+          "start": 10.133333333333333,
+          "end": 10.4
         },
         {
           "index": 39,
           "word": "clause",
-          "start": 2.2048,
-          "end": 2.2613333333333334
+          "start": 10.4,
+          "end": 10.666666666666666
         },
         {
           "index": 40,
           "word": "exercises",
-          "start": 2.2613333333333334,
-          "end": 2.3178666666666667
+          "start": 10.666666666666666,
+          "end": 10.933333333333334
         },
         {
           "index": 41,
           "word": "the",
-          "start": 2.3178666666666667,
-          "end": 2.3744
+          "start": 10.933333333333334,
+          "end": 11.2
         },
         {
           "index": 42,
           "word": "established",
-          "start": 2.3744,
-          "end": 2.4309333333333334
+          "start": 11.2,
+          "end": 11.466666666666667
         },
         {
           "index": 43,
           "word": "punctuation",
-          "start": 2.4309333333333334,
-          "end": 2.4874666666666667
+          "start": 11.466666666666667,
+          "end": 11.733333333333333
         },
         {
           "index": 44,
           "word": "policy.",
-          "start": 2.4874666666666667,
-          "end": 2.544
+          "start": 11.733333333333333,
+          "end": 12
         }
       ]
     },
@@ -827,55 +827,55 @@
           "index": 0,
           "word": "Hello,",
           "start": 0,
-          "end": 0.09066666666666666
+          "end": 1.3333333333333333
         },
         {
           "index": 1,
           "word": "reader:",
-          "start": 0.09066666666666666,
-          "end": 0.18133333333333332
+          "start": 1.3333333333333333,
+          "end": 2.6666666666666665
         },
         {
           "index": 2,
           "word": "wait;",
-          "start": 0.18133333333333332,
-          "end": 0.272
+          "start": 2.6666666666666665,
+          "end": 4
         },
         {
           "index": 3,
           "word": "go",
-          "start": 0.272,
-          "end": 0.36266666666666664
+          "start": 4,
+          "end": 5.333333333333333
         },
         {
           "index": 4,
           "word": "—",
-          "start": 0.36266666666666664,
-          "end": 0.45333333333333337
+          "start": 5.333333333333333,
+          "end": 6.666666666666667
         },
         {
           "index": 5,
           "word": "now!",
-          "start": 0.45333333333333337,
-          "end": 0.544
+          "start": 6.666666666666667,
+          "end": 8
         },
         {
           "index": 6,
           "word": "Really?",
-          "start": 0.544,
-          "end": 0.6346666666666666
+          "start": 8,
+          "end": 9.333333333333334
         },
         {
           "index": 7,
           "word": "Yes",
-          "start": 0.6346666666666666,
-          "end": 0.7253333333333333
+          "start": 9.333333333333334,
+          "end": 10.666666666666666
         },
         {
           "index": 8,
           "word": "(certainly).",
-          "start": 0.7253333333333333,
-          "end": 0.816
+          "start": 10.666666666666666,
+          "end": 12
         }
       ]
     },
@@ -891,7 +891,7 @@
           "index": 0,
           "word": "Hello",
           "start": 0,
-          "end": 0.264
+          "end": 12
         }
       ]
     }

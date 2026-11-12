@@ -4,12 +4,12 @@ import path from "node:path";
 import { splitForBreathing } from "../../bin/local-tts-runner.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
-import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, tool, type Mode } from "./harness.js";
+import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, tool, type Mode } from "./harness.js";
 const exists = (file: string) => access(file).then(() => true, () => false);
 const argsFor = (f: Awaited<ReturnType<typeof fixture>>, text: string, reference = path.join(f.root, "reference.wav")) => [
   "--text", text, "--output", path.join(f.root, "out.wav"), "--reference", reference,
   "--reference-text", "Synthetic reference.", "--daemon-url", `${f.url}///`, "--auth-token-file", path.join(f.root, "auth"),
-  "--cache-dir", path.join(f.root, "cache"), "--timeout-ms", "150",
+  "--cache-dir", path.join(f.root, "cache"), "--timeout-ms", "10000",
 ];
 async function profile(f: Awaited<ReturnType<typeof fixture>>) {
   await writeFile(path.join(f.root, "profiles.yaml"), `profiles:\n  - id: compat-voice\n    accepted: true\n    renderer: voicelayer-qwen3\n    profile_version: synthetic-v1\n    render:\n      reference_clip: ${f.root}/reference.wav\n      reference_text: Profile text.\n      daemon_url: ${f.url}\n      auth_token_file: ${f.root}/auth\n      model: synthetic-model\n      comma_pause_seconds: 0.22\n      eq_highshelf_hz: 4000\n      eq_highshelf_gain_db: 0\n      atempo: 1\n      loudness_target_db: -20\n`);
@@ -19,8 +19,7 @@ test("runner executable goldens: direct reference, named profile, cache, real to
   try {
     await wrappers(f.root); await profile(f);
     const results = [];
-    for (const [index, text] of corpus.entries()) {
-      const named = index === 3;
+    for (const text of corpus) for (const named of [false, true]) {
       const args = argsFor(f, text, named ? "compat-voice" : undefined);
       if (named) args.push("--daemon-url", "http://127.0.0.1:1", "--auth-token-file", "missing-flag-token");
       const start = f.requests.length;
@@ -38,24 +37,24 @@ test("runner executable goldens: direct reference, named profile, cache, real to
       const hit = await runner(f, args);
       expect(hit.code).toBe(0); expect(stderrClass(hit.stderr)).toBe("cache HIT");
       expect(await readFile(path.join(f.root, "out.wav"))).toEqual(output);
-      results.push({ requests: f.canonical(f.requests.slice(start)), spoken: await readFile(path.join(f.root, "out.wav.spoken.txt"), "utf8"),
+      results.push({ referenceKind: named ? "profile" : "direct", requests: f.canonical(f.requests.slice(start)), spoken: await readFile(path.join(f.root, "out.wav.spoken.txt"), "utf8"),
         // Verify the real path-dependent key above, then freeze its canonical preimage and digest.
         keyPreimage: f.canonical(preimage), receipt: { ...receipt, cacheKey: digest(JSON.stringify(f.canonical(preimage))) },
         pieces: splitForBreathing(normalizeForSpeech(text), 0.55, 0.22), format: JSON.parse(probe.stdout.toString()).streams, exit: result.code, stderr: stderrClass(result.stderr) });
     }
-    await golden("runner", { results, argv: f.canonical(await argvLog(f.root)) });
+    await golden("runner", { results, argv: f.canonical(await stableArgv(f.root)) });
     // The runner currently never calls ffprobe. The wrapper's empty trace is deliberate.
     expect((await argvLog(f.root)).filter(call => call.tool === "ffprobe")).toEqual([]);
     const base = await runner(f, argsFor(f, "Hello", "neutral-public"));
     expect(base.code).toBe(1); expect(base.stderr).toContain('uses renderer "fake"');
   } finally { await f.close(); }
-}, 30000);
+}, 60000);
 for (const mode of ["http", "malformed", "timeout"] satisfies Mode[]) {
   test(`runner executable failure golden: ${mode}`, async () => {
     const f = await fixture();
     try {
       await wrappers(f.root); await profile(f); f.setMode(mode);
-      const args = argsFor(f, "Hello");
+      const args = [...argsFor(f, "Hello"), ...(mode === "timeout" ? ["--timeout-ms", "150"] : [])];
       const fresh = await runner(f, args);
       expect(fresh.code).toBe(1);
       expect(await exists(path.join(f.root, "out.wav"))).toBe(false);
@@ -74,7 +73,7 @@ test("runner removes intermediate output when breathing throws after a successfu
   const f = await fixture();
   try {
     await wrappers(f.root); await profile(f); f.failAt(3, "timeout");
-    const result = await runner(f, argsFor(f, "First. Second.", "compat-voice"));
+    const result = await runner(f, [...argsFor(f, "First. Second.", "compat-voice"), "--timeout-ms", "150"]);
     expect(result.code).toBe(1);
     expect(await exists(path.join(f.root, "out.wav.breath-0.wav"))).toBe(false);
     expect(await exists(path.join(f.root, "out.wav.cache.json"))).toBe(false);
@@ -107,7 +106,7 @@ test("runner entry root lookup without profile-file environment", async () => {
   try {
     const result = await runner(f, argsFor(f, "Hello", "qwen3-voice"), false);
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain('voice profile "qwen3-voice" reference clip missing on disk:');
+    expect(result.stderr).toContain('voice profile "qwen3-voice" reference clip missing on disk: /absolute/path/to/local/reference.wav');
     expect(result.stderr).not.toContain("is not registered");
     expect(f.requests).toHaveLength(0);
   } finally { await f.close(); }

@@ -62,7 +62,7 @@ export async function wrappers(root: string) {
   for (const name of ["ffmpeg", "ffprobe"]) {
     const real = tool(name);
     const file = path.join(dir, name);
-    await writeFile(file, `#!${process.execPath}\nimport {appendFileSync} from 'node:fs';\nappendFileSync(process.env.COMPAT_ARGV, JSON.stringify({tool:${JSON.stringify(name)},args:process.argv.slice(2)})+'\\n');\nconst child=Bun.spawn([${JSON.stringify(real)},...process.argv.slice(2)],{stdin:'inherit',stdout:'inherit',stderr:'inherit'});\nprocess.exit(await child.exited);\n`);
+    await writeFile(file, `#!${process.execPath}\nimport {appendFileSync} from 'node:fs';\nappendFileSync(process.env.COMPAT_ARGV, JSON.stringify({tool:${JSON.stringify(name)},args:process.argv.slice(2)})+'\\n');\nconst child=Bun.spawn([${JSON.stringify(real)},...process.argv.slice(2)],{stdin:'inherit',stdout:'inherit',stderr:'pipe'});\nconst stderr=await new Response(child.stderr).text(); process.stderr.write(stderr);\nif(process.argv.includes('volumedetect')) appendFileSync(process.env.COMPAT_ARGV+'.volume',Number(stderr.match(/mean_volume:\\s*(-?[0-9.]+)/)?.[1])+'\\n');\nprocess.exit(await child.exited);\n`);
     await chmod(file, 0o755);
   }
   return dir;
@@ -70,6 +70,22 @@ export async function wrappers(root: string) {
 export async function argvLog(root: string) {
   const text = await Bun.file(path.join(root, "argv.jsonl")).text().catch(() => "");
   return text.trim() ? text.trim().split("\n").map(line => JSON.parse(line)) : [];
+}
+// Preserve the executed filter structure without pinning ffmpeg's measured loudness.
+export async function stableArgv(root: string) {
+  const text = await Bun.file(path.join(root, "argv.jsonl.volume")).text();
+  const measurements = text.trim().split("\n").map(Number);
+  const calls = await argvLog(root);
+  const stable = calls.map(call => ({ ...call, args: call.args.map((arg: string) => {
+    const gain = arg.match(/^volume=([^d]+)dB,alimiter=limit=0.95$/);
+    if (!gain) return arg;
+    const measured = measurements.shift();
+    expect(typeof measured).toBe("number"); expect(Number.isFinite(measured)).toBe(true);
+    expect(Number(gain[1])).toBe(-20 - Number(measured));
+    return "volume=$GAIN_FROM_VOLUMEDETECTdB,alimiter=limit=0.95";
+  }) }));
+  expect(measurements).toHaveLength(0);
+  return stable;
 }
 export async function runner(f: Awaited<ReturnType<typeof fixture>>, args: string[], profileFile = true) {
   const child = Bun.spawn([tool("bun"), path.join(repo, "bin/local-tts-runner.ts"), ...args], {

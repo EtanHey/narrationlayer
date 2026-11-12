@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { repo, tool } from "./harness.js";
 const cases = [
+  ["runner-newlines", "bin/local-tts-runner.ts", "      spokenText,\n      sentencePad,", '      spokenText: spokenText.replace(/\\n/g, " "),\n      sentencePad,', "runner executable goldens"],
   ["job-pause", "src/narration-plan.ts", "DEFAULT_SENTENCE_PAUSE_SECONDS = 0.55", "DEFAULT_SENTENCE_PAUSE_SECONDS = 0.56", "job service manifest"],
   ["runner-pause", "bin/local-tts-runner.ts", "resolved.sentencePauseSeconds ?? 0.55", "resolved.sentencePauseSeconds ?? 0.56", "runner executable goldens"],
   ["runner-auth", "bin/local-tts-runner.ts", "Authorization: `Bearer ${opts.authToken}`", '"X-Dropped-Authorization": `Bearer ${opts.authToken}`', "runner executable"],

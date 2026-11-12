@@ -9,13 +9,13 @@ import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
 import { fixture, golden, repo, tool, type Mode } from "./harness.js";
 const commit = "f7faa86717f697bf79847eb981da2c3fb1279b67";
-function config(f: Awaited<ReturnType<typeof fixture>>) {
+function config(f: Awaited<ReturnType<typeof fixture>>, timeoutMs = 10000) {
   return { daemon_url: f.url, auth_token: "synthetic-token", reference_clip: path.join(f.root, "reference.wav"),
-    reference_text: "Synthetic reference.", narrationlayer_commit: commit, profile_id: "compat-voice", profile_version: "synthetic-v1", model: "synthetic-model", timeout_ms: 150,
+    reference_text: "Synthetic reference.", narrationlayer_commit: commit, profile_id: "compat-voice", profile_version: "synthetic-v1", model: "synthetic-model", timeout_ms: timeoutMs,
     // Existing word_timing_provider seam replaces Whisper, keeping real HTTP, audio and repair.
     word_timing_provider: async ({ script, durationSeconds }: { script: string; durationSeconds: number }) => script.split(/\s+/).map((word, index, words) => ({ index, word, start: index * durationSeconds / words.length, end: (index + 1) * durationSeconds / words.length })) };
 }
-const payload = (scripts: string[]) => ({ job_id: "compat-job", renderer: "voicelayer-qwen3", voice_profile: "compat-voice", segments: scripts.map((script, index) => ({ id: `segment-${index}`, title: `Synthetic ${index}`, script })) });
+const payload = (scripts: string[]) => ({ job_id: "compat-job", renderer: "voicelayer-qwen3", voice_profile: "compat-voice", segments: scripts.map((script, index) => ({ id: `segment-${index}`, title: `Synthetic ${index}`, duration_seconds: 12, script })) });
 test("job service manifest, words, requests and planner goldens", async () => {
   const f = await fixture(true);
   const previous = process.env.NARRATIONLAYER_DATA_DIR;
@@ -39,7 +39,7 @@ for (const mode of ["http", "malformed", "timeout"] satisfies Mode[]) {
     try {
       f.setMode(mode); await createJobFromPayload(payload(["Hello"]), f.root);
       let thrown: unknown;
-      try { await renderJob("compat-job", f.root, { qwen: config(f), external: {} }); } catch (error) { thrown = error; }
+      try { await renderJob("compat-job", f.root, { qwen: config(f, mode === "timeout" ? 150 : 10000), external: {} }); } catch (error) { thrown = error; }
       expect(thrown).toBeInstanceOf(Error);
       await golden(`job-${mode}`, f.canonical({ error: thrown instanceof Error ? { name: thrown.name, message: thrown.message } : thrown,
         requests: f.requests, manifest: await getManifest("compat-job", f.root), status: await getStatus("compat-job", f.root) }));

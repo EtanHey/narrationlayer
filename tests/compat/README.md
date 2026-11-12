@@ -18,6 +18,8 @@ MP3 assembly stage uses stream copy. No audio processing is mocked. Only
 `VoiceLayerQwen3Config.word_timing_provider` substitutes synthetic uniform word
 alignment for Whisper; subsequent word repair and persisted words remain real.
 
+Every corpus entry runs through both direct and named-profile invocations;
+requests freeze the whole take and the actual breathing pieces, including newlines.
 The harness contains the canonicalization table. Fixture paths and wall-clock
 fields vary; the ephemeral HTTP origin also needs a stable name. Application
 headers (content type and authorization) are frozen; transport-generated Host
@@ -33,6 +35,16 @@ Output format is separately checked with real ffprobe. The named-profile golden
 covers the env-file profile; a separate invocation unsets that variable and
 requires the root example's qwen3-voice missing-clip failure as a directory
 sentinel. The two-daemon case checks flag/profile precedence with distinct tokens.
+
+Toolchain stability: job fixtures author a 12-second segment duration, so manifest
+and word times do not freeze MP3 frame padding or decoder-specific durations.
+The wrappers record real loudness measurements and assert the executed gain is
+`target - measured`; its golden preserves the filter structure with a measured-gain
+placeholder. WAV format and cache byte equality within the same run remain checked.
+Success requests use a 10-second timeout; only timeout tests use 150 ms.
+Bun AbortError name/message remain frozen. Any golden regeneration after a toolchain
+bump requires a stated reason and a review of the diff; never refresh only to turn
+a failing test green. The only alignment substitution remains word_timing_provider.
 
 Known baseline defects are deliberately preserved: failed attempts retain a
 pre-existing output WAV; a failure during breathing can retain the initial full

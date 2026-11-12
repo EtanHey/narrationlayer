@@ -30,7 +30,7 @@
         "title": "Synthetic 0",
         "script": "Hello",
         "audio_path": "",
-        "duration_seconds": 0,
+        "duration_seconds": 12,
         "words_path": "",
         "status": "failed",
         "error": "Segment segment-0: voicelayer-qwen3 response missing audio_b64"
