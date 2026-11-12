@@ -5,11 +5,16 @@ All voice inputs are generated tones and public synthetic text. Nothing is playe
 Bun, ffmpeg and ffprobe must be on PATH; missing dependencies fail explicitly.
 
 - Run: `bun test tests/compat`
-- There are thirteen `fixtures/*.golden.json` files. The original nine (including
-  `plan-pieces.golden.json`) are frozen. Generate only the four new defaults files:
+- There are thirteen `fixtures/*.golden.json` files, all frozen: the original nine
+  (including `plan-pieces.golden.json`) and the four defaults files, which were
+  written once with
   `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat/runner-defaults.test.ts tests/compat/job-defaults.test.ts`
   (intentionally exits 1 after writing; re-run without the variable to verify;
-  forbidden when CI is set). Do not regenerate the frozen files.
+  forbidden when CI is set). Do not regenerate a frozen file, with one exception:
+  a render-version raise regenerates every runner golden that records a cache key
+  or key preimage (`tests/compat/take-cache-version.test.ts` lists them and prints
+  the command), and each regenerated file may differ from the one before only in
+  key material (the version in each key preimage and the cache keys).
 - Prove sensitivity: `bun tests/compat/mutations.ts`. This sequential command
   temporarily mutates production files, restores them in `finally`, and checks
   FAIL then PASS for each mutation. Do not run other tests concurrently with it.

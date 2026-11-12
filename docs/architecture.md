@@ -163,14 +163,16 @@ plan-pieces golden) over its daemon request bodies, breathing pieces and ffmpeg
 calls, and compares with the current row of
 `tests/compat/fixtures/take-cache-render-versions.json`. It is a tripwire, not a
 judge of audibility. When a case whose key is unchanged moves, someone decides:
-if the audio for that key changed, raise the version (the test prints the three
-files a raise touches); if it did not (independent steps reordered, a temporary
-or preparatory step, a renamed role), re-record the printed entries and add the
-reason, and how it was shown, to the row's `rerecorded` list. A raise is the one
-sanctioned case in which the frozen runner golden is regenerated, and the
-regenerated file may differ from the one before only in key material (the
-version in each key preimage and the cache keys); a diff beyond that is a review
-stop. A case whose key inputs changed (a normalization change, say) asks for
+if the audio for that key changed, raise the version (the test prints the steps:
+set the constant, regenerate every runner golden that records a cache key or key
+preimage, which it lists with the test files that write them, and append a row);
+if it did not (independent steps reordered, a temporary or preparatory step, a
+renamed role), re-record the printed entries and add the reason, and how it was
+shown, to the row's `rerecorded` list. A raise is the one sanctioned case in which
+a frozen golden is regenerated: every runner golden that records a cache key or
+key preimage, and each regenerated file may differ from the one before only in
+key material (the version in each key preimage and the cache keys); a diff
+beyond that is a review stop. A case whose key inputs changed (a normalization change, say) asks for
 its entries to be replaced, not for a raise: its key changed by itself. A new
 golden case is added to the current row without a raise. The table can always be
 edited to agree with the goldens, so review holds the rest:

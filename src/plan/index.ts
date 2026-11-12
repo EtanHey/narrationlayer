@@ -1,4 +1,5 @@
-import { planNarrationUtterances, type NarrationPacingConfig, type PlannedUtterance } from "./utterances.js";
+import type { NarrationPacingConfig } from "../core/render-types.js";
+import { planNarrationUtterances, type PlannedUtterance } from "./utterances.js";
 import { splitForBreathing } from "./breathing.js";
 
 export interface Piece {
