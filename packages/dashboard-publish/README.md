@@ -29,10 +29,17 @@ Both firstInLineage and redesign approvals require nonblank, single-line reason/
 Each answer-runtimes.json entry requires a nonempty consumerMarkers array of nonblank exact substrings. admit() checks those runtime-specific markers together in one served script; missing/invalid marker config refuses ANSWER_RUNTIME_CONFIG, while a missing consumer/status marker refuses PROVIDER_NOT_READY. Both seeded runtime sources subscribe through listen(remote, onStatus, ...); the old literal .onStatus( check falsely refused both. Deprecated status still restricts an entry to an accepted id and is echoed for PASS_DEPRECATED_RUNTIME grading by the delivery validator. Public runtime fixtures are copied from golems with source commits, hashes and the upstream license. Static markers do not replace account proof.
 
 ### Read saved answers
-After `bun install --frozen-lockfile`, run `bun run answers export --dashboard synthetic-page --out /private/report.md --runtime /private/capsule/scripts/publish-runtime.mjs`. Repeat `--dashboard` for multiple pages; optionally repeat `--baseline-dir` to find retained `*artifact.json` files outside the capsule's `.lakebed`.
-`--jobs-dir /private/builds` cross-checks hosted titles against `<id>/job.json` and includes build options for comparison.
-The local untracked publisher module supplies `api` and `deployId` (or set its path with `NARRATIONLAYER_PUBLISH_RUNTIME`). Its capsule needs the Lakebed package, existing developer login and `scripts/publish_readback.py`; deployment identifiers and credentials stay outside this public repository.
-This read-only command reads the database once, checks the publish lock/truncation and binds shells to the hosted artifact hash. It never deploys, mutates, opens a browser or prints answers.
-Private Markdown includes page-order decisions/options, verbatim JSON-encoded values, row timestamps/revisions, unanswered cards, empty/probe markers and unmatched keys. Row timestamps describe a saved field, not individual selections.
-Every card is listed in page order. Radio/checkbox cards count toward option-picked totals; note cards and decision notes count separately as free-text notes. Empty known fields stay under their card as probe keys; unmatched means no card matched. Multiple owners' rows are retained separately.
-Authentication, lock, capped reads, drift or unavailable retained shells fail nonzero without writing a report.
+
+Run from a checkout after `bun install --frozen-lockfile` (including devDependencies):
+
+```sh
+bun run answers export --dashboard synthetic-page --out "$HOME/answers.md" --runtime /path/to/capsule/scripts/publish-runtime.mjs
+```
+
+Needs Node, Python 3 with `bs4` and any other imports used by the local readback, an existing Lakebed developer login, and the capsule layout: `scripts/publish-runtime.mjs`, `scripts/publish_readback.py`, and `node_modules/lakebed/dist/`. Loading the trusted local runtime runs its publisher vendor-manifest check; vendor drift refuses export. The runtime supplies deployment configuration, which stays untracked. Alternatively set `NARRATIONLAYER_PUBLISH_RUNTIME`.
+
+Repeat `--dashboard` for more pages. Retained `*artifact.json` files are searched in the capsule's `.lakebed`; pass `--baseline-dir /path/to/retained-artifacts` for the publisher's optional second baseline directory (not searched automatically). `--jobs-dir /path/to/builds` cross-checks hosted titles with `<id>/job.json`.
+
+The command is read-only: one database read, no deploy, mutation, browser, lock write or answers on stdout. Reports are atomically replaced with mode 0600; symlink outputs and invalid parents refuse before authentication. Fixed refusal messages distinguish login, runtime, vendor drift, manifest drift and missing retained artifacts without exposing SDK messages.
+
+Every card appears in page order. Option picks, free-text notes and note-only decisions have separate counts. Checkbox indices map to labels. Multiple owners have separate groups labelled by short hashes; a single owner is identified once per page. Served metadata is escaped; values are JSON in fenced blocks. Empty card fields are labelled as probe keys. Unmatched keys appear separately; app bookkeeping lists only keys and revisions. Row timestamps describe saved fields, not individual selections.
