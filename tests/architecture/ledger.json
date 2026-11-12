@@ -9,6 +9,12 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/pipelines/local-tts/failure.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
+    "src/pipelines/local-tts/loudness.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
+    "src/pipelines/local-tts/breathing.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
+    "src/pipelines/local-tts/synthesis.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
+    "src/pipelines/local-tts/index.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
+    "src/audio/ffmpeg-run.ts": { "layer": 2, "area": "audio", "owner": "P1.7c" },
     "src/api/index.ts": { "layer": "api", "area": "api", "owner": "P1.5" },
     "scripts/dev/snapshot-surface.ts": { "layer": 5, "area": "dev", "exempt": "named exemption: scripts/" },
     "src/plan/utterances.ts": { "layer": 1, "area": "plan", "owner": "P1.4" },

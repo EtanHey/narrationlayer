@@ -54,12 +54,12 @@ A file's layer is its row in `tests/architecture/ledger.json`, not its folder.
 | 0 core | core | `src/core/render-types.ts` (pacing, renderer-config, audio-chunk and word-timing-result shapes), `src/schema.ts` (job, manifest, words shapes; `parseNarrationJob`, `parsePathId`), `src/path-safety.ts` (`resolveWithinRoot`), `src/profile-renderer-types.ts` (legacy re-export) |
 | 1 text, plan | text | `src/text-normalize.ts`: display text to spoken text (`TERM_MAP`, pronunciation rules, speech aliases) |
 | | plan | `src/plan/index.ts` (`Piece`, `utterancesV1`, `breathingV1`, the two legacy-shape adapters), `src/plan/utterances.ts` (job cutter), `src/plan/breathing.ts` (runner cutter), `src/narration-plan.ts` (legacy re-export) |
-| 2 backends, audio, timing | backends | `src/backends/qwen3-daemon.ts`: the Qwen3 daemon transport only: POST of a caller-given URL and body, bearer header, timeout, HTTP status check, JSON parse and `audio_b64` check, typed `Qwen3DaemonError`. It never builds the `/synthesize` URL or the request body; the two callers do (see the render paths below) |
-| | audio | `src/audio.ts` (ffmpeg and ffprobe calls: trim, EQ, assemble with silence, probe duration, detect silences), `src/audio/ffmpeg-args.ts` (the runner's ffmpeg argv builders) |
+| 2 backends, audio, timing | backends | `src/backends/qwen3-daemon.ts`: the Qwen3 daemon transport only: POST of a caller-given URL and body, bearer header, timeout, HTTP status check, JSON parse and `audio_b64` check, typed `Qwen3DaemonError`. It never builds the `/synthesize` URL or the request body; `src/pipelines/job-render/synthesis.ts` and `src/pipelines/local-tts/synthesis.ts` do (see the render paths below) |
+| | audio | `src/audio.ts` (ffmpeg and ffprobe calls: trim, EQ, assemble with silence, probe duration, detect silences), `src/audio/ffmpeg-args.ts` (the runner's ffmpeg argv builders), `src/audio/ffmpeg-run.ts` (the runner's ffmpeg execution and volume measurement) |
 | | timing | `src/word-timings.ts` (whisper-cli word timings), `src/word-timing-repair.ts` (align timings to the script), `src/timing/returned-timings.ts` (timings a daemon returns), `src/timing/script-words.ts` (script to words) |
-| 3 pipelines | pipelines | `src/pipelines/job-render/index.ts` (the Qwen3 job renderer's stages), `…/job-render/synthesis.ts` (one synthesis call and the generated-chunk duration guard), `…/job-render/config.ts` (auth token, reference clip and text), `src/pipelines/job-render-provenance.ts` (commit and reference-clip hash), `src/pipelines/local-tts/take-cache.ts` (runner cache key and receipt), `src/renderers/fake.ts`, `src/renderers/external-command.ts`, `src/renderers/types.ts` (renderer interface), `src/renderers/voicelayer-qwen3.ts` (legacy re-export) |
+| 3 pipelines | pipelines | `src/pipelines/job-render/index.ts` (the Qwen3 job renderer's stages), `…/job-render/synthesis.ts` (one synthesis call and the generated-chunk duration guard), `…/job-render/config.ts` (auth token, reference clip and text), `src/pipelines/job-render-provenance.ts` (commit and reference-clip hash), `src/pipelines/local-tts/index.ts` (resolved-config runner orchestration), `…/local-tts/synthesis.ts` (daemon call and runner error translation), `…/local-tts/failure.ts` (former exit failures), `…/local-tts/breathing.ts` (per-piece synthesis and assembly), `…/local-tts/loudness.ts` (normalization stage), `…/local-tts/take-cache.ts` (runner cache key and receipt), `src/renderers/fake.ts`, `src/renderers/external-command.ts`, `src/renderers/types.ts` (renderer interface), `src/renderers/voicelayer-qwen3.ts` (legacy re-export) |
 | 4 service | service | `src/service.ts` (job lifecycle shared by CLI and MCP), `src/job-store.ts` (job folders, status, manifest, DONE/FAILED markers), `src/profiles.ts` (profile files and profile-to-config), `src/bakeoff.ts`, `src/qwen3-lora.ts` |
-| 5 surfaces | surfaces | `src/cli.ts`, `src/mcp-server.ts`, `src/contract.ts` (MCP tool contract), `bin/local-tts-runner.ts` (argv and the whole local-TTS orchestration, see the runner path), `bin/narration-gate.ts`, `src/dashboard.ts`, `src/teleprompter.ts` |
+| 5 surfaces | surfaces | `src/cli.ts`, `src/mcp-server.ts`, `src/contract.ts` (MCP tool contract), `bin/local-tts-runner.ts` (argv, profile and auth resolution, summaries and process exits, see the runner path), `bin/narration-gate.ts`, `src/dashboard.ts`, `src/teleprompter.ts` |
 | | dev | `scripts/dev/boundaries.ts`, `scripts/dev/snapshot-exports.ts`, `scripts/dev/snapshot-surface.ts` |
 | api | api | `src/api/index.ts` |
 
@@ -125,11 +125,9 @@ one is passed, and renders each segment with the job's renderer. For
 (`src/job-store.ts`).
 
 Runner path: `bin/local-tts-runner.ts` (`main`, public as `runLocalTtsCli`)
-renders one text to one WAV. The orchestration below (argv and profile
-resolution, the synthesis call, the ffmpeg spawns, the breathing stage, loudness,
-the render sequence) lives in the bin itself; `src/pipelines/local-tts/` holds
-only the take cache. A slice in flight (P1.7c) moves the orchestration into that
-folder.
+resolves argv, profiles and auth, then calls `renderLocalTts`
+(`src/pipelines/local-tts/index.ts`) to render one text to one WAV. The pipeline
+returns a typed cache-hit or rendered result; the entry prints the summary and exits.
 
 `main` ends the process with `process.exit`: exit 0 on success, on a cache hit
 and on `--help`; exit 1 on every error it reports through its `fail()` helper
@@ -141,13 +139,13 @@ must not call it in its own process; it runs it in a child process.
 
 1. argv; clear the take-cache receipt (`src/pipelines/local-tts/take-cache.ts`)
 2. reference: a profile name (`src/profiles.ts`: `profiles.example.yaml` and `profiles.local.yaml` in the runner's parent directory, plus `NARRATIONLAYER_PROFILES_FILE`) or a direct clip path; read the auth token file
-3. spoken text: the injected speech preparation, default `prepareSpeechChannels` (`src/text-normalize.ts`)
+3. pipeline spoken text: the injected speech preparation, default `prepareSpeechChannels` (`src/text-normalize.ts`)
 4. cache: `computeContentHashKey`; when caching is on (the default; `--no-cache` turns it off) and the key's WAV exists, copy it, write `.spoken.txt` and the receipt, stop
-5. synthesis of the whole text: the bin's own `synthesize` builds the `/synthesize` URL and the request body and calls `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`)
-6. ffmpeg to mono s16 WAV with optional high-shelf EQ (argv from `src/audio/ffmpeg-args.ts`)
-7. breathing, when the profile sets a sentence or comma pause: `breathingV1` (`src/plan/`); with two or more pieces, each piece is synthesized again, converted, tempo-adjusted when `atempo` is set, and concatenated with PCM silence pads
+5. synthesis of the whole text: `synthesize` (`src/pipelines/local-tts/synthesis.ts`) builds the `/synthesize` URL and the request body and calls `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`)
+6. ffmpeg to mono s16 WAV with optional high-shelf EQ (`src/audio/ffmpeg-run.ts`, argv from `src/audio/ffmpeg-args.ts`)
+7. breathing (`src/pipelines/local-tts/breathing.ts`), when the profile sets a sentence or comma pause: `breathingV1` (`src/plan/`); with two or more pieces, each piece is synthesized again, converted, tempo-adjusted when `atempo` is set, and concatenated with PCM silence pads
 8. tempo (`atempo`) when breathing did not assemble
-9. loudness normalization when a target is set
+9. loudness normalization (`src/pipelines/local-tts/loudness.ts`) when a target is set
 10. `.spoken.txt` and the receipt written; when caching is on, the take is copied into the cache, and a failed copy is logged, not an error
 
 ## Legacy paths
@@ -175,10 +173,10 @@ Every new file gets a ledger row (layer, area, owner).
   - the `isRenderer` lists in `src/profiles.ts` and `src/bakeoff.ts`, and a profile-to-config function in `src/profiles.ts` (like `qwenConfigFromProfile`);
   - in `src/service.ts`, a field in `RendererRuntimeConfig`, its fill in `getRendererConfigFromEnv` and `getRendererConfigForVoiceProfile`, and a branch in `renderJob`;
   - a type re-export in `src/api/index.ts` for the new config type and any other repo type it newly makes public: `RendererRuntimeConfig` is public, and `tests/api/surface.test.ts` fails, and `bun scripts/dev/snapshot-surface.ts --update` refuses to write, while a public declaration names an unexported repo type;
-  - the runner path, if the runner is to use it: `bin/local-tts-runner.ts` calls `synthesizeQwen3` with its own body;
+  - the runner path, if the runner is to use it: `src/pipelines/local-tts/synthesis.ts` calls `synthesizeQwen3` with its own body;
   - `tests/architecture/daemon-client.test.ts`, which fails by design for a second HTTP transport module and must be changed on purpose;
   - then the public surface snapshot (`bun scripts/dev/snapshot-surface.ts --update`, with the reason in the PR), because `RendererName` and `RendererRuntimeConfig` are public.
-- A new audio step: argv builders in `src/audio/ffmpeg-args.ts`, ffmpeg calls in `src/audio.ts`.
+- A new audio step: argv builders in `src/audio/ffmpeg-args.ts`, ffmpeg calls in `src/audio.ts` or `src/audio/ffmpeg-run.ts`.
 - A new timing step: `src/timing/`.
 - A new planning policy: `src/plan/`, returning `Piece[]`, exported from `src/plan/index.ts`.
 - A new spoken-form rule: `src/text-normalize.ts`.
