@@ -19,8 +19,13 @@ Bun, ffmpeg and ffprobe must be on PATH; missing dependencies fail explicitly.
   ffmpeg is unpinned. A frozen file is regenerated only when the code
   behind it changed on purpose, in this sequence:
   1. change the code;
-  2. regenerate the goldens that show the change, with the reason and the diff in
-     the PR: that behaviour diff is the review item;
+  2. regenerate all the goldens the harness writes, with
+     `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat` (it exits 1 after writing),
+     then run `bun test tests/compat` without the variable; that rewrites twelve of
+     the thirteen files, the keyed runner goldens included, and only those the
+     change touches differ. `plan-pieces.golden.json` has no writer: if the change
+     moves its rows, its test fails and the rows are edited by hand. That complete
+     behaviour diff, with the reason, goes in the PR: it is the review item;
   3. run `bun test`: `tests/compat/take-cache-version.test.ts` then asks for a
      render-version raise or an attested re-record (if it asks for neither but the
      runner's cutting, pauses or ffmpeg chain changed audibly, raise anyway: the

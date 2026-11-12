@@ -150,8 +150,9 @@ const raiseSteps = (version: number) => [
   `     Regenerate them with`,
   `       UPDATE_COMPAT_GOLDENS=1 bun test ${[...new Set(KEYED_RUNNER_GOLDENS.map(g => g.writtenBy))].join(" ")}`,
   `     (it exits 1 after writing), then run the same command again without the variable.`,
-  `     This is the one sanctioned regeneration of these frozen goldens: each regenerated file may differ from the one before it`,
-  `     only in key material (the renderVersion in each keyPreimage and each receipt cacheKey). Any other diff, in these files or`,
+  `     This is the raise's own regeneration; it comes after the behaviour regeneration in tests/compat/README.md, so each`,
+  `     regenerated file may differ from the one before it only in key material (the renderVersion in each keyPreimage and each`,
+  `     receipt cacheKey). Any other diff, in these files or`,
   `     in any other golden the command rewrites, is a review stop.`,
   `  3. ${TABLE}: append this row, with the reason filled in:`,
   JSON.stringify({
