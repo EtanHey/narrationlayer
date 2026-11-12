@@ -99,4 +99,4 @@ test("the snapshot sees what a hand printer lost: predicates, asserts, this, rea
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 60_000);

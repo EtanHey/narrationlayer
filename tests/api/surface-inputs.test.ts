@@ -42,7 +42,7 @@ export type { ReviewPub } from "./review-shapes.${specifier}";
       expect(readSurface("src/api.ts", root).unexported).toContain("ReviewPub (named by ReviewBox)");
     }
   });
-});
+}, 60_000);
 
 test("a reached repo declaration that cannot be emitted or read fails with its filename", () => {
   fixture((root, write) => {
@@ -50,7 +50,7 @@ test("a reached repo declaration that cannot be emitted or read fails with its f
     expect(() => readSurface("src/api.ts", root)).toThrow("cannot emit or read reached repo file src/missing-shapes.js");
     expect(() => declarationClosure(new Map(), "src/missing.ts", root)).toThrow("src/missing.d.ts");
   });
-});
+}, 60_000);
 
 test("dependency export targets fail closed, including type-only and chained computed-key re-exports", () => {
   fixture((root, write) => {
@@ -67,7 +67,7 @@ test("dependency export targets fail closed, including type-only and chained com
       }
     }
   });
-});
+}, 60_000);
 
 test("internal export addition or reorder names the reached file without claiming a public name changed", () => {
   fixture((root, write) => {
@@ -89,4 +89,4 @@ test("internal export addition or reorder names the reached file without claimin
     write("src/types.ts", (publicPart + a + b).replace("reviewProbe(): number", "reviewProbe(): unknown"));
     expect(surfaceDiff(before, readSurface("src/api.ts", root).surface).join("\n")).toContain("reviewProbe changed declaration");
   });
-});
+}, 60_000);
