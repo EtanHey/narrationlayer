@@ -52,7 +52,9 @@ alignment substitution remains word_timing_provider.
 Known baseline defects are deliberately preserved: failed attempts retain a
 pre-existing output WAV; a failure during breathing can retain the initial full
 take. HTTP failures call `process.exit`, bypassing intermediate-file cleanup;
-abort exceptions do run cleanup. Receipts are removed before a new attempt.
+abort exceptions do run cleanup.
+The HTTP breathing intermediate is frozen as-is, so the daemon-client slice must
+change it deliberately. Receipts are removed before a new attempt.
 The cleanup mutation leaves a breathing intermediate WAV after an abort and must
 fail its executable test. Fixing stale final output needs a separate change.
 
@@ -67,11 +69,11 @@ Timeout classification accepts only the exact known abort diagnostic; unrelated
 errors mentioning abort remain intact.
 
 The job golden passes its data directory explicitly and never changes TMPDIR or
-NARRATIONLAYER_DATA_DIR. Assembly temp paths are canonicalized in full to
-$ASSEMBLY_n; the job golden was regenerated for this path-only change. PATH and
+NARRATIONLAYER_DATA_DIR. Only os.tmpdir() and its realpath assembly roots become
+$TMPDIR/$ASSEMBLY_n, preserving temp-directory location in argv and concat. PATH and
 COMPAT_ARGV remain process-global only around renderJob because the service/audio
-API has no subprocess env argument. Auth fallback env variables are similarly
-scoped to config resolution and renderJob; every changed key is restored in
+API has no subprocess env argument. The whole NARRATIONLAYER_QWEN3_ env family
+and auth fallback variables are similarly scoped to config resolution and renderJob; every changed key is restored in
 finally before fixture deletion. Commit/profile discovery tests also retain their
 narrow, restored env overrides. Run compat tests sequentially: concurrent tests
 in the same process can still observe these unavoidable global overrides.

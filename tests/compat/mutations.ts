@@ -25,6 +25,8 @@ const cases = [
   ["job-env-auth_token", "src/service.ts", "process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN ?? overrides.auth_token", "overrides.auth_token ?? process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN", "job service daemon auth"],
   ["job-env-auth_token_file", "src/service.ts", "process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE ?? overrides.auth_token_file", "overrides.auth_token_file ?? process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE", "job service daemon auth"],
   ["stderr-abort-class", "tests/compat/harness.ts", "The operation was aborted\\.(?=\\r?$)", "[^\\n]*abort[^\\n]*", "stderr timeout classification"],
+  ["job-assembly-dir", "src/audio.ts", "path.join(os.tmpdir(), \"narrationlayer-audio-\")", "path.join(path.dirname(outputPath), \"narrationlayer-audio-\")", "job service manifest"],
+  ["runner-http-exit", "bin/local-tts-runner.ts", "fail(\n      `daemon /synthesize failed", "throw new Error(\n      `daemon /synthesize failed", "runner HTTP failure during breathing"],
 ] satisfies string[][];
 await mkdir(path.join(repo, "docs.local/characterization"), { recursive: true });
 for (const [name, relative, before, after, pattern] of cases) {

@@ -38,6 +38,7 @@ test("runner executable goldens: direct reference, named profile, cache, real to
         const volume = Bun.spawnSync([tool("ffmpeg"), "-i", path.join(f.root, "out.wav"), "-af", "volumedetect", "-f", "null", "-"]);
         expect(volume.exitCode).toBe(0);
         const mean = Number(volume.stderr.toString().match(/mean_volume:\s*(-?[0-9.]+)/)?.[1]);
+        expect(Number.isFinite(mean), "volumedetect must report a numeric mean_volume").toBe(true);
         expect(Math.abs(mean - (-20))).toBeLessThanOrEqual(1);
       }
       await unlink(path.join(f.root, "out.wav.spoken.txt"));
@@ -89,6 +90,19 @@ test("runner removes intermediate output when breathing throws after a successfu
     expect(await exists(path.join(f.root, "out.wav"))).toBe(true);
   } finally { await f.close(); }
 });
+test("runner HTTP failure during breathing leaves the baseline intermediate file", async () => {
+  const f = await fixture();
+  try {
+    await wrappers(f.root); await profile(f); f.failAt(3, "http");
+    const result = await runner(f, argsFor(f, "First. Second.", "compat-voice"));
+    expect(result.code).toBe(1);
+    expect(stderrClass(result.stderr)).toBe("daemon /synthesize failed (500): synthetic failure");
+    expect(f.requests).toHaveLength(3);
+    expect(await exists(path.join(f.root, "out.wav.breath-0.wav"))).toBe(true);
+    expect(await exists(path.join(f.root, "out.wav.cache.json"))).toBe(false);
+    expect(await exists(path.join(f.root, "out.wav"))).toBe(true);
+  } finally { await f.close(); }
+}, 30000);
 test("named profile keeps absent-field flags and overrides them when daemon and token are set", async () => {
   const cli = await fixture(); const selected = await fixture();
   try {

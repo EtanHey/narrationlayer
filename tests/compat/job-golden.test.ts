@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, realpath } from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import { createJobFromPayload, renderJob, getRendererConfigFromEnv } from "../../src/service.js";
 import { getManifest, getStatus, pathsForJob } from "../../src/job-store.js";
 import { renderSegment } from "../../src/renderers/voicelayer-qwen3.js";
@@ -8,6 +9,7 @@ import { planNarrationUtterances } from "../../src/narration-plan.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
 import { fixture, golden, repo, wrappers, argvLog, tool, withEnv, type Mode } from "./harness.js";
+const cleanQwenEnv = () => Object.fromEntries(Object.keys(process.env).filter(key => key.startsWith("NARRATIONLAYER_QWEN3_")).map(key => [key, undefined]));
 const commit = "f7faa86717f697bf79847eb981da2c3fb1279b67";
 function config(f: Awaited<ReturnType<typeof fixture>>, timeoutMs = 10000) {
   return { daemon_url: f.url, auth_token: "synthetic-token", reference_clip: path.join(f.root, "reference.wav"),
@@ -27,8 +29,11 @@ test("job service manifest, words, requests and planner goldens", async () => {
     const words = await Promise.all(result.manifest.segments.map(async segment => JSON.parse(await readFile(segment.words_path, "utf8"))));
     const spoken = await Promise.all(result.manifest.segments.map(segment => readFile(`${segment.audio_path}.spoken.txt`, "utf8")));
     const temporaries = new Map<string, string>();
-    const argv = JSON.parse(JSON.stringify(f.canonical(await argvLog(f.root))).replace(/[^"\\' ]*\/narrationlayer-audio-[A-Za-z0-9]+/g, name => {
-      if (!temporaries.has(name)) temporaries.set(name, `$ASSEMBLY_${temporaries.size}`);
+    let trace = JSON.stringify(f.canonical(await argvLog(f.root)));
+    for (const root of new Set([await realpath(os.tmpdir()), os.tmpdir()]))
+      trace = trace.replaceAll(JSON.stringify(path.join(root, "narrationlayer-audio-")).slice(1, -1), "$TMPDIR/narrationlayer-audio-");
+    const argv = JSON.parse(trace.replace(/\$TMPDIR\/narrationlayer-audio-[A-Za-z0-9]+/g, name => {
+      if (!temporaries.has(name)) temporaries.set(name, `$TMPDIR/$ASSEMBLY_${temporaries.size}`);
       return temporaries.get(name) ?? name;
     }));
     await golden("job", f.canonical({ argv, requests: f.requests, manifest: await getManifest("compat-job", dataDir), status: await getStatus("compat-job", dataDir), words, spoken,
@@ -70,26 +75,26 @@ test("real commit discovery and job/segment confinement remain active", async ()
 
 test("job service probes unauthored duration from the produced file", async () => {
   const f = await fixture(true);
-  const ffprobe = tool("ffprobe");
   try {
+    const ffprobe = tool("ffprobe");
     await createJobFromPayload({ ...payload([]), segments: [{ id: "probe", title: "Synthetic", script: "One sentence. Another sentence. A final sentence." }] }, f.root);
-    const result = await renderJob("compat-job", f.root, { qwen: config(f), external: {} });
+    const result = await withEnv(cleanQwenEnv(), () => renderJob("compat-job", f.root, { qwen: config(f), external: {} }));
     const segment = result.manifest.segments[0];
     const own = Bun.spawnSync([ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nokey=1:noprint_wrappers=1", segment.audio_path]);
     expect(own.exitCode).toBe(0);
     expect(segment.duration_seconds).toBe(Number(Number(own.stdout.toString()).toFixed(3)));
   } finally { await f.close(); }
-});
+}, 30000);
 
 test("job service daemon auth fallback and env precedence", async () => {
   const f = await fixture(true);
-  const other = await fixture(true);
-  const secret = path.join(f.root, "secret-token");
-  const legacy = path.join(f.root, "legacy-token");
-  const envFile = path.join(f.root, "env-token");
-  const clean = { NARRATIONLAYER_QWEN3_DAEMON_URL: undefined, NARRATIONLAYER_QWEN3_AUTH_TOKEN: undefined,
-    NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE: undefined, VOICELAYER_TTS_DAEMON_SECRET_FILE: undefined, VOICELAYER_TTS_AUTH_TOKEN_FILE: undefined };
+  let other: Awaited<ReturnType<typeof fixture>> | undefined;
   try {
+    other = await fixture(true);
+    const secret = path.join(f.root, "secret-token");
+    const legacy = path.join(f.root, "legacy-token");
+    const envFile = path.join(f.root, "env-token");
+    const clean = { ...cleanQwenEnv(), VOICELAYER_TTS_DAEMON_SECRET_FILE: undefined, VOICELAYER_TTS_AUTH_TOKEN_FILE: undefined };
     await writeFile(secret, " secret-token \n"); await writeFile(legacy, "legacy-token\n"); await writeFile(envFile, "env-file-token\n");
     await createJobFromPayload(payload(["Hello"]), f.root);
     const run = async (env: Record<string, string | undefined>, overrides: Parameters<typeof getRendererConfigFromEnv>[0], token: string) => {
@@ -115,5 +120,5 @@ test("job service daemon auth fallback and env precedence", async () => {
     await run({ ...fallbacks, NARRATIONLAYER_QWEN3_DAEMON_URL: f.url, NARRATIONLAYER_QWEN3_AUTH_TOKEN: "env-token", NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE: envFile },
       { daemon_url: other.url, auth_token: "config-token", auth_token_file: path.join(f.root, "auth") }, "env-token");
     expect(f.requests).toHaveLength(6); expect(other.requests).toHaveLength(0);
-  } finally { await f.close(); await other.close(); }
-});
+  } finally { await Promise.all([f.close(), other?.close()]); }
+}, 30000);
