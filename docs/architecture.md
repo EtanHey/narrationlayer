@@ -18,8 +18,9 @@ Renderers are adapter-based:
 ## Public surface
 
 `src/api/index.ts` is the package's front door: `package.json` `exports["."]`
-points at it. It holds named re-exports only. A name is in it because an outside
-consumer uses it, or because a public signature names it.
+points at it. It holds named re-exports only: 21 runtime values and 35 types. A
+name is in it because an outside consumer uses it, or because a public declaration
+names it.
 
 | Group | Names |
 |---|---|
@@ -30,9 +31,13 @@ consumer uses it, or because a public signature names it.
 | Local TTS | `runLocalTtsCli` (the runner's `main`: reads `process.argv`, takes an optional speech-preparation callback), `computeContentHashKey`, `writeTakeCacheReceipt`, `clearTakeCacheReceipt`, `CacheKeyParams`, `SpeechPreparation` |
 | Teleprompter | `renderTeleprompterMarkup`, `teleprompterRuntimeScript`, `TeleprompterPayload`, `TeleprompterSegment` |
 
-`tests/api/surface.snapshot.generated.json` records every public name, its kind
-(value, type or both) and its signature as the TypeScript checker prints it,
-with a sha256 over all of them. To change the surface on purpose:
+`tests/api/surface.snapshot.generated.json` holds a sha256 over the compiler's own
+declaration output (`--declaration --emitDeclarationOnly`, in memory) for
+`src/api/index.ts` and every repo `.d.ts` its declarations reach, in sorted order
+with repo-relative paths. That hash decides. Next to it are each file's hash and
+each public name's kind and emitted declaration, which name what changed when the
+test fails. A public declaration may name only public repo types, TypeScript's
+library types, and Bun and `node:` types. To change the surface on purpose:
 `bun scripts/dev/snapshot-surface.ts --update`, and give the reason in the PR.
 
 `package.json` `exports` also lists every legacy module (below) as a subpath
@@ -65,9 +70,9 @@ Named exemptions (a ledger `exempt` instead of an owner slice): `bin/narration-g
 
 | Rule | Enforced by |
 |---|---|
-| A file imports only from its own layer or lower layers. Every form counts: `import`, `import type`, `export … from`, `import("…")` types, dynamic `import()`, `require()`. | `tests/architecture/boundaries.test.ts` (`scripts/dev/boundaries.ts`) |
+| A file imports only from its own layer or lower layers. Every form counts: `import`, `import type`, `export … from`, `import("…")` types, dynamic `import()`, `require()`; and every spelling of a repo file: relative, absolute, `file:` URL, or the package's own name resolved through `exports`. | `tests/architecture/boundaries.test.ts` (`scripts/dev/boundaries.ts`) |
 | At layer 2, backends, audio and timing never import each other. | same |
-| Nothing under `src/`, `bin/` or `scripts/` imports `src/api/`. Tests may. | same (`via-api`) |
+| Nothing under `src/`, `bin/` or `scripts/` imports `src/api/`, by path or as `narrationlayer`. Tests may. | same (`via-api`) |
 | Every tracked `.ts` file under `src/`, `bin/` and `scripts/` has one ledger row; every relative import resolves to a tracked file. | same |
 | `tests/architecture/baseline.json` lists tolerated violations; it is empty and may only shrink. | same |
 | `src/cli.ts`, `src/mcp-server.ts`, `bin/local-tts-runner.ts`, `bin/narration-gate.ts` keep their `import.meta.main` block; the runner keeps `path.resolve(import.meta.dir, "..")`. | same |
@@ -76,7 +81,7 @@ Named exemptions (a ledger `exempt` instead of an owner slice): `bin/narration-g
 | Functions moved out of the runner are declared once, in their library module. | `tests/architecture/runner-split.test.ts` |
 | Both planning policies return the one `Piece` type. | `tests/architecture/plan-type.test.ts` (under `tsc`) |
 | Every legacy module path, exported name and its meaning (value or type) still resolves. | `tests/compat/legacy-paths.test.ts` |
-| The public surface matches its snapshot; every repo type a public signature names is public; `src/api/index.ts` holds named re-exports only. | `tests/api/surface.test.ts` |
+| The public surface matches its snapshot (declaration-output hash); every repo type a public declaration names is public; no public declaration names a third-party package type; `src/api/index.ts` holds named re-exports only. | `tests/api/surface.test.ts` |
 | `exports` is exactly the front door, `package.json` and the legacy modules; by package name the front door and legacy subpaths resolve and no other module does. | `tests/api/exports.test.ts` |
 | MCP tool names and input schemas, CLI verbs and the `bin` map are frozen; the MCP server answers `initialize` and `tools/list` over stdio; `bun build src/cli.ts` succeeds. | `tests/compat/surfaces.test.ts`, `tests/mcp-contract.test.ts` |
 | Daemon requests, files written, ffmpeg argv, exit codes and errors of both render paths match goldens. | `tests/compat/job-golden.test.ts`, `tests/compat/runner-executable.test.ts`, `tests/compat/plan-pieces.test.ts`, `tests/compat/daemon-observables.test.ts`; sensitivity: `bun tests/compat/mutations.ts` |
@@ -99,12 +104,11 @@ one is passed, and renders each segment with the job's renderer. For
 1. spoken text: `normalizeForSpeech` (`src/text-normalize.ts`)
 2. config: auth token, reference clip and text (`src/pipelines/job-render/config.ts`)
 3. plan: `utterancesV1`, adapted to the legacy utterance shape (`src/plan/`)
-4. synthesis per utterance: `synthesizeText` (`src/pipelines/job-render/synthesis.ts`) over `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`); a chunk that fails the duration guard is retried up to `max_chunk_retries`
-5. per chunk: silence trim (or `audio_postprocessor`), high-shelf EQ when configured (`src/audio.ts`)
-6. assembly with silence pads when there is more than one utterance or a pause (or `audio_assembler`)
-7. duration: `probeAudioDurationSeconds` (or `audio_duration_probe`)
-8. word timings: from the daemon response (`src/timing/returned-timings.ts`), else `word_timing_provider`, else whisper-cli when `timing_backend` is `whisper-cli` (`src/word-timings.ts`); then repair against the script (`src/word-timing-repair.ts`); `words.json` written
-9. provenance: profile, model, commit and reference-clip hash (`src/pipelines/job-render-provenance.ts`)
+4. per utterance, inside a retry loop of up to `max_chunk_retries` extra attempts: synthesis with `synthesizeText` (`src/pipelines/job-render/synthesis.ts`) over `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`); silence trim (or `audio_postprocessor`) when `trim_silence` is true; high-shelf EQ when configured (`src/audio.ts`); then the duration guard `assertGeneratedChunkDuration`, whose runaway-chunk error starts the next attempt
+5. assembly with silence pads (or `audio_assembler`) when there is more than one utterance or a pause; the spoken text is written to `<audio>.spoken.txt`
+6. duration: the segment's authored `duration_seconds` when set, else `probeAudioDurationSeconds` (or `audio_duration_probe`), else the sum of the daemon-reported durations and pauses, else 0
+7. word timings: from the daemon response when the segment was not assembled (`src/timing/returned-timings.ts`); when that gives none, either `word_timing_provider` if configured or, otherwise, whisper-cli when `timing_backend` is `whisper-cli` (`src/word-timings.ts`), never both; repair against the script (`src/word-timing-repair.ts`) only when there are timings and the script differs from the spoken text or `repair_word_timings` (default: true when `timing_backend` is `whisper-cli`) asks for it; `words.json` written
+8. provenance: profile, model, commit and reference-clip hash (`src/pipelines/job-render-provenance.ts`)
 
 `renderJob` then writes the manifest and status and the DONE or FAILED marker
 (`src/job-store.ts`).
@@ -115,13 +119,13 @@ renders one text to one WAV:
 1. argv; clear the take-cache receipt (`src/pipelines/local-tts/take-cache.ts`)
 2. reference: a profile name (`src/profiles.ts`: `profiles.example.yaml` and `profiles.local.yaml` in the runner's parent directory, plus `NARRATIONLAYER_PROFILES_FILE`) or a direct clip path; read the auth token file
 3. spoken text: the injected speech preparation, default `prepareSpeechChannels` (`src/text-normalize.ts`)
-4. cache: `computeContentHashKey`; on a HIT copy the frozen WAV, write `.spoken.txt` and the receipt, stop
+4. cache: `computeContentHashKey`; when caching is on (the default; `--no-cache` turns it off) and the key's WAV exists, copy it, write `.spoken.txt` and the receipt, stop
 5. synthesis of the whole text: `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`)
 6. ffmpeg to mono s16 WAV with optional high-shelf EQ (argv from `src/audio/ffmpeg-args.ts`)
 7. breathing, when the profile sets a sentence or comma pause: `breathingV1` (`src/plan/`); with two or more pieces, each piece is synthesized again, converted, tempo-adjusted when `atempo` is set, and concatenated with PCM silence pads
 8. tempo (`atempo`) when breathing did not assemble
 9. loudness normalization when a target is set
-10. `.spoken.txt`, the receipt, and the frozen take stored in the cache
+10. `.spoken.txt` and the receipt written; when caching is on, the take is copied into the cache, and a failed copy is logged, not an error
 
 ## Legacy paths
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // Import ratchet for invariant I-D. Every import form in a file under src/, bin/ or scripts/ is one edge from that
-// file to the file it names; both ends are mapped through tests/architecture/ledger.json and layer-checked.
+// file to the file it names (relative, absolute, or the package's own name through package.json `exports`); both ends are mapped through tests/architecture/ledger.json and layer-checked.
 // There is no forwarding exemption: a legacy file that re-exports from a new home is checked against that home.
 //   bun scripts/dev/boundaries.ts            print current violations and their diff to the baseline
 //   bun scripts/dev/boundaries.ts --update   rewrite baseline.json; refuses if it would add an entry
@@ -8,6 +8,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 export const ROOT = path.resolve(import.meta.dir, "..", "..");
@@ -18,8 +19,9 @@ const IN_SCOPE = /^(src|bin|scripts)\/.*(?<!\.d)\.ts$/; // declaration files are
 /** One row per file: layer, area, owner slice XOR exemption; `entry` lists markers an entry file must keep. */
 export type LedgerEntry = { layer: 0 | 1 | 2 | 3 | 4 | 5 | "api"; area: string; entry?: string[]; owner?: string; exempt?: string };
 export type Ledger = { layers: Record<string, string>; files: Record<string, LedgerEntry> };
-/** The in-scope files to check, every tracked path (imports resolve only to these, by exact string), and a reader. */
-export type Repo = { files: string[]; tracked: Set<string>; read: (file: string) => string | undefined };
+/** The in-scope files to check, every tracked path (imports resolve only to these, by exact string), a reader, and the
+ * checkout's absolute root (for absolute-path specifiers). */
+export type Repo = { files: string[]; tracked: Set<string>; read: (file: string) => string | undefined; root?: string };
 
 export function readJson<T>(file: string): T {
   return JSON.parse(readFileSync(file, "utf8")) as T;
@@ -32,7 +34,7 @@ export function diskRepo(root = ROOT): Repo {
   const isFile = (f: string) => existsSync(path.join(root, f)) && statSync(path.join(root, f)).isFile();
   const tracked = new Set(out.stdout.split("\n").filter((f) => f && isFile(f)));
   const files = [...tracked].filter((f) => IN_SCOPE.test(f)).sort();
-  return { files, tracked, read: (f) => (isFile(f) ? readFileSync(path.join(root, f), "utf8") : undefined) };
+  return { files, tracked, read: (f) => (isFile(f) ? readFileSync(path.join(root, f), "utf8") : undefined), root };
 }
 
 /** Every module specifier: import, import type, export from, import(), require(), import = require, import("…") type nodes. */
@@ -50,11 +52,33 @@ export function importSpecifiers(source: string, fileName = "x.ts"): string[] {
   return specs;
 }
 
-/** Tracked target of a relative specifier by exact string (so a wrong-case or untracked target is unresolved even on a
- * case-insensitive disk); null for packages and builtins; "" when nothing matches. */
+/** The repo file the package's own name maps to through package.json `exports` (a self-reference); "" when the name is
+ * ours but the subpath is not exported; null when the specifier names another package or a builtin. */
+function ownPackageTarget(repo: Repo, spec: string): string | null {
+  let pkg: { name?: string; exports?: Record<string, string> };
+  try {
+    pkg = JSON.parse(repo.read("package.json") ?? "{}");
+  } catch {
+    return null;
+  }
+  if (!pkg.name || (spec !== pkg.name && !spec.startsWith(`${pkg.name}/`))) return null;
+  const key = spec === pkg.name ? "." : `./${spec.slice(pkg.name.length + 1)}`;
+  const target = typeof pkg.exports?.[key] === "string" ? path.normalize(pkg.exports[key]) : "";
+  return repo.tracked.has(target) ? target : "";
+}
+
+/** Tracked target of a specifier by exact string (so a wrong-case or untracked target is unresolved even on a case-insensitive
+ * disk): relative paths, absolute paths and file: URLs into the checkout, and the package's own name through its `exports`.
+ * null for other packages and builtins; "" when nothing matches. */
 export function resolveImport(repo: Repo, from: string, spec: string): string | null {
-  if (!spec.startsWith(".")) return null;
-  const base = path.join(path.dirname(from), spec);
+  let base: string;
+  if (spec.startsWith(".")) base = path.join(path.dirname(from), spec);
+  else if (spec.startsWith("/") || spec.startsWith("file:")) {
+    const abs = spec.startsWith("file:") ? fileURLToPath(spec) : spec;
+    const rel = repo.root ? path.relative(repo.root, abs) : "..";
+    if (rel.startsWith("..") || path.isAbsolute(rel)) return ""; // outside the checkout: nothing a tracked file may rely on
+    base = rel;
+  } else return ownPackageTarget(repo, spec);
   const candidates = [base.replace(/\.(m?js)$/, ".ts"), base, `${base}.ts`, path.join(base, "index.ts")];
   return candidates.find((c) => repo.tracked.has(c)) ?? "";
 }

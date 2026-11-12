@@ -1,127 +1,168 @@
 #!/usr/bin/env bun
-// Public surface freeze. The package's "." export is src/api/index.ts; tests/api/surface.snapshot.generated.json records each
-// exported name, its kind (value, type or both) and its signature as the TypeScript checker prints it, plus a sha256 over all of them.
-// A type is printed member by member, so a change inside a public type changes its own line; every named repo type that a public
-// signature reaches must itself be exported, so no public signature can change behind a name the snapshot does not expand.
-//   bun scripts/dev/snapshot-surface.ts            print the current surface
+// Public surface freeze. The package's "." export is src/api/index.ts. tests/api/surface.snapshot.generated.json holds:
+//   sha256  over the compiler's own declaration output (tsc --declaration --emitDeclarationOnly, in memory) for the front door
+//           and every repo .d.ts its declarations reach, files in sorted order, paths repo-relative, LF line endings. It decides.
+//   files   the sha256 of each of those .d.ts files, and names: each public name's kind and the text of its emitted declaration.
+//           Both only label a failure; neither can make the test pass.
+// A public declaration may name only public repo types, TypeScript's library types and the runtime's ambient types (Bun, Node).
+//   bun scripts/dev/snapshot-surface.ts            print the current surface and what it names from outside the repo
 //   bun scripts/dev/snapshot-surface.ts --update   rewrite the snapshot (a deliberate public change; give the reason in the PR)
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
-import { ROOT } from "./boundaries.js";
+import { importSpecifiers, ROOT } from "./boundaries.js";
 import { meanings, type Meaning } from "./snapshot-exports.js";
 
 export const API_ENTRY = "src/api/index.ts";
 export const SURFACE_PATH = path.join(ROOT, "tests/api/surface.snapshot.generated.json");
-export type Surface = { sha256: string; names: Record<string, { kind: Meaning; signature: string }> };
+export type Surface = { sha256: string; files: Record<string, string>; names: Record<string, { kind: Meaning; declaration: string }> };
+export type SurfaceReport = { surface: Surface; unexported: string[]; thirdParty: string[]; ambient: Record<string, string[]> };
 
-const FLAGS = ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.WriteArrayAsGenericType | ts.TypeFormatFlags.UseSingleQuotesForStringLiteralType;
+const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+const LIB = /\/node_modules\/typescript\/lib\//;
+const AMBIENT = /\/node_modules\/(@types\/bun|bun-types|@types\/node)\//; // the runtime's own types: Bun and node: built-ins
 
-/** The surface of an entry file (repo-relative), read by the checker under the repo's tsconfig. */
-export function readSurface(entry = API_ENTRY, root = ROOT): { surface: Surface; unexported: string[] } {
+function compilerOptions(): ts.CompilerOptions {
   const config = ts.readConfigFile(path.join(ROOT, "tsconfig.json"), ts.sys.readFile).config;
-  const { options } = ts.parseJsonConfigFileContent(config, ts.sys, ROOT);
-  const program = ts.createProgram([path.join(root, entry)], options);
-  const checker = program.getTypeChecker();
-  const sf = program.getSourceFile(path.join(root, entry));
-  const moduleSymbol = sf && checker.getSymbolAtLocation(sf);
-  if (!moduleSymbol) throw new Error(`cannot read ${entry}`);
-  const resolve = (s: ts.Symbol) => (s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s);
-  const exports = checker.getExportsOfModule(moduleSymbol);
-  const publicTypes = new Set(exports.map(resolve).filter((s) => s.flags & ts.SymbolFlags.Type));
-  const inRepo = (s: ts.Symbol | undefined) => (s?.declarations ?? []).some((d) => /^(src|bin)\//.test(path.relative(root, d.getSourceFile().fileName)));
-  const reached = new Map<ts.Symbol, string>(); // named repo types a public signature names, and the first public name that named it
-
-  // A canonical print: named repo types by name (each public one is expanded in its own entry), unions, intersections and members
-  // sorted, so the text depends on the declared shapes alone, not on the checker's internal type order.
-  const print = (t: ts.Type, from: string, top = false): string => {
-    const named = t.aliasSymbol ?? (t.symbol && t.symbol.flags & (ts.SymbolFlags.Interface | ts.SymbolFlags.Class | ts.SymbolFlags.Enum) ? t.symbol : undefined);
-    const args = (list: readonly ts.Type[] | undefined) => (list?.length ? `<${list.map((a) => print(a, from)).join(", ")}>` : "");
-    const refArgs = (r: ts.Type) => ((r as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference ? checker.getTypeArguments(r as ts.TypeReference).slice(0, (r as ts.TypeReference).target.typeParameters?.length ?? 0) : undefined); // not the implicit `this`
-    if (named && inRepo(named) && !top) {
-      if (!reached.has(named)) reached.set(named, from);
-      return named.name + args(t.aliasSymbol ? t.aliasTypeArguments : refArgs(t));
-    }
-    if (t.aliasSymbol && !inRepo(t.aliasSymbol)) return t.aliasSymbol.name + args(t.aliasTypeArguments); // Record<K, V>, Partial<T>…
-    if (t.isUnion() || t.isIntersection()) {
-      const parts = new Set(t.types.map((m) => print(m, from)).map((m) => (/^(new )?\(/.test(m) ? `(${m})` : m))); // a function inside a union is parenthesized
-      if (parts.has("false") && parts.has("true")) {
-        parts.delete("false");
-        parts.delete("true");
-        parts.add("boolean");
-      }
-      return [...parts].sort().join(t.isUnion() ? " | " : " & ");
-    }
-    if (!(t.flags & ts.TypeFlags.Object)) return checker.typeToString(t, undefined, FLAGS); // primitives and literals
-    if ((t as ts.ObjectType).objectFlags & ts.ObjectFlags.Reference && !inRepo(t.symbol)) return t.symbol.name + args(refArgs(t)); // Array<T>, Promise<T>
-    if (t.symbol && !inRepo(t.symbol) && !(t.symbol.flags & ts.SymbolFlags.TypeLiteral)) return checker.typeToString(t, undefined, FLAGS); // RegExp, Date…
-    const param = (p: ts.Symbol) => {
-      const decl = p.valueDeclaration as ts.ParameterDeclaration | undefined;
-      const optional = decl && ts.isParameter(decl) && checker.isOptionalParameter(decl) ? "?" : "";
-      return `${decl?.dotDotDotToken ? "..." : ""}${p.name}${optional}: ${print(checker.getTypeOfSymbol(p), from)}`;
-    };
-    const signatures = (kind: string, list: readonly ts.Signature[]) => list.map((sig) => `${kind}${typeParams(sig.getTypeParameters(), from)}(${sig.getParameters().map(param).join(", ")}) => ${print(sig.getReturnType(), from)}`);
-    const members = [
-      ...checker.getIndexInfosOfType(t).map((i) => `[key: ${print(i.keyType, from)}]: ${print(i.type, from)}`),
-      ...checker.getPropertiesOfType(t).map((p) => `${isReadonly(p) ? "readonly " : ""}${p.name}${p.flags & ts.SymbolFlags.Optional ? "?" : ""}: ${print(checker.getTypeOfSymbol(p), from)}`).sort(),
-    ];
-    const calls = [...signatures("", t.getCallSignatures()), ...signatures("new ", t.getConstructSignatures())];
-    if (members.length === 0 && calls.length === 1) return calls[0];
-    return `{ ${[...calls, ...members].map((m) => `${m};`).join(" ")} }`;
-  };
-
-  const typeParams = (list: readonly ts.TypeParameter[] | undefined, from: string): string => {
-    const one = (tp: ts.TypeParameter) => {
-      const constraint = tp.getConstraint();
-      const fallback = tp.getDefault();
-      return `${tp.symbol.name}${constraint ? ` extends ${print(constraint, from)}` : ""}${fallback ? ` = ${print(fallback, from)}` : ""}`;
-    };
-    return list?.length ? `<${list.map(one).join(", ")}>` : "";
-  };
-  const isReadonly = (p: ts.Symbol) => (p.declarations ?? []).some((d) => ts.getCombinedModifierFlags(d as ts.Declaration) & ts.ModifierFlags.Readonly);
-  /** The type parameters a type declaration introduces (`interface Box<T>`, `type Pair<A, B = A>`). */
-  const declaredTypeParams = (s: ts.Symbol, from: string) =>
-    typeParams((s.declarations ?? []).flatMap((d) => [...(ts.getEffectiveTypeParameterDeclarations(d as ts.DeclarationWithTypeParameters) ?? [])]).map((tp) => checker.getTypeAtLocation(tp) as ts.TypeParameter).filter((tp, i, all) => all.findIndex((o) => o.symbol.name === tp.symbol.name) === i), from);
-
-  const names: Surface["names"] = {};
-  for (const s of [...exports].sort((a, b) => a.name.localeCompare(b.name))) {
-    const target = resolve(s);
-    const isValue = !!(target.flags & ts.SymbolFlags.Value);
-    const isType = !!(target.flags & ts.SymbolFlags.Type);
-    const parts = [
-      ...(isValue ? [print(checker.getTypeOfSymbol(target), s.name)] : []),
-      ...(isType ? [declaredTypeParams(target, s.name) + print(checker.getDeclaredTypeOfSymbol(target), s.name, true)] : []),
-    ];
-    names[s.name] = { kind: meanings({ [s.name]: isType }, isValue ? { [s.name]: true } : {})[s.name], signature: parts.join(" & type ") };
-  }
-  const unexported = [...reached].filter(([sym]) => !publicTypes.has(sym)).map(([sym, from]) => `${sym.name} (named by ${from})`).sort();
-  const lines = Object.entries(names).map(([n, e]) => `${n} ${e.kind}: ${e.signature}`);
-  return { surface: { sha256: createHash("sha256").update(lines.join("\n")).digest("hex"), names }, unexported };
+  return ts.parseJsonConfigFileContent(config, ts.sys, ROOT).options;
 }
 
-/** One line per difference: added, removed, changed kind, changed signature. */
+/** Every .d.ts the compiler emits for the program rooted at the entry, in memory, keyed by repo-relative path, LF line endings. */
+export function emitDeclarations(entry = API_ENTRY, root = ROOT): Map<string, string> {
+  const options = { ...compilerOptions(), noEmit: false, declaration: true, emitDeclarationOnly: true, declarationMap: false, sourceMap: false };
+  const program = ts.createProgram([path.join(root, entry)], options);
+  const out = new Map<string, string>();
+  const result = program.emit(undefined, (file, text) => out.set(path.relative(root, file), text.replace(/\r\n/g, "\n")), undefined, true);
+  if (result.emitSkipped || result.diagnostics.length > 0) throw new Error(`declaration emit failed:\n${result.diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).join("\n")}`);
+  return out;
+}
+
+/** The entry's .d.ts and every repo .d.ts reachable from it through relative specifiers, sorted. */
+export function declarationClosure(decls: Map<string, string>, entry = API_ENTRY): string[] {
+  const start = entry.replace(/\.ts$/, ".d.ts");
+  const seen = new Set<string>();
+  const visit = (file: string): void => {
+    if (seen.has(file) || !decls.has(file)) return;
+    seen.add(file);
+    for (const spec of importSpecifiers(decls.get(file) ?? "", file)) {
+      if (!spec.startsWith(".")) continue; // packages and builtins: judged by the third-party rule, not hashed
+      const base = path.join(path.dirname(file), spec).replace(/\.(m?js|ts)$/, "");
+      visit([`${base}.d.ts`, path.join(base, "index.d.ts")].find((c) => decls.has(c)) ?? `${base}.d.ts`);
+    }
+  };
+  visit(start);
+  if (!seen.has(start)) throw new Error(`no declaration emitted for ${entry}`);
+  return [...seen].sort();
+}
+
+/** The surface of an entry file (repo-relative), read from its emitted declarations under the repo's tsconfig. */
+export function readSurface(entry = API_ENTRY, root = ROOT): SurfaceReport {
+  const decls = emitDeclarations(entry, root);
+  const closure = declarationClosure(decls, entry);
+  const files = Object.fromEntries(closure.map((f) => [f, sha(decls.get(f) ?? "")]));
+  const digest = sha(closure.map((f) => `--- ${f}\n${decls.get(f)}`).join("\n"));
+  if (closure.some((f) => decls.get(f)?.includes(root))) throw new Error("emitted declarations contain an absolute path");
+
+  // A second program over the emitted .d.ts alone (repo .ts sources hidden), so every public type is spelled out in syntax.
+  const options = { ...compilerOptions(), noEmit: true };
+  const host = ts.createCompilerHost(options);
+  const repoFile = (f: string) => {
+    const rel = path.relative(root, f);
+    return /^(src|bin)\//.test(rel) ? rel : undefined;
+  };
+  const { fileExists, readFile, getSourceFile } = host;
+  host.fileExists = (f) => (repoFile(f) ? decls.has(repoFile(f)!) : fileExists.call(host, f));
+  host.readFile = (f) => (repoFile(f) ? decls.get(repoFile(f)!) : readFile.call(host, f));
+  host.getSourceFile = (f, lang, ...rest) => {
+    const rel = repoFile(f);
+    if (!rel) return getSourceFile.call(host, f, lang, ...rest);
+    const text = decls.get(rel);
+    return text === undefined ? undefined : ts.createSourceFile(f, text, lang, true);
+  };
+  const entryDts = path.join(root, entry.replace(/\.ts$/, ".d.ts"));
+  const program = ts.createProgram([entryDts], options, host);
+  const checker = program.getTypeChecker();
+  const sf = program.getSourceFile(entryDts);
+  const moduleSymbol = sf && checker.getSymbolAtLocation(sf);
+  if (!moduleSymbol) throw new Error(`cannot read the declarations of ${entry}`);
+  const resolve = (s: ts.Symbol) => (s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s);
+  const exports = [...checker.getExportsOfModule(moduleSymbol)].sort((a, b) => a.name.localeCompare(b.name));
+  const publicTargets = new Set(exports.map(resolve));
+  const statementOf = (n: ts.Node): ts.Node => (n.parent && !ts.isSourceFile(n.parent) ? statementOf(n.parent) : n);
+
+  const names: Surface["names"] = {};
+  const unexported = new Set<string>();
+  const thirdParty = new Set<string>();
+  const ambient: Record<string, Set<string>> = {};
+  for (const s of exports) {
+    const target = resolve(s);
+    const spec = s.declarations?.find(ts.isExportSpecifier);
+    const typeOnly = !!spec && (spec.isTypeOnly || spec.parent.parent.isTypeOnly); // the export's own meaning, not its target's
+    const isType = !!(target.flags & ts.SymbolFlags.Type);
+    const runtime = !typeOnly && !!(target.flags & ts.SymbolFlags.Value);
+    const statements = [...new Set((target.declarations ?? []).map(statementOf))];
+    const declaration = statements.map((st) => `// ${path.relative(root, st.getSourceFile().fileName)}\n${st.getText()}`).join("\n");
+    names[s.name] = { kind: meanings({ [s.name]: isType }, runtime ? { [s.name]: true } : {})[s.name], declaration };
+
+    // Every type a public declaration names must be public, from TypeScript's library, or the runtime's ambient types.
+    const check = (nameNode: ts.Node, typeNode: ts.TypeNode | undefined) => {
+      let sym = checker.getSymbolAtLocation(nameNode);
+      if (!sym && typeNode) sym = checker.getTypeFromTypeNode(typeNode).aliasSymbol ?? checker.getTypeFromTypeNode(typeNode).symbol;
+      if (!sym) return;
+      sym = resolve(sym);
+      if (sym.flags & ts.SymbolFlags.TypeParameter) return;
+      const file = sym.declarations?.[0]?.getSourceFile().fileName;
+      if (!file) return;
+      if (repoFile(file)) {
+        if (!publicTargets.has(sym)) unexported.add(`${sym.name} (named by ${s.name})`);
+      } else if (LIB.test(file)) (ambient[s.name] ??= new Set()).add(`${sym.name} (typescript lib)`);
+      else if (AMBIENT.test(file)) (ambient[s.name] ??= new Set()).add(`${sym.name} (${AMBIENT.exec(file)?.[1]})`);
+      else thirdParty.add(`${s.name} names ${sym.name} from ${/\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(file)?.[1] ?? path.relative(root, file)}`);
+    };
+    const visit = (n: ts.Node): void => {
+      if (ts.isTypeReferenceNode(n)) check(n.typeName, n);
+      else if (ts.isExpressionWithTypeArguments(n)) check(n.expression, undefined);
+      else if (ts.isTypeQueryNode(n)) check(n.exprName, n);
+      else if (ts.isImportTypeNode(n)) check(n.qualifier ?? n, n);
+      ts.forEachChild(n, visit);
+    };
+    statements.forEach(visit);
+  }
+  return {
+    surface: { sha256: digest, files, names },
+    unexported: [...unexported].sort(),
+    thirdParty: [...thirdParty].sort(),
+    ambient: Object.fromEntries(Object.entries(ambient).map(([n, set]) => [n, [...set].sort()])),
+  };
+}
+
+/** Labels for a failure: added, removed or changed public names, then .d.ts files that changed. The hash comparison decides. */
 export function surfaceDiff(frozen: Surface, current: Surface): string[] {
   const out: string[] = [];
   for (const [n, e] of Object.entries(current.names)) {
     const was = frozen.names[n];
-    if (!was) out.push(`added public name ${n} (${e.kind}): ${e.signature}`);
+    if (!was) out.push(`added public name ${n} (${e.kind}):\n${e.declaration}`);
     else if (was.kind !== e.kind) out.push(`${n} changed kind: ${was.kind} -> ${e.kind}`);
-    else if (was.signature !== e.signature) out.push(`${n} changed signature:\n  was: ${was.signature}\n  now: ${e.signature}`);
+    else if (was.declaration !== e.declaration) out.push(`${n} changed declaration:\n  was: ${was.declaration.replace(/\n/g, "\n       ")}\n  now: ${e.declaration.replace(/\n/g, "\n       ")}`);
   }
   for (const n of Object.keys(frozen.names)) if (!current.names[n]) out.push(`removed public name ${n}`);
-  if (out.length === 0 && frozen.sha256 !== current.sha256) out.push(`sha256 differs with no name-level change: ${frozen.sha256} -> ${current.sha256}`);
+  for (const f of [...new Set([...Object.keys(frozen.files), ...Object.keys(current.files)])].sort()) {
+    if (frozen.files[f] !== current.files[f]) out.push(`declarations changed in ${f}${current.files[f] ? (frozen.files[f] ? "" : " (newly reached)") : " (no longer reached)"}`);
+  }
+  if (frozen.sha256 !== current.sha256 && out.length === 0) out.push(`declaration closure sha256 differs: ${frozen.sha256} -> ${current.sha256}`);
   return out;
 }
 
 if (import.meta.main) {
-  const { surface, unexported } = readSurface();
-  if (unexported.length > 0) {
-    console.error(`public signatures name types that ${API_ENTRY} does not export:\n${unexported.join("\n")}`);
+  const report = readSurface();
+  const problems = [...report.unexported.map((u) => `not public: ${u}`), ...report.thirdParty];
+  if (problems.length > 0) {
+    console.error(`public declarations name types outside the allowed set:\n${problems.join("\n")}`);
     process.exit(1);
   }
   if (process.argv[2] === "--update") {
-    writeFileSync(SURFACE_PATH, `${JSON.stringify(surface, null, 2)}\n`);
-    console.log(`wrote ${Object.keys(surface.names).length} public names to ${path.relative(ROOT, SURFACE_PATH)}`);
-  } else console.log(JSON.stringify(surface, null, 2));
+    writeFileSync(SURFACE_PATH, `${JSON.stringify(report.surface, null, 2)}\n`);
+    console.log(`wrote ${Object.keys(report.surface.names).length} public names over ${Object.keys(report.surface.files).length} declaration files to ${path.relative(ROOT, SURFACE_PATH)}`);
+  } else console.log(JSON.stringify(report, null, 2));
 }

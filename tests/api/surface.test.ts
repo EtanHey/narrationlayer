@@ -1,5 +1,6 @@
-// The public surface (src/api/index.ts) is frozen in tests/api/surface.snapshot.generated.json: each name, its kind and its
-// checker-printed signature, plus a sha256 over them. A deliberate change regenerates it: bun scripts/dev/snapshot-surface.ts --update
+// The public surface (src/api/index.ts) is frozen in tests/api/surface.snapshot.generated.json: a sha256 over the compiler's own
+// declaration output for the front door and every repo .d.ts it reaches, plus per-file hashes and each public name's emitted
+// declaration to label a failure. A deliberate change regenerates it: bun scripts/dev/snapshot-surface.ts --update
 import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -12,12 +13,17 @@ const ACCEPT = "If the change is deliberate, run `bun scripts/dev/snapshot-surfa
 const current = readSurface();
 
 test("the public surface matches its snapshot", () => {
-  const diff = surfaceDiff(readJson<Surface>(SURFACE_PATH), current.surface);
-  if (diff.length > 0) throw new Error(`the public surface (${API_ENTRY}) changed:\n${diff.join("\n")}\n${ACCEPT}`);
+  const frozen = readJson<Surface>(SURFACE_PATH);
+  const diff = surfaceDiff(frozen, current.surface);
+  if (frozen.sha256 !== current.surface.sha256 || diff.length > 0) throw new Error(`the public surface (${API_ENTRY}) changed:\n${diff.join("\n")}\n${ACCEPT}`);
 });
 
-test("every repo type a public signature names is itself public", () => {
+test("every repo type a public declaration names is itself public", () => {
   expect(current.unexported).toEqual([]);
+});
+
+test("public declarations name no third-party package type (only public repo types, TypeScript's library, Bun and node: types)", () => {
+  expect(current.thirdParty).toEqual([]);
 });
 
 test("the front door holds named re-exports only: no declarations, no logic, no export *", () => {
@@ -31,41 +37,65 @@ test("src/api/index.ts is the only api-layer file", () => {
   expect(Object.entries(ledger.files).filter(([, e]) => e.layer === "api").map(([f]) => f)).toEqual([API_ENTRY]);
 });
 
-test("the snapshot names the change: a new name, a changed parameter, a change inside a public type, an unexported type", () => {
+// One baseline and one mutated module; each probe changes one contract dimension the round 1 review showed a printer could lose.
+const BASE = `export interface Pub { size: number }
+interface Hidden { secret: string }
+export function isText(v: unknown): v is string { return typeof v === "string"; }
+export function assertText(v: unknown): asserts v is string { if (typeof v !== "string") throw new Error(); }
+export function withThis(this: Pub): void {}
+export function hiddenThis(this: Hidden): void {}
+export interface Dict { readonly [key: string]: number }
+export function lit<const T>(v: T): T { return v; }
+export interface Out<out T> { get(): T }
+export interface In<in T> { set(v: T): void }
+export function run(text: string, opts?: Pub): Promise<string[]> { return Promise.resolve([text]); }
+export function plain(): number { return 1; }
+`;
+const MUTATED: [string, string][] = [
+  ["v is string { return", "boolean { return"],
+  ["asserts v is string", "void"],
+  ["this: Pub", "this: Dict"],
+  ["readonly [key", "[key"],
+  ["<const T>", "<T>"],
+  ["<out T>", "<in out T>"],
+  ["<in T>", "<in out T>"],
+  ["text: string, opts", "text: number, opts"],
+  ["size: number", "size: string"],
+];
+const ENTRY = `export { isText, assertText, withThis, hiddenThis, lit, run, plain, type Pub, type Dict, type Out, type In } from "./types.js";\n`;
+
+test("the snapshot sees what a hand printer lost: predicates, asserts, this, readonly index, const/in/out, export meaning, dependencies", () => {
   mkdirSync(path.join(ROOT, "dist"), { recursive: true }); // dist/ is gitignored
   const dir = mkdtempSync(path.join(ROOT, "dist", ".surface-"));
-  const surfaceOf = (types: string, entry: string) => {
+  const surfaceOf = (types: string, entry = ENTRY) => {
     mkdirSync(path.join(dir, "src"), { recursive: true });
     writeFileSync(path.join(dir, "src/types.ts"), types);
     writeFileSync(path.join(dir, "src/api.ts"), entry);
     return readSurface("src/api.ts", dir);
   };
   try {
-    const types = `export type Mode = "b" | "a";\nexport interface Opts { mode?: Mode; size: number }\nexport interface Hidden { n: number }\nexport function run(text: string, opts?: Opts): Promise<string[]> { return Promise.resolve([text]); }\nexport function leak(): Hidden { return { n: 1 }; }\n`;
-    const before = surfaceOf(types, `export { run, type Mode, type Opts } from "./types.js";\n`);
-    expect(before.unexported).toEqual([]);
-    expect(before.surface.names.run).toEqual({ kind: "value", signature: "(text: string, opts?: Opts | undefined) => Promise<Array<string>>" });
-    expect(before.surface.names.Mode.signature).toBe("'a' | 'b'"); // unions print sorted, independent of checker order
-    expect(before.surface.names.Opts.signature).toBe("{ mode?: 'a' | 'b' | undefined; size: number; }"); // a literal-union alias beside undefined is inlined by the checker; its change still shows
+    const before = surfaceOf(BASE);
+    expect(before.unexported).toEqual(["Hidden (named by hiddenThis)"]); // a receiver type is named like any other
+    expect(before.thirdParty).toEqual([]);
+    expect(before.surface.names.isText).toEqual({ kind: "value", declaration: "// src/types.d.ts\nexport declare function isText(v: unknown): v is string;" });
 
-    const param = surfaceOf(types.replace("text: string, opts", "text: number, opts"), `export { run, type Mode, type Opts } from "./types.js";\n`);
-    expect(surfaceDiff(before.surface, param.surface)).toEqual(["run changed signature:\n  was: (text: string, opts?: Opts | undefined) => Promise<Array<string>>\n  now: (text: number, opts?: Opts | undefined) => Promise<Array<string>>"]);
-    const member = surfaceOf(types.replace("size: number", "size: string"), `export { run, type Mode, type Opts } from "./types.js";\n`);
-    expect(surfaceDiff(before.surface, member.surface)).toEqual(["Opts changed signature:\n  was: { mode?: 'a' | 'b' | undefined; size: number; }\n  now: { mode?: 'a' | 'b' | undefined; size: string; }"]);
-    const added = surfaceOf(types, `export { run, leak, type Mode, type Opts } from "./types.js";\n`);
-    expect(surfaceDiff(before.surface, added.surface)).toEqual(["added public name leak (value): () => Hidden"]);
-    expect(added.unexported).toEqual(["Hidden (named by leak)"]);
-    expect(surfaceDiff(before.surface, surfaceOf(types, `export { run, type Mode } from "./types.js";\n`).surface)).toEqual(["removed public name Opts"]);
+    const after = surfaceOf(MUTATED.reduce((s, [a, b]) => s.replace(a, b), BASE));
+    expect(after.surface.sha256).not.toBe(before.surface.sha256);
+    const changed = surfaceDiff(before.surface, after.surface).filter((l) => / changed declaration:/.test(l)).map((l) => l.split(" ")[0]);
+    expect(changed).toEqual(["assertText", "Dict", "In", "isText", "lit", "Out", "Pub", "run", "withThis"]);
+    expect(surfaceDiff(before.surface, after.surface)).toContain("declarations changed in src/types.d.ts");
 
-    // Generic parameters, type arguments of a named generic type, and readonly are part of the signature.
-    const generic = `export interface Box<T = string> { readonly v: T }\nexport interface Hidden { n: number }\nexport function wrap<T extends string>(v: T): Box<T> { return { v }; }\nexport function hide(): Box<Hidden> { return { v: { n: 1 } }; }\n`;
-    const g = surfaceOf(generic, `export { wrap, hide, type Box } from "./types.js";\n`);
-    expect(g.surface.names.wrap.signature).toBe("<T extends string>(v: T) => Box<T>");
-    expect(g.surface.names.Box.signature).toBe("<T = string>{ readonly v: T; }");
-    expect(g.surface.names.hide.signature).toBe("() => Box<Hidden>");
-    expect(g.unexported).toEqual(["Hidden (named by hide)"]);
-    const unconstrained = surfaceOf(generic.replace("<T extends string>", "<T>").replace("readonly v", "v"), `export { wrap, hide, type Box } from "./types.js";\n`);
-    expect(surfaceDiff(g.surface, unconstrained.surface).map((l) => l.split(":")[0])).toEqual(["Box changed signature", "wrap changed signature"]);
+    // A type-only re-export keeps its own meaning: same target, kind value -> none, and the front door's declarations change.
+    const typeOnly = surfaceOf(BASE, ENTRY.replace("isText,", "type isText,"));
+    expect(typeOnly.surface.names.isText.kind).toBe("none");
+    expect(surfaceDiff(before.surface, typeOnly.surface)).toEqual(["isText changed kind: value -> none", "declarations changed in src/api.d.ts"]);
+
+    // A dependency-owned type in a public signature fails closed: its inside is not in the hash.
+    mkdirSync(path.join(dir, "node_modules/probe-dep"), { recursive: true });
+    writeFileSync(path.join(dir, "node_modules/probe-dep/package.json"), `{"name":"probe-dep","types":"index.d.ts"}\n`);
+    writeFileSync(path.join(dir, "node_modules/probe-dep/index.d.ts"), "export interface Dep { nested: { field: number } }\n");
+    const dep = surfaceOf(`import type { Dep } from "probe-dep";\nexport function reviewProbe(): Dep { return { nested: { field: 1 } }; }\n`, `export { reviewProbe } from "./types.js";\n`);
+    expect(dep.thirdParty).toEqual(["reviewProbe names Dep from probe-dep"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
