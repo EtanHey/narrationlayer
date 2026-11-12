@@ -1,0 +1,38 @@
+{
+  "fresh": {
+    "code": 1,
+    "stderr": "The operation was aborted."
+  },
+  "stale": {
+    "code": 1,
+    "stderr": "The operation was aborted."
+  },
+  "requests": [
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference."
+      }
+    },
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference."
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "error": {
+    "name": "AbortError",
+    "message": "The operation was aborted."
+  },
+  "requests": [
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    }
+  ],
+  "manifest": {
+    "job_id": "compat-job",
+    "created_at": "$TIME",
+    "voice_profile": "compat-voice",
+    "renderer": "voicelayer-qwen3",
+    "segments": [
+      {
+        "id": "segment-0",
+        "title": "Synthetic 0",
+        "script": "Hello",
+        "audio_path": "",
+        "duration_seconds": 12,
+        "words_path": "",
+        "status": "failed",
+        "error": "Segment segment-0: The operation was aborted."
+      }
+    ],
+    "total_duration_seconds": 0,
+    "artifacts_dir": "$FIXTURE/jobs/compat-job/artifacts",
+    "errors": [
+      "Segment segment-0: The operation was aborted."
+    ]
+  },
+  "status": {
+    "job_id": "compat-job",
+    "status": "failed",
+    "created_at": "$TIME",
+    "updated_at": "$TIME",
+    "progress": {
+      "completed_segments": 1,
+      "total_segments": 1
+    },
+    "errors": [
+      "Segment segment-0: The operation was aborted."
+    ],
+    "current_step": "rendering segment segment-0"
+  }
+}

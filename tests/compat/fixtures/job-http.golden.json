@@ -1,0 +1,59 @@
+{
+  "error": {
+    "name": "Error",
+    "message": "voicelayer-qwen3 synthesize failed (500): synthetic failure"
+  },
+  "requests": [
+    {
+      "method": "POST",
+      "url": "$DAEMON/synthesize",
+      "headers": {
+        "content-type": "application/json",
+        "authorization": "Bearer synthetic-token"
+      },
+      "body": {
+        "text": "Hello",
+        "reference_wav": "$FIXTURE/reference.wav",
+        "reference_text": "Synthetic reference.",
+        "model": "synthetic-model"
+      }
+    }
+  ],
+  "manifest": {
+    "job_id": "compat-job",
+    "created_at": "$TIME",
+    "voice_profile": "compat-voice",
+    "renderer": "voicelayer-qwen3",
+    "segments": [
+      {
+        "id": "segment-0",
+        "title": "Synthetic 0",
+        "script": "Hello",
+        "audio_path": "",
+        "duration_seconds": 12,
+        "words_path": "",
+        "status": "failed",
+        "error": "Segment segment-0: voicelayer-qwen3 synthesize failed (500): synthetic failure"
+      }
+    ],
+    "total_duration_seconds": 0,
+    "artifacts_dir": "$FIXTURE/jobs/compat-job/artifacts",
+    "errors": [
+      "Segment segment-0: voicelayer-qwen3 synthesize failed (500): synthetic failure"
+    ]
+  },
+  "status": {
+    "job_id": "compat-job",
+    "status": "failed",
+    "created_at": "$TIME",
+    "updated_at": "$TIME",
+    "progress": {
+      "completed_segments": 1,
+      "total_segments": 1
+    },
+    "errors": [
+      "Segment segment-0: voicelayer-qwen3 synthesize failed (500): synthetic failure"
+    ],
+    "current_step": "rendering segment segment-0"
+  }
+}
