@@ -1,5 +1,5 @@
-export type VoiceLayerQwen3Config = import("./profile-renderer-types.js").VoiceLayerQwen3Config;
-export type ExternalCommandConfig = import("./profile-renderer-types.js").ExternalCommandConfig;
+export type VoiceLayerQwen3Config = import("./core/render-types.js").VoiceLayerQwen3Config;
+export type ExternalCommandConfig = import("./core/render-types.js").ExternalCommandConfig;
 
 export type RendererName = "fake" | "voicelayer-qwen3" | "external-command";
 export type SegmentStatus = "pending" | "rendered" | "failed" | "skipped";
