@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { readFile, writeFile, access } from "node:fs/promises";
+import { readFile, writeFile, access, unlink } from "node:fs/promises";
 import path from "node:path";
 import { splitForBreathing } from "../../bin/local-tts-runner.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
@@ -34,6 +34,13 @@ test("runner executable goldens: direct reference, named profile, cache, real to
       const output = await readFile(path.join(f.root, "out.wav"));
       const probe = Bun.spawnSync([tool("ffprobe"), "-v", "error", "-show_entries", "stream=codec_name,sample_rate,channels,bits_per_sample", "-of", "json", path.join(f.root, "out.wav")]);
       expect(probe.exitCode).toBe(0);
+      if (named) {
+        const volume = Bun.spawnSync([tool("ffmpeg"), "-i", path.join(f.root, "out.wav"), "-af", "volumedetect", "-f", "null", "-"]);
+        expect(volume.exitCode).toBe(0);
+        const mean = Number(volume.stderr.toString().match(/mean_volume:\s*(-?[0-9.]+)/)?.[1]);
+        expect(Math.abs(mean - (-20))).toBeLessThanOrEqual(1);
+      }
+      await unlink(path.join(f.root, "out.wav.spoken.txt"));
       const hit = await runner(f, args);
       expect(hit.code).toBe(0); expect(stderrClass(hit.stderr)).toBe("cache HIT");
       expect(await readFile(path.join(f.root, "out.wav"))).toEqual(output);
@@ -129,5 +136,13 @@ test("golden update mode fails visibly and is forbidden in CI", async () => {
     const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
     expect(code).toBe(1); expect(stderr).toContain(CI ? "Golden updates are forbidden in CI" : "re-run without UPDATE_COMPAT_GOLDENS");
     expect(await readFile(file, "utf8")).toBe(original);
+  }
+});
+
+test("stderr timeout classification requires the exact abort diagnostic", () => {
+  expect(stderrClass("local-tts-runner: The operation was aborted.\n")).toBe("The operation was aborted.");
+  for (const message of ["abort requested by another failure", "The operation was aborted. unrelated failure", "cannot abort cache write"]) {
+    const stderr = `local-tts-runner: ${message}\n`;
+    expect(stderrClass(stderr)).toBe(stderr);
   }
 });

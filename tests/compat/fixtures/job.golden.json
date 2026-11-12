@@ -38,7 +38,7 @@
         "libmp3lame",
         "-q:a",
         "9",
-        "$FIXTURE/$ASSEMBLY_0/silence-1.mp3"
+        "$ASSEMBLY_0/silence-1.mp3"
       ]
     },
     {
@@ -50,12 +50,12 @@
         "-safe",
         "0",
         "-i",
-        "$FIXTURE/$ASSEMBLY_0/concat.txt",
+        "$ASSEMBLY_0/concat.txt",
         "-codec:a",
         "copy",
         "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/segment-0.mp3"
       ],
-      "concat": "file '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/chunks/segment-0-1.mp3'\nfile '$FIXTURE/$ASSEMBLY_0/silence-1.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/chunks/segment-0-2.mp3'"
+      "concat": "file '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/chunks/segment-0-1.mp3'\nfile '$ASSEMBLY_0/silence-1.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-0/chunks/segment-0-2.mp3'"
     },
     {
       "tool": "ffprobe",
@@ -107,7 +107,7 @@
         "libmp3lame",
         "-q:a",
         "9",
-        "$FIXTURE/$ASSEMBLY_1/silence-1.mp3"
+        "$ASSEMBLY_1/silence-1.mp3"
       ]
     },
     {
@@ -124,7 +124,7 @@
         "libmp3lame",
         "-q:a",
         "9",
-        "$FIXTURE/$ASSEMBLY_1/silence-2.mp3"
+        "$ASSEMBLY_1/silence-2.mp3"
       ]
     },
     {
@@ -136,12 +136,12 @@
         "-safe",
         "0",
         "-i",
-        "$FIXTURE/$ASSEMBLY_1/concat.txt",
+        "$ASSEMBLY_1/concat.txt",
         "-codec:a",
         "copy",
         "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/segment-1.mp3"
       ],
-      "concat": "file '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/chunks/segment-1-1.mp3'\nfile '$FIXTURE/$ASSEMBLY_1/silence-1.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/chunks/segment-1-2.mp3'\nfile '$FIXTURE/$ASSEMBLY_1/silence-2.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/chunks/segment-1-3.mp3'"
+      "concat": "file '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/chunks/segment-1-1.mp3'\nfile '$ASSEMBLY_1/silence-1.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/chunks/segment-1-2.mp3'\nfile '$ASSEMBLY_1/silence-2.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-1/chunks/segment-1-3.mp3'"
     },
     {
       "tool": "ffprobe",
@@ -217,7 +217,7 @@
         "libmp3lame",
         "-q:a",
         "9",
-        "$FIXTURE/$ASSEMBLY_2/silence-1.mp3"
+        "$ASSEMBLY_2/silence-1.mp3"
       ]
     },
     {
@@ -234,7 +234,7 @@
         "libmp3lame",
         "-q:a",
         "9",
-        "$FIXTURE/$ASSEMBLY_2/silence-2.mp3"
+        "$ASSEMBLY_2/silence-2.mp3"
       ]
     },
     {
@@ -251,7 +251,7 @@
         "libmp3lame",
         "-q:a",
         "9",
-        "$FIXTURE/$ASSEMBLY_2/silence-3.mp3"
+        "$ASSEMBLY_2/silence-3.mp3"
       ]
     },
     {
@@ -268,7 +268,7 @@
         "libmp3lame",
         "-q:a",
         "9",
-        "$FIXTURE/$ASSEMBLY_2/silence-4.mp3"
+        "$ASSEMBLY_2/silence-4.mp3"
       ]
     },
     {
@@ -280,12 +280,12 @@
         "-safe",
         "0",
         "-i",
-        "$FIXTURE/$ASSEMBLY_2/concat.txt",
+        "$ASSEMBLY_2/concat.txt",
         "-codec:a",
         "copy",
         "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/segment-2.mp3"
       ],
-      "concat": "file '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-1.mp3'\nfile '$FIXTURE/$ASSEMBLY_2/silence-1.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-2.mp3'\nfile '$FIXTURE/$ASSEMBLY_2/silence-2.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-3.mp3'\nfile '$FIXTURE/$ASSEMBLY_2/silence-3.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-4.mp3'\nfile '$FIXTURE/$ASSEMBLY_2/silence-4.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-5.mp3'"
+      "concat": "file '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-1.mp3'\nfile '$ASSEMBLY_2/silence-1.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-2.mp3'\nfile '$ASSEMBLY_2/silence-2.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-3.mp3'\nfile '$ASSEMBLY_2/silence-3.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-4.mp3'\nfile '$ASSEMBLY_2/silence-4.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-2/chunks/segment-2-5.mp3'"
     },
     {
       "tool": "ffprobe",
@@ -325,7 +325,7 @@
         "libmp3lame",
         "-q:a",
         "9",
-        "$FIXTURE/$ASSEMBLY_3/silence-1.mp3"
+        "$ASSEMBLY_3/silence-1.mp3"
       ]
     },
     {
@@ -337,12 +337,12 @@
         "-safe",
         "0",
         "-i",
-        "$FIXTURE/$ASSEMBLY_3/concat.txt",
+        "$ASSEMBLY_3/concat.txt",
         "-codec:a",
         "copy",
         "$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/segment-3.mp3"
       ],
-      "concat": "file '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/chunks/segment-3-1.mp3'\nfile '$FIXTURE/$ASSEMBLY_3/silence-1.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/chunks/segment-3-2.mp3'"
+      "concat": "file '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/chunks/segment-3-1.mp3'\nfile '$ASSEMBLY_3/silence-1.mp3'\nfile '$FIXTURE/data/jobs/compat-job/artifacts/segments/segment-3/chunks/segment-3-2.mp3'"
     },
     {
       "tool": "ffprobe",

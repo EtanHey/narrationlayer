@@ -111,5 +111,15 @@ export async function runner(f: Awaited<ReturnType<typeof fixture>>, args: strin
   return { code, stderr };
 }
 export function stderrClass(stderr: string) {
-  return stderr.match(/local-tts-runner: (cache HIT|ok|daemon \/synthesize failed \(500\): synthetic failure|daemon response missing audio_b64|[^\n]*abort[^\n]*)/i)?.[1] ?? stderr;
+  return stderr.match(/local-tts-runner: (cache HIT|ok|daemon \/synthesize failed \(500\): synthetic failure|daemon response missing audio_b64|The operation was aborted\.(?=\r?$))/im)?.[1] ?? stderr;
+}
+
+export async function withEnv<T>(env: Record<string, string | undefined>, run: () => Promise<T>): Promise<T> {
+  const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+  const apply = (values: typeof env) => {
+    for (const [key, value] of Object.entries(values)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  };
+  try { apply(env); return await run(); } finally { apply(previous); }
 }
