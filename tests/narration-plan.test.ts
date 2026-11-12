@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { planNarrationUtterances } from "../src/narration-plan.js";
+import { planNarrationUtterances } from "../src/plan/utterances.js";
 
 test("punctuation pacing splits script into spoken utterances with real pause metadata", () => {
   const planned = planNarrationUtterances("First sentence. Second sentence, with a clause, and more.", {

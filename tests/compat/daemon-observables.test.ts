@@ -1,3 +1,4 @@
+// These tests observe client timeouts through setTimeout; update them if the client changes timer mechanisms.
 import { expect, test, spyOn } from "bun:test";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -79,4 +80,44 @@ globalThis.setTimeout = (...args) => { appendFileSync(${JSON.stringify(log)}, JS
     expect(slow.timers).toContain(50);
     expect(f.requests).toHaveLength(3);
   } finally { await f.close(); }
-});
+}, 60_000);
+
+for (const failAt of [2, 3]) {
+  test(`runner breathing timeout aborts synthesis request ${failAt}`, async () => {
+    const f = await fixture();
+    try {
+      await writeFile(path.join(f.root, "profiles.yaml"), `profiles:
+  - id: synthetic-breath
+    accepted: true
+    renderer: voicelayer-qwen3
+    render:
+      reference_clip: ${f.root}/reference.wav
+      reference_text: Synthetic reference.
+      daemon_url: ${f.url}
+      auth_token_file: ${f.root}/auth
+      sentence_pause_seconds: 0.1
+`);
+      const preload = path.join(f.root, "breath-timers.ts");
+      const log = path.join(f.root, "breath-timers.jsonl");
+      await writeFile(preload, `import {appendFileSync} from 'node:fs';
+const original = globalThis.setTimeout;
+globalThis.setTimeout = (...args) => {
+  appendFileSync(${JSON.stringify(log)}, JSON.stringify(args[1])+'\\n');
+  return original(args[0], Math.min(args[1] ?? 0, 200), ...args.slice(2));
+};`);
+      f.failAt(failAt, "timeout");
+      const child = Bun.spawn([process.execPath, "--preload", preload, path.join(repo, "bin/local-tts-runner.ts"),
+        "--text", "First. Second.", "--output", path.join(f.root, "out.wav"),
+        "--reference", "synthetic-breath", "--timeout-ms", "100", "--no-cache"], {
+        cwd: f.root, env: { PATH: process.env.PATH, HOME: f.root,
+          NARRATIONLAYER_PROFILES_FILE: path.join(f.root, "profiles.yaml") }, stdout: "pipe", stderr: "pipe",
+      });
+      const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+      const result = { code, stderr };
+      expect((await readFile(log, "utf8")).trim().split("\n").map(Number)).toEqual(Array(failAt).fill(100));
+      expect(result.code).toBe(1);
+      expect(stderrClass(result.stderr)).toBe("The operation was aborted.");
+      expect(f.requests).toHaveLength(failAt);
+    } finally { await f.close(); }
+  }, 10_000);
+}

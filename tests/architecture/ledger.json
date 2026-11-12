@@ -9,6 +9,8 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/plan/utterances.ts": { "layer": 1, "area": "plan", "owner": "P1.4" },
+    "src/plan/index.ts": { "layer": 1, "area": "plan", "owner": "P1.4" },
     "src/pipelines/local-tts/take-cache.ts": { "layer": 3, "area": "pipelines", "owner": "P1.3" },
     "src/plan/breathing.ts": { "layer": 1, "area": "plan", "owner": "P1.3" },
     "src/audio/ffmpeg-args.ts": { "layer": 2, "area": "audio", "owner": "P1.3" },
