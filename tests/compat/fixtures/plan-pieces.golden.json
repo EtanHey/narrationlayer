@@ -1,0 +1,2315 @@
+{
+  "base": "d70dae1371e9ebe21d8386140e579223cfdc9164",
+  "rows": [
+    {
+      "text": "PR #1225 improves 42% at 09:05; version v1.2 runs 3x faster.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "PR #1225 improves 42% at 09:05;",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "version v1. 2 runs 3x faster.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "PR #1225 improves 42% at 09:05; version v1.2 runs 3x faster.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "PR #1225 improves 42% at 09:05;",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "version v1.",
+              "pause_after_seconds": 0.8
+            },
+            {
+              "text": "2 runs 3x faster.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "PR #1225 improves 42% at 09:05",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "version v1.2 runs 3x faster.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "PR #1225 improves 42% at 09:05; version v1.2 runs 3x faster.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "PR #1225 improves 42% at 09:05",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "version v1.2 runs 3x faster.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.\n- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Release checklist - Ready. - Check the logs. - Confirm every public interface.",
+              "pause_after_seconds": 0.55
+            },
+            {
+              "text": "- Review all changes before the release.",
+              "pause_after_seconds": 0.55
+            },
+            {
+              "text": "- Publish the final report after each independent check has completed successfully.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Release checklist - Ready. - Check the logs. - Confirm every public interface. - Review all changes before the release. - Publish the final report after each independent check has completed successfully.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Release checklist - Ready.",
+              "pause_after_seconds": 0.8
+            },
+            {
+              "text": "- Check the logs.",
+              "pause_after_seconds": 0.8
+            },
+            {
+              "text": "- Confirm every public interface.",
+              "pause_after_seconds": 0.8
+            },
+            {
+              "text": "- Review all changes before",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "the release.",
+              "pause_after_seconds": 0.8
+            },
+            {
+              "text": "- Publish the final report",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "after each independent check has",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "completed successfully.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Release checklist\n- Ready.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Check the logs.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Confirm every public interface.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Review all changes before the release.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Publish the final report after each independent check has completed successfully.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Release checklist\n- Ready.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Check the logs.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Confirm every public interface.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Review all changes before the release.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Publish the final report after each independent check has completed successfully.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Release checklist\n- Ready.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "- Check the logs.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "- Confirm every public interface.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "- Review all changes before the release.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "- Publish the final report after each independent check has completed successfully.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "The public example explains a deliberately long paragraph,",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "with enough words to cross the planning boundary:",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "every reader can follow the sequence (including the parenthetical detail),",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "while each synthetic sentence remains independent of private source materials and each additional clause",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "exercises the established punctuation policy.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "The public example explains a",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "deliberately long paragraph,",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "with enough words to cross",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "the planning boundary:",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "every reader can follow the",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "sequence (including the parenthetical detail),",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "while each synthetic sentence remains",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "independent of private source materials",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "and each additional clause exercises",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "the established punctuation policy.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "The public example explains a deliberately long paragraph",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "with enough words to cross the planning boundary",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "every reader can follow the sequence (including the parenthetical detail)",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "The public example explains a deliberately long paragraph",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "with enough words to cross the planning boundary",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "every reader can follow the sequence (including the parenthetical detail)",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Hello, reader: wait; go — now! Really? Yes (certainly).",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Hello, reader: wait;",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "go — now! Really? Yes (certainly).",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Hello, reader: wait; go — now! Really? Yes (certainly).",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Hello, reader: wait;",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "go — now!",
+              "pause_after_seconds": 0.8
+            },
+            {
+              "text": "Really? Yes (certainly).",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Hello",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "reader",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "wait",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "go",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "now!",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Really?",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Yes (certainly).",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Hello, reader: wait; go — now!",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Really?",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Yes (certainly).",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Hello",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "reader",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "wait",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "go",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "now!",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Really?",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Yes (certainly).",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Hello",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Hello",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Hello",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Hello",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Hello",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Hello",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Hello",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "",
+      "utterances": [
+        {
+          "options": {},
+          "output": []
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": []
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": []
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": []
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": []
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": []
+        }
+      ]
+    },
+    {
+      "text": "   \n\t",
+      "utterances": [
+        {
+          "options": {},
+          "output": []
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": []
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": []
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": []
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": []
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": []
+        }
+      ]
+    },
+    {
+      "text": "Heading\n- First item.\n- Second item.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Heading - First item. - Second item.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Heading - First item. - Second item.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Heading - First item.",
+              "pause_after_seconds": 0.8
+            },
+            {
+              "text": "- Second item.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Heading\n- First item.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Second item.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Heading\n- First item.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "- Second item.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Heading\n- First item.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "- Second item.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "fifteen sixteen seventeen eighteen nineteen twenty.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "One two three four five",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "six seven eight nine ten",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "eleven twelve thirteen fourteen fifteen",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "sixteen seventeen eighteen nineteen twenty.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "He said \"Done.\" Then left.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "He said \"Done.\" Then left.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "He said \"Done.\" Then left.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "He said \"Done.\" Then left.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "He said \"Done.\"",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Then left.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "He said \"Done.\"",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Then left.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "He said \"Done.\"",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Then left.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "First clause: second clause; third clause.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "First clause: second clause; third clause.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "First clause: second clause; third clause.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "First clause:",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "second clause;",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "third clause.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "First clause",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "second clause",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "third clause.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "First clause: second clause; third clause.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "First clause",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "second clause",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "third clause.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Value 3.14 is 42.5% today.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Value 3. 14 is 42. 5% today.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Value 3.14 is 42.5% today.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Value 3. 14 is 42.",
+              "pause_after_seconds": 0.8
+            },
+            {
+              "text": "5% today.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Value 3.14 is 42.5% today.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Value 3.14 is 42.5% today.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Value 3.14 is 42.5% today.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Wait — continue now.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Wait — continue now.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Wait — continue now.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Wait — continue now.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Wait",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "continue now.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Wait — continue now.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Wait",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "continue now.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Dr. Example arrived. Next.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Dr. Example arrived. Next.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Dr. Example arrived. Next.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Dr. Example arrived. Next.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Dr.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Example arrived.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Next.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Dr.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Example arrived.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Next.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Dr.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Example arrived.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Next.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Really?! Yes!!! Fine...",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Really?! Yes!!! Fine...",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Really?! Yes!!! Fine...",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Really?! Yes!!! Fine...",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Really?!",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Yes!!!",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Fine...",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Really?!",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Yes!!!",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Fine...",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Really?!",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Yes!!!",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Fine...",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Hello, world.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Hello, world.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Hello, world.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Hello, world.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Hello",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "world.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Hello, world.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Hello",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "world.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "No punctuation here",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "No punctuation here",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "No punctuation here",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "No punctuation here",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "No punctuation here",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "No punctuation here",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "No punctuation here",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "One. Two. Three.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "One. Two. Three.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "One. Two. Three.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "One. Two. Three.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "One.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Two.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Three.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "One.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Two.",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Three.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "One.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Two.",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Three.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "(Done.) [Next!] End?",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "(Done.) [Next!] End?",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "(Done.) [Next!] End?",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "(Done.) [Next!] End?",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "(Done.)",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "[Next!]",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "End?",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "(Done.)",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "[Next!]",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "End?",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "(Done.)",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "[Next!]",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "End?",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "Line one\r\nLine two",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "Line one Line two",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "Line one Line two",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "Line one Line two",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "Line one\r\nLine two",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "Line one\r\nLine two",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "Line one\r\nLine two",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "a,b;c:d—e",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "a,b;c:d—e",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "a,b;c:d—e",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "a,b;c:d—e",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "a,b;c:d—e",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "a,b;c:d—e",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "a,b;c:d—e",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "“Finished.” Next.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "“Finished. ” Next.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "“Finished.” Next.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "“Finished. ” Next.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "“Finished.”",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Next.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "“Finished.”",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "Next.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "“Finished.”",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "Next.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "One\t two    three",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "One two three",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "One two three",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "One two three",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "One\t two    three",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "One\t two    three",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "One\t two    three",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "... !!! ???",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "!!! ???",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "... !!! ???",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "!!! ???",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "...",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "!!!",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "???",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "...",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "!!!",
+              "padAfterSeconds": 0.55
+            },
+            {
+              "text": "???",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "...",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "!!!",
+              "padAfterSeconds": 0.8
+            },
+            {
+              "text": "???",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "A: b; c, d — e.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "A: b; c,",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "d — e.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "A: b; c, d — e.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "A: b; c,",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "d — e.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "A",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "b",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "c",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "d",
+              "padAfterSeconds": 0.22
+            },
+            {
+              "text": "e.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "A: b; c, d — e.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "A",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "b",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "c",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "d",
+              "padAfterSeconds": 0.12
+            },
+            {
+              "text": "e.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau.",
+      "utterances": [
+        {
+          "options": {},
+          "output": [
+            {
+              "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi",
+              "pause_after_seconds": 0.25
+            },
+            {
+              "text": "omicron pi rho sigma tau.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "pause_strategy": "none"
+          },
+          "output": [
+            {
+              "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau.",
+              "pause_after_seconds": 0
+            }
+          ]
+        },
+        {
+          "options": {
+            "max_utterance_words": 5,
+            "min_utterance_words": 2,
+            "sentence_pause_seconds": 0.8,
+            "comma_pause_seconds": 0.12
+          },
+          "output": [
+            {
+              "text": "alpha beta gamma delta epsilon",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "zeta eta theta iota kappa",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "lambda mu nu xi omicron",
+              "pause_after_seconds": 0.12
+            },
+            {
+              "text": "pi rho sigma tau.",
+              "pause_after_seconds": 0
+            }
+          ]
+        }
+      ],
+      "breathing": [
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0.22,
+          "output": [
+            {
+              "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.55,
+          "commaPad": 0,
+          "output": [
+            {
+              "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau.",
+              "padAfterSeconds": 0
+            }
+          ]
+        },
+        {
+          "sentencePad": 0.8,
+          "commaPad": 0.12,
+          "output": [
+            {
+              "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau.",
+              "padAfterSeconds": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

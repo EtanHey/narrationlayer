@@ -52,7 +52,7 @@ import {
   buildWavConcatArgs,
   type MonoS16WavOptions,
 } from "../src/audio/ffmpeg-args.js";
-import { splitForBreathing } from "../src/plan/breathing.js";
+import { breathingV1, toBreathingPieces } from "../src/plan/index.js";
 import {
   computeContentHashKey,
   writeTakeCacheReceipt,
@@ -412,11 +412,11 @@ async function applyBreathingInPlace(opts: {
   eqHighshelfGainDb?: number;
   atempo?: number;
 }): Promise<{ applied: boolean; pieces: number }> {
-  const pieces = splitForBreathing(
+  const pieces = toBreathingPieces(breathingV1(
     opts.spokenText,
     opts.sentencePad,
     opts.commaPad,
-  );
+  ));
   // Nothing to interleave: 0 or 1 piece => leave the whole-segment WAV untouched.
   if (pieces.length < 2) {
     return { applied: false, pieces: pieces.length };
