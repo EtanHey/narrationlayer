@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test";
 import { readFile, writeFile, access, unlink } from "node:fs/promises";
 import path from "node:path";
-import { splitForBreathing } from "../../bin/local-tts-runner.js";
+import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
 import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, type Mode } from "./harness.js";
