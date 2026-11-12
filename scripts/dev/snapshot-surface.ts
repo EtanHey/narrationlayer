@@ -23,32 +23,51 @@ const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 const LIB = /\/node_modules\/typescript\/lib\//;
 const AMBIENT = /\/node_modules\/(@types\/bun|bun-types|@types\/node)\//; // the runtime's own types: Bun and node: built-ins
 
+function repoPath(file: string, root: string): string | undefined {
+  const rel = path.relative(root, file);
+  return rel && !path.isAbsolute(rel) && !rel.startsWith(`..${path.sep}`) && rel !== ".." && !rel.split(path.sep).includes("node_modules") ? rel : undefined;
+}
+
+const declarationPath = (file: string) => file.replace(/(?<!\.d)\.(mts|cts|ts)$/, ".d.$1");
+
 function compilerOptions(): ts.CompilerOptions {
   const config = ts.readConfigFile(path.join(ROOT, "tsconfig.json"), ts.sys.readFile).config;
   return ts.parseJsonConfigFileContent(config, ts.sys, ROOT).options;
 }
 
-/** Every .d.ts the compiler emits for the program rooted at the entry, in memory, keyed by repo-relative path, LF line endings. */
+/** Emitted declarations and repo-authored declaration inputs, in memory, keyed by repo-relative path, LF line endings. */
 export function emitDeclarations(entry = API_ENTRY, root = ROOT): Map<string, string> {
   const options = { ...compilerOptions(), noEmit: false, declaration: true, emitDeclarationOnly: true, declarationMap: false, sourceMap: false };
   const program = ts.createProgram([path.join(root, entry)], options);
   const out = new Map<string, string>();
   const result = program.emit(undefined, (file, text) => out.set(path.relative(root, file), text.replace(/\r\n/g, "\n")), undefined, true);
   if (result.emitSkipped || result.diagnostics.length > 0) throw new Error(`declaration emit failed:\n${result.diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).join("\n")}`);
+  // Declaration inputs are read, but never emitted, by TypeScript. Keep their original text too.
+  for (const source of program.getSourceFiles()) {
+    const rel = repoPath(source.fileName, root);
+    if (source.isDeclarationFile && rel) out.set(rel, source.text.replace(/\r\n/g, "\n"));
+  }
   return out;
 }
 
 /** The entry's .d.ts and every repo .d.ts reachable from it through relative specifiers, sorted. */
-export function declarationClosure(decls: Map<string, string>, entry = API_ENTRY): string[] {
-  const start = entry.replace(/\.ts$/, ".d.ts");
+export function declarationClosure(decls: Map<string, string>, entry = API_ENTRY, root = ROOT): string[] {
+  const start = declarationPath(entry);
+  const options = compilerOptions();
+  const host: ts.ModuleResolutionHost = {
+    fileExists: (file) => decls.has(path.relative(root, file)),
+    readFile: (file) => decls.get(path.relative(root, file)),
+  };
   const seen = new Set<string>();
   const visit = (file: string): void => {
-    if (seen.has(file) || !decls.has(file)) return;
+    if (seen.has(file)) return;
+    if (!decls.has(file)) throw new Error(`cannot emit or read reached declaration file ${file}`);
     seen.add(file);
     for (const spec of importSpecifiers(decls.get(file) ?? "", file)) {
       if (!spec.startsWith(".")) continue; // packages and builtins: judged by the third-party rule, not hashed
-      const base = path.join(path.dirname(file), spec).replace(/\.(m?js|ts)$/, "");
-      visit([`${base}.d.ts`, path.join(base, "index.d.ts")].find((c) => decls.has(c)) ?? `${base}.d.ts`);
+      const resolved = ts.resolveModuleName(spec, path.join(root, file), options, host).resolvedModule;
+      if (!resolved) throw new Error(`cannot emit or read reached repo file ${path.join(path.dirname(file), spec)} (referenced by ${file})`);
+      visit(path.relative(root, resolved.resolvedFileName));
     }
   };
   visit(start);
@@ -59,7 +78,7 @@ export function declarationClosure(decls: Map<string, string>, entry = API_ENTRY
 /** The surface of an entry file (repo-relative), read from its emitted declarations under the repo's tsconfig. */
 export function readSurface(entry = API_ENTRY, root = ROOT): SurfaceReport {
   const decls = emitDeclarations(entry, root);
-  const closure = declarationClosure(decls, entry);
+  const closure = declarationClosure(decls, entry, root);
   const files = Object.fromEntries(closure.map((f) => [f, sha(decls.get(f) ?? "")]));
   const digest = sha(closure.map((f) => `--- ${f}\n${decls.get(f)}`).join("\n"));
   if (closure.some((f) => decls.get(f)?.includes(root))) throw new Error("emitted declarations contain an absolute path");
@@ -67,10 +86,7 @@ export function readSurface(entry = API_ENTRY, root = ROOT): SurfaceReport {
   // A second program over the emitted .d.ts alone (repo .ts sources hidden), so every public type is spelled out in syntax.
   const options = { ...compilerOptions(), noEmit: true };
   const host = ts.createCompilerHost(options);
-  const repoFile = (f: string) => {
-    const rel = path.relative(root, f);
-    return /^(src|bin)\//.test(rel) ? rel : undefined;
-  };
+  const repoFile = (f: string) => repoPath(f, root);
   const { fileExists, readFile, getSourceFile } = host;
   host.fileExists = (f) => (repoFile(f) ? decls.has(repoFile(f)!) : fileExists.call(host, f));
   host.readFile = (f) => (repoFile(f) ? decls.get(repoFile(f)!) : readFile.call(host, f));
@@ -80,7 +96,7 @@ export function readSurface(entry = API_ENTRY, root = ROOT): SurfaceReport {
     const text = decls.get(rel);
     return text === undefined ? undefined : ts.createSourceFile(f, text, lang, true);
   };
-  const entryDts = path.join(root, entry.replace(/\.ts$/, ".d.ts"));
+  const entryDts = path.join(root, declarationPath(entry));
   const program = ts.createProgram([entryDts], options, host);
   const checker = program.getTypeChecker();
   const sf = program.getSourceFile(entryDts);
@@ -105,6 +121,15 @@ export function readSurface(entry = API_ENTRY, root = ROOT): SurfaceReport {
     const declaration = statements.map((st) => `// ${path.relative(root, st.getSourceFile().fileName)}\n${st.getText()}`).join("\n");
     names[s.name] = { kind: meanings({ [s.name]: isType }, runtime ? { [s.name]: true } : {})[s.name], declaration };
 
+    // Re-exported targets have an origin of their own, even when their bodies mention no named types.
+    const classifyOrigin = (sym: ts.Symbol, file: string) => {
+      if (repoFile(file)) return;
+      if (LIB.test(file)) (ambient[s.name] ??= new Set()).add(`${sym.name} (typescript lib)`);
+      else if (AMBIENT.test(file)) (ambient[s.name] ??= new Set()).add(`${sym.name} (${AMBIENT.exec(file)?.[1]})`);
+      else thirdParty.add(`${s.name} names ${sym.name} from ${/\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(file)?.[1] ?? path.relative(root, file)}`);
+    };
+    for (const declaration of target.declarations ?? []) classifyOrigin(target, declaration.getSourceFile().fileName);
+
     // Every type a public declaration names must be public, from TypeScript's library, or the runtime's ambient types.
     const check = (nameNode: ts.Node, typeNode: ts.TypeNode | undefined) => {
       let sym = checker.getSymbolAtLocation(nameNode);
@@ -116,9 +141,7 @@ export function readSurface(entry = API_ENTRY, root = ROOT): SurfaceReport {
       if (!file) return;
       if (repoFile(file)) {
         if (!publicTargets.has(sym)) unexported.add(`${sym.name} (named by ${s.name})`);
-      } else if (LIB.test(file)) (ambient[s.name] ??= new Set()).add(`${sym.name} (typescript lib)`);
-      else if (AMBIENT.test(file)) (ambient[s.name] ??= new Set()).add(`${sym.name} (${AMBIENT.exec(file)?.[1]})`);
-      else thirdParty.add(`${s.name} names ${sym.name} from ${/\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(file)?.[1] ?? path.relative(root, file)}`);
+      } else classifyOrigin(sym, file);
     };
     const visit = (n: ts.Node): void => {
       if (ts.isTypeReferenceNode(n)) check(n.typeName, n);
@@ -147,8 +170,11 @@ export function surfaceDiff(frozen: Surface, current: Surface): string[] {
     else if (was.declaration !== e.declaration) out.push(`${n} changed declaration:\n  was: ${was.declaration.replace(/\n/g, "\n       ")}\n  now: ${e.declaration.replace(/\n/g, "\n       ")}`);
   }
   for (const n of Object.keys(frozen.names)) if (!current.names[n]) out.push(`removed public name ${n}`);
+  const publicNameChanged = out.length > 0;
   for (const f of [...new Set([...Object.keys(frozen.files), ...Object.keys(current.files)])].sort()) {
-    if (frozen.files[f] !== current.files[f]) out.push(`declarations changed in ${f}${current.files[f] ? (frozen.files[f] ? "" : " (newly reached)") : " (no longer reached)"}`);
+    if (frozen.files[f] !== current.files[f]) out.push(publicNameChanged
+      ? `declarations changed in ${f}${current.files[f] ? (frozen.files[f] ? "" : " (newly reached)") : " (no longer reached)"}`
+      : `no public name changed; the declaration file ${f} that the surface reaches changed; if that is intended, regenerate with \`bun scripts/dev/snapshot-surface.ts --update\``);
   }
   if (frozen.sha256 !== current.sha256 && out.length === 0) out.push(`declaration closure sha256 differs: ${frozen.sha256} -> ${current.sha256}`);
   return out;

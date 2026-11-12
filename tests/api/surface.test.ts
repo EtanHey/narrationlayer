@@ -15,7 +15,7 @@ const current = readSurface();
 test("the public surface matches its snapshot", () => {
   const frozen = readJson<Surface>(SURFACE_PATH);
   const diff = surfaceDiff(frozen, current.surface);
-  if (frozen.sha256 !== current.surface.sha256 || diff.length > 0) throw new Error(`the public surface (${API_ENTRY}) changed:\n${diff.join("\n")}\n${ACCEPT}`);
+  if (frozen.sha256 !== current.surface.sha256 || diff.length > 0) throw new Error(`the surface snapshot (${API_ENTRY}) does not match:\n${diff.join("\n")}\n${ACCEPT}`);
 });
 
 test("every repo type a public declaration names is itself public", () => {
