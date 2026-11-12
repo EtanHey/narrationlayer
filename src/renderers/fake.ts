@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolveWithinRoot } from "../path-safety.js";
 
 import { type RenderManifestSegment, type WordTiming, type NormalizedNarrationJob, type WordsFile } from "../schema.js";
-import { getWordsFromScript } from "./voicelayer-qwen3.js";
+import { getWordsFromScript } from "../timing/script-words.js";
 import type { RenderSegmentOptions } from "./types.js";
 
 function estimateDurationFromWords(wordCount: number): number {

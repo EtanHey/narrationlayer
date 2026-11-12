@@ -10,7 +10,7 @@ import type {
   WordsFile,
 } from "../schema.js";
 import { normalizeForSpeech } from "../text-normalize.js";
-import { getWordsFromScript } from "./voicelayer-qwen3.js";
+import { getWordsFromScript } from "../timing/script-words.js";
 import type { RenderSegmentOptions } from "./types.js";
 
 export type { ExternalCommandConfig } from "../core/render-types.js";
