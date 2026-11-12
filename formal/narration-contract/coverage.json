@@ -2,7 +2,7 @@
   "status": "T3_DESIGN_SLICE; I01-I10_DESIGN_LEVEL; REAL_BINDING_REQUIRED_PER_IMPLEMENTING_PR",
   "sync_commit": "78d4ec46d3ded56275cbc2a105add830cb413151",
   "source_sha256": {
-    "src/job-store.ts": "8e5411c69ebfc9ad1d710294506d3de5b33240b1ce8855beac2f538a3d5b9f7d"
+    "src/job-store.ts": "0e5411c69ebfc9ad1d710294506d3de5b33240b1ce8855beac2f538a3d5b9f7d"
   },
   "source_backed": {
     "LegacyExclusive": "src/job-store.ts:168-177 markDone/markFailed; sequential awaited calls only; observed filesystem markers feed SourceTrace.tla"
