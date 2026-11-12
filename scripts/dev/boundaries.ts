@@ -17,7 +17,7 @@ export const BASELINE_PATH = path.join(ROOT, "tests/architecture/baseline.json")
 const IN_SCOPE = /^(src|bin|scripts)\/.*(?<!\.d)\.ts$/; // declaration files are not modules to ledger
 
 /** One row per file: layer, area, owner slice XOR exemption; `entry` lists markers an entry file must keep. */
-export type LedgerEntry = { layer: 0 | 1 | 2 | 3 | 4 | 5 | "api"; area: string; entry?: string[]; owner?: string; exempt?: string };
+export type LedgerEntry = { layer: 0 | 1 | 2 | 3 | 4 | 5 | "api"; area: string; entry?: string[]; owner?: string; exempt?: string; shim?: true };
 export type Ledger = { layers: Record<string, string>; files: Record<string, LedgerEntry> };
 /** The in-scope files to check, every tracked path (imports resolve only to these, by exact string), a reader, and the
  * checkout's absolute root (for absolute-path specifiers). */
@@ -85,29 +85,63 @@ export function resolveImport(repo: Repo, from: string, spec: string): string | 
 
 const rank = (e: LedgerEntry): number => (e.layer === "api" ? 6 : e.layer);
 
+/** The same parser and resolver supply both layer edges and incoming shim edges. */
+function* importEdges(repo: Repo, files: Iterable<string> = repo.files) {
+  for (const from of files) {
+    for (const spec of importSpecifiers(repo.read(from) ?? "", from)) yield { from, spec, to: resolveImport(repo, from, spec) };
+  }
+}
+
 /** Sorted "<rule> <from> -> <to>" layer violations, and the hard failures: unresolved imports and imports of unledgered in-scope files. */
 export function analyze(ledger: Ledger, repo: Repo = diskRepo()): { violations: string[]; unresolved: string[] } {
   const found = new Set<string>();
   const unresolved = new Set<string>();
-  for (const from of repo.files) {
+  for (const { from, spec, to } of importEdges(repo)) {
     const src = ledger.files[from];
     if (!src) continue; // reported by ledgerProblems
-    for (const spec of importSpecifiers(repo.read(from) ?? "", from)) {
-      const to = resolveImport(repo, from, spec);
-      if (to === "") unresolved.add(`unresolved import ${from} -> ${spec}`);
-      if (!to) continue;
-      const dst = ledger.files[to];
-      if (!dst && IN_SCOPE.test(to)) unresolved.add(`import of an unledgered file ${from} -> ${to}`);
-      if (!dst) continue; // tracked targets outside src/, bin/ and scripts/ .ts (package.json, tests/, data files) are not layered
-      if (dst.layer === "api") found.add(`via-api ${from} -> ${to}`);
-      else if (rank(dst) > rank(src)) found.add(`upward ${from} -> ${to}`);
-      else if (src.layer === 2 && dst.layer === 2 && src.area !== dst.area) found.add(`cross-area ${from} -> ${to}`);
-    }
+    if (to === "") unresolved.add(`unresolved import ${from} -> ${spec}`);
+    if (!to) continue;
+    const dst = ledger.files[to];
+    if (!dst && IN_SCOPE.test(to)) unresolved.add(`import of an unledgered file ${from} -> ${to}`);
+    if (!dst) continue; // tracked targets outside src/, bin/ and scripts/ .ts (package.json, tests/, data files) are not layered
+    if (dst.layer === "api") found.add(`via-api ${from} -> ${to}`);
+    else if (rank(dst) > rank(src)) found.add(`upward ${from} -> ${to}`);
+    else if (src.layer === 2 && dst.layer === 2 && src.area !== dst.area) found.add(`cross-area ${from} -> ${to}`);
   }
   return { violations: [...found].sort(), unresolved: [...unresolved].sort() };
 }
 
 export const violations = (ledger: Ledger, repo?: Repo): string[] => analyze(ledger, repo).violations;
+
+/** Shim shape and incoming edges are hard failures, never baseline entries. */
+export function shimProblems(ledger: Ledger, repo: Repo = diskRepo()): string[] {
+  const problems: string[] = [];
+  const sources = [...repo.tracked].filter((f) => /\.(?:[cm]?[jt]s|[jt]sx)$/.test(f));
+  const targets = new Map<string, string[]>();
+  for (const file of sources) {
+    if (!/^(src|bin)\//.test(file) && !ledger.files[file]?.shim) continue;
+    const sf = ts.createSourceFile(file, repo.read(file) ?? "", ts.ScriptTarget.Latest, true);
+    const bad = sf.statements.filter((s) => !(ts.isExportDeclaration(s) && s.moduleSpecifier && ts.isStringLiteralLike(s.moduleSpecifier)));
+    if (ledger.files[file]?.shim) {
+      if (file === "src/api/index.ts") problems.push(`${file} is the public front door, not a shim`);
+      if (!sf.statements.length) problems.push(`${file} shim has no re-export statements`);
+      for (const s of bad) problems.push(`${file} shim contains ${ts.SyntaxKind[s.kind]}: ${s.getText(sf)}`);
+      targets.set(file, [...new Set(sf.statements.flatMap((s) => {
+        if (!ts.isExportDeclaration(s) || !s.moduleSpecifier || !ts.isStringLiteralLike(s.moduleSpecifier)) return [];
+        return [resolveImport(repo, file, s.moduleSpecifier.text) || s.moduleSpecifier.text];
+      }))]);
+    } else if (file !== "src/api/index.ts" && sf.statements.length && !bad.length) {
+      problems.push(`${file} is a pure re-export file but has no shim flag`);
+    }
+  }
+  // Compatibility tests alone may import shims: they exercise the frozen legacy paths.
+  for (const { from, to } of importEdges(repo, sources)) {
+    if (to && ledger.files[to]?.shim && !from.startsWith("tests/compat/")) {
+      problems.push(`${from} imports shim ${to}; re-exports from ${(targets.get(to) ?? []).join(", ")}`);
+    }
+  }
+  return [...new Set(problems)].sort();
+}
 
 /** Hard failures that no baseline can hold: ledger gaps, stale or malformed rows, unresolvable relative imports. */
 export function ledgerProblems(ledger: Ledger, repo: Repo = diskRepo()): string[] {
