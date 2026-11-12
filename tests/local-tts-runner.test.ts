@@ -41,7 +41,7 @@ test("runner defaults and injected speech preparation preserve the authored inpu
 
 test("synth provenance is committed only after the selected WAV is validated", () => {
   const runnerSource = readFileSync(
-    path.resolve(import.meta.dir, "..", "bin", "local-tts-runner.ts"),
+    path.resolve(import.meta.dir, "..", "src", "pipelines", "local-tts", "index.ts"),
     "utf8",
   );
   const sidecarWrite = "await writeFile(`${output}.spoken.txt`, spokenText, \"utf8\")";
@@ -473,4 +473,23 @@ test("runner rejects asynchronous or missing speech input before synthesis", () 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("imported runner main still rejects an ordinary speech preparation error", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-preparation-error-"));
+  try {
+    const reference = path.join(dir, "reference.wav");
+    const token = path.join(dir, "token");
+    writeFileSync(reference, "reference"); writeFileSync(token, "token");
+    const entry = path.resolve(import.meta.dir, "../bin/local-tts-runner.ts");
+    const wrapper = path.join(dir, "wrapper.ts");
+    writeFileSync(wrapper, `import { main } from ${JSON.stringify(entry)};
+try { await main(() => { throw new Error("synthetic preparation failed"); }); }
+catch (error) { process.stderr.write("caught: " + error.message + "\\n"); process.exit(23); }
+`);
+    const result = Bun.spawnSync([process.execPath, wrapper, "--text", "Hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "Synthetic reference.", "--auth-token-file", token]);
+    expect(result.exitCode).toBe(23);
+    expect(result.stderr.toString()).toBe("caught: synthetic preparation failed\n");
+    expect(existsSync(path.join(dir, "out.wav"))).toBe(false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

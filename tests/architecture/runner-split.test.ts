@@ -43,6 +43,11 @@ const groups = [
   ["audio builders", "src/audio/ffmpeg-args.ts", ["buildMonoS16WavArgs", "computeLoudnessGainDb", "buildLoudnessNormalizeArgs", "buildAtempoArgs", "buildPcmSilenceArgs", "buildWavConcatArgs"]],
   ["breathing plan", "src/plan/breathing.ts", ["splitForBreathing"]],
   ["take cache", "src/pipelines/local-tts/take-cache.ts", ["CacheKeyParams", "computeContentHashKey", "writeTakeCacheReceipt", "clearTakeCacheReceipt"]],
+  ["audio execution", "src/audio/ffmpeg-run.ts", ["ffmpegRun", "ffmpegToMonoS16Wav", "ffmpegAtempo", "measureMeanVolumeDb", "ffmpegLoudnessNormalize"]],
+  ["synthesis", "src/pipelines/local-tts/synthesis.ts", ["synthesize"]],
+  ["breathing stage", "src/pipelines/local-tts/breathing.ts", ["applyBreathingInPlace"]],
+  ["loudness stage", "src/pipelines/local-tts/loudness.ts", ["loudnessNormalizeInPlace"]],
+  ["render sequence", "src/pipelines/local-tts/index.ts", ["renderLocalTts"]],
 ] satisfies Array<[string, string, string[]]>;
 
 for (const [group, home, names] of groups) {
@@ -50,6 +55,26 @@ for (const [group, home, names] of groups) {
     for (const name of names) expect(declarations.get(name), name).toEqual([home]);
   }, 30_000);
 }
+
+test("runner entry delegates synthesis and ffmpeg; library stages never exit or read argv", () => {
+  for (const file of files) {
+    if (file !== "bin/local-tts-runner.ts" && !/src\/(?:pipelines\/local-tts|audio)\//.test(file)) continue;
+    const source = ts.createSourceFile(file, readFileSync(path.join(root, file), "utf8"), ts.ScriptTarget.Latest, true);
+    const visit = (node: ts.Node): void => {
+      if (file === "bin/local-tts-runner.ts") {
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+          expect(["spawn", "synthesizeQwen3"], file).not.toContain(node.expression.text);
+        }
+      } else if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "process") {
+        expect(["exit", "argv", "stdout", "stderr"], file).not.toContain(node.name.text);
+      } else if (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "process" && ts.isStringLiteralLike(node.argumentExpression)) {
+        expect(["exit", "argv", "stdout", "stderr"], file).not.toContain(node.argumentExpression.text);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+});
 
 // A second copy in any declaring form is counted; the static-method copy is the round 1 reviewer's (recon/PR59-rv25).
 test.each([
