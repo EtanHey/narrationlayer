@@ -2,16 +2,17 @@ import { expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { deriveSpeechAliases } from "../src/text-normalize.js";
+import { deriveSpeechAliases, normalizeForSpeech } from "../src/text-normalize.js";
 import { normalizeWordTimingsForScript } from "../src/word-timing-repair.js";
 import { renderSegment } from "../src/renderers/external-command.js";
 
-// A configured pronunciation is absent from the built-in normalization map.
+// Only the mapProse fallback can hide a broken single-token gap check, and it re-adds aliases for
+// SPOKEN_RULES output alone. A configured pronunciation and a built-in TERM_MAP term both depend on the gap check.
 test("single display token retains its configured speech alias between anchors", () => {
   expect(deriveSpeechAliases("start Zephyr end", "start zeff er end"))
     .toEqual([{ term: "Zephyr", spoken: "zeff er" }]);
-  expect(deriveSpeechAliases("start ordinary phrase end", "start different words end"))
-    .toEqual([]);
+  expect(deriveSpeechAliases("start Supabase end", normalizeForSpeech("start Supabase end")))
+    .toEqual([{ term: "Supabase", spoken: "sooper base" }]);
 });
 
 test("repair rounds merged word boundaries to milliseconds", () => {

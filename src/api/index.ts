@@ -1,5 +1,6 @@
 // NarrationLayer's public surface: the package's "." export. Re-exports only; nothing inside the repo imports this file.
-// Each name is here because an outside consumer uses it, or because a public signature names it.
+// A name is here because it was meant for outside callers, or because a public declaration names it. No per-name
+// inventory of outside callers exists, so which names an outside consumer really uses is not recorded (docs/architecture.md).
 // Changing this surface needs `bun scripts/dev/snapshot-surface.ts --update` and a reason in the PR (docs/architecture.md).
 
 // Jobs: create, render and read narration jobs (what the CLI and the MCP server call).

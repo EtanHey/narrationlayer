@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { LOCAL_TTS_RENDER_VERSION, computeContentHashKey } from "../../src/pipelines/local-tts/take-cache.js";
 
@@ -96,9 +96,18 @@ function symbolize(calls: Call[]) {
   return calls.map(call => ({ tool: call.tool, args: call.args.map(swap), ...(call.concat === undefined ? {} : { concat: swap(call.concat) }) }));
 }
 
+// Every runner golden that records a cache key or key preimage, with the test file that writes it.
+// computeCases reads exactly these files, and a version raise regenerates exactly these files.
+const KEYED_RUNNER_GOLDENS = [
+  { name: "runner", writtenBy: "tests/compat/runner-executable.test.ts" },
+  { name: "runner-defaults-sentence-only", writtenBy: "tests/compat/runner-defaults.test.ts" },
+  { name: "runner-defaults-comma-only", writtenBy: "tests/compat/runner-defaults.test.ts" },
+  { name: "runner-defaults-no-tempo", writtenBy: "tests/compat/runner-defaults.test.ts" },
+];
+
 /**
  * One fingerprint per golden case, over what decides the audio for an unchanged cache key:
- * - runner.golden.json and runner-defaults-*.golden.json, per run: request bodies, breathing pieces
+ * - each file in KEYED_RUNNER_GOLDENS, per run: request bodies, breathing pieces
  *   and pads, and the ffmpeg argument lists in order (paths symbolized). Not headers, URLs,
  *   stderr, exit codes, the receipt or the probed format. The case id is a hash of the
  *   run's cache-key preimage without the render version, so a change to what the key
@@ -115,7 +124,7 @@ function computeCases(): Record<string, string> {
     if (id in cases) throw failure([`take-cache version test: duplicate case id ${id}`]);
     cases[id] = sha(stable(value));
   };
-  for (const name of ["runner", "runner-defaults-sentence-only", "runner-defaults-comma-only", "runner-defaults-no-tempo"]) {
+  for (const { name } of KEYED_RUNNER_GOLDENS) {
     const runner = read(`${name}.golden.json`) as { results: RunnerResult[]; argv: Call[] };
     const runs = splitRuns(runner.results, runner.argv);
     runner.results.forEach((result, i) => {
@@ -134,12 +143,16 @@ function computeCases(): Record<string, string> {
 const table = read("take-cache-render-versions.json") as { contract: string; rows: Row[] };
 const rows = table.rows;
 const raiseSteps = (version: number) => [
-  `Fix: a raise touches exactly these three files:`,
+  `Fix: a raise sets the constant, regenerates every runner golden that records a cache key or key preimage, and appends a row:`,
   `  1. src/pipelines/local-tts/take-cache.ts: set LOCAL_TTS_RENDER_VERSION to ${version}.`,
-  `  2. tests/compat/fixtures/runner.golden.json: its cache keys now carry the version. Regenerate it with`,
-  `     UPDATE_COMPAT_GOLDENS=1 bun test tests/compat/runner-executable.test.ts, then run that test again without the variable.`,
-  `     This is the one sanctioned regeneration of the frozen runner golden: it may differ from the file before it only in key`,
-  `     material (the renderVersion in each keyPreimage and each receipt cacheKey). Any other diff is a review stop.`,
+  `  2. Every runner golden that records a cache key or key preimage (the runner goldens this test reads) now carries the version:`,
+  ...KEYED_RUNNER_GOLDENS.map(({ name }) => `       tests/compat/fixtures/${name}.golden.json`),
+  `     Regenerate them with`,
+  `       UPDATE_COMPAT_GOLDENS=1 bun test ${[...new Set(KEYED_RUNNER_GOLDENS.map(g => g.writtenBy))].join(" ")}`,
+  `     (it exits 1 after writing), then run the same command again without the variable.`,
+  `     This is the one sanctioned regeneration of these frozen goldens: each regenerated file may differ from the one before it`,
+  `     only in key material (the renderVersion in each keyPreimage and each receipt cacheKey). Any other diff, in these files or`,
+  `     in any other golden the command rewrites, is a review stop.`,
   `  3. ${TABLE}: append this row, with the reason filled in:`,
   JSON.stringify({
     version, reason: "<what a listener hears differently, in words a consumer can read>",
@@ -172,6 +185,16 @@ test("render version table: contiguous from 1, chained, and has a row for the co
   if (last > LOCAL_TTS_RENDER_VERSION)
     errors.push(`${TABLE} has a row for version ${last} but ${CONSTANT} is ${LOCAL_TTS_RENDER_VERSION}: raise the constant or drop the unreleased row`);
   if (errors.length) throw failure(errors);
+});
+
+test("render version: the test reads every runner golden that records a cache key or key preimage", () => {
+  const keyed = readdirSync(fixtures).filter(file => file.endsWith(".golden.json") && /"(keyPreimage|cacheKey)"/.test(readFileSync(path.join(fixtures, file), "utf8")));
+  const listed = KEYED_RUNNER_GOLDENS.map(({ name }) => `${name}.golden.json`);
+  const missing = keyed.filter(file => !listed.includes(file)), extra = listed.filter(file => !keyed.includes(file));
+  if (missing.length || extra.length) throw failure([
+    "KEYED_RUNNER_GOLDENS in tests/compat/take-cache-version.test.ts must list exactly the goldens that record a cache key or key preimage",
+    ...missing.map(file => `  - missing: ${file}`), ...extra.map(file => `  - records no key: ${file}`),
+  ]);
 });
 
 test("render version contract: the table and docs/architecture.md carry the test's wording", () => {
