@@ -39,6 +39,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
 
+import { synthesizeQwen3, Qwen3DaemonError } from "../src/backends/qwen3-daemon.js";
 import { findProfile, qwenConfigFromProfile, warnIfNonAcceptedProfile } from "../src/profiles.js";
 import { prepareSpeechChannels as prepareDefaultChannels, type TermRule, type SpeechChannels } from "../src/text-normalize.js";
 
@@ -372,41 +373,30 @@ async function synthesize(opts: {
   text: string;
   timeoutMs: number;
 }): Promise<Buffer> {
-  // Same request shape as src/renderers/voicelayer-qwen3.ts synthesizeText().
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs);
-  let response: Response;
   try {
-    response = await fetch(`${opts.daemonUrl.replace(/\/+$/, "")}/synthesize`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${opts.authToken}`,
-      },
-      body: JSON.stringify({
+    const payload = await synthesizeQwen3({
+      url: `${opts.daemonUrl.replace(/\/+$/, "")}/synthesize`,
+      authToken: opts.authToken,
+      body: {
         text: opts.text,
         reference_wav: opts.referenceClip,
         reference_text: opts.referenceText,
         ...(opts.model ? { model: opts.model } : {}),
-      }),
-      signal: controller.signal,
+      },
+      timeoutMs: opts.timeoutMs,
     });
-  } finally {
-    clearTimeout(timeout);
+    return Buffer.from(payload.audioBase64, "base64");
+  } catch (error) {
+    if (!(error instanceof Qwen3DaemonError)) throw error;
+    const failure = error.failure;
+    if (failure.kind === "http") {
+      fail(
+        `daemon /synthesize failed (${failure.status}): ${failure.body || failure.statusText}`,
+      );
+    }
+    if (failure.kind === "missing-audio") fail("daemon response missing audio_b64");
+    throw failure.cause;
   }
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    fail(
-      `daemon /synthesize failed (${response.status}): ${body || response.statusText}`,
-    );
-  }
-
-  const payload = (await response.json()) as { audio_b64?: unknown };
-  if (typeof payload.audio_b64 !== "string" || !payload.audio_b64) {
-    fail("daemon response missing audio_b64");
-  }
-  return Buffer.from(payload.audio_b64 as string, "base64");
 }
 
 interface MonoS16WavOptions {
