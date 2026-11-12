@@ -57,17 +57,28 @@ for (const [group, home, names] of groups) {
 }
 
 test("runner entry delegates synthesis and ffmpeg; library stages never exit or read argv", () => {
+  const isProcess = (node: ts.Node): boolean =>
+    (ts.isIdentifier(node) && node.text === "process") ||
+    (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "globalThis" && node.name.text === "process");
   for (const file of files) {
     if (file !== "bin/local-tts-runner.ts" && !/src\/(?:pipelines\/local-tts|audio)\//.test(file)) continue;
     const source = ts.createSourceFile(file, readFileSync(path.join(root, file), "utf8"), ts.ScriptTarget.Latest, true);
     const visit = (node: ts.Node): void => {
       if (file === "bin/local-tts-runner.ts") {
+        if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier)) {
+          expect(node.moduleSpecifier.text.replace(/^node:/, ""), file).not.toBe("child_process");
+        }
+        if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Bun") {
+          expect(["spawn", "spawnSync"], file).not.toContain(node.name.text);
+        }
         if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
           expect(["spawn", "synthesizeQwen3"], file).not.toContain(node.expression.text);
         }
-      } else if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "process") {
+      } else if (ts.isVariableDeclaration(node) && node.initializer && isProcess(node.initializer) && ts.isObjectBindingPattern(node.name)) {
+        expect(ts.isObjectBindingPattern(node.name), file).toBe(false);
+      } else if (ts.isPropertyAccessExpression(node) && isProcess(node.expression)) {
         expect(["exit", "argv", "stdout", "stderr"], file).not.toContain(node.name.text);
-      } else if (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "process" && ts.isStringLiteralLike(node.argumentExpression)) {
+      } else if (ts.isElementAccessExpression(node) && isProcess(node.expression) && ts.isStringLiteralLike(node.argumentExpression)) {
         expect(["exit", "argv", "stdout", "stderr"], file).not.toContain(node.argumentExpression.text);
       }
       ts.forEachChild(node, visit);

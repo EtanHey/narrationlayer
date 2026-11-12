@@ -126,7 +126,7 @@ for (const mode of ["http", "malformed", "timeout"] satisfies Mode[]) for (const
       }
       if (call === 3 && mode !== "timeout") expect(await readFile(path.join(f.root, "out.wav.breath-0.raw"))).toEqual(f.wav);
     } finally { await f.close(); }
-  });
+  }, 30000);
 }
 test("named profile keeps absent-field flags and overrides them when daemon and token are set", async () => {
   const cli = await fixture(); const selected = await fixture();

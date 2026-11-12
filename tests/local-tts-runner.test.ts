@@ -475,7 +475,10 @@ test("runner rejects asynchronous or missing speech input before synthesis", () 
   }
 });
 
-test("imported runner main still rejects an ordinary speech preparation error", () => {
+test.each([
+  ["still rejects an ordinary speech preparation error", '() => { throw new Error("synthetic preparation failed"); }', 23, "caught: synthetic preparation failed\n"],
+  ["exits on an invalid speech preparation result", "() => ({})", 1, "local-tts-runner: speech preparation must return a nonblank synthInput string synchronously\n"],
+])("imported runner main %s", (_description, callback, exitCode, stderr) => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-preparation-error-"));
   try {
     const reference = path.join(dir, "reference.wav");
@@ -484,12 +487,12 @@ test("imported runner main still rejects an ordinary speech preparation error", 
     const entry = path.resolve(import.meta.dir, "../bin/local-tts-runner.ts");
     const wrapper = path.join(dir, "wrapper.ts");
     writeFileSync(wrapper, `import { main } from ${JSON.stringify(entry)};
-try { await main(() => { throw new Error("synthetic preparation failed"); }); }
+try { await main(${callback}); }
 catch (error) { process.stderr.write("caught: " + error.message + "\\n"); process.exit(23); }
 `);
-    const result = Bun.spawnSync([process.execPath, wrapper, "--text", "Hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "Synthetic reference.", "--auth-token-file", token]);
-    expect(result.exitCode).toBe(23);
-    expect(result.stderr.toString()).toBe("caught: synthetic preparation failed\n");
+    const result = Bun.spawnSync([process.execPath, wrapper, "--text", "Hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "Synthetic reference.", "--auth-token-file", token], { timeout: 20000 });
+    expect(result.exitCode).toBe(exitCode);
+    expect(result.stderr.toString()).toBe(stderr);
     expect(existsSync(path.join(dir, "out.wav"))).toBe(false);
   } finally { rmSync(dir, { recursive: true, force: true }); }
-});
+}, 30000);
