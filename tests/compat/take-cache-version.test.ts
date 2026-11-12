@@ -15,8 +15,13 @@ const TABLE = "tests/compat/fixtures/take-cache-render-versions.json";
 const CONSTANT = "LOCAL_TTS_RENDER_VERSION in src/pipelines/local-tts/take-cache.ts";
 const read = (name: string) => JSON.parse(readFileSync(path.join(fixtures, name), "utf8"));
 
+// Written in three places with the same words: here (printed with every failure), the
+// table's "contract" field and docs/architecture.md. The test checks all three agree.
+const CONTRACT = "An existing entry of a recorded row changes only in the two cases this test names: a version raise appends a new row, and a change to a case's cache-key inputs (its spoken text, reference, profile or parameters) replaces the entries the test prints. Any other change to an existing entry, and any change to the projection in tests/compat/take-cache-version.test.ts, is a review stop.";
+
 type Call = { tool: string; args: string[]; concat?: string };
 type Row = { version: number; reason: string; previous?: string; cases: Record<string, string> };
+type RunnerResult = { referenceKind: string; keyPreimage: Record<string, unknown>; requests: { body: unknown }[]; pieces: unknown };
 
 const sha = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 function stable(value: unknown): string {
@@ -26,6 +31,55 @@ function stable(value: unknown): string {
   return JSON.stringify(value);
 }
 const rowDigest = (row: Row) => sha(stable(row));
+
+// Inputs an ffmpeg call reads: each `-i` value, except a generated `-f lavfi` source; for
+// a `-f concat` list, the files the list names. Its output is the last argument unless "-".
+function inputsOf(call: Call): string[] {
+  const inputs: string[] = [];
+  let format: string | undefined;
+  call.args.forEach((arg, i) => {
+    if (arg === "-f") format = call.args[i + 1];
+    if (arg !== "-i") return;
+    if (format === "concat") inputs.push(...[...(call.concat ?? "").matchAll(/^file '(.*)'$/gm)].map(m => m[1]!));
+    else if (format !== "lavfi") inputs.push(call.args[i + 1]!);
+    format = undefined;
+  });
+  return inputs;
+}
+const outputOf = (call: Call) => (call.args.at(-1) === "-" ? undefined : call.args.at(-1));
+
+/**
+ * Split the golden's single ffmpeg log into one run per runner case, from structure and
+ * from what the harness fixes, never from a file name: cache hits make no calls, and a
+ * fresh run reads exactly one file per daemon request that no earlier call of the run
+ * wrote. A run ends when it has read all of them and the next call reads a new one.
+ */
+function splitRuns(results: RunnerResult[], calls: Call[]): Call[][] {
+  const fail = (detail: string) => new Error([
+    `take-cache version test: could not split the ffmpeg log into one run per runner case (${detail}).`,
+    "This is a problem with the test's split, not an audible change: update splitRuns in tests/compat/take-cache-version.test.ts",
+    "(a change to the projection, so a review stop) and do NOT raise the render version for this message. Once the split works,",
+    "the test says whether a raise is needed.",
+  ].join("\n"));
+  const runs: Call[][] = [];
+  let next = 0;
+  for (const [index, result] of results.entries()) {
+    const run: Call[] = [], written = new Set<string>();
+    let read = 0;
+    while (next < calls.length) {
+      const call = calls[next]!;
+      const fresh = inputsOf(call).filter(input => !written.has(input)).length;
+      if (run.length && read >= result.requests.length && fresh) break;
+      read += fresh; run.push(call); next += 1;
+      const output = outputOf(call);
+      if (output) written.add(output);
+    }
+    if (read !== result.requests.length) throw fail(`case ${index} read ${read} daemon outputs for ${result.requests.length} requests`);
+    runs.push(run);
+  }
+  if (next !== calls.length) throw fail(`${calls.length - next} calls left after ${results.length} runs`);
+  return runs;
+}
 
 // File names are not audible, their roles are: each fixture path becomes f0, f1, ... in
 // order of first appearance within one run, so a rename keeps the fingerprint and a
@@ -40,44 +94,52 @@ function symbolize(calls: Call[]) {
 }
 
 /**
- * One fingerprint per golden case, over what decides the audio and nothing else:
+ * One fingerprint per golden case, over what decides the audio for an unchanged cache key:
  * - runner.golden.json, per run: the daemon request bodies in order, the breathing pieces
- *   and pads, and the ffmpeg argument lists in order (paths symbolized). Not headers,
- *   URLs, stderr, exit codes, the receipt or the probed format.
- * - plan-pieces.golden.json, per row: the breathing rows (pads in, pieces and pads out).
+ *   and pads, and the ffmpeg argument lists in order (paths symbolized). Not headers, URLs,
+ *   stderr, exit codes, the receipt or the probed format. The case id is a hash of the
+ *   run's cache-key preimage without the render version, so a change to what the key
+ *   already covers (spoken text, reference clip and text, profile, model, parameters) gives
+ *   a new id, never a changed fingerprint for an old id.
+ * - plan-pieces.golden.json, per row: the breathing rows (pads in, pieces and pads out),
+ *   keyed by the row's text, which goes into the cutter as is, without normalization.
  *   The utterance rows belong to the job path, not the runner.
- * The ffmpeg log is one list for all runs; a run starts at the full-take conversion,
- * the only call that reads `out.wav.raw` (cache hits make no calls).
  */
 function computeCases(): Record<string, string> {
-  const runner = read("runner.golden.json") as { results: { referenceKind: string; spoken: string; requests: { body: unknown }[]; pieces: unknown }[]; argv: Call[] };
+  const runner = read("runner.golden.json") as { results: RunnerResult[]; argv: Call[] };
   const plan = read("plan-pieces.golden.json") as { rows: { text: string; breathing: unknown }[] };
-  const runs: Call[][] = [];
-  for (const call of runner.argv) {
-    const input = call.args[call.args.indexOf("-i") + 1];
-    if (input === "$FIXTURE/out.wav.raw") runs.push([]);
-    if (!runs.length) throw new Error("take-cache version test: the first ffmpeg call is not the full-take conversion of out.wav.raw; update the run split in computeCases");
-    runs.at(-1)!.push(call);
-  }
-  if (runs.length !== runner.results.length)
-    throw new Error(`take-cache version test: ${runs.length} ffmpeg runs for ${runner.results.length} runner cases; update the run split in computeCases`);
+  const runs = splitRuns(runner.results, runner.argv);
   const cases: Record<string, string> = {};
   const add = (id: string, value: unknown) => {
     if (id in cases) throw new Error(`take-cache version test: duplicate case id ${id}`);
     cases[id] = sha(stable(value));
   };
-  runner.results.forEach((result, i) => add(`runner/${result.referenceKind}/${sha(result.spoken).slice(0, 12)}`, {
-    bodies: result.requests.map(request => request.body), pieces: result.pieces, ffmpeg: symbolize(runs[i]!),
-  }));
+  runner.results.forEach((result, i) => {
+    const { renderVersion: _version, ...key } = result.keyPreimage;
+    add(`runner/${result.referenceKind}/${sha(stable(key)).slice(0, 12)}`, {
+      bodies: result.requests.map(request => request.body), pieces: result.pieces, ffmpeg: symbolize(runs[i]!),
+    });
+  });
   for (const row of plan.rows) add(`breathing/${sha(row.text).slice(0, 12)}`, row.breathing);
   return cases;
 }
 
-const rows = (read("take-cache-render-versions.json") as { rows: Row[] }).rows;
-const rowToAppend = (version: number) => JSON.stringify({
-  version, reason: "<what a listener hears differently, in words a consumer can read>",
-  previous: rows.length ? rowDigest(rows.at(-1)!) : undefined, cases: computeCases(),
-}, null, 2);
+const table = read("take-cache-render-versions.json") as { contract: string; rows: Row[] };
+const rows = table.rows;
+const raiseSteps = (version: number) => [
+  `Fix: a raise touches exactly these three files:`,
+  `  1. src/pipelines/local-tts/take-cache.ts: set LOCAL_TTS_RENDER_VERSION to ${version}.`,
+  `  2. tests/compat/fixtures/runner.golden.json: its cache keys now carry the version. Regenerate it with`,
+  `     UPDATE_COMPAT_GOLDENS=1 bun test tests/compat/runner-executable.test.ts, then run that test again without the variable.`,
+  `  3. ${TABLE}: append this row, with the reason filled in:`,
+  JSON.stringify({
+    version, reason: "<what a listener hears differently, in words a consumer can read>",
+    previous: rows.length ? rowDigest(rows.at(-1)!) : undefined, cases: computeCases(),
+  }, null, 2),
+  "Raising the version makes every consumer's cached take miss once, on purpose.",
+].join("\n");
+const entries = (ids: string[], from: Record<string, string>) => ids.map(id => `  ${JSON.stringify(id)}: ${JSON.stringify(from[id])},`);
+const kind = (id: string) => id.split("/").slice(0, 2).join("/");
 
 test("render version table: contiguous from 1, chained, and has a row for the constant", () => {
   const errors: string[] = [];
@@ -91,34 +153,62 @@ test("render version table: contiguous from 1, chained, and has a row for the co
       : `version ${row.version}'s "previous" does not match version ${rows[i - 1]!.version}: an older row was edited. Rows for older versions are frozen; restore it.`);
   });
   const last = rows.at(-1)?.version ?? 0;
-  if (last < LOCAL_TTS_RENDER_VERSION)
-    errors.push(`${CONSTANT} is ${LOCAL_TTS_RENDER_VERSION} but ${TABLE} has no row for it. Append:\n${rowToAppend(LOCAL_TTS_RENDER_VERSION)}`);
+  if (last < LOCAL_TTS_RENDER_VERSION) errors.push(`${CONSTANT} is ${LOCAL_TTS_RENDER_VERSION} but ${TABLE} has no row for it.\n${raiseSteps(LOCAL_TTS_RENDER_VERSION)}`);
   if (last > LOCAL_TTS_RENDER_VERSION)
     errors.push(`${TABLE} has a row for version ${last} but ${CONSTANT} is ${LOCAL_TTS_RENDER_VERSION}: raise the constant or drop the unreleased row`);
   if (errors.length) throw new Error(errors.join("\n"));
+});
+
+test("render version contract: the table and docs/architecture.md carry the test's wording", () => {
+  expect(table.contract).toBe(CONTRACT);
+  const docs = readFileSync(path.join(import.meta.dir, "../../docs/architecture.md"), "utf8").replace(/\s+/g, " ");
+  expect(docs.includes(CONTRACT), "docs/architecture.md must carry the render-version contract word for word").toBe(true);
 });
 
 test("render version: the runner's audible behaviour matches the row recorded for the current version", () => {
   const row = rows.find(r => r.version === LOCAL_TTS_RENDER_VERSION);
   if (!row) throw new Error(`${TABLE} has no row for version ${LOCAL_TTS_RENDER_VERSION}; see the table test`);
   const now = computeCases();
-  const changed = Object.keys(row.cases).filter(id => now[id] !== row.cases[id]);
+  const changed = Object.keys(row.cases).filter(id => id in now && now[id] !== row.cases[id]);
+  const gone = Object.keys(row.cases).filter(id => !(id in now));
   const added = Object.keys(now).filter(id => !(id in row.cases));
   if (changed.length) throw new Error([
     `The runner's audible behaviour changed for ${changed.length} golden case(s) since render version ${row.version} was recorded:`,
-    ...changed.map(id => `  - ${id}${id in now ? "" : " (gone: its spoken text or input changed, or the case was removed)"}`),
-    "The goldens freeze what the runner sends the daemon, how it cuts the text into breathing pieces and pads, and the",
-    "ffmpeg calls it makes. They moved, so for an unchanged cache key the runner would now make different audio, while",
-    "every consumer with a cache filled by the old code keeps replaying the old take.",
-    `Fix: raise ${CONSTANT} to ${row.version + 1} and append this row to ${TABLE}, with the reason filled in:`,
-    rowToAppend(row.version + 1),
-    "Raising the version makes every consumer's cached take miss once, on purpose. If nothing audible changed, the goldens",
-    "should not have moved: fix the change instead.",
+    ...changed.map(id => `  - ${id}`),
+    "Each of these has the same cache key as before, so the key cannot tell old takes from new ones. The goldens freeze what",
+    "the runner sends the daemon, how it cuts the text into breathing pieces and pads, and the ffmpeg calls it makes; they",
+    "moved, so for an unchanged key the runner now makes different audio, while every consumer with a cache filled by the",
+    "old code keeps replaying the old take.",
+    raiseSteps(row.version + 1),
+    "If nothing audible changed, the goldens should not have moved: fix the change instead.",
+    CONTRACT,
+  ].join("\n"));
+  // A recorded runner case whose id is gone, with a new case of the same kind in its place,
+  // had its cache-key inputs changed: its key changed by itself and no old take is replayed.
+  const replaced = gone.filter(id => id.startsWith("runner/") && gone.filter(g => kind(g) === kind(id)).length <= added.filter(a => kind(a) === kind(id)).length);
+  const removed = gone.filter(id => !replaced.includes(id));
+  if (removed.length) throw new Error([
+    `${removed.length} case(s) recorded for render version ${row.version} are no longer in the goldens, with nothing in their place:`,
+    ...removed.map(id => `  - ${id}`),
+    "A golden case was removed or its input edited (the goldens are frozen, so this needs a reason). Deleting the entries",
+    "is a review stop.",
+    CONTRACT,
+  ].join("\n"));
+  if (replaced.length) throw new Error([
+    `The cache-key inputs of ${replaced.length} runner case(s) changed (their spoken text, reference, profile or parameters):`,
+    "the key already covers these, so the changed cases get new keys by themselves and no consumer replays an old take.",
+    "This is not a version raise. Fix: in the version " + row.version + ` row of ${TABLE}, REPLACE these entries`,
+    ...entries(replaced, row.cases).map(line => line.replace(/^ {2}/, "  - remove ")),
+    "with these:",
+    ...entries(added, now).map(line => line.replace(/^ {2}/, "  + add ")),
+    "If the cutting, the pauses or the ffmpeg chain changed in the same edit, the cases whose key did not change (and the",
+    "breathing rows) ask for the raise instead.",
+    CONTRACT,
   ].join("\n"));
   if (added.length) throw new Error([
     `${added.length} golden case(s) are not recorded for render version ${row.version}. A new case is not a change: add these`,
     `entries to the "cases" of the version ${row.version} row in ${TABLE} (no version raise needed):`,
-    ...added.map(id => `  ${JSON.stringify(id)}: ${JSON.stringify(now[id])},`),
+    ...entries(added, now),
   ].join("\n"));
 });
 

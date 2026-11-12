@@ -3,6 +3,7 @@ import { readFile, writeFile, access, unlink } from "node:fs/promises";
 import path from "node:path";
 import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
+import { LOCAL_TTS_RENDER_VERSION } from "../../src/pipelines/local-tts/take-cache.js";
 import corpus from "./fixtures/corpus.json";
 import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, type Mode } from "./harness.js";
 const exists = (file: string) => access(file).then(() => true, () => false);
@@ -28,7 +29,9 @@ test("runner executable goldens: direct reference, named profile, cache, real to
       const receipt = JSON.parse(await readFile(path.join(f.root, "out.wav.cache.json"), "utf8"));
       const preimage = { spokenText: normalizeForSpeech(text), referenceClip: path.join(f.root, "reference.wav"), referenceText: "Synthetic reference.",
         ...(named ? { profileId: "compat-voice", profileVersion: "synthetic-v1", model: "synthetic-model" } : {}),
-        params: named ? { eqHighshelfHz: 4000, eqHighshelfGainDb: 0, loudnessTargetDb: -20, atempo: 1, commaPauseSeconds: 0.22 } : {} };
+        params: named ? { eqHighshelfHz: 4000, eqHighshelfGainDb: 0, loudnessTargetDb: -20, atempo: 1, commaPauseSeconds: 0.22 } : {},
+        // Version 1 is not hashed (the pre-version key); a raised render version is.
+        ...(LOCAL_TTS_RENDER_VERSION === 1 ? {} : { renderVersion: LOCAL_TTS_RENDER_VERSION }) };
       expect(receipt.cacheKey).toBe(digest(JSON.stringify(preimage)));
       expect(await exists(path.join(f.root, "cache", `${receipt.cacheKey}.wav`))).toBe(true);
       const output = await readFile(path.join(f.root, "out.wav"));

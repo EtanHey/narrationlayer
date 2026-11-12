@@ -26,7 +26,7 @@ export interface CacheKeyParams {
  * changed without a raise; the history lives in
  * `tests/compat/fixtures/take-cache-render-versions.json`.
  */
-export const LOCAL_TTS_RENDER_VERSION = 1;
+export const LOCAL_TTS_RENDER_VERSION: number = 1;
 
 /**
  * Compute the content-hash freeze key (sha256, hex) for a synth request. The key is

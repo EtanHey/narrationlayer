@@ -156,10 +156,21 @@ the default pauses, the ffmpeg chain, the order of the stages), so
 for it. An audible change to that code raises the version, which makes every
 consumer's cached take miss once; version 1 is left out of the hashed text, so
 keys from before the version existed still hit.
-`tests/compat/take-cache-version.test.ts` fingerprints each golden case's daemon
-request bodies, breathing pieces and ffmpeg calls and fails, with the row to
-append to `tests/compat/fixtures/take-cache-render-versions.json`, when they move
-without a raise. A new golden case is added to the current row without a raise.
+`tests/compat/take-cache-version.test.ts` fingerprints each golden case (one
+runner run, keyed by its cache-key inputs, or one breathing row of the
+plan-pieces golden) over its daemon request bodies, breathing pieces and ffmpeg
+calls, and compares with the current row of
+`tests/compat/fixtures/take-cache-render-versions.json`. A case whose key is
+unchanged but whose fingerprint moved asks for a raise and prints the three files
+it touches. A case whose key inputs changed (a normalization change, say) asks
+for its entries to be replaced, not for a raise: its key changed by itself. A new
+golden case is added to the current row without a raise. The table can always be
+edited to agree with the goldens, so review holds the rest:
+An existing entry of a recorded row changes only in the two cases this test
+names: a version raise appends a new row, and a change to a case's cache-key
+inputs (its spoken text, reference, profile or parameters) replaces the entries
+the test prints. Any other change to an existing entry, and any change to the
+projection in tests/compat/take-cache-version.test.ts, is a review stop.
 
 ## Legacy paths
 
