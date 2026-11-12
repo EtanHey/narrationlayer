@@ -124,7 +124,7 @@ if (import.meta.main) {
   if (flag === "--init" && existsSync(BASELINE_PATH)) throw new Error("baseline.json exists; use --update, which can only shrink it");
   const baseline = flag === "--init" ? current : readJson<string[]>(BASELINE_PATH);
   const added = current.filter((v) => !baseline.includes(v));
-  console.log(JSON.stringify({ current, added, fixed: baseline.filter((v) => !current.includes(v)) }, null, 2));
+  if (flag !== "--init") console.log(JSON.stringify({ current, added, fixed: baseline.filter((v) => !current.includes(v)) }, null, 2));
   if (flag === "--update" && added.length > 0) {
     console.error(`refusing to add ${added.length} new violation(s) to the baseline; fix them instead`);
     process.exit(1);

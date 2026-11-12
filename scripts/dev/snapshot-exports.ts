@@ -9,7 +9,7 @@ import ts from "typescript";
 import { readJson, ROOT } from "./boundaries.js";
 
 export const MANIFEST_PATH = path.join(ROOT, "tests/compat/legacy-paths.manifest.generated.json");
-export type Meaning = "value" | "type" | "both";
+export type Meaning = "value" | "type" | "both" | "none"; // none: exported, but neither a runtime value nor a type
 export type Manifest = Record<string, Record<string, Meaning>>;
 
 export function legacyModules(): string[] {
@@ -18,13 +18,13 @@ export function legacyModules(): string[] {
   return out.stdout.split("\n").filter((f) => /^(src\/.*|bin\/[^/]+)\.ts$/.test(f)).sort();
 }
 
-/** Every exported name per module, following re-exports, and whether it has a type meaning after alias resolution. */
+/** Every exported name per module, following re-exports, and whether its resolved symbol is a type (alias, interface, class, enum); a namespace is not. */
 export function typeSides(files: string[], root = ROOT): Record<string, Record<string, boolean>> {
   const config = ts.readConfigFile(path.join(ROOT, "tsconfig.json"), ts.sys.readFile).config;
   const { options } = ts.parseJsonConfigFileContent(config, ts.sys, ROOT);
   const program = ts.createProgram(files.map((f) => path.join(root, f)), options);
   const checker = program.getTypeChecker();
-  const typeLike = (s: ts.Symbol) => !!((s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s).flags & (ts.SymbolFlags.Type | ts.SymbolFlags.Namespace));
+  const typeLike = (s: ts.Symbol) => !!((s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s).flags & ts.SymbolFlags.Type);
   return Object.fromEntries(
     files.map((f) => {
       const sf = program.getSourceFile(path.join(root, f));
@@ -34,9 +34,9 @@ export function typeSides(files: string[], root = ROOT): Record<string, Record<s
   );
 }
 
-/** Value side from the real runtime module, type side from the checker; a type-only export of a value counts as a type. */
+/** Value side from the real runtime module, type side from the checker alone (a runtime absence never implies a type). */
 export function meanings(types: Record<string, boolean>, runtime: object): Record<string, Meaning> {
-  return Object.fromEntries(Object.entries(types).map(([n, t]) => [n, n in runtime ? (t ? "both" : "value") : "type"]));
+  return Object.fromEntries(Object.entries(types).map(([n, t]) => [n, n in runtime ? (t ? "both" : "value") : t ? "type" : "none"]));
 }
 
 const sides = (m: Meaning | undefined): string[] => (m === "both" ? ["value", "type"] : m ? [m] : []);

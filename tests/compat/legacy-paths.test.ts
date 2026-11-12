@@ -31,16 +31,21 @@ test("a frozen name that keeps its spelling but changes meaning fails, in both d
     typeToValue: "type PrivateSpeechPreparation = (s: string) => string;\nexport const SpeechPreparation = undefined;\nexport const keep = 1;\n",
     // Mirror: a frozen value replaced by a same-named type.
     valueToType: "export type SpeechPreparation = (s: string) => string;\nexport type keep = number;\n",
+    // PR #47 round-2 reviewer cases: a value erased at runtime, and a namespace, must not stand in for the frozen type.
+    typeOnlyValue: "type PrivateSpeechPreparation = (s: string) => string;\nconst SpeechPreparation = undefined;\nexport type { SpeechPreparation };\nexport const keep = 1;\n",
+    namespace: "type PrivateSpeechPreparation = (s: string) => string;\nexport namespace SpeechPreparation { export const n = 1; }\nexport const keep = 1;\n",
     kinds: "export class Both {}\nexport const Merged = 1;\nexport type Merged = number;\nclass Hidden {}\nexport type { Hidden };\n",
   };
   try {
     for (const [name, source] of Object.entries(variants)) writeFileSync(path.join(ROOT, dir, `${name}.ts`), source);
     const files = Object.keys(variants).map((name) => `${dir}/${name}.ts`);
     const sides = typeSides(files);
-    const [before, typeToValue, valueToType, kinds] = await Promise.all(files.map(async (f) => meanings(sides[f], await import(path.join(ROOT, f)))));
+    const [before, typeToValue, valueToType, typeOnlyValue, namespace, kinds] = await Promise.all(files.map(async (f) => meanings(sides[f], await import(path.join(ROOT, f)))));
     expect(before).toEqual({ SpeechPreparation: "type", keep: "value" });
     expect(lostMeanings(before, typeToValue)).toEqual(["SpeechPreparation lost its type meaning (was type, now value)"]);
     expect(lostMeanings(before, valueToType)).toEqual(["keep lost its value meaning (was value, now type)"]);
+    expect(lostMeanings(before, typeOnlyValue)).toEqual(["SpeechPreparation lost its type meaning (was type, now none)"]);
+    expect(lostMeanings(before, namespace)).toEqual(["SpeechPreparation lost its type meaning (was type, now value)"]);
     expect(kinds).toEqual({ Both: "both", Merged: "both", Hidden: "type" }); // a type-only export of a class is a type
     expect(lostMeanings(kinds, { ...kinds, Both: "value" })).toEqual(["Both lost its type meaning (was both, now value)"]);
   } finally {
