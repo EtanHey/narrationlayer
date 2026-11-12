@@ -18,8 +18,10 @@ export interface CacheKeyParams {
 
 /**
  * The version of the code that turns a cache key's inputs into audio: how the text is
- * cut into breathing pieces, the default pauses, the ffmpeg chain and the order of the
- * stages. None of that is in the key's other inputs, so an audible change to it must
+ * cut into breathing pieces and the default pauses (`src/plan/`, `./breathing.ts`), the
+ * synthesis requests (`./synthesis.ts`), the ffmpeg chain (`src/audio/ffmpeg-args.ts`,
+ * `src/audio/ffmpeg-run.ts`, `./loudness.ts`) and the order of the stages (`./index.ts`).
+ * None of that is in the key's other inputs, so an audible change to it must
  * raise this number; otherwise every consumer keeps replaying takes frozen by the old
  * code. Raising it makes every cached take miss once, on purpose.
  * `tests/compat/take-cache-version.test.ts` fails when the runner's audible behaviour

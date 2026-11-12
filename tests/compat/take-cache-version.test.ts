@@ -17,10 +17,13 @@ const read = (name: string) => JSON.parse(readFileSync(path.join(fixtures, name)
 
 // Written in three places with the same words: here (printed with every failure), the
 // table's "contract" field and docs/architecture.md. The test checks all three agree.
-const CONTRACT = "An existing entry of a recorded row changes only in the two cases this test names: a version raise appends a new row, and a change to a case's cache-key inputs (its spoken text, reference, profile or parameters) replaces the entries the test prints. Any other change to an existing entry, and any change to the projection in tests/compat/take-cache-version.test.ts, is a review stop.";
+const CONTRACT = "An existing entry of a recorded row changes in only three ways, each named by this test: a version raise appends a new row; a change to a case's cache-key inputs (its spoken text, reference, profile or parameters) replaces the entries the test prints; and when the audio for an unchanged key did not change, an attested re-record rewrites the entries the test prints and adds a line with its reason to the row's rerecorded list. Anything else, and any change to the projection or the run split in tests/compat/take-cache-version.test.ts, is a review stop.";
+// Every failure this test throws ends with the contract.
+const failure = (lines: string[]) => new Error([...lines, CONTRACT].join("\n"));
 
 type Call = { tool: string; args: string[]; concat?: string };
-type Row = { version: number; reason: string; previous?: string; cases: Record<string, string> };
+type Rerecord = { cases: string[] | "all"; reason: string };
+type Row = { version: number; reason: string; previous?: string; cases: Record<string, string>; rerecorded?: Rerecord[] };
 type RunnerResult = { referenceKind: string; keyPreimage: Record<string, unknown>; requests: { body: unknown }[]; pieces: unknown };
 
 const sha = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -55,12 +58,12 @@ const outputOf = (call: Call) => (call.args.at(-1) === "-" ? undefined : call.ar
  * wrote. A run ends when it has read all of them and the next call reads a new one.
  */
 function splitRuns(results: RunnerResult[], calls: Call[]): Call[][] {
-  const fail = (detail: string) => new Error([
+  const fail = (detail: string) => failure([
     `take-cache version test: could not split the ffmpeg log into one run per runner case (${detail}).`,
     "This is a problem with the test's split, not an audible change: update splitRuns in tests/compat/take-cache-version.test.ts",
     "(a change to the projection, so a review stop) and do NOT raise the render version for this message. Once the split works,",
     "the test says whether a raise is needed.",
-  ].join("\n"));
+  ]);
   const runs: Call[][] = [];
   let next = 0;
   for (const [index, result] of results.entries()) {
@@ -111,7 +114,7 @@ function computeCases(): Record<string, string> {
   const runs = splitRuns(runner.results, runner.argv);
   const cases: Record<string, string> = {};
   const add = (id: string, value: unknown) => {
-    if (id in cases) throw new Error(`take-cache version test: duplicate case id ${id}`);
+    if (id in cases) throw failure([`take-cache version test: duplicate case id ${id}`]);
     cases[id] = sha(stable(value));
   };
   runner.results.forEach((result, i) => {
@@ -131,6 +134,8 @@ const raiseSteps = (version: number) => [
   `  1. src/pipelines/local-tts/take-cache.ts: set LOCAL_TTS_RENDER_VERSION to ${version}.`,
   `  2. tests/compat/fixtures/runner.golden.json: its cache keys now carry the version. Regenerate it with`,
   `     UPDATE_COMPAT_GOLDENS=1 bun test tests/compat/runner-executable.test.ts, then run that test again without the variable.`,
+  `     This is the one sanctioned regeneration of the frozen runner golden: it may differ from the file before it only in key`,
+  `     material (the renderVersion in each keyPreimage and each receipt cacheKey). Any other diff is a review stop.`,
   `  3. ${TABLE}: append this row, with the reason filled in:`,
   JSON.stringify({
     version, reason: "<what a listener hears differently, in words a consumer can read>",
@@ -147,6 +152,12 @@ test("render version table: contiguous from 1, chained, and has a row for the co
     if (row.version !== i + 1) errors.push(`row ${i} has version ${row.version}; versions start at 1 and rise by exactly 1, and no row is ever removed`);
     if (typeof row.reason !== "string" || !row.reason.trim()) errors.push(`version ${row.version} has no reason`);
     if (!row.cases || typeof row.cases !== "object" || !Object.keys(row.cases).length) errors.push(`version ${row.version} has no cases`);
+    for (const [j, item] of (row.rerecorded ?? []).entries()) {
+      if (typeof item?.reason !== "string" || !item.reason.trim()) errors.push(`version ${row.version} rerecorded[${j}] has no reason: say why the audio is the same, and how that was shown`);
+      const ids = item?.cases;
+      if (ids !== "all" && (!Array.isArray(ids) || !ids.length)) errors.push(`version ${row.version} rerecorded[${j}] names no cases: list case ids or "all"`);
+      else if (Array.isArray(ids)) for (const id of ids) if (!(id in (row.cases ?? {}))) errors.push(`version ${row.version} rerecorded[${j}] names ${id}, which is not a case of that row`);
+    }
     const expected = i === 0 ? undefined : rowDigest(rows[i - 1]!);
     if (row.previous !== expected) errors.push(i === 0
       ? `version ${row.version} is the first row and carries no "previous"`
@@ -156,45 +167,51 @@ test("render version table: contiguous from 1, chained, and has a row for the co
   if (last < LOCAL_TTS_RENDER_VERSION) errors.push(`${CONSTANT} is ${LOCAL_TTS_RENDER_VERSION} but ${TABLE} has no row for it.\n${raiseSteps(LOCAL_TTS_RENDER_VERSION)}`);
   if (last > LOCAL_TTS_RENDER_VERSION)
     errors.push(`${TABLE} has a row for version ${last} but ${CONSTANT} is ${LOCAL_TTS_RENDER_VERSION}: raise the constant or drop the unreleased row`);
-  if (errors.length) throw new Error(errors.join("\n"));
+  if (errors.length) throw failure(errors);
 });
 
 test("render version contract: the table and docs/architecture.md carry the test's wording", () => {
-  expect(table.contract).toBe(CONTRACT);
+  if (table.contract !== CONTRACT) throw failure([`the "contract" field of ${TABLE} must equal the test's wording word for word:`]);
   const docs = readFileSync(path.join(import.meta.dir, "../../docs/architecture.md"), "utf8").replace(/\s+/g, " ");
-  expect(docs.includes(CONTRACT), "docs/architecture.md must carry the render-version contract word for word").toBe(true);
+  if (!docs.includes(CONTRACT)) throw failure(["docs/architecture.md must carry the render-version contract word for word:"]);
 });
 
 test("render version: the runner's audible behaviour matches the row recorded for the current version", () => {
   const row = rows.find(r => r.version === LOCAL_TTS_RENDER_VERSION);
-  if (!row) throw new Error(`${TABLE} has no row for version ${LOCAL_TTS_RENDER_VERSION}; see the table test`);
+  if (!row) throw failure([`${TABLE} has no row for version ${LOCAL_TTS_RENDER_VERSION}; see the table test`]);
   const now = computeCases();
   const changed = Object.keys(row.cases).filter(id => id in now && now[id] !== row.cases[id]);
   const gone = Object.keys(row.cases).filter(id => !(id in now));
   const added = Object.keys(now).filter(id => !(id in row.cases));
-  if (changed.length) throw new Error([
-    `The runner's audible behaviour changed for ${changed.length} golden case(s) since render version ${row.version} was recorded:`,
+  if (changed.length) throw failure([
+    `What the runner does changed for ${changed.length} golden case(s) whose cache key is the same as at render version ${row.version}:`,
     ...changed.map(id => `  - ${id}`),
-    "Each of these has the same cache key as before, so the key cannot tell old takes from new ones. The goldens freeze what",
-    "the runner sends the daemon, how it cuts the text into breathing pieces and pads, and the ffmpeg calls it makes; they",
-    "moved, so for an unchanged key the runner now makes different audio, while every consumer with a cache filled by the",
-    "old code keeps replaying the old take.",
+    "The goldens freeze what the runner sends the daemon, how it cuts the text into breathing pieces and pads, and the ffmpeg",
+    "calls it makes. This test cannot tell whether the change is audible; you decide, and exactly one of these two follows:",
+    "",
+    "OUTCOME 1. The audio for an unchanged key changed (cutting, pauses, the processing chain, what is sent to the engine).",
+    "Raise the version: every consumer with a cache filled by the old code would otherwise keep replaying the old take.",
     raiseSteps(row.version + 1),
-    "If nothing audible changed, the goldens should not have moved: fix the change instead.",
-    CONTRACT,
-  ].join("\n"));
+    "",
+    "OUTCOME 2. The audio for an unchanged key did not change (only the order of independent steps, a temporary or",
+    "preparatory step, a renamed role). Do NOT raise. In the version " + row.version + ` row of ${TABLE}, set these entries:`,
+    ...entries(changed, now),
+    `and add one line to that row's "rerecorded" list (create the list if it is missing):`,
+    `  ${JSON.stringify({ cases: changed, reason: "<why the audio is the same, and how that was shown>" })}`,
+    "The test checks only that the reason is there and the ids exist; whether it is true is the review stop.",
+    "",
+  ]);
   // A recorded runner case whose id is gone, with a new case of the same kind in its place,
   // had its cache-key inputs changed: its key changed by itself and no old take is replayed.
   const replaced = gone.filter(id => id.startsWith("runner/") && gone.filter(g => kind(g) === kind(id)).length <= added.filter(a => kind(a) === kind(id)).length);
   const removed = gone.filter(id => !replaced.includes(id));
-  if (removed.length) throw new Error([
+  if (removed.length) throw failure([
     `${removed.length} case(s) recorded for render version ${row.version} are no longer in the goldens, with nothing in their place:`,
     ...removed.map(id => `  - ${id}`),
     "A golden case was removed or its input edited (the goldens are frozen, so this needs a reason). Deleting the entries",
     "is a review stop.",
-    CONTRACT,
-  ].join("\n"));
-  if (replaced.length) throw new Error([
+  ]);
+  if (replaced.length) throw failure([
     `The cache-key inputs of ${replaced.length} runner case(s) changed (their spoken text, reference, profile or parameters):`,
     "the key already covers these, so the changed cases get new keys by themselves and no consumer replays an old take.",
     "This is not a version raise. Fix: in the version " + row.version + ` row of ${TABLE}, REPLACE these entries`,
@@ -202,14 +219,14 @@ test("render version: the runner's audible behaviour matches the row recorded fo
     "with these:",
     ...entries(added, now).map(line => line.replace(/^ {2}/, "  + add ")),
     "If the cutting, the pauses or the ffmpeg chain changed in the same edit, the cases whose key did not change (and the",
-    "breathing rows) ask for the raise instead.",
-    CONTRACT,
-  ].join("\n"));
-  if (added.length) throw new Error([
+    "breathing rows) ask for the raise instead. The test matches cases by kind and count only, not by descent: a removed case",
+    "plus an unrelated new one looks the same, so a reviewer must look at what was removed.",
+  ]);
+  if (added.length) throw failure([
     `${added.length} golden case(s) are not recorded for render version ${row.version}. A new case is not a change: add these`,
     `entries to the "cases" of the version ${row.version} row in ${TABLE} (no version raise needed):`,
     ...entries(added, now),
-  ].join("\n"));
+  ]);
 });
 
 // Fixed synthetic input. The version-1 hex was computed on origin/master 5a100adf (before

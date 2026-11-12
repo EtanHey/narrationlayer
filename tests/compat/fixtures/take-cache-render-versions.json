@@ -1,6 +1,6 @@
 {
   "about": "Append-only history of LOCAL_TTS_RENDER_VERSION (src/pipelines/local-tts/take-cache.ts). Each row records, per golden case, a fingerprint of what the runner does for that case: daemon request bodies, breathing pieces and pads, ffmpeg calls. tests/compat/take-cache-version.test.ts compares the current behaviour with the current row and prints what to do when they differ. Never edit or remove an older row.",
-  "contract": "An existing entry of a recorded row changes only in the two cases this test names: a version raise appends a new row, and a change to a case's cache-key inputs (its spoken text, reference, profile or parameters) replaces the entries the test prints. Any other change to an existing entry, and any change to the projection in tests/compat/take-cache-version.test.ts, is a review stop.",
+  "contract": "An existing entry of a recorded row changes in only three ways, each named by this test: a version raise appends a new row; a change to a case's cache-key inputs (its spoken text, reference, profile or parameters) replaces the entries the test prints; and when the audio for an unchanged key did not change, an attested re-record rewrites the entries the test prints and adds a line with its reason to the row's rerecorded list. Anything else, and any change to the projection or the run split in tests/compat/take-cache-version.test.ts, is a review stop.",
   "rows": [
     {
       "version": 1,
