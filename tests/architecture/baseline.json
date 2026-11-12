@@ -1,0 +1,5 @@
+[
+  "upward src/profile-renderer-types.ts -> src/audio.ts",
+  "upward src/profile-renderer-types.ts -> src/narration-plan.ts",
+  "upward src/profile-renderer-types.ts -> src/word-timings.ts"
+]

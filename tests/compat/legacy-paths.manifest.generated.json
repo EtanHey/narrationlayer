@@ -1,0 +1,342 @@
+{
+  "bin/local-tts-runner.ts": {
+    "values": [
+      "buildAtempoArgs",
+      "buildLoudnessNormalizeArgs",
+      "buildMonoS16WavArgs",
+      "buildPcmSilenceArgs",
+      "buildWavConcatArgs",
+      "clearTakeCacheReceipt",
+      "computeContentHashKey",
+      "computeLoudnessGainDb",
+      "main",
+      "splitForBreathing",
+      "writeTakeCacheReceipt"
+    ],
+    "types": [
+      "CacheKeyParams",
+      "SpeechPreparation"
+    ]
+  },
+  "bin/narration-gate.ts": {
+    "values": [
+      "BODY_SPREAD_TOL_DB",
+      "BODY_TOL_DB",
+      "BREATH_EDGE_GUARD_S",
+      "BREATH_INTERNAL_MIN_S",
+      "BREATH_LONG_MIN_S",
+      "BREATH_PER_BOUNDARY_RATIO",
+      "EXPERT_WPM_MAX",
+      "EXPERT_WPM_MIN",
+      "HOST_WPM_MAX",
+      "HOST_WPM_MIN",
+      "SPECTRAL_FLOOR_MAX_DEFICIT_DB",
+      "STUTTER_FRAGMENT_MAX_LEN",
+      "STUTTER_FRAGMENT_RUN",
+      "STUTTER_GLITCH_ABS",
+      "STUTTER_GLITCH_RATIO",
+      "STUTTER_HARD_REPEAT_RUN",
+      "STUTTER_REPEAT_ALLOWLIST",
+      "STUTTER_SOFT_REPEAT_RUN",
+      "STUTTER_ZERODUR_RUN",
+      "TIMING_END_TOL_S",
+      "TIMING_MAX_WORD_SPAN_S",
+      "TONE_TOL_DB",
+      "WHISPER_GARBLE_DENYLIST",
+      "WPM_CEILING",
+      "WPM_RATIO_OVER_HOST",
+      "checkDisplay",
+      "countSentenceEnders",
+      "decideBreathing",
+      "decidePronunciation",
+      "decideSpeed",
+      "decideStutter",
+      "decideTiming",
+      "decideTone",
+      "extractDisplay",
+      "internalBreaths",
+      "normalizeStutterToken",
+      "parseArgs",
+      "parseScriptSegments",
+      "runGate",
+      "scriptTokenCount"
+    ],
+    "types": [
+      "BreathMeasurements",
+      "BreathVerdict",
+      "PronVerdict",
+      "SpeedMeasurements",
+      "SpeedVerdict",
+      "StutterFlag",
+      "StutterVerdict",
+      "StutterWord",
+      "TimingVerdict",
+      "TimingWord",
+      "ToneMeasurements",
+      "ToneVerdict"
+    ]
+  },
+  "src/audio.ts": {
+    "values": [
+      "applyAudioEq",
+      "assembleAudioWithSilence",
+      "detectSilences",
+      "findTailCutoffSeconds",
+      "parseSilenceDetectOutput",
+      "probeAudioDurationSeconds",
+      "trimAudioSilence"
+    ],
+    "types": [
+      "AudioAssemblyChunk",
+      "AudioEqOptions",
+      "DetectedSilence",
+      "TrimAudioSilenceOptions"
+    ]
+  },
+  "src/bakeoff.ts": {
+    "values": [
+      "createBakeoffJobsFromFile",
+      "parseBakeoffSpec"
+    ],
+    "types": [
+      "BakeoffCandidateInput",
+      "BakeoffCreateResult",
+      "BakeoffCreatedJob",
+      "BakeoffJobPlan",
+      "BakeoffPlan",
+      "BakeoffSpecInput"
+    ]
+  },
+  "src/cli.ts": {
+    "values": [
+      "main"
+    ],
+    "types": []
+  },
+  "src/contract.ts": {
+    "values": [
+      "NARRATION_MCP_TOOLS"
+    ],
+    "types": [
+      "McpToolContract"
+    ]
+  },
+  "src/dashboard.ts": {
+    "values": [
+      "createDashboardDemo"
+    ],
+    "types": [
+      "DashboardOptions"
+    ]
+  },
+  "src/job-store.ts": {
+    "values": [
+      "ensureDirectory",
+      "fileExists",
+      "getAllJobIds",
+      "getDataDir",
+      "getJob",
+      "getJobDir",
+      "getManifest",
+      "getStatus",
+      "initializeJob",
+      "markDone",
+      "markFailed",
+      "pathsForJob",
+      "readJobJson",
+      "writeJobJson",
+      "writeManifest",
+      "writeStatus"
+    ],
+    "types": [
+      "JobPaths",
+      "JobStoreRecord"
+    ]
+  },
+  "src/mcp-server.ts": {
+    "values": [
+      "handleMcpToolCall",
+      "listMcpTools",
+      "main"
+    ],
+    "types": []
+  },
+  "src/narration-plan.ts": {
+    "values": [
+      "planNarrationUtterances"
+    ],
+    "types": [
+      "NarrationPacingConfig",
+      "PauseStrategy",
+      "PlannedUtterance"
+    ]
+  },
+  "src/path-safety.ts": {
+    "values": [
+      "resolveWithinRoot"
+    ],
+    "types": []
+  },
+  "src/profile-renderer-types.ts": {
+    "values": [],
+    "types": [
+      "ExternalCommandConfig",
+      "VoiceLayerQwen3Config"
+    ]
+  },
+  "src/profiles.ts": {
+    "values": [
+      "externalCommandConfigFromProfile",
+      "findProfile",
+      "getProfileSummary",
+      "loadProfiles",
+      "parseProfilesYaml",
+      "qwenConfigFromProfile",
+      "warnIfNonAcceptedProfile"
+    ],
+    "types": [
+      "NarrationProfile",
+      "ProfileSummary"
+    ]
+  },
+  "src/qwen3-lora.ts": {
+    "values": [
+      "normalizeQwen3LoraPrepareInput",
+      "preflightQwen3LoraRun",
+      "prepareQwen3LoraDataset",
+      "prepareQwen3LoraDatasetFromFile"
+    ],
+    "types": [
+      "Qwen3LoraPreflightCheck",
+      "Qwen3LoraPreflightInput",
+      "Qwen3LoraPreflightResult",
+      "Qwen3LoraPreflightStatus",
+      "Qwen3LoraPrepareInput",
+      "Qwen3LoraPrepareResult",
+      "Qwen3LoraSkippedRow"
+    ]
+  },
+  "src/renderers/external-command.ts": {
+    "values": [
+      "renderSegment"
+    ],
+    "types": [
+      "ExternalCommandConfig"
+    ]
+  },
+  "src/renderers/fake.ts": {
+    "values": [
+      "renderSegment"
+    ],
+    "types": []
+  },
+  "src/renderers/types.ts": {
+    "values": [],
+    "types": [
+      "FetchLike",
+      "RenderSegmentOptions",
+      "SegmentRenderer"
+    ]
+  },
+  "src/renderers/voicelayer-qwen3.ts": {
+    "values": [
+      "getQwen3ReferencePath",
+      "getWordsFromScript",
+      "renderSegment"
+    ],
+    "types": [
+      "VoiceLayerQwen3Config"
+    ]
+  },
+  "src/schema.ts": {
+    "values": [
+      "parseNarrationJob",
+      "parsePathId"
+    ],
+    "types": [
+      "ExternalCommandConfig",
+      "JobStatus",
+      "McpCreateJobArgs",
+      "McpGetArgs",
+      "NarrationJobInput",
+      "NarrationSegmentInput",
+      "NormalizedNarrationJob",
+      "NormalizedNarrationSegment",
+      "RenderManifest",
+      "RenderManifestSegment",
+      "RendererName",
+      "SegmentStatus",
+      "TimingSource",
+      "TimingStatus",
+      "VoiceLayerQwen3Config",
+      "WordTiming",
+      "WordsFile",
+      "WordsTimingMetadata"
+    ]
+  },
+  "src/service.ts": {
+    "values": [
+      "createJobFromFile",
+      "createJobFromPayload",
+      "getDoctorSummary",
+      "getJobResult",
+      "getRendererConfigForVoiceProfile",
+      "getRendererConfigFromEnv",
+      "getStatusSummary",
+      "listJobIds",
+      "renderJob"
+    ],
+    "types": [
+      "CreatedJobResult",
+      "RenderJobResult",
+      "RendererRuntimeConfig",
+      "StatusSummary"
+    ]
+  },
+  "src/teleprompter.ts": {
+    "values": [
+      "renderTeleprompterMarkup",
+      "teleprompterRuntimeScript",
+      "teleprompterStyles"
+    ],
+    "types": [
+      "TeleprompterPayload",
+      "TeleprompterSegment"
+    ]
+  },
+  "src/text-normalize.ts": {
+    "values": [
+      "TERM_MAP",
+      "buildTermRegExp",
+      "deriveSpeechAliases",
+      "normalizeForSpeech",
+      "normalizeLegacy",
+      "prepareSpeechChannels"
+    ],
+    "types": [
+      "SpeechChannels",
+      "TermRule"
+    ]
+  },
+  "src/word-timing-repair.ts": {
+    "values": [
+      "normalizeWordTimingsForScript",
+      "scriptWords"
+    ],
+    "types": [
+      "WordTimingAlias",
+      "WordTimingRepairResult"
+    ]
+  },
+  "src/word-timings.ts": {
+    "values": [
+      "resolveWhisperBinary",
+      "runWhisperCliWordTimings",
+      "wordsFromWhisperJson"
+    ],
+    "types": [
+      "WhisperTimingOptions",
+      "WordTimingResult"
+    ]
+  }
+}
