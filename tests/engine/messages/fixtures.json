@@ -1,0 +1,1380 @@
+[
+  {
+    "name": "hello",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "hello",
+      "client": {
+        "name": "synthetic",
+        "version": "0.1"
+      },
+      "binding": "in-process",
+      "stage": "A",
+      "required_caps": [
+        "lifecycle"
+      ]
+    },
+    "missing": "client",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "hello",
+      "binding": "in-process",
+      "stage": "A",
+      "required_caps": [
+        "lifecycle"
+      ]
+    }
+  },
+  {
+    "name": "narrate",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "narrate",
+      "request_id": "req-1",
+      "idempotency_key": "send-1",
+      "use": "read",
+      "input": {
+        "text": "Synthetic sentence.",
+        "format": "plain"
+      },
+      "voice": {
+        "profile": "synthetic",
+        "require_clone": false,
+        "fallback": "none"
+      },
+      "delivery": "pieces",
+      "start": {
+        "after_session": "prior-1"
+      }
+    },
+    "missing": "request_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "narrate",
+      "idempotency_key": "send-1",
+      "use": "read",
+      "input": {
+        "text": "Synthetic sentence.",
+        "format": "plain"
+      },
+      "voice": {
+        "profile": "synthetic",
+        "require_clone": false,
+        "fallback": "none"
+      },
+      "delivery": "pieces",
+      "start": {
+        "after_session": "prior-1"
+      }
+    }
+  },
+  {
+    "name": "control-pause",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "pause",
+      "args": {
+        "owner": "user"
+      }
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "session_id": "session-1",
+      "op": "pause",
+      "args": {
+        "owner": "user"
+      }
+    }
+  },
+  {
+    "name": "control-resume",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "resume",
+      "args": {
+        "owner": "f5"
+      }
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "session_id": "session-1",
+      "op": "resume",
+      "args": {
+        "owner": "f5"
+      }
+    }
+  },
+  {
+    "name": "control-seek",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "seek",
+      "args": {
+        "word_index": 0
+      }
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "session_id": "session-1",
+      "op": "seek",
+      "args": {
+        "word_index": 0
+      }
+    }
+  },
+  {
+    "name": "control-stop",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "stop",
+      "args": {
+        "scope": "session",
+        "reason": "stop"
+      }
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "session_id": "session-1",
+      "op": "stop",
+      "args": {
+        "scope": "session",
+        "reason": "stop"
+      }
+    }
+  },
+  {
+    "name": "control-replay",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "replay",
+      "args": {
+        "of_session_id": "prior-1",
+        "from": "start"
+      }
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "session_id": "session-1",
+      "op": "replay",
+      "args": {
+        "of_session_id": "prior-1",
+        "from": "start"
+      }
+    }
+  },
+  {
+    "name": "control-next",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "next",
+      "args": {
+        "request_id": "req-2"
+      }
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "session_id": "session-1",
+      "op": "next",
+      "args": {
+        "request_id": "req-2"
+      }
+    }
+  },
+  {
+    "name": "control-previous",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "previous",
+      "args": {
+        "request_id": "req-0"
+      }
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "session_id": "session-1",
+      "op": "previous",
+      "args": {
+        "request_id": "req-0"
+      }
+    }
+  },
+  {
+    "name": "control-resync",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "resync",
+      "args": {}
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "session_id": "session-1",
+      "op": "resync",
+      "args": {}
+    }
+  },
+  {
+    "name": "set_speed",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "set_speed",
+      "command_id": "cmd-1",
+      "speed": 1.25
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "set_speed",
+      "speed": 1.25
+    }
+  },
+  {
+    "name": "player_feedback",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "player_feedback",
+      "session_id": "session-1",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "piece_index": 0,
+      "edge": "first_sample",
+      "t_mono_ms": 10,
+      "exit": {
+        "status": "completed",
+        "stopped_at_ms": 100,
+        "code": 0
+      }
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "player_feedback",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "piece_index": 0,
+      "edge": "first_sample",
+      "t_mono_ms": 10,
+      "exit": {
+        "status": "completed",
+        "stopped_at_ms": 100,
+        "code": 0
+      }
+    }
+  },
+  {
+    "name": "speaker_grant",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "speaker_grant",
+      "permit_id": "permit-1",
+      "admission_epoch": 1,
+      "session_id": "session-1",
+      "scope": "session"
+    },
+    "missing": "permit_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "speaker_grant",
+      "admission_epoch": 1,
+      "session_id": "session-1",
+      "scope": "session"
+    }
+  },
+  {
+    "name": "speaker_deny",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "speaker_deny",
+      "session_id": "session-1",
+      "reason": "capture"
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "speaker_deny",
+      "reason": "capture"
+    }
+  },
+  {
+    "name": "speaker_revoke",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "speaker_revoke",
+      "admission_epoch": 2,
+      "reason": "capture"
+    },
+    "missing": "admission_epoch",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "speaker_revoke",
+      "reason": "capture"
+    }
+  },
+  {
+    "name": "loan_restore",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "loan_restore",
+      "loan_id": "loan-1",
+      "session_id": "session-1"
+    },
+    "missing": "loan_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "loan_restore",
+      "session_id": "session-1"
+    }
+  },
+  {
+    "name": "capture_state",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "capture_state",
+      "admission_epoch": 1,
+      "capture": "idle"
+    },
+    "missing": "admission_epoch",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "capture_state",
+      "capture": "idle"
+    }
+  },
+  {
+    "name": "welcome",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "welcome",
+      "owner_epoch": 1,
+      "package_version": "1.0.0",
+      "protocol_minor": 0,
+      "caps": [
+        "read",
+        "lifecycle"
+      ],
+      "engines": [
+        {
+          "family": "qwen3_clone",
+          "legacy": false,
+          "clone": true,
+          "max_chars": 1000,
+          "timing": "none",
+          "cancel": "abort_only",
+          "available": true
+        }
+      ],
+      "limits": {
+        "max_chars": {
+          "read": 1000,
+          "speak": 1200,
+          "ask_prompt": 500
+        },
+        "lookahead": 1,
+        "aligner_reap_ms": 500
+      }
+    },
+    "missing": "owner_epoch",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "welcome",
+      "package_version": "1.0.0",
+      "protocol_minor": 0,
+      "caps": [
+        "read",
+        "lifecycle"
+      ],
+      "engines": [
+        {
+          "family": "qwen3_clone",
+          "legacy": false,
+          "clone": true,
+          "max_chars": 1000,
+          "timing": "none",
+          "cancel": "abort_only",
+          "available": true
+        }
+      ],
+      "limits": {
+        "max_chars": {
+          "read": 1000,
+          "speak": 1200,
+          "ask_prompt": 500
+        },
+        "lookahead": 1,
+        "aligner_reap_ms": 500
+      }
+    }
+  },
+  {
+    "name": "accepted",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "accepted",
+      "request_id": "req-1",
+      "session_id": "session-1",
+      "attempt_id": "attempt-1"
+    },
+    "missing": "request_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "accepted",
+      "session_id": "session-1",
+      "attempt_id": "attempt-1"
+    }
+  },
+  {
+    "name": "control_ack",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "control_ack",
+      "command_id": "cmd-1",
+      "outcome": "accept",
+      "control_epoch": 1,
+      "current": {
+        "session_id": "session-1",
+        "player_instance_id": "player-1",
+        "control_epoch": 1,
+        "audio_ms": 0,
+        "piece_index": 0,
+        "piece_start_ms": 0,
+        "piece_duration_ms": 100,
+        "duration_ms": 100
+      }
+    },
+    "missing": "command_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "control_ack",
+      "outcome": "accept",
+      "control_epoch": 1,
+      "current": {
+        "session_id": "session-1",
+        "player_instance_id": "player-1",
+        "control_epoch": 1,
+        "audio_ms": 0,
+        "piece_index": 0,
+        "piece_start_ms": 0,
+        "piece_duration_ms": 100,
+        "duration_ms": 100
+      }
+    }
+  },
+  {
+    "name": "plan",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "plan",
+      "session_id": "session-1",
+      "attempt_id": "attempt-1",
+      "display_document": {
+        "version": 1,
+        "text": "Synthetic sentence.",
+        "speech_start": 0,
+        "blocks": []
+      },
+      "words": [
+        {
+          "index": 0,
+          "text": "Synthetic",
+          "display": [
+            0,
+            9
+          ]
+        }
+      ],
+      "pieces": [
+        {
+          "piece_id": "piece-1",
+          "index": 0,
+          "word_start": 0,
+          "word_end": 1,
+          "raw": false,
+          "segments": [
+            {
+              "word_start": 0,
+              "word_end": 1,
+              "kind": "sentence",
+              "pause_after_ms": 0,
+              "pause_in": "this_piece_end"
+            }
+          ]
+        }
+      ],
+      "engine": {
+        "family": "qwen3_clone",
+        "profile_revision": "revision-1",
+        "voice": "synthetic"
+      }
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "plan",
+      "attempt_id": "attempt-1",
+      "display_document": {
+        "version": 1,
+        "text": "Synthetic sentence.",
+        "speech_start": 0,
+        "blocks": []
+      },
+      "words": [
+        {
+          "index": 0,
+          "text": "Synthetic",
+          "display": [
+            0,
+            9
+          ]
+        }
+      ],
+      "pieces": [
+        {
+          "piece_id": "piece-1",
+          "index": 0,
+          "word_start": 0,
+          "word_end": 1,
+          "raw": false,
+          "segments": [
+            {
+              "word_start": 0,
+              "word_end": 1,
+              "kind": "sentence",
+              "pause_after_ms": 0,
+              "pause_in": "this_piece_end"
+            }
+          ]
+        }
+      ],
+      "engine": {
+        "family": "qwen3_clone",
+        "profile_revision": "revision-1",
+        "voice": "synthetic"
+      }
+    }
+  },
+  {
+    "name": "piece_ready",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "piece_ready",
+      "session_id": "session-1",
+      "attempt_id": "attempt-1",
+      "piece_id": "piece-1",
+      "index": 0,
+      "start_ms": 0,
+      "duration_ms": 100,
+      "spoken_text": "Synthetic sentence.",
+      "artifact": {
+        "handle": "artifact-1",
+        "lease_id": "lease-1",
+        "format": "wav",
+        "sample_rate": 24000,
+        "sample_count": 2400,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "words": [
+        {
+          "index": 0,
+          "start_ms": 0,
+          "end_ms": 100,
+          "timing": "estimated"
+        }
+      ],
+      "actual": [
+        {
+          "segment": 0,
+          "engine": "qwen3_clone",
+          "voice": "synthetic",
+          "substituted": false
+        }
+      ],
+      "synthesis": {
+        "rate": "+0%",
+        "attempts": [],
+        "unavailable": [],
+        "fallback_reason": null
+      },
+      "synthesis_ms": 5
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "piece_ready",
+      "attempt_id": "attempt-1",
+      "piece_id": "piece-1",
+      "index": 0,
+      "start_ms": 0,
+      "duration_ms": 100,
+      "spoken_text": "Synthetic sentence.",
+      "artifact": {
+        "handle": "artifact-1",
+        "lease_id": "lease-1",
+        "format": "wav",
+        "sample_rate": 24000,
+        "sample_count": 2400,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "words": [
+        {
+          "index": 0,
+          "start_ms": 0,
+          "end_ms": 100,
+          "timing": "estimated"
+        }
+      ],
+      "actual": [
+        {
+          "segment": 0,
+          "engine": "qwen3_clone",
+          "voice": "synthetic",
+          "substituted": false
+        }
+      ],
+      "synthesis": {
+        "rate": "+0%",
+        "attempts": [],
+        "unavailable": [],
+        "fallback_reason": null
+      },
+      "synthesis_ms": 5
+    }
+  },
+  {
+    "name": "timing_update",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "timing_update",
+      "session_id": "session-1",
+      "attempt_id": "attempt-1",
+      "piece_id": "piece-1",
+      "derivation_id": "derive-1",
+      "words": [
+        {
+          "index": 0,
+          "start_ms": 0,
+          "end_ms": 100,
+          "timing": "estimated"
+        }
+      ]
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "timing_update",
+      "attempt_id": "attempt-1",
+      "piece_id": "piece-1",
+      "derivation_id": "derive-1",
+      "words": [
+        {
+          "index": 0,
+          "start_ms": 0,
+          "end_ms": 100,
+          "timing": "estimated"
+        }
+      ]
+    }
+  },
+  {
+    "name": "duration",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "duration",
+      "session_id": "session-1",
+      "known_ms": 100,
+      "final": true
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "duration",
+      "known_ms": 100,
+      "final": true
+    }
+  },
+  {
+    "name": "playback_started",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "playback_started",
+      "session_id": "session-1",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "piece_index": 0,
+      "at_audio_ms": 0,
+      "rate": 1
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "playback_started",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "piece_index": 0,
+      "at_audio_ms": 0,
+      "rate": 1
+    }
+  },
+  {
+    "name": "position",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "position",
+      "session_id": "session-1",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "audio_ms": 10,
+      "word_index": 0,
+      "piece_index": 0,
+      "phase": "playing",
+      "rate": 1,
+      "duration_ms": 100,
+      "final": true
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "position",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "audio_ms": 10,
+      "word_index": 0,
+      "piece_index": 0,
+      "phase": "playing",
+      "rate": 1,
+      "duration_ms": 100,
+      "final": true
+    }
+  },
+  {
+    "name": "paused",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "paused",
+      "session_id": "session-1",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "audio_ms": 0,
+      "word_index": 0,
+      "owner": "user"
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "paused",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "audio_ms": 0,
+      "word_index": 0,
+      "owner": "user"
+    }
+  },
+  {
+    "name": "resumed",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "resumed",
+      "session_id": "session-1",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "audio_ms": 0,
+      "word_index": 0,
+      "owner": "user"
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "resumed",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "audio_ms": 0,
+      "word_index": 0,
+      "owner": "user"
+    }
+  },
+  {
+    "name": "player_exited",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "player_exited",
+      "session_id": "session-1",
+      "player_instance_id": "player-1",
+      "piece_index": 0,
+      "status": "completed",
+      "reason": "completed",
+      "at_audio_ms": 100
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "player_exited",
+      "player_instance_id": "player-1",
+      "piece_index": 0,
+      "status": "completed",
+      "reason": "completed",
+      "at_audio_ms": 100
+    }
+  },
+  {
+    "name": "queue",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "queue",
+      "depth": 1,
+      "items": [
+        {
+          "session_id": "session-1",
+          "priority": "normal",
+          "is_current": true,
+          "progress": 0.5
+        }
+      ],
+      "read_count": 1,
+      "current_request_id": "req-1"
+    },
+    "missing": "depth",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "queue",
+      "items": [
+        {
+          "session_id": "session-1",
+          "priority": "normal",
+          "is_current": true,
+          "progress": 0.5
+        }
+      ],
+      "read_count": 1,
+      "current_request_id": "req-1"
+    }
+  },
+  {
+    "name": "outcome",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "outcome",
+      "session_id": "session-1",
+      "playback": {
+        "reason": "completed"
+      },
+      "generation": {
+        "status": "committed"
+      },
+      "stopped_at_ms": 100,
+      "word_index": 0,
+      "heard": true,
+      "missing_piece_indices": [],
+      "physical": "exited",
+      "history": {
+        "route": "speech",
+        "state": "completed",
+        "reason": "completed"
+      },
+      "artifacts": [
+        {
+          "piece_id": "piece-1",
+          "handle": "artifact-1",
+          "lease_id": "lease-1"
+        }
+      ]
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "outcome",
+      "playback": {
+        "reason": "completed"
+      },
+      "generation": {
+        "status": "committed"
+      },
+      "stopped_at_ms": 100,
+      "word_index": 0,
+      "heard": true,
+      "missing_piece_indices": [],
+      "physical": "exited",
+      "history": {
+        "route": "speech",
+        "state": "completed",
+        "reason": "completed"
+      },
+      "artifacts": [
+        {
+          "piece_id": "piece-1",
+          "handle": "artifact-1",
+          "lease_id": "lease-1"
+        }
+      ]
+    }
+  },
+  {
+    "name": "snapshot",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "snapshot",
+      "sessions": [
+        {
+          "session_id": "session-1",
+          "request_id": "req-1",
+          "phase": "playing",
+          "control_epoch": 1,
+          "audio_ms": 10,
+          "word_index": 0,
+          "pieces_ready": 1,
+          "last_seq": 1
+        }
+      ]
+    },
+    "missing": "sessions",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "snapshot"
+    }
+  },
+  {
+    "name": "lifecycle-synthesis_requested",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "edge": "synthesis_requested",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "segment_index": 0,
+      "chars": 19,
+      "kind": "sentence"
+    },
+    "missing": "edge",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "segment_index": 0,
+      "chars": 19,
+      "kind": "sentence"
+    }
+  },
+  {
+    "name": "lifecycle-audio_ready",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "edge": "audio_ready",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "duration_ms": 100,
+      "sample_count": 2400,
+      "first_audible_offset_ms": 0
+    },
+    "missing": "edge",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "duration_ms": 100,
+      "sample_count": 2400,
+      "first_audible_offset_ms": 0
+    }
+  },
+  {
+    "name": "lifecycle-player_spawned",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "edge": "player_spawned",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "control_epoch": 1
+    },
+    "missing": "edge",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "control_epoch": 1
+    }
+  },
+  {
+    "name": "lifecycle-first_sample",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "edge": "first_sample",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "source": "player_reported"
+    },
+    "missing": "edge",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "source": "player_reported"
+    }
+  },
+  {
+    "name": "lifecycle-first_audible",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "edge": "first_audible",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "source": "derived"
+    },
+    "missing": "edge",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "source": "derived"
+    }
+  },
+  {
+    "name": "lifecycle-last_sample",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "edge": "last_sample",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "source": "player_reported"
+    },
+    "missing": "edge",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "source": "player_reported"
+    }
+  },
+  {
+    "name": "lifecycle-player_exited",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "edge": "player_exited",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "status": "completed",
+      "exit_code": 0
+    },
+    "missing": "edge",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "lifecycle",
+      "session_id": "session-1",
+      "piece_index": 0,
+      "t_mono_ms": 10,
+      "player_instance_id": "player-1",
+      "status": "completed",
+      "exit_code": 0
+    }
+  },
+  {
+    "name": "engine_status",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "engine_status",
+      "engines": [
+        {
+          "family": "qwen3_clone",
+          "legacy": false,
+          "clone": true,
+          "max_chars": 1000,
+          "timing": "none",
+          "cancel": "abort_only",
+          "available": true
+        }
+      ]
+    },
+    "missing": "engines",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "engine_status"
+    }
+  },
+  {
+    "name": "speaker_request",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "speaker_request",
+      "session_id": "session-1",
+      "player_instance_id": "player-1",
+      "purpose": "read"
+    },
+    "missing": "session_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "speaker_request",
+      "player_instance_id": "player-1",
+      "purpose": "read"
+    }
+  },
+  {
+    "name": "speaker_released",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "speaker_released",
+      "permit_id": "permit-1",
+      "player_instance_id": "player-1",
+      "physical": "exited",
+      "at_audio_ms": 100
+    },
+    "missing": "permit_id",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "speaker_released",
+      "player_instance_id": "player-1",
+      "physical": "exited",
+      "at_audio_ms": 100
+    }
+  },
+  {
+    "name": "aligner_quiet",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "aligner_quiet",
+      "admission_epoch": 1,
+      "child": "none"
+    },
+    "missing": "admission_epoch",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "aligner_quiet",
+      "child": "none"
+    }
+  },
+  {
+    "name": "error",
+    "direction": "event",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "error",
+      "code": "INVALID_REQUEST",
+      "phase": "admit",
+      "retry": "never",
+      "message": "Invalid request"
+    },
+    "missing": "code",
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "owner_epoch": 1,
+      "seq": 1,
+      "type": "error",
+      "phase": "admit",
+      "retry": "never",
+      "message": "Invalid request"
+    }
+  }
+]

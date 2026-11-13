@@ -1,0 +1,1118 @@
+[
+  {
+    "id": "ART-01",
+    "contract_case": "ART-01",
+    "contract_line": 545,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "ART-02",
+    "contract_case": "ART-02",
+    "contract_line": 546,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "ART-03",
+    "contract_case": "ART-03",
+    "contract_line": 547,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "ART-04",
+    "contract_case": "ART-04",
+    "contract_line": 228,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "ASK-01",
+    "contract_case": "ASK-01",
+    "contract_line": 526,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "ASK-02e",
+    "contract_case": "ASK-02",
+    "contract_line": 527,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S6",
+    "active": false
+  },
+  {
+    "id": "ASK-02h",
+    "contract_case": "ASK-02",
+    "contract_line": 527,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "ASM-D7",
+    "contract_case": "ASM-D7",
+    "contract_line": 512,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "BIND-01",
+    "contract_case": "BIND-01",
+    "contract_line": 556,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "BIND-02",
+    "contract_case": "BIND-02",
+    "contract_line": 557,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "BIND-03",
+    "contract_case": "BIND-03",
+    "contract_line": 558,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "CAD-01",
+    "contract_case": "CAD-01",
+    "contract_line": 503,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "CAD-01h",
+    "contract_case": "CAD-01",
+    "contract_line": 503,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S4h",
+    "active": false
+  },
+  {
+    "id": "CONF-01",
+    "contract_case": "CONF-01",
+    "contract_line": 559,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S0a",
+    "active": true
+  },
+  {
+    "id": "CONF-02",
+    "contract_case": "CONF-02",
+    "contract_line": 559,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S0a",
+    "active": true
+  },
+  {
+    "id": "CONF-03",
+    "contract_case": "CONF-03",
+    "contract_line": 559,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S0b",
+    "active": false
+  },
+  {
+    "id": "CONF-04",
+    "contract_case": "CONF-04",
+    "contract_line": 559,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S0b",
+    "active": false
+  },
+  {
+    "id": "CTRL-01",
+    "contract_case": "CTRL-01",
+    "contract_line": 485,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "CUST-01",
+    "contract_case": "CUST-01",
+    "contract_line": 550,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "DEDUPE-01",
+    "contract_case": "DEDUPE-01",
+    "contract_line": 539,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "DET-01",
+    "contract_case": "DET-01",
+    "contract_line": 502,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S4",
+    "active": false
+  },
+  {
+    "id": "DISP-01",
+    "contract_case": "DISP-01",
+    "contract_line": 496,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "ENG-01",
+    "contract_case": "ENG-01",
+    "contract_line": 541,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "ENG-02",
+    "contract_case": "ENG-02",
+    "contract_line": 542,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "ENG-03",
+    "contract_case": "ENG-03",
+    "contract_line": 543,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "ERR-01",
+    "contract_case": "ERR-01",
+    "contract_line": 209,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "FALL-01",
+    "contract_case": "FALL-01",
+    "contract_line": 551,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "FALL-02",
+    "contract_case": "FALL-02",
+    "contract_line": 552,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "FALL-03",
+    "contract_case": "FALL-03",
+    "contract_line": 553,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "FALL-04",
+    "contract_case": "FALL-04",
+    "contract_line": 554,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "GEN-01e",
+    "contract_case": "GEN-01",
+    "contract_line": 486,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "GEN-01h",
+    "contract_case": "GEN-01",
+    "contract_line": 486,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "GEN-02",
+    "contract_case": "GEN-02",
+    "contract_line": 487,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "GEN-03e",
+    "contract_case": "GEN-03",
+    "contract_line": 488,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "GEN-03h",
+    "contract_case": "GEN-03",
+    "contract_line": 488,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "HASH-01",
+    "contract_case": "HASH-01",
+    "contract_line": 235,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "HIST-01",
+    "contract_case": "HIST-01",
+    "contract_line": 548,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "ID-01e",
+    "contract_case": "ID-01",
+    "contract_line": 479,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "ID-01h",
+    "contract_case": "ID-01",
+    "contract_line": 479,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "ID-02",
+    "contract_case": "ID-02",
+    "contract_line": 480,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "ID-03",
+    "contract_case": "ID-03",
+    "contract_line": 481,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "ID-04",
+    "contract_case": "ID-04",
+    "contract_line": 482,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "ID-05e",
+    "contract_case": "ID-05",
+    "contract_line": 483,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "ID-05h",
+    "contract_case": "ID-05",
+    "contract_line": 483,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "ID-06",
+    "contract_case": "ID-06",
+    "contract_line": 484,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "JOIN-01",
+    "contract_case": "JOIN-01",
+    "contract_line": 504,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S4h",
+    "active": false
+  },
+  {
+    "id": "JOIN-01b",
+    "contract_case": "JOIN-01",
+    "contract_line": 504,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "LIFE-01e",
+    "contract_case": "LIFE-01",
+    "contract_line": 505,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S4",
+    "active": false
+  },
+  {
+    "id": "LIFE-01p",
+    "contract_case": "LIFE-01",
+    "contract_line": 505,
+    "side": "joint",
+    "stage": "A",
+    "owner_slice": "S4h",
+    "active": false
+  },
+  {
+    "id": "LIFE-02",
+    "contract_case": "LIFE-02",
+    "contract_line": 506,
+    "side": "joint",
+    "stage": "A",
+    "owner_slice": "S4h",
+    "active": false
+  },
+  {
+    "id": "LIM-01",
+    "contract_case": "LIM-01",
+    "contract_line": 218,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S1",
+    "active": false
+  },
+  {
+    "id": "LOAN-01",
+    "contract_case": "LOAN-01",
+    "contract_line": 536,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "MIC-01",
+    "contract_case": "MIC-01",
+    "contract_line": 525,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "NEG-01",
+    "contract_case": "NEG-01",
+    "contract_line": 476,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S1",
+    "active": false
+  },
+  {
+    "id": "NEG-02",
+    "contract_case": "NEG-02",
+    "contract_line": 476,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S1",
+    "active": false
+  },
+  {
+    "id": "NEG-03",
+    "contract_case": "NEG-03",
+    "contract_line": 476,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S1",
+    "active": false
+  },
+  {
+    "id": "ORDER-01",
+    "contract_case": "ORDER-01",
+    "contract_line": 489,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PACE-01",
+    "contract_case": "PACE-01",
+    "contract_line": 492,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PACE-02",
+    "contract_case": "PACE-02",
+    "contract_line": 493,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PACE-D6",
+    "contract_case": "PACE-D6",
+    "contract_line": 511,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "PAUSE-01e",
+    "contract_case": "PAUSE-01",
+    "contract_line": 515,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "PAUSE-01h",
+    "contract_case": "PAUSE-01",
+    "contract_line": 515,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "PAUSE-02e",
+    "contract_case": "PAUSE-02",
+    "contract_line": 516,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "PAUSE-02h",
+    "contract_case": "PAUSE-02",
+    "contract_line": 516,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "PAUSE-03b",
+    "contract_case": "PAUSE-03",
+    "contract_line": 517,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "PAUSE-03e",
+    "contract_case": "PAUSE-03",
+    "contract_line": 517,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "PAUSE-03h",
+    "contract_case": "PAUSE-03",
+    "contract_line": 517,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "PAUSE-PL-01",
+    "contract_case": "PAUSE-PL-01",
+    "contract_line": 513,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PEXIT-01",
+    "contract_case": "PEXIT-01",
+    "contract_line": 537,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "PLAN-01",
+    "contract_case": "PLAN-01",
+    "contract_line": 507,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PLAN-02",
+    "contract_case": "PLAN-02",
+    "contract_line": 508,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PLAN-03",
+    "contract_case": "PLAN-03",
+    "contract_line": 514,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PLAN-D4",
+    "contract_case": "PLAN-D4",
+    "contract_line": 509,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PLAN-D5",
+    "contract_case": "PLAN-D5",
+    "contract_line": 510,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PLAN-LAT-01",
+    "contract_case": "PLAN-LAT-01",
+    "contract_line": 490,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "PREEMPT-01e",
+    "contract_case": "PREEMPT-01",
+    "contract_line": 522,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "PREEMPT-01h",
+    "contract_case": "PREEMPT-01",
+    "contract_line": 522,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "PRIV-01e",
+    "contract_case": "PRIV-01",
+    "contract_line": 555,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "PRIV-01h",
+    "contract_case": "PRIV-01",
+    "contract_line": 555,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "QUEUE-01",
+    "contract_case": "QUEUE-01",
+    "contract_line": 538,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "RETRY-01",
+    "contract_case": "RETRY-01",
+    "contract_line": 491,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "SEEK-01e",
+    "contract_case": "SEEK-01",
+    "contract_line": 518,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "SEEK-01h",
+    "contract_case": "SEEK-01",
+    "contract_line": 518,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "SEQ-01",
+    "contract_case": "SEQ-01",
+    "contract_line": 114,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "SESS-01",
+    "contract_case": "SESS-01",
+    "contract_line": 224,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S3b",
+    "active": false
+  },
+  {
+    "id": "SHUT-01",
+    "contract_case": "SHUT-01",
+    "contract_line": 549,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "SNAP-01",
+    "contract_case": "SNAP-01",
+    "contract_line": 540,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "SPEED-01b",
+    "contract_case": "SPEED-01",
+    "contract_line": 519,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "SPEED-01h",
+    "contract_case": "SPEED-01",
+    "contract_line": 519,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "SPK-01",
+    "contract_case": "SPK-01",
+    "contract_line": 528,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-01b",
+    "contract_case": "SPK-01b",
+    "contract_line": 528,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-02",
+    "contract_case": "SPK-02",
+    "contract_line": 529,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-02b",
+    "contract_case": "SPK-02b",
+    "contract_line": 529,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-02c",
+    "contract_case": "SPK-02c",
+    "contract_line": 529,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-03e",
+    "contract_case": "SPK-03",
+    "contract_line": 530,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S6",
+    "active": false
+  },
+  {
+    "id": "SPK-03h",
+    "contract_case": "SPK-03",
+    "contract_line": 530,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-04",
+    "contract_case": "SPK-04",
+    "contract_line": 531,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-05e",
+    "contract_case": "SPK-05",
+    "contract_line": 532,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S6",
+    "active": false
+  },
+  {
+    "id": "SPK-05h",
+    "contract_case": "SPK-05",
+    "contract_line": 532,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-06e",
+    "contract_case": "SPK-06",
+    "contract_line": 533,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S6",
+    "active": false
+  },
+  {
+    "id": "SPK-06h",
+    "contract_case": "SPK-06",
+    "contract_line": 533,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-07",
+    "contract_case": "SPK-07",
+    "contract_line": 534,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "SPK-07b",
+    "contract_case": "SPK-07b",
+    "contract_line": 534,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "SPK-07h",
+    "contract_case": "SPK-07",
+    "contract_line": 534,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "SPK-08",
+    "contract_case": "SPK-08",
+    "contract_line": 535,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S6h",
+    "active": false
+  },
+  {
+    "id": "STALE-01",
+    "contract_case": "STALE-01",
+    "contract_line": 172,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "STOP-01e",
+    "contract_case": "STOP-01",
+    "contract_line": 520,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S5",
+    "active": false
+  },
+  {
+    "id": "STOP-01h",
+    "contract_case": "STOP-01",
+    "contract_line": 520,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S5h",
+    "active": false
+  },
+  {
+    "id": "STOP-02",
+    "contract_case": "STOP-02",
+    "contract_line": 521,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "SUB-01",
+    "contract_case": "SUB-01",
+    "contract_line": 544,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S7",
+    "active": false
+  },
+  {
+    "id": "TIME-01",
+    "contract_case": "TIME-01",
+    "contract_line": 497,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S4",
+    "active": false
+  },
+  {
+    "id": "TIME-02",
+    "contract_case": "TIME-02",
+    "contract_line": 498,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S4",
+    "active": false
+  },
+  {
+    "id": "TIME-03",
+    "contract_case": "TIME-03",
+    "contract_line": 499,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "TIME-03h",
+    "contract_case": "TIME-03",
+    "contract_line": 499,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S4h",
+    "active": false
+  },
+  {
+    "id": "TIME-04",
+    "contract_case": "TIME-04",
+    "contract_line": 500,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "TIME-04h",
+    "contract_case": "TIME-04",
+    "contract_line": 500,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S4h",
+    "active": false
+  },
+  {
+    "id": "TIME-05",
+    "contract_case": "TIME-05",
+    "contract_line": 501,
+    "side": "engine",
+    "stage": "B",
+    "owner_slice": null,
+    "active": false
+  },
+  {
+    "id": "VER-01",
+    "contract_case": "VER-01",
+    "contract_line": 477,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S1",
+    "active": false
+  },
+  {
+    "id": "VER-02e",
+    "contract_case": "VER-02",
+    "contract_line": 478,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S1",
+    "active": false
+  },
+  {
+    "id": "VER-02h",
+    "contract_case": "VER-02",
+    "contract_line": 478,
+    "side": "host",
+    "stage": "A",
+    "owner_slice": "S7h",
+    "active": false
+  },
+  {
+    "id": "VL-INV-01",
+    "contract_case": "VL-INV-01",
+    "contract_line": 523,
+    "side": "host_supplied",
+    "stage": "A",
+    "owner_slice": "S4h",
+    "active": false
+  },
+  {
+    "id": "VL-INV-02",
+    "contract_case": "VL-INV-02",
+    "contract_line": 524,
+    "side": "host_supplied",
+    "stage": "A",
+    "owner_slice": "S4h",
+    "active": false
+  },
+  {
+    "id": "WORD-01",
+    "contract_case": "WORD-01",
+    "contract_line": 494,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S4",
+    "active": false
+  },
+  {
+    "id": "WORD-02",
+    "contract_case": "WORD-02",
+    "contract_line": 495,
+    "side": "engine",
+    "stage": "A",
+    "owner_slice": "S4",
+    "active": false
+  }
+]
