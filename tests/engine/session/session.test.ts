@@ -233,3 +233,22 @@ test("parser refusal: raw correlation requires a narrate request_id within schem
     expect(h.events().at(-1)).toMatchObject({ type: "error", request_id });
   }
 });
+
+test("planner clone: uncloneable extras refuse once without throwing", () => {
+  const h = harness(), plan = h.planner.plan;
+  h.planner.plan = (...args) => { const result = plan(...args); Reflect.set(result.plan, "extra", () => {}); return result; };
+  expect(() => h.session.send(request)).not.toThrow();
+  expect(h.events()).toEqual([{ type: "error", code: "INVALID_REQUEST", message: "INVALID_REQUEST", phase: "admit", retry: "never", request_id: request.request_id, protocol: "nl.engine/1", owner_epoch: 1, seq: 1 }]);
+  expect(h.backend.calls).toHaveLength(0);
+});
+test("planner clone: a changing getter emits exactly the validated snapshot", () => {
+  const h = harness(), plan = h.planner.plan; let reads = 0;
+  h.planner.plan = (...args) => {
+    const result = plan(...args), engine = result.plan.engine;
+    Object.defineProperty(result.plan, "engine", { enumerable: true, get: () => ({ ...engine, profile_revision: ++reads === 1 ? "validated" : "changed" }) });
+    return result;
+  };
+  h.script(); h.session.send(request);
+  expect(h.events().find(e => e.type === "plan")).toMatchObject({ engine: { profile_revision: "validated" } });
+  expect(reads).toBe(1);
+});

@@ -80,20 +80,21 @@ export function createEngineSession<Audio>(options: {
     };
     let prepared: ReturnType<ReadPlanner["plan"]>;
     try {
-      prepared = options.planner.plan(structuredClone(request), structuredClone(options.limits), identity);
+      const planned = options.planner.plan(structuredClone(request), structuredClone(options.limits), identity);
+      prepared = { plan: structuredClone(planned.plan), requests: structuredClone(planned.requests) };
       const checked = parseEvent({ ...prepared.plan, protocol: "nl.engine/1", owner_epoch: state.owner_epoch, seq: state.seq + 1 });
       if (!checked.ok || checked.value?.type !== "plan"
         || prepared.plan.session_id !== identity.session_id || prepared.plan.attempt_id !== identity.attempt_id
         || prepared.requests.length !== prepared.plan.pieces.length
         || prepared.requests.some((r, i) => r.piece_index !== prepared.plan.pieces[i].index)) throw new Error("invalid plan");
-      requests.set(identity.session_id, structuredClone(prepared.requests));
+      requests.set(identity.session_id, prepared.requests);
     } catch {
       requests.delete(identity.session_id);
       refuse("INVALID_REQUEST", request.request_id);
       return;
     }
     // §2 L116: accept emits the complete plan before its backend-start effect.
-    step({ kind: "accept", identity, request, plan: structuredClone(prepared.plan), current: {
+    step({ kind: "accept", identity, request, plan: prepared.plan, current: {
       session_id: identity.session_id, player_instance_id: "", control_epoch: 0,
       audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 0, duration_ms: 0,
     } });
