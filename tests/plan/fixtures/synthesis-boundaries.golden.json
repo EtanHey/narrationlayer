@@ -23,22 +23,64 @@
       536
     ],
     "planner_only": [
-      12,
-      30,
-      73,
-      148,
-      201,
-      244,
-      292,
-      352,
-      446
+      {
+        "end": 12,
+        "snippet": "Garden notes|\nPlant three seeds\nW"
+      },
+      {
+        "end": 30,
+        "snippet": "es\nPlant three seeds|\nWater all the small"
+      },
+      {
+        "end": 73,
+        "snippet": "edlings each morning|\nKeep the young plan"
+      },
+      {
+        "end": 148,
+        "snippet": "t the cool afternoon|\nCare label: water t"
+      },
+      {
+        "end": 201,
+        "snippet": "leave the leaves dry|\nUse garden_check to"
+      },
+      {
+        "end": 244,
+        "snippet": "unt the green shoots|\nRead the planting g"
+      },
+      {
+        "end": 292,
+        "snippet": "k for the next steps|\nVisit https://examp"
+      },
+      {
+        "end": 352,
+        "snippet": "r the planting guide|\nThe gardeners gathe"
+      },
+      {
+        "end": 446,
+        "snippet": "ed beside the river;| they planted the ne"
+      }
     ],
     "runner_only": [
-      159,
-      387,
-      415,
-      445,
-      473
+      {
+        "end": 159,
+        "snippet": "afternoon\nCare label|: water the roots an"
+      },
+      {
+        "end": 387,
+        "snippet": "gathered by the gate|: they carried their"
+      },
+      {
+        "end": 415,
+        "snippet": "arried their baskets|, they walked beside"
+      },
+      {
+        "end": 445,
+        "snippet": "ked beside the river|; they planted the n"
+      },
+      {
+        "end": 473,
+        "snippet": "lanted the new seeds| — and they returned"
+      }
     ]
   },
   {
@@ -59,10 +101,16 @@
       529
     ],
     "planner_only": [
-      7
+      {
+        "end": 7,
+        "snippet": "Gardens|\nsoft green leaves g"
+      }
     ],
     "runner_only": [
-      408
+      {
+        "end": 408,
+        "snippet": "er soft green leave.| soft green leaves g"
+      }
     ]
   }
 ]
