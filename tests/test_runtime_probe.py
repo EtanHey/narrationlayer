@@ -32,6 +32,7 @@ class ProbeTests(unittest.TestCase):
         self.offline = self.head_down = self.failed = False
         self.head_status = '200'
         self.power = '2000-01-01 00:00:00 +0000 Wake                 Wake from Normal Sleep'
+        self.power_code = 0
         self.urls = []
         env = {'NL_PROBE_CONFIG': str(self.config_path), 'NL_PROBE_INBOX': str(self.inbox),
                'NL_PROBE_STATE_DIR': str(self.root / 'state'),
@@ -46,6 +47,7 @@ class ProbeTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('probe', path)
         self.probe = importlib.util.module_from_spec(spec)
         exec(compile(Path(path).read_text(), path, 'exec'), self.probe.__dict__)
+        self.real_run = self.probe.run
         for mock in (patch.object(self.probe, 'run', side_effect=self.run_command),
                      patch('socket.getaddrinfo', side_effect=self.resolve)):
             mock.start()
@@ -100,7 +102,7 @@ class ProbeTests(unittest.TestCase):
                 return (1, '000') if self.failed else (0, '200')
             return 0, '401' if '/api/' in url else '206'
         if 'pmset' in args[0]:
-            return 0, self.power
+            return self.power_code, self.power
         if 'launchctl' in args[0]:
             return 0, ' pid = 42\n'
         return 0, '{"AllowFunnel":{"media.example:8443":true}}'
@@ -286,6 +288,85 @@ class ProbeTests(unittest.TestCase):
     def test_dns_alone_does_not_establish_connectivity(self):
         self.head_down = True
         self.assertEqual(self.invoke()[1]['status'], 'SKIPPED client-offline')
+
+    # Power history is only "is this Mac asleep?"; unreadable means unknown, and unknown is not asleep.
+    def assert_power_unavailable(self, state):
+        self.assertEqual(state['power'], 'unavailable')
+        self.assertEqual(state['client']['power'], 'unavailable')
+
+    def test_pmset_failure_with_client_online_runs_remote_checks(self):
+        self.power_code, self.power = 1, ''
+        code, state = self.invoke()
+        self.assertEqual((code, state['status']), (0, 'HEALTHY'))
+        self.assert_power_unavailable(state)
+        self.assertIn('https://app.example/', self.urls)
+        self.assertFalse(self.notices())
+
+    def test_pmset_failure_still_reports_a_real_remote_failure(self):
+        self.power_code, self.power = 1, ''
+        self.failed = True
+        code, state = self.invoke()
+        self.assertEqual((code, state['status']), (1, 'FAIL'))
+        self.assert_power_unavailable(state)
+        self.assertEqual(self.notices().count('runtime FAIL'), 1)
+        self.assertIn('lakebed: expected HTTP 200', self.notices())
+        self.assertNotIn('power', self.notices())
+
+    def test_power_log_without_sleep_or_wake_runs_remote_checks(self):
+        self.power = '2026-11-13 13:00:00 +0200 Assertions          \tPID 1(x) Summary PreventUserIdleSystemSleep\n'
+        code, state = self.invoke()
+        self.assertEqual((code, state['status']), (0, 'HEALTHY'))
+        self.assert_power_unavailable(state)
+        self.assertFalse(self.notices())
+
+    def test_pmset_is_capped_well_under_the_remote_check_limit(self):
+        seen = {}
+        def slow(args, **kwargs):
+            seen[args[0]] = kwargs['timeout']
+            raise self.probe.subprocess.TimeoutExpired(args, kwargs['timeout'])
+        with patch.object(self.probe.subprocess, 'run', side_effect=slow):
+            self.assertEqual(self.real_run(['/usr/bin/pmset', '-g', 'log']), (1, ''))
+            self.real_run(['/usr/bin/curl', 'https://app.example/'])
+        self.assertLessEqual(seen['/usr/bin/pmset'], 10)
+        self.assertEqual(seen['/usr/bin/curl'], 20)
+
+    def unreadable_runs(self, count):
+        for _ in range(count):
+            self.assert_power_unavailable(self.invoke()[1])
+
+    def test_power_unreadable_for_a_day_posts_one_line_once(self):
+        self.power_code, self.power = 1, ''
+        self.unreadable_runs(95)
+        self.assertFalse(self.notices())
+        state_file = self.probe.STATE / 'last.json'
+        state = json.loads(state_file.read_text())
+        self.assertEqual(state['power_unavailable_runs'], 95)
+        state['power_unavailable_since'] = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)).isoformat()
+        state_file.write_text(json.dumps(state))
+        self.unreadable_runs(1)
+        notices = self.notices()
+        self.assertEqual(notices.count('### '), 1)
+        self.assertIn('runtime POWER-NOTICE', notices)
+        self.assertIn('- power history unreadable for 24.0 hours (96 runs in a row); sleep detection is off', notices)
+        self.assertNotIn('CONFIG-ERROR', notices)
+        self.assertNotIn('settings and access', notices)
+        self.unreadable_runs(2)
+        self.assertEqual(self.notices(), notices)
+
+    def test_power_streak_resets_when_readable_again(self):
+        self.config['power_notice_runs'] = 3
+        self.config_path.write_text(json.dumps(self.config))
+        self.power_code, self.power = 1, ''
+        self.unreadable_runs(2)
+        self.power_code, self.power = 0, '2000-01-01 00:00:00 +0000 Wake                 Wake from Normal Sleep'
+        state = self.invoke()[1]
+        self.assertEqual(state['power'], 'available')
+        self.assertNotIn('power_unavailable_runs', state)
+        self.power_code, self.power = 1, ''
+        self.unreadable_runs(2)
+        self.assertFalse(self.notices())
+        self.unreadable_runs(1)
+        self.assertEqual(self.notices().count('runtime POWER-NOTICE'), 1)
 
 
 if __name__ == '__main__':
