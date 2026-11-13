@@ -43,3 +43,28 @@ Repeat `--dashboard` for more pages. Retained `*artifact.json` files are searche
 The command is read-only: one database read, no deploy, mutation, browser, lock write or answers on stdout. Reports are atomically replaced with mode 0600; symlink outputs and invalid parents refuse before authentication. Fixed refusal messages distinguish login, runtime, vendor drift, manifest drift and missing retained artifacts without exposing SDK messages.
 
 Every card appears in page order. Option picks, free-text notes and note-only decisions have separate counts. Checkbox indices map to labels. Multiple owners have separate groups labelled by short hashes; a single owner is identified once per page. Served metadata is escaped; values are JSON in fenced blocks. Empty card fields are labelled as probe keys. Unmatched keys appear separately; app bookkeeping lists only keys and revisions. Row timestamps describe saved fields, not individual selections.
+
+### Image media and visual pages
+
+A `mediaManifest` row may declare `kind`: `mp3`, `webp`, `png`, `jpeg` (`.jpg` or `.jpeg`) or `svg`. A row without `kind` is an mp3 row and must be named `assets/<name>.mp3`; a declared kind must name its own extension (`assets/<name>.<ext>`). The schema expresses both, so a mismatch refuses `HANDOFF_SCHEMA`. That is the one tightening of the manifest's shape: the host already refused any other name at run time (`server/dashboard-media-runtime.ts:8`, "Invalid UploadThing entry").
+
+`type: "visual"` is a document with no answers: `answerKeys` is empty, `answerRuntimeSha256` and `answerPersistence` are absent, and every row is an image. Identity, source hash, lineage/design approval, staging, artifact size and lock checks are unchanged. Admission echoes `pageType: visual` and `answerRuntime: none`. `delivery()` refuses `VISUAL_DELIVERY_UNSUPPORTED`: its account proof is an answer round trip, and a visual page's proof is not built yet.
+
+| Code | Refused when |
+|---|---|
+| `MEDIA_KIND` | the same file is named twice, or a name breaks the kind/extension rule on a path the schema does not see |
+| `MEDIA_TOO_LARGE` | mp3 over 5 MiB, webp/png/jpeg over 2 MiB, svg over 256 KiB |
+| `MEDIA_COUNT` | over 200 files or over 40 images on one page |
+| `MEDIA_BYTES` | supplied bytes differ from the row's size or sha256, or lack the kind's magic bytes |
+| `MEDIA_SVG_UNCHECKED` | an svg row arrives without its bytes (`admit(media=...)`, stdin `mediaBase64`) |
+| `MEDIA_SVG_UNSAFE` | the svg is not well-formed `<svg>`; has a doctype, entity or processing instruction; a `script`, `foreignObject`, `iframe`, `embed` or `object`; an `on*` attribute; an `href`/`src` that is not `#fragment`; a `url(` not to `#fragment`, `@import`, `javascript:`; **any backslash or `/*` in an attribute value or style text** (CSS escapes and comments cannot exist, so the literal checks see everything; entities are decoded by the parser first); or any at-rule except `@media` |
+| `MEDIA_REFERENCE` | in the parsed markup, an attribute value mentioning `assets/` is anything but a manifest image in `<img data-nl-media>` or a manifest clip in an `<audio>`/`<source>` `src` (the served shell of an audio page carries it as a URL ending in the file); or a manifest image is never referenced |
+| `VISUAL_MARKUP` | a visual page contains `applet`, `audio`, `embed`, `frame`, `iframe`, `object`, `source`, `track` or `video` (detail: the element) |
+| `VISUAL_ANSWERS` | a visual page declares answer fields; or its HTML holds the answer runtime (`installAnswerPersistence`); or its markup carries the template's answer attributes `data-note` or `data-decision` (every answering card has both; no visual page needs them); or rows are saved under its id |
+| `VISUAL_AUDIO` | a visual page has an mp3 row (with or without `kind`) |
+
+**Why an svg's script is inert here:** an svg is only ever referenced as `<img data-nl-media>` (`MEDIA_REFERENCE`). An svg loaded through `<img>` runs no script and loads no outside resource in every browser, and it is served from the media host's origin, not the app's. The scan is a second wall.
+
+**What only code judges** (the schema cannot express it): sizes, counts, duplicates, bytes and magic, the svg scan, the markup rules. **What the gate does not judge:** what a visual page's script does at run time. That a visual page writes no answer and plays no clip is enforced by the host: its answers endpoints refuse a page id that is not a registered audio page, and its signed media endpoint serves a visual page only its own catalog, which holds no audio (capsule tests `server/visual-media.isolated.ts`).
+
+**Invariant for existing pages:** `test_admission_golden.py` runs a corpus of pre-kind audio handoffs through `admit()` (no media argument) against a golden recorded from master (`python3 admission_golden.py cf4dedb2`). Every case matches except the named tightenings, each admitted on master and now refused for its stated reason: a no-kind row that is not `assets/<name>.mp3`, a duplicate file, an mp3 over 5 MiB, over 200 rows, a clip named outside `<audio src>`, an `assets/` path the manifest lacks.

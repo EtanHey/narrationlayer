@@ -1,0 +1,158 @@
+{
+ "commit": "cf4dedb2",
+ "results": {
+  "a-full-page-of-clips": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "3a2ffdba0d5f58485e401eca335a1289657ce631ec3ccdf622a304a04c94844e",
+   "sourceHtmlSha256": "2f0f156ef2ba1a42493c7ab32366cdd6cbf01e83be46ed633d0142c29b39eb79"
+  },
+  "answers-no-media": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "c7392996d0511979de58989bda6fc4f3ac643057498896024b5bfdc68720da83",
+   "sourceHtmlSha256": "1ae0503df4b72aa9bce9c5791e3ced5350e67eacf51f59ca5a4e28552b3ddb4a"
+  },
+  "artifact-too-large": {
+   "refusal": "ARTIFACT_TOO_LARGE"
+  },
+  "assets-path-not-in-manifest": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "4560478e2582be703f74672ce93536520191653833dc27438f3d828c432b056b",
+   "sourceHtmlSha256": "49bca2605369af0f05cc35fbaa12c4569d680d8752420b9bfdb1eb433f8823bf"
+  },
+  "cinema-clips": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "f1d0e438fed215cb8eacdd8c9ab76343abb19b877dc35582416bfb6474b962b9",
+   "sourceHtmlSha256": "ff7274d3d5b002c650ee681876b1e519c32b89df40fcca214930c48059f29140"
+  },
+  "clip-linked-outside-audio": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "5934edd9b93087d9829a4520df8759bfd556cf41f80b10388724924c3ec62d82",
+   "sourceHtmlSha256": "b527be581253775b91927164d1752569fb5b4fc2bdd0f9ffb7c4966d47967af1"
+  },
+  "clip-over-five-mib": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "faab61e6f3dd9befcb8034c6cc9adec0fbe02b997a13afde583970a4dd76b93f",
+   "sourceHtmlSha256": "9248ce902d47e2636a21a9090494a157d8ce7e532c2802abddfa61f11d78dedc"
+  },
+  "clip-row-outside-assets": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "2bd0a331b1f96e8b1c4db96f27b1b9ba93b43a96ebbdde0c4f14b00a5bcfde1c",
+   "sourceHtmlSha256": "ec6b8bb40bc1fcf370866358f7cdbf644f6055fb6f0836c25ee8d81d43f3fab7"
+  },
+  "compared-design": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "COMPARED",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "0d48be7f852e6e61493aefc22c06ef7d32eba81127dc67ef1ecabd516fb818ac",
+   "sourceHtmlSha256": "8306702ad691a9898b5efc19a3ccd0c9698bf2ae63e30f286b1de5f98f0e3666"
+  },
+  "dashboard-id": {
+   "refusal": "DASHBOARD_ID"
+  },
+  "deploy-lock": {
+   "refusal": "DEPLOY_LOCK"
+  },
+  "duplicate-clip-name": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "ffefcaa4aa4766d3b5336670d4c9d3a0fd0d7c5f5443f346844d450f3f6d05b2",
+   "sourceHtmlSha256": "e0a7419bd7a57b89cfdf93c7e02881f094256b763f8eee4090d502bd00854ea3"
+  },
+  "identity-mismatch": {
+   "refusal": "ANSWER_IDENTITY"
+  },
+  "lineage-exists": {
+   "refusal": "LINEAGE_EXISTS"
+  },
+  "persistence-fail": {
+   "refusal": "ANSWER_PERSISTENCE"
+  },
+  "png-row-without-kind": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "c7392996d0511979de58989bda6fc4f3ac643057498896024b5bfdc68720da83",
+   "sourceHtmlSha256": "1ae0503df4b72aa9bce9c5791e3ced5350e67eacf51f59ca5a4e28552b3ddb4a"
+  },
+  "provider-not-ready": {
+   "refusal": "PROVIDER_NOT_READY"
+  },
+  "runtime-mismatch": {
+   "refusal": "ANSWER_RUNTIME_MISMATCH"
+  },
+  "saved-local-only": {
+   "refusal": "PROVIDER_NOT_READY"
+  },
+  "schema-missing-createdAt": {
+   "refusal": "HANDOFF_SCHEMA"
+  },
+  "source-sha": {
+   "refusal": "SOURCE_SHA"
+  },
+  "three-clips": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "f303e58bdabe188a3895b2a206ece43c1947ce8e15a92f6a25b1de8cbb299387",
+   "sourceHtmlSha256": "40b48e47eb05c0d82ba021422a499f4f2717a1ecd593920dd0250ac19cd67f5b"
+  },
+  "two-hundred-and-one-clips": {
+   "answerIdentity": "PASS",
+   "answerRuntime": "current",
+   "dashboardId": "corpus-1",
+   "design": "FIRST_IN_LINEAGE",
+   "gateVersion": "2",
+   "providerReady": true,
+   "servedShellSha256": "1469e4521f86d6a25fee55916c98e493a6a8f53652a2f94539af4b67a5d8b710",
+   "sourceHtmlSha256": "71bc2eb1260c4fe03556ef13f4317d00cd1f8185ef6b8121a6b1fd2b6868432a"
+  }
+ }
+}
