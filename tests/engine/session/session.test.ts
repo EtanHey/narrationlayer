@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { createEngineSession, PlanningError, type Publication, type ReadPlanner } from "../../../src/engine/session/session";
+import { createEngineSession, type Publication, type ReadPlanner } from "../../../src/engine/session/session";
 import { initialState, reduce, type Input } from "../../../src/engine/reducer/session";
 import { parseEvent } from "../../../src/engine/messages/parser";
 import type { Event, Message } from "../../../src/engine/messages/messages";
@@ -19,7 +19,13 @@ function harness(epoch = 1, source = units) {
   const planner: ReadPlanner = { plan(req, _limits, identity) {
     calls++;
     const pieces = planSynthesisUnits({ units: source, max_chars: 1000 });
-    const text = source.map(u => u.text).join(" "), words = text.split(" ").map((text, index) => ({ index, text, display: [0, 0] satisfies [number, number] }));
+    const text = source.map(u => u.text).join(" ");
+    let offset = 0;
+    const words = text.split(" ").map((text, index) => {
+      const display: [number, number] = [offset, offset + text.length];
+      offset += text.length + 1;
+      return { index, text, display };
+    });
     return { plan: { type: "plan", ...identity, display_document: { version: 1, text, speech_start: 0, blocks: [] }, words, pieces: pieces.map((p, index) => ({ piece_id: `piece-${identity.session_id}-${index}`, index, word_start: 0, word_end: words.length, raw: false, segments: p.segments.map(s => ({ word_start: 0, word_end: words.length, kind: s.kind === "list_item" ? "item" : s.kind, pause_after_ms: s.pause_after_ms, pause_in: s.pause_in })) })), engine: { family: "fake", profile_revision: "1", voice: req.voice.profile } }, requests: pieces.map((p, index) => ({ piece_index: index, text: p.segments[0].text })) };
   } };
   const publication: Publication<ReturnType<typeof pcmAudio>> = {
@@ -130,11 +136,30 @@ test("send never awaits: unresolved synthesis returns accepted synchronously", (
 });
 test("every event parses: rejection and planner refusal remain text-free and sequenced", () => {
   const h = harness(); h.session.send({ nope: true }); h.session.send({ ...request, input: { text: "x".repeat(1001), format: "plain" } });
-  h.planner.plan = () => { throw new PlanningError({ type: "error", code: "VOICE_UNAVAILABLE", phase: "plan", retry: "new_request", message: "voice unavailable" }); };
+  h.planner.plan = () => { throw new Error("private planner text"); };
   h.session.send(request); expect(h.backend.calls).toHaveLength(0);
-  expect(h.events().map(e => e.type === "error" && e.code)).toEqual(["INVALID_REQUEST", "INPUT_TOO_LONG", "VOICE_UNAVAILABLE"]);
+  expect(h.events().map(e => e.type === "error" && e.code)).toEqual(["INVALID_REQUEST", "INPUT_TOO_LONG", "INVALID_REQUEST"]);
 });
 test("imports: session has no harness, surface, pipeline or dynamic imports", () => {
   const text = readFileSync("src/engine/session/session.ts", "utf8");
   expect(text).not.toMatch(/(?:from\s*["'][^"']*(?:conformance|pipelines|\/api\/|bin\/)|import\s*\()/);
+});
+
+test("parsed admission: unknown wire fields never affect replay or the stored request", () => {
+  const h = harness(); h.script(); h.session.send({ ...request, extra: "ignored", input: { ...request.input, extra: "ignored" } }); h.session.send(request);
+  expect(h.plannerCalls).toBe(1); expect(h.delivered.at(-1)?.replay).toBe(true);
+  for (const i of h.inputs) if (i.kind === "admit" || i.kind === "accept") expect(i.request).toEqual(request);
+});
+test("parser refusal: unsupported major preserves the contract error code", () => {
+  const h = harness(); h.session.send({ ...request, protocol: "nl.engine/2" });
+  expect(h.events()).toMatchObject([{ type: "error", code: "UNSUPPORTED_VERSION", phase: "negotiate", retry: "never" }]);
+  expect(h.plannerCalls).toBe(0); expect(h.backend.calls).toHaveLength(0);
+});
+
+test("invalid refusal: an unknown internal code is a programming rejection, never a wire event", () => {
+  const before = initialState(1, "host");
+  // @ts-expect-error deliberately exercise an invalid internal call at runtime.
+  const result = reduce(before, { kind: "refuse", code: "UNKNOWN_CODE", message: "programming error" });
+  expect(result.state).toEqual(before);
+  expect(result.effects).toEqual([{ kind: "reject", reason: "INVALID_REFUSAL" }]);
 });
