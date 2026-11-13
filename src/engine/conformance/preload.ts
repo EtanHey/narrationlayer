@@ -2,6 +2,16 @@ import { syncBuiltinESMExports, builtinModules } from "node:module";
 import { trapState } from "./wall-guard.js";
 import { trapped, verifyInventory, type TrapKind } from "./inventory.js";
 verifyInventory();
+for (const [key, kind] of Object.entries(trapped.globals)) {
+  if (kind === "realm" && Object.hasOwn(globalThis, key)) trap(globalThis, key, kind, key);
+}
+// Bun 1.3 permits frozen environment descriptors; 1.4 rejects them.
+for (const env of new Set([process.env, Bun.env])) {
+  for (const key of ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy", "NO_PROXY", "no_proxy"]) {
+    try { Object.defineProperty(env, key, { value: env[key] ?? "", enumerable: true, writable: false, configurable: false }); }
+    catch { /* OPEN until S0c on runtimes refusing frozen environment properties. */ }
+  }
+}
 // This process is disposable: traps are never restored, even after publication.
 function deny(kind: TrapKind, api: string): never {
   trapState.violations.push({ kind: kind === "worker" ? "spawn" : kind, api });
@@ -22,7 +32,7 @@ const modules = Object.entries(trapped.modules).filter(([name]) => builtinModule
   .map(([name, kind]) => ({ name, kind, module: require(name) }));
 process.noDeprecation = noDeprecation;
 for (const [key, kind] of Object.entries(trapped.bun)) {
-  if (!(key in Bun) || key === "fetch") continue; // immutable; parent-owned proxy catches fetch
+  if (!(key in Bun) || ["file", "write"].includes(key)) continue; // file/write have conditional wrappers below
   if (key === "dns") {
     for (const method of Object.keys(Bun.dns)) if (typeof Reflect.get(Bun.dns, method) === "function") trap(Bun.dns, method, kind, `Bun.dns.${method}`);
   } else {
@@ -40,6 +50,15 @@ for (const { name, kind, module } of modules) {
     if (typeof module[key] === "function") trap(module, key, kind, `${name}.${key}`);
   }
   if (module.globalAgent) for (const key of ["createConnection", "addRequest"]) trap(module.globalAgent, key, kind, `${name}.globalAgent.${key}`);
+}
+// Local files remain available; remote schemes must not construct native clients.
+for (const key of ["file", "write"] as const) {
+  const original = Bun[key];
+  replace(Bun, key, new Proxy(original, { apply(target, receiver, args) {
+    const path = args[0] instanceof URL ? args[0].href : args[0];
+    if (typeof path === "string" && /^[a-z][a-z0-9+.-]*:/i.test(path) && !/^file:/i.test(path)) deny("network", `Bun.${key} remote scheme`);
+    return Reflect.apply(target, receiver, args);
+  } }), `Bun.${key}`);
 }
 for (const key of ["connect", "listen", "serve"]) if (!Object.hasOwn(trapped.bun, key)) throw new Error(`unreviewed ${key}`);
 for (const key of ["fetch", "WebSocket"]) trap(globalThis, key, "network", key);

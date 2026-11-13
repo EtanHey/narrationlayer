@@ -63,8 +63,10 @@ if (import.meta.main) {
         const run = async (reversed: boolean) => {
           const command = [process.execPath, "--preload", resolve(import.meta.dir, "preload.ts"), import.meta.path,
             "--child", "--binding", absoluteBinding, ...(reversed ? ["--reverse"] : [])];
+          const timeout = Number(process.env.NL_CONFORMANCE_WATCHDOG_MS ?? 30000);
+          if (!Number.isInteger(timeout) || timeout < 1 || timeout > 30000) throw new Error("invalid watchdog");
           const proc = Bun.spawn(command, { cwd: root, env, stdio: ["ignore", "pipe", "pipe", "pipe"] });
-          const deadline = setTimeout(() => proc.kill(), 30000);
+          const deadline = setTimeout(() => proc.kill(9), timeout);
           const pipe = proc.stdio[3];
           try {
             if (!pipe) throw new Error("report pipe missing");
@@ -74,11 +76,23 @@ if (import.meta.main) {
             ]);
             process.stderr.write(stdout + stderr);
             let report: Report | undefined;
+            let error = "child report unavailable";
             try {
               const parsed = JSON.parse(bytes);
-              if (parsed.schema === "nl.conformance/1" && Array.isArray(parsed.rows)) report = parsed;
+              const expected = [...registry].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+              const metadata = ["id", "side", "stage", "owner_slice"] as const;
+              const validRows = Array.isArray(parsed.rows) && parsed.rows.length === expected.length &&
+                expected.every((row, i) => {
+                  const got = parsed.rows[i];
+                  return got && got.active === row.active && metadata.every(key => got[key] === row[key]) &&
+                    (row.active ? ["pass", "fail"].includes(got.result) : got.result === "inactive") &&
+                    Number.isInteger(got.assertions) && got.assertions >= 0;
+                });
+              if (parsed.schema !== "nl.conformance/1" || parsed.containment !== "in-process-tripwire") error = "child report schema mismatch";
+              else if (!validRows) error = "child report registry mismatch (ids, order, metadata or activation)";
+              else report = parsed;
             } catch { /* Missing/invalid reports become a named failure below. */ }
-            return { bytes, report, code };
+            return { bytes, report, code, error };
           } finally { clearTimeout(deadline); if (typeof pipe === "number") closeSync(pipe); }
         };
         const first = await run(reverse), second = await run(!reverse);
@@ -97,15 +111,18 @@ if (import.meta.main) {
         if (!row) throw new Error("missing CONF-01");
         row.result = parseable && clean && equal ? "pass" : "fail";
         if (row.result === "pass") Reflect.deleteProperty(row, "diagnostic");
-        else if (!parseable) diagnostic(report, "CONF-01", `child report unavailable; child exited ${first.code}, ${second.code}`);
+        else if (!parseable) diagnostic(report, "CONF-01", `${first.report ? second.error : first.error}; child exited ${first.code}, ${second.code}`);
         else if (!clean && !("diagnostic" in row && String(row.diagnostic).startsWith("forbidden APIs:"))) diagnostic(report, "CONF-01", `child did not complete cleanly; child exited ${first.code}, ${second.code}`);
         else if (!equal) diagnostic(report, "CONF-01", "independent child reports differ");
         if (connections) diagnostic(report, "CONF-03", "connection reached the parent's proxy listener");
-        process.stdout.write(canonical(report));
+        writeFileSync(1, canonical(report));
         const failedCase = report.rows.some(r => r.result === "fail");
         const incomplete = args.includes("--exit") && report.inactive_engine > 0;
         process.exitCode = failedCase || incomplete ? 1 : 0;
       } finally { listener.stop(true); }
+      // Bun 1.3.11 may stay alive after both watchdogs expire. All
+      // streams are drained and the listener closed; terminate the owned CLI.
+      process.exit(process.exitCode ?? 1);
     }
   } catch { process.stderr.write("conformance invocation failed\n"); process.exitCode = 1; }
 }

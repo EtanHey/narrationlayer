@@ -1,10 +1,19 @@
 {
   "bun": {
-    "WebView": "Native GUI bridge can open windows, browser processes and network connections."
+    "WebView": "Native GUI bridge can open windows, browser processes and network connections.",
+    "fetch": "OPEN until S0c: immutable Bun.fetch uses proxy listener by default; explicit proxy or unix options bypass it."
   },
   "modules": {
     "bun:ffi": "Native FFI can call arbitrary OS functions, including sockets, processes and wall clocks.",
     "bun:wrap": "Internal native wrapper bridge can expose native functions and real OS effects.",
     "module": "Native addon loading through the module loader can execute arbitrary native OS effects."
+  },
+  "globals": {
+    "ffi": "Native FFI can call arbitrary OS functions, including sockets, processes and wall clocks."
+  },
+  "open_until_S0c": {
+    "Bun.fetch.proxy": "Per-request proxy selects another proxy, bypassing the parent listener.",
+    "Bun.fetch.unix": "Per-request unix connects to a local socket, bypassing the parent listener.",
+    "process.env/Bun.env proxy edits": "Runtime refuses frozen env descriptors; edits can bypass inherited proxy routing on 1.4.4."
   }
 }

@@ -39,10 +39,14 @@ export type Case = (context: CaseContext) => Promise<void>;
 async function execute(id: string, binding: Binding, run?: Case) {
   const context = new CaseContext(binding);
   let wall_violations = 0;
+  const start = trapState.violations.length;
   let result: "pass" | "fail" = "pass";
   try { if (!run) throw new Error("missing implementation"); await withoutWallTime(() => run(context), violated => { wall_violations += Number(violated); }); if (!context.assertions || context.failed) throw new Error("invalid assertions"); }
   catch { result = "fail"; }
-  return { outcome: { id, result, assertions: context.assertions }, trace: context.trace, wall_violations };
+  const realms = trapState.violations.slice(start).filter(v => v.kind === "realm");
+  if (realms.length) result = "fail";
+  const diagnostic = realms.length ? { diagnostic: `forbidden APIs: ${[...new Set(realms.map(v => v.api))].sort().join(", ")}` } : {};
+  return { outcome: { id, result, assertions: context.assertions, ...diagnostic }, trace: context.trace, wall_violations };
 }
 export async function runCase(id: string, binding: Binding, run?: Case) {
   const observation = await execute(id, binding, run);
@@ -61,6 +65,8 @@ async function probe(binding: Binding) {
 }
 export const cases: Record<string, Case> = {
   "CONF-01": async c => { c.assert(await probe(c.binding) === await probe(c.binding)); },
+  // CONF-03/04: no trapped network (or spawn) call during any active case,
+  // and nothing arrived at the parent listener; see README OPEN until S0c.
   "CONF-03": async c => { c.assert(trapsPresent() && !trapState.failures.length); },
   "CONF-04": async c => { c.assert(trapsPresent() && !trapState.failures.length); },
   "CONF-02": async c => {
@@ -78,7 +84,7 @@ export async function runConformance(binding: Binding, options: { reverse?: bool
   const results = [];
   for (const row of order) {
     const outcome = row.active ? await runCase(row.id, binding, implementations[row.id]) : { id: row.id, result: "inactive", assertions: 0 };
-    results.push({ ...outcome, owner_slice: row.owner_slice, side: row.side, stage: row.stage });
+    results.push({ ...outcome, active: row.active, owner_slice: row.owner_slice, side: row.side, stage: row.stage });
   }
   // Reconcile process-wide violations after every active case, independent of case order.
   for (const result of results) {
@@ -100,6 +106,6 @@ export async function runConformance(binding: Binding, options: { reverse?: bool
       result.result = "fail";
     }
   }
-  return { schema: "nl.conformance/1", binding: binding.name, registry_count: rows.length, inactive: rows.filter(r => !r.active).length,
+  return { schema: "nl.conformance/1", containment: "in-process-tripwire", binding: binding.name, registry_count: rows.length, inactive: rows.filter(r => !r.active).length,
     inactive_engine: rows.filter(r => !r.active && r.stage === "A" && r.side === "engine").length, rows: results.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) };
 }
