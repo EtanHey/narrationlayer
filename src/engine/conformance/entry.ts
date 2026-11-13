@@ -6,6 +6,7 @@ if (import.meta.main) {
   const { canonical, runConformance, validateRegistry, registry } = await import("./runner.js");
   const { default: nullBinding } = await import("./null-binding.js");
   const { trapState, trapsPresent } = await import("./wall-guard.js");
+  const { sandboxAvailable, sandboxCommand } = await import("./sandbox.js");
   type Report = Awaited<ReturnType<typeof runConformance>>;
   const CLEAN_CHILD = 3;
   const args = process.argv.slice(2);
@@ -17,7 +18,7 @@ if (import.meta.main) {
     if (row) { row.result = "fail"; Object.assign(row, { diagnostic: message }); }
   };
   try {
-    const known = ["--binding", "--exit", "--reverse", "--child"];
+    const known = ["--binding", "--exit", "--reverse", "--child", "--require-containment"];
     const badArgument = args.some((a, i) => i !== index + 1 && !known.includes(a));
     const oneBinding = args.filter(a => a === "--binding").length === 1;
     if (index < 0 || !modulePath || modulePath.startsWith("-") || !oneBinding || badArgument) throw new Error("invalid arguments");
@@ -35,6 +36,7 @@ if (import.meta.main) {
         diagnostic(report, "CONF-01", "binding import or conformance invocation failed");
         process.exitCode = 1;
       }
+      report.containment = process.env.NL_CONFORMANCE_CONTAINMENT === "macos-sandbox" ? "macos-sandbox" : "in-process-tripwire";
       // Publish at exit, after detached rejections have been delivered. Logs use
       // stdout/stderr; only this dedicated pipe carries a report to the parent.
       const invocationFailed = process.exitCode === 1 && !trapState.violations.length;
@@ -48,6 +50,10 @@ if (import.meta.main) {
       });
       process.exitCode = CLEAN_CHILD;
     } else {
+      const containment = sandboxAvailable() ? "macos-sandbox" : "in-process-tripwire";
+      if ((args.includes("--require-containment") || process.env.NL_CONFORMANCE_REQUIRE_CONTAINMENT === "1") && containment !== "macos-sandbox") {
+        throw new Error("required macOS containment unavailable: sandbox-exec missing or unsupported platform");
+      }
       const absoluteBinding = resolve(process.cwd(), modulePath);
       let connections = 0;
       // Parent alone uses real I/O: two children, one loopback proxy listener.
@@ -57,7 +63,7 @@ if (import.meta.main) {
       } });
       try {
         const proxy = `http://127.0.0.1:${listener.port}`;
-        const env = { ...process.env, NL_CONFORMANCE_CHILD: "1", NO_PROXY: "", no_proxy: "",
+        const env = { ...process.env, NL_CONFORMANCE_CHILD: "1", NL_CONFORMANCE_CONTAINMENT: containment, NO_PROXY: "", no_proxy: "",
           HTTP_PROXY: proxy, HTTPS_PROXY: proxy, ALL_PROXY: proxy,
           http_proxy: proxy, https_proxy: proxy, all_proxy: proxy };
         const run = async (reversed: boolean) => {
@@ -65,7 +71,7 @@ if (import.meta.main) {
             "--child", "--binding", absoluteBinding, ...(reversed ? ["--reverse"] : [])];
           const timeout = Number(process.env.NL_CONFORMANCE_WATCHDOG_MS ?? 1500);
           if (!Number.isInteger(timeout) || timeout < 1 || timeout > 1500) throw new Error("invalid watchdog");
-          const proc = Bun.spawn(command, { cwd: root, env, stdio: ["ignore", "pipe", "pipe", "pipe"] });
+          const proc = Bun.spawn(containment === "macos-sandbox" ? sandboxCommand(command, listener.port) : command, { cwd: root, env, stdio: ["ignore", "pipe", "pipe", "pipe"] });
           let deadline: ReturnType<typeof setTimeout> | undefined;
           const expired = new Promise<null>(resolve => {
             deadline = setTimeout(() => { proc.kill(9); resolve(null); }, timeout);
@@ -94,7 +100,7 @@ if (import.meta.main) {
                     (row.active ? ["pass", "fail"].includes(got.result) : got.result === "inactive") &&
                     Number.isInteger(got.assertions) && got.assertions >= 0;
                 });
-              if (parsed.schema !== "nl.conformance/1" || parsed.containment !== "in-process-tripwire") error = "child report schema mismatch";
+              if (parsed.schema !== "nl.conformance/1" || parsed.containment !== containment) error = "child report schema mismatch";
               else if (!validRows) error = "child report registry mismatch (ids, order, metadata or activation)";
               else report = parsed;
             } catch { /* Missing/invalid reports become a named failure below. */ }
@@ -107,6 +113,7 @@ if (import.meta.main) {
         };
         const first = await run(reverse), second = await run(!reverse);
         const report = first.report ?? second.report ?? await runConformance(nullBinding);
+        report.containment = containment;
         if (!first.report && !second.report) {
           report.binding = "unavailable";
           for (const row of report.rows.filter(r => r.result !== "inactive")) {
@@ -134,6 +141,6 @@ if (import.meta.main) {
       // terminate the owned CLI after publishing the bounded verdict.
       process.exit(process.exitCode ?? 1);
     }
-  } catch { process.stderr.write("conformance invocation failed\n"); process.exitCode = 1; }
+  } catch (error) { process.stderr.write(`${error instanceof Error ? error.message : "conformance invocation failed"}\n`); process.exitCode = 1; }
 }
 export {};

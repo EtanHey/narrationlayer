@@ -17,6 +17,7 @@
     "src/engine/conformance/host-stub.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a2"},
     "src/engine/conformance/binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
     "src/engine/conformance/broken-binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
+    "src/engine/conformance/sandbox.ts": {"layer": 4, "area": "engine", "owner": "P2.S0c"},
     "src/engine/conformance/entry.ts": {"layer": 4, "area": "engine", "owner": "P2.S0b", "entry": ["if (import.meta.main)"]},
     "src/engine/conformance/inventory.ts": {"layer": 4, "area": "engine", "owner": "P2.S0b"},
     "src/engine/conformance/preload.ts": {"layer": 4, "area": "engine", "owner": "P2.S0b"},

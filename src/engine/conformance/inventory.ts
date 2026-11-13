@@ -9,11 +9,11 @@ function kinds(rows: Record<string, unknown>): Record<string, TrapKind> {
     return [key, kind];
   }));
 }
-export const trapped = { bun: kinds(trappedData.bun), modules: kinds(trappedData.modules), globals: kinds(trappedData.globals) };
+export const trapped = { process: kinds(trappedData.process), bun: kinds(trappedData.bun), modules: kinds(trappedData.modules), globals: kinds(trappedData.globals) };
 export const reviewedSafe = safeData;
 export const excluded = excludedData;
 export function verifyInventory(
-  bunKeys = Reflect.ownKeys(Bun).map(String), modules = builtinModules,
+  bunKeys = Reflect.ownKeys(Bun).map(String), modules = [...builtinModules, "node:test", ...(Bun.version === "1.3.11" ? ["bun:main", "bun:app"] : [])],
   trapTable: { bun: Record<string, string>; modules: Record<string, string>; globals: Record<string, string> } = trapped,
   safeTable: { bun: Record<string, string>; modules: Record<string, string>; globals: Record<string, string> } = reviewedSafe,
   excludedTable: { bun: Record<string, string>; modules: Record<string, string>; globals: Record<string, string> } = excluded,

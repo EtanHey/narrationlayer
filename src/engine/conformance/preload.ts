@@ -55,7 +55,11 @@ for (const { name, kind, module } of modules) {
 for (const key of ["file", "write"] as const) {
   const original = Bun[key];
   replace(Bun, key, new Proxy(original, { apply(target, receiver, args) {
-    const path = args[0] instanceof URL ? args[0].href : args[0];
+    let path: unknown = args[0];
+    if (typeof path !== "number") {
+      try { path = String.prototype.valueOf.call(path); }
+      catch { path = String(path); }
+    }
     if (typeof path === "string" && /^[a-z][a-z0-9+.-]*:/i.test(path) && !/^file:/i.test(path)) deny("network", `Bun.${key} remote scheme`);
     return Reflect.apply(target, receiver, args);
   } }), `Bun.${key}`);
@@ -105,6 +109,7 @@ function formatter(args: unknown[]) {
 replace(Intl, "DateTimeFormat", new Proxy(Format, { apply: (_t, _r, args) => formatter(args), construct: (_t, args) => formatter(args) }), "Intl.DateTimeFormat");
 replace(Format.prototype, "constructor", Intl.DateTimeFormat, "Intl.DateTimeFormat.prototype.constructor");
 for (const key of ["exit", "reallyExit"]) trap(process, key, "exit", `process.${key}`);
+for (const [key, kind] of Object.entries(trapped.process)) trap(process, key, kind, `process.${key}`);
 if ("execve" in process) trap(process, "execve", "spawn", "process.execve");
 syncBuiltinESMExports();
 Object.defineProperty(trapState, "installed", { value: true, configurable: false, writable: false });
