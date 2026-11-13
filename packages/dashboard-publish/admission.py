@@ -17,14 +17,14 @@ LIMIT = 1024 * 1024
 
 
 class Refusal(ValueError):
-    def __init__(self, code):
-        self.code = code
+    def __init__(self, code, detail=None):
+        self.code, self.detail = code, detail
         super().__init__(code)
 
 
-def require(condition, code):
+def require(condition, code, detail=None):
     if not condition:
-        raise Refusal(code)
+        raise Refusal(code, detail)
 
 
 def sha(data):
@@ -45,11 +45,12 @@ def validate(value, name, code):
 class Scope(HTMLParser):
     def __init__(self, html):
         super().__init__()
-        self.ids, self.storage, self.scripts = [], [], []
+        self.ids, self.storage, self.scripts, self.elements = [], [], [], []
         self.script = None
         self.feed(html.decode('utf8'))
 
     def handle_starttag(self, tag, attrs):
+        self.elements.append((tag, attrs))  # every attribute pair, duplicates included
         attrs = dict(attrs)
         if tag == 'meta' and attrs.get('name') == 'dashboard-id': self.ids.append(attrs.get('content'))
         if tag == 'body': self.storage.append(attrs.get('data-storage-key'))
@@ -159,7 +160,7 @@ SVG_NS = '{http://www.w3.org/2000/svg}'
 
 
 def check_svg(data):
-    """An svg is shown as an image, which already blocks script; refuse script, handlers and references anyway."""
+    """An svg is only ever shown through <img> (MEDIA_REFERENCE enforces it); refuse script, handlers and references anyway."""
     try: text = data.decode('utf8')
     except UnicodeDecodeError: raise Refusal('MEDIA_SVG_UNSAFE') from None
     lowered = text.lower()
@@ -168,6 +169,11 @@ def check_svg(data):
     except ElementTree.ParseError: raise Refusal('MEDIA_SVG_UNSAFE') from None
     require(root.tag in ('svg', SVG_NS + 'svg'), 'MEDIA_SVG_UNSAFE')
     styles = [value for element in root.iter() for value in [element.get('style') or ''] + ([element.text or ''] if element.tag.rsplit('}', 1)[-1] == 'style' else [])]
+    # No CSS escape or comment can exist, so the literal checks below see every url(, @rule and scheme as written.
+    # The XML parser has already decoded entities (&#117;rl( is url( here). The only at-rule allowed is @media.
+    values = styles + [value for element in root.iter() for value in element.attrib.values()]
+    require(not any('\\' in value or '/*' in value for value in values), 'MEDIA_SVG_UNSAFE')
+    require(all(rule.lower() == 'media' for style in styles for rule in re.findall(r'@([A-Za-z-]*)', style)), 'MEDIA_SVG_UNSAFE')
     for element in root.iter():
         require(element.tag.rsplit('}', 1)[-1].lower() not in ('script', 'foreignobject', 'iframe', 'embed', 'object'), 'MEDIA_SVG_UNSAFE')
         for name, value in element.attrib.items():
@@ -175,6 +181,35 @@ def check_svg(data):
             require(not local.startswith('on') and (local not in ('href', 'src') or value.strip().startswith('#')), 'MEDIA_SVG_UNSAFE')
             require(not re.search(r'url\(\s*["\']?\s*(?!#)', value, re.I), 'MEDIA_SVG_UNSAFE')
     require(not any(re.search(r'@import|javascript:|url\(\s*["\']?\s*(?!#)', style, re.I) for style in styles), 'MEDIA_SVG_UNSAFE')
+
+
+VISUAL_FORBIDDEN = {'applet', 'audio', 'embed', 'frame', 'iframe', 'object', 'source', 'track', 'video'}
+ANSWER_ATTRIBUTES = {'data-note', 'data-decision'}  # every answering template card carries both; no visual page needs them
+
+
+def check_markup(handoff, html, served=False):
+    """The page's parsed markup, not its text: what a visual page may contain, and how media may be referenced.
+
+    Every attribute value that mentions assets/ must be a manifest file in its one allowed place: an image only as
+    <img data-nl-media>, a clip only as an <audio>/<source> src (the served shell of an audio page carries clips as
+    tailnet URLs ending in the file). Every manifest image must be referenced. What a page's script does at run time
+    is not judged here: the host refuses answers and audio for a visual page (capsule tests).
+    """
+    rows, visual = handoff['mediaManifest'], handoff['type'] == 'visual'
+    images = {row['file'] for row in rows if row.get('kind', 'mp3') != 'mp3'}
+    clips = {row['file'] for row in rows if row.get('kind', 'mp3') == 'mp3'}
+    referenced = set()
+    for tag, attrs in Scope(html).elements:
+        if visual:
+            require(tag not in VISUAL_FORBIDDEN, 'VISUAL_MARKUP', tag)
+            require(not ANSWER_ATTRIBUTES & {name for name, _ in attrs}, 'VISUAL_ANSWERS', tag)
+        for name, value in attrs:
+            if value is None or 'assets/' not in value: continue
+            image = tag == 'img' and name == 'data-nl-media' and value in images
+            clip = tag in ('audio', 'source') and name == 'src' and (value in clips or served and any(value.endswith('/' + c) for c in clips))
+            require(image or clip, 'MEDIA_REFERENCE', value[:120])
+            referenced.add(value)
+    require(images <= referenced, 'MEDIA_REFERENCE', 'unreferenced image')
 
 
 def check_media(handoff, media=None):
@@ -207,6 +242,8 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
     # A visual page is a document with no answers: declaring any answer field is a contradiction, not a schema typo.
     require(not (isinstance(handoff, dict) and handoff.get('type') == 'visual' and (handoff.get('answerKeys') or
             {'answerRuntimeSha256', 'answerPersistence'} & handoff.keys())), 'VISUAL_ANSWERS')
+    require(not (isinstance(handoff, dict) and handoff.get('type') == 'visual' and isinstance(handoff.get('mediaManifest'), list) and any(
+            isinstance(row, dict) and row.get('kind', 'mp3') == 'mp3' for row in handoff['mediaManifest'])), 'VISUAL_AUDIO')
     if isinstance(design, dict) and design.get('admission') == 'FIRST_IN_LINEAGE':
         require(recorded_approval(design.get('firstInLineage')), 'FIRST_IN_LINEAGE_UNAPPROVED')
     if isinstance(design, dict) and design.get('admission') == 'REDESIGN_APPROVED':
@@ -224,6 +261,7 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
             or not any(row.get('accepted') is True for row in history), 'LINEAGE_EXISTS')
     if staging is not None: check_staging(staging, handoff['design']['admission'], dashboard_id, deliveries, sha(shell))
     check_media(handoff, media)
+    check_markup(handoff, raw); check_markup(handoff, shell, served=True)
     if handoff['type'] == 'visual':
         require(not saved_keys and b'installAnswerPersistence' not in raw + shell, 'VISUAL_ANSWERS')
         require(len(artifact) <= LIMIT, 'ARTIFACT_TOO_LARGE')

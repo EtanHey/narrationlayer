@@ -265,7 +265,120 @@
           "size",
           "sha256"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "not": {
+                "required": [
+                  "kind"
+                ]
+              }
+            },
+            "then": {
+              "properties": {
+                "file": {
+                  "pattern": "^assets/[A-Za-z0-9_-]+\\.(mp3)$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "mp3"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "file": {
+                  "pattern": "^assets/[A-Za-z0-9_-]+\\.(mp3)$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "webp"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "file": {
+                  "pattern": "^assets/[A-Za-z0-9_-]+\\.(webp)$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "png"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "file": {
+                  "pattern": "^assets/[A-Za-z0-9_-]+\\.(png)$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "jpeg"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "file": {
+                  "pattern": "^assets/[A-Za-z0-9_-]+\\.(jpg|jpeg)$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "svg"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "file": {
+                  "pattern": "^assets/[A-Za-z0-9_-]+\\.(svg)$"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "createdAt": {
@@ -300,6 +413,20 @@
         "properties": {
           "answerKeys": {
             "maxItems": 0
+          },
+          "mediaManifest": {
+            "items": {
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "not": {
+                    "const": "mp3"
+                  }
+                }
+              }
+            }
           }
         },
         "not": {
