@@ -1,5 +1,5 @@
 import { initialState, reduce, type Input } from "../reducer/session";
-import { parseRequest } from "../messages/parser";
+import { parseEvent, parseRequest } from "../messages/parser";
 import type { Event, Limits, Message } from "../messages/messages";
 type Identity = Pick<Message<"accepted">, "owner_epoch" | "session_id" | "attempt_id">;
 type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
@@ -76,18 +76,25 @@ export function createEngineSession<Audio>(options: {
       session_id: `session-${state.owner_epoch}-${n}`,
       attempt_id: `attempt-${state.owner_epoch}-${n}`,
     };
+    let prepared: ReturnType<ReadPlanner["plan"]>;
     try {
-      const prepared = options.planner.plan(structuredClone(request), structuredClone(options.limits), identity);
+      prepared = options.planner.plan(structuredClone(request), structuredClone(options.limits), identity);
+      const checked = parseEvent({ ...prepared.plan, protocol: "nl.engine/1", owner_epoch: state.owner_epoch, seq: state.seq + 1 });
+      if (!checked.ok || checked.value?.type !== "plan"
+        || prepared.plan.session_id !== identity.session_id || prepared.plan.attempt_id !== identity.attempt_id
+        || prepared.requests.length !== prepared.plan.pieces.length
+        || prepared.requests.some((r, i) => r.piece_index !== prepared.plan.pieces[i].index)) throw new Error("invalid plan");
       requests.set(identity.session_id, structuredClone(prepared.requests));
-      // §2 L116: accept emits the complete plan before its backend-start effect.
-      step({ kind: "accept", identity, request, plan: prepared.plan, current: {
-        session_id: identity.session_id, player_instance_id: "", control_epoch: 0,
-        audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 0, duration_ms: 0,
-      } });
     } catch {
       requests.delete(identity.session_id);
       refuse("INVALID_REQUEST", request.request_id);
+      return;
     }
+    // §2 L116: accept emits the complete plan before its backend-start effect.
+    step({ kind: "accept", identity, request, plan: prepared.plan, current: {
+      session_id: identity.session_id, player_instance_id: "", control_epoch: 0,
+      audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 0, duration_ms: 0,
+    } });
   }
   async function run(identity: Identity, abort: AbortController) {
     try {
@@ -103,13 +110,16 @@ export function createEngineSession<Audio>(options: {
         if (!request || request.piece_index !== piece.index) throw new Error("invalid planner requests");
         const started = options.clock.monotonic();
         const audio = await options.backend.synthesizeRequest(request, abort.signal);
+        abort.signal.throwIfAborted();
         const delivered = await options.publication.piece(audio, {
           ...identity, index: piece.index, piece_id: piece.piece_id,
           start_ms: session.delivered.reduce((sum, p) => sum + p.duration_ms, 0),
           synthesis_ms: options.clock.monotonic() - started, spoken_text: request.text,
         }, abort.signal);
-        // §3 L282: every late result still goes through the reducer's attempt fence.
+        // §3 L282: stop during publication still goes through the attempt fence.
         step({ kind: "backend", identity, result: { kind: "piece", piece: delivered } });
+        const updated = state.sessions[identity.session_id];
+        if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
       }
     } catch {
       // §2.5 L220: reducer emits a text-free error and the one terminal outcome.
@@ -122,7 +132,8 @@ export function createEngineSession<Audio>(options: {
       if (closed) return;
       const parsed = parseRequest(message, options.limits);
       if (!parsed.ok) {
-        refuse(parsed.error.code); return;
+        const request_id = message !== null && typeof message === "object" && "request_id" in message && typeof message.request_id === "string" ? message.request_id : undefined;
+        refuse(parsed.error.code, request_id); return;
       }
       const value = parsed.value;
       if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
@@ -133,9 +144,13 @@ export function createEngineSession<Audio>(options: {
       } else if (value.type === "player_feedback") {
         const session = state.sessions[value.session_id];
         if (session) step({ kind: "feedback", identity: { owner_epoch: session.owner_epoch, session_id: session.session_id, attempt_id: session.attempt_id }, feedback: value }); // §2.3 L174: host owns player.
-      } else refuse("INVALID_REQUEST");
+      } else {
+        // Owed to S5: unsupported control correlation; refuse cannot carry command_id/session_id yet.
+        refuse("INVALID_REQUEST");
+      }
     },
     async shutdown(_deadline: number): Promise<void> {
+      // Owed to S7: shutdown reason (currently cancel) and deadline enforcement (currently immediate).
       if (closed) return;
       for (const session of Object.values(state.sessions)) if (!session.outcome) step({ kind: "stop", session_id: session.session_id, reason: "cancel" });
       closed = true;

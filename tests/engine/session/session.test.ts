@@ -10,10 +10,10 @@ import { ScriptedBackend, pcmAudio } from "../../../src/engine/conformance/fake-
 const request: Message<"narrate"> = { protocol: "nl.engine/1", type: "narrate", request_id: "req-one", idempotency_key: "key-one", use: "read", input: { text: "Synthetic text only.", format: "plain" }, voice: { profile: "fake", require_clone: false, fallback: "none" }, delivery: "pieces" };
 const limits = { max_chars: { read: 1000, speak: 100, ask_prompt: 100 }, lookahead: 2, aligner_reap_ms: 100 };
 const units: SynthesisSourceUnit[] = [{ kind: "heading", text: "Synthetic heading", pause_after_ms: 0 }, { kind: "list_item", text: "Synthetic whole list item.", pause_after_ms: 0 }];
-const active: { session: { shutdown(d: number): Promise<void> }; events(): Event[]; delivered: { event: Event; replay: boolean }[] }[] = [];
+const active: { session: { shutdown(d: number): Promise<void>; events: AsyncIterable<Event> }; events(): Event[]; epoch: number; inputs: Input<"host">[]; delivered: { event: Event; replay: boolean }[] }[] = [];
 function harness(epoch = 1, source = units) {
   const clock = new FakeClock(), backend = new ScriptedBackend(clock), delivered: { event: Event; replay: boolean }[] = [], inputs: Input<"host">[] = [];
-  let calls = 0, callsBeforePlan = 0;
+  let calls = 0, callsBeforePlan = 0, publications = 0;
   // Synthetic stand-in only: typed units plus real cutter, whitespace word table.
   // This proves neither projection nor WORD-01; real projection belongs to S3p.
   const planner: ReadPlanner = { plan(req, _limits, identity) {
@@ -29,13 +29,14 @@ function harness(epoch = 1, source = units) {
     return { plan: { type: "plan", ...identity, display_document: { version: 1, text, speech_start: 0, blocks: [] }, words, pieces: pieces.map((p, index) => ({ piece_id: `piece-${identity.session_id}-${index}`, index, word_start: 0, word_end: words.length, raw: false, segments: p.segments.map(s => ({ word_start: 0, word_end: words.length, kind: s.kind === "list_item" ? "item" : s.kind, pause_after_ms: s.pause_after_ms, pause_in: s.pause_in })) })), engine: { family: "fake", profile_revision: "1", voice: req.voice.profile } }, requests: pieces.map((p, index) => ({ piece_index: index, text: p.segments[0].text })) };
   } };
   const publication: Publication<ReturnType<typeof pcmAudio>> = {
-    async piece(audio, context) { return { type: "piece_ready", ...context, duration_ms: audio.samples, artifact: { handle: "synthetic", lease_id: "synthetic", format: "wav", sample_rate: audio.sample_rate, sample_count: audio.samples, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "+0%", attempts: [], unavailable: [], fallback_reason: null } }; }, async commit() {},
+    async piece(audio, context) { publications++; return { type: "piece_ready", ...context, duration_ms: audio.samples, artifact: { handle: "synthetic", lease_id: "synthetic", format: "wav", sample_rate: audio.sample_rate, sample_count: audio.samples, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "+0%", attempts: [], unavailable: [], fallback_reason: null } }; }, async commit() {},
   };
+  const observe = { input(i: Input<"host">) { inputs.push(i); }, event(event: Event, replay: boolean) { delivered.push({ event, replay }); } };
   const session = createEngineSession({ owner_epoch: epoch, limits, planner, clock, publication,
     backend: { synthesizeRequest(r, signal) { if (!delivered.some(d => d.event.type === "plan")) callsBeforePlan++; return backend.synthesizeRequest(r, signal); } },
-    observe: { input(i) { inputs.push(i); }, event(event, replay) { delivered.push({ event, replay }); } },
+    observe,
   });
-  const h = { session, clock, backend, publication, planner, delivered, inputs, get plannerCalls() { return calls; }, get callsBeforePlan() { return callsBeforePlan; }, events: () => delivered.map(d => d.event),
+  const h = { session, clock, backend, publication, planner, delivered, inputs, epoch, observe, get publicationCalls() { return publications; }, get plannerCalls() { return calls; }, get callsBeforePlan() { return callsBeforePlan; }, events: () => delivered.map(d => d.event),
     script(n = source.length, late = false) { backend.script(Array.from({ length: n }, () => ({ latency_ms: 1, late_after_cancel: late, result: { kind: "audio", ...pcmAudio(10) } }))); },
     async tick() { for (let i = 0; i < 12; i++) await clock.advance(1); },
     stop(reason: "stop" | "cancel" = "stop") { session.send({ protocol: "nl.engine/1", type: "control", command_id: "stop-one", session_id: `session-${epoch}-1`, op: "stop", args: { scope: "session", reason } }); },
@@ -45,8 +46,17 @@ function harness(epoch = 1, source = units) {
 afterEach(async () => {
   for (const h of active.splice(0)) {
     await h.session.shutdown(100);
-    for (const e of h.events()) expect(parseEvent(e)).toEqual({ ok: true, value: e });
-    const fresh = h.delivered.filter(d => !d.replay).map(d => d.event);
+    const wire: Event[] = [];
+    for await (const event of h.session.events) wire.push(event);
+    let state = initialState(h.epoch, "host");
+    const folded: { event: Event; replay: boolean }[] = [];
+    for (const input of h.inputs) {
+      const result = reduce(state, input); state = result.state;
+      for (const e of result.effects) if (e.kind === "emit" || e.kind === "replay") folded.push({ event: e.event, replay: e.kind === "replay" });
+    }
+    expect(JSON.stringify(wire)).toBe(JSON.stringify(folded.map(e => e.event)));
+    for (const e of wire) expect(parseEvent(e)).toEqual({ ok: true, value: e });
+    const fresh = wire.filter((_, i) => !folded[i].replay);
     expect(fresh.map(e => "seq" in e && e.seq)).toEqual(fresh.map((_, i) => i + 1));
   }
 });
@@ -76,7 +86,7 @@ test("GEN-02: sequential calls and complete delivery before commit", async () =>
   const h = harness(); h.script(); h.session.send(request); expect(h.backend.calls).toHaveLength(1);
   await h.tick(); expect(h.backend.calls.map(r => r && typeof r === "object" && !Array.isArray(r) ? r.piece_index : null)).toEqual([0, 1]);
   const committed = h.inputs.find(i => i.kind === "backend" && i.result.kind === "commit"); expect(committed).toBeDefined();
-  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(2); // duration.final is S4.
+  expect(h.events().filter(e => e.type === "piece_ready").map(e => e.start_ms)).toEqual([0, 10]); // duration.final is S4.
 });
 test("ERR-01: backend failure emits synthesize/new_request then exactly one outcome", async () => {
   const h = harness(); h.backend.script([{ latency_ms: 1, late_after_cancel: false, result: { kind: "error", code: "private backend detail" } }]);
@@ -110,9 +120,9 @@ test("ID-03: stop fences last synthesis before its late result", async () => {
   expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
   h.backend.assertDrained();
 });
-test("late result after stop: reducer receives and drops a cancelled backend completion", async () => {
+test("late result after stop: fenced audio produces no event or publication", async () => {
   const h = harness(1, units.slice(0, 1)); h.script(1, true); h.session.send(request); h.stop("cancel"); await h.tick();
-  expect(h.inputs.some(i => i.kind === "backend" && i.result.kind === "piece")).toBe(true);
+  expect(h.publicationCalls).toBe(0);
   expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(0); h.backend.assertDrained();
 });
 test("ID-04: same text distinct invocations; same key replay; changed request conflict", () => {
@@ -124,11 +134,7 @@ test("ID-04: same text distinct invocations; same key replay; changed request co
 });
 test("single source of state: reducer input fold reproduces fresh events and replay", async () => {
   const h = harness(); h.script(); h.session.send(request); h.session.send(request); h.session.send({ nope: true }); await h.tick(); h.stop();
-  const iterator = h.session.events[Symbol.asyncIterator](), wire: Event[] = [];
-  for (let n = 0; n < h.events().length; n++) { const next = await iterator.next(); if (!next.done) wire.push(next.value); }
-  let state = initialState(1, "host"); const folded: Event[] = [];
-  for (const i of h.inputs) { const r = reduce(state, i); state = r.state; for (const e of r.effects) if (e.kind === "emit" || e.kind === "replay") folded.push(e.event); }
-  expect(JSON.stringify(folded)).toBe(JSON.stringify(wire));
+  // The shared afterEach now checks this scenario and every other wire through shutdown.
 });
 test("send never awaits: unresolved synthesis returns accepted synchronously", () => {
   const h = harness(); h.script(1, true); expect(h.session.send(request)).toBeUndefined();
@@ -139,10 +145,13 @@ test("every event parses: rejection and planner refusal remain text-free and seq
   h.planner.plan = () => { throw new Error("private planner text"); };
   h.session.send(request); expect(h.backend.calls).toHaveLength(0);
   expect(h.events().map(e => e.type === "error" && e.code)).toEqual(["INVALID_REQUEST", "INPUT_TOO_LONG", "INVALID_REQUEST"]);
+  expect(h.events().at(-1)).toMatchObject({ request_id: request.request_id });
 });
 test("imports: session has no harness, surface, pipeline or dynamic imports", () => {
   const text = readFileSync("src/engine/session/session.ts", "utf8");
-  expect(text).not.toMatch(/(?:from\s*["'][^"']*(?:conformance|pipelines|\/api\/|bin\/)|import\s*\()/);
+  const forbidden = /(?:from\s*["'][^"']*(?:conformance|pipelines|\/api(?:\/|["'])|bin\/)|import\s*\()/;
+  expect(text).not.toMatch(forbidden);
+  expect('import { hidden } from "../../api"').toMatch(forbidden);
 });
 
 test("parsed admission: unknown wire fields never affect replay or the stored request", () => {
@@ -162,4 +171,36 @@ test("invalid refusal: an unknown internal code is a programming rejection, neve
   const result = reduce(before, { kind: "refuse", code: "UNKNOWN_CODE", message: "programming error" });
   expect(result.state).toEqual(before);
   expect(result.effects).toEqual([{ kind: "reject", reason: "INVALID_REFUSAL" }]);
+});
+
+test("M1: rejected publication receipt fails once instead of resynthesizing", async () => {
+  const h = harness(); h.script(2);
+  const publish = h.publication.piece;
+  h.publication.piece = async (...args) => ({ ...await publish(...args), piece_id: "mismatched" });
+  h.session.send(request); await h.tick();
+  expect(h.backend.calls).toHaveLength(1);
+  expect(h.events().slice(-2)).toMatchObject([{ type: "error", code: "SYNTH_FAILED" }, { type: "outcome" }]);
+});
+for (const [name, corrupt] of [
+  ["session identity", p => { p.plan.session_id = "wrong-session"; }],
+  ["attempt identity", p => { p.plan.attempt_id = "wrong-attempt"; }],
+  ["wire schema", p => { Reflect.set(p.plan.engine, "family", 3); }],
+  ["request count", p => { p.requests = []; }],
+  ["request order", p => { p.requests = [...p.requests].reverse(); }],
+] satisfies [string, (p: ReturnType<ReadPlanner["plan"]>) => void][]) test(`M2: invalid planner ${name} refuses before admission`, () => {
+  const h = harness(), plan = h.planner.plan;
+  h.planner.plan = (...args) => { const result = plan(...args); corrupt(result); return result; };
+  h.session.send(request);
+  expect(h.events()).toMatchObject([{ type: "error", code: "INVALID_REQUEST", request_id: request.request_id }]);
+  expect(h.events()).toHaveLength(1); expect(h.backend.calls).toHaveLength(0);
+});
+test("N1: parser refusal preserves a raw string request_id", () => {
+  const h = harness(); h.session.send({ ...request, voice: 7 });
+  expect(h.events()).toMatchObject([{ type: "error", code: "INVALID_REQUEST", request_id: request.request_id }]);
+});
+test("N4: accept observer failure propagates instead of becoming a planner refusal", () => {
+  const h = harness(), record = h.observe.input;
+  h.observe.input = i => { if (i.kind === "accept") throw new Error("observer failed"); record(i); };
+  expect(() => h.session.send(request)).toThrow("observer failed");
+  expect(h.events()).toEqual([]);
 });
