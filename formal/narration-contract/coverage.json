@@ -2,7 +2,8 @@
   "status": "T3_DESIGN_SLICE; I01-I10_DESIGN_LEVEL; REAL_BINDING_REQUIRED_PER_IMPLEMENTING_PR",
   "sync_commit": "78d4ec46d3ded56275cbc2a105add830cb413151",
   "source_sha256": {
-    "src/job-store.ts": "8e5411c69ebfc9ad1d710294506d3de5b33240b1ce8855beac2f538a3d5b9f7d"
+    "src/job-store.ts": "8e5411c69ebfc9ad1d710294506d3de5b33240b1ce8855beac2f538a3d5b9f7d",
+    "src/engine/reducer/session.ts": "ea1b367621c7e95cb688905673d240d6d83b77f0a0cac1e4ea99a8c04451314c"
   },
   "source_backed": {
     "LegacyExclusive": "src/job-store.ts:168-177 markDone/markFailed; sequential awaited calls only; observed filesystem markers feed SourceTrace.tla"
@@ -81,5 +82,55 @@
     "I08": "VL-DRAIN; BACKEND/STATE/ENGINE",
     "I09": "STATE; VL-CLONE-OPT/SPEAK/ASK and AD-CONSUME",
     "I10": "TIMING; PROJECTION/ENGINE/STRUCTURE-PROSODY/AD-CONSUME"
+  },
+  "reducer_binding": {
+    "scope": "S2a pure reducer only; no real engine/player/journal/History acceptance; I05-I10 unchanged design-level",
+    "source": "src/engine/reducer/session.ts",
+    "tests": "tests/engine/reducer/session.test.ts",
+    "exhaustive": "Nine-input alphabet, every script through length 6, 597871 visits, 50 distinct states; foreign session/owner plus control epochs 1 and 2",
+    "proof_command": "bun test tests/engine/reducer; scratch each source mutation below, require its named test red, restore staged git bytes, rerun green",
+    "invariants": {
+      "I01": {
+        "before": "if (s.playback === null) s.playback = reason",
+        "after": "if (true) s.playback = reason",
+        "test": "I01:"
+      },
+      "I02": {
+        "before": "if (!matches) return",
+        "after": "if (false) return",
+        "test": "I02:"
+      },
+      "I03": {
+        "before": "s.generation = \"cancelled\"; s.fenced = true;",
+        "after": "s.generation = \"running\"; s.fenced = false;",
+        "test": "I03:"
+      },
+      "I04": {
+        "before": "s.started && s.delivered.length === s.plan!.pieces.length && f.piece_index",
+        "after": "s.started && f.piece_index",
+        "test": "I04:"
+      },
+      "ID-01": {
+        "before": "if (f.control_epoch !== s.current.control_epoch || f.player_instance_id !== s.current.player_instance_id)",
+        "after": "if (false)",
+        "test": "ID-01 fence"
+      },
+      "seq": {
+        "before": "seq: ++s.seq",
+        "after": "seq: (s.seq += 2)",
+        "test": "seq:"
+      },
+      "idempotency": {
+        "before": "if (previous && key(previous.command) === key(c))",
+        "after": "if (previous && key(previous.command) === key(c) && false)",
+        "test": "idempotency:"
+      },
+      "exhaustive": {
+        "before": "if (!matches) return",
+        "after": "if (false) return",
+        "test": "exhaustive:"
+      }
+    },
+    "refinement": "formal/narration-contract/REFINEMENT.md"
   }
 }
