@@ -55,6 +55,12 @@ activation mismatch or an invalid stage-A owner before CLI execution.
 
 Round 1 boundaries and types:
 
+- Every case using ScriptedBackend, ScriptedSpawn or ScriptedPlayer must call
+  each fake's `assertDrained()` at its end. `pending` counts unused steps (and
+  backend requests still awaiting delivery). A late-after-cancel step waits for
+  abort, then delivers after its latency; without abort, draining fails explicitly.
+  S1b, the next slice writing cases, owns automatic runner drain enforcement.
+
 - Contract §2.6: observation digests cover synthetic fixture events only. Never
   run private input through this harness: these are unkeyed test-fixture hashes,
   not production log hashes. No raw fixture event enters a report.

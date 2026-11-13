@@ -10,6 +10,9 @@
   },
   "files": {
     "src/plan/synthesis-units.ts": { "layer": 1, "area": "plan", "owner": "P2.S3a" },
+    "src/engine/conformance/fake-backend.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a2"},
+    "src/engine/conformance/fake-player.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a2"},
+    "src/engine/conformance/host-stub.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a2"},
     "src/engine/conformance/binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
     "src/engine/conformance/broken-binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
     "src/engine/conformance/cli.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
