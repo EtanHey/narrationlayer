@@ -1,11 +1,14 @@
 // Run serially: bun tests/compat/mutations.ts (mutates and restores source files).
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { writeFileSync, rmSync } from "node:fs";
+import { Window } from "happy-dom";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { repo, tool } from "./harness.js";
 type Anchor = { name: string; file: string; before: string; after: string };
 export type MutationRow = Anchor & (
   | { kind: "compat-pattern"; pattern: string }
+  // Full path joins describe scopes and test name with spaces: "outer inner test name".
   | { kind: "named-test"; testFile: string; testName: string }
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
@@ -44,25 +47,56 @@ export const cases: MutationRow[] = [
 ];
 const literal = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
-type Run = { code: number; stdout: string; stderr: string };
-async function invoke(row: MutationRow, cwd: string): Promise<Run> {
+let runningChild: ReturnType<typeof Bun.spawn> | undefined;
+let pending: { file: string; original: Buffer; reportDir: string | undefined } | undefined;
+for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143]] as const) {
+  process.on(signal, () => {
+    try {
+      runningChild?.kill("SIGTERM");
+      if (pending) {
+        writeFileSync(pending.file, pending.original);
+        if (pending.reportDir) rmSync(pending.reportDir, { recursive: true, force: true });
+      }
+    } finally { process.exit(code); }
+  });
+}
+type Run = { code: number; stdout: string; stderr: string; junit: string | undefined };
+async function invoke(row: MutationRow, cwd: string, reportFile?: string): Promise<Run> {
   const args = row.kind === "compat-pattern" ? ["test", "tests/compat", "--test-name-pattern", row.pattern]
     : row.kind === "named-test" ? ["test", row.testFile, "--test-name-pattern", `^${literal(row.testName)}$`]
     : ["run", "conformance", "--binding", row.binding];
+  if (reportFile) args.push("--reporter=junit", `--reporter-outfile=${reportFile}`);
   const child = Bun.spawn([tool("bun"), ...args], {
     cwd, env: { ...process.env, UPDATE_COMPAT_GOLDENS: "0", NO_COLOR: "1", FORCE_COLOR: "0" },
     stdout: "pipe", stderr: "pipe",
   });
+  runningChild = child;
   const [code, stdout, stderr] = await Promise.all([
     child.exited, new Response(child.stdout).text(), new Response(child.stderr).text(),
   ]);
-  return { code, stdout, stderr };
+  runningChild = undefined;
+  const junit = reportFile ? await readFile(reportFile, "utf8").catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return undefined;
+    throw error;
+  }) : undefined;
+  return { code, stdout, stderr, junit };
 }
+const xmlWindow = new Window();
 function namedResult(row: Extract<MutationRow, { kind: "named-test" }>, run: Run) {
-  // Bun's own per-test line: `(pass|fail) <full name> [optional duration]`.
-  const line = new RegExp(`^\\((pass|fail)\\) ${literal(row.testName)}(?: \\[[^\\]\\r\\n]+\\])?\\r?$`, "gm");
-  const results = [...(run.stdout + run.stderr).matchAll(line)];
-  return results.length === 1 ? results[0]?.[1] : undefined;
+  if (!run.junit) return undefined;
+  const document = new xmlWindow.DOMParser().parseFromString(run.junit, "application/xml");
+  if (document.documentElement?.tagName !== "testsuites" || document.querySelector("parsererror"))
+    throw new Error(`Invalid JUnit report: ${row.name}`);
+  const matches = [...document.querySelectorAll("testcase")].filter(test => {
+    const names = [test.getAttribute("name")];
+    // The outermost testsuite is the file, not a describe scope.
+    for (let parent = test.parentElement; parent?.parentElement?.tagName === "testsuite"; parent = parent.parentElement)
+      names.unshift(parent.getAttribute("name"));
+    return names.join(" ") === row.testName;
+  });
+  if (matches.length > 1) throw new Error(`Named test is ambiguous: ${matches.length} matches: ${row.testName}`);
+  const test = matches[0];
+  return !test ? undefined : test.querySelector("failure") ? "fail" : test.querySelector("skipped") ? "skipped" : "pass";
 }
 function caseResult(row: Extract<MutationRow, { kind: "conformance-case" }>, run: Run) {
   let parsed: unknown;
@@ -88,6 +122,7 @@ function verify(row: MutationRow, run: Run, restored: boolean) {
     const result = namedResult(row, run);
     if (restored) {
       if (!result) throw new Error(`Named test not found: ${row.testName}`);
+      if (result === "skipped") throw new Error(`Mutation did not reach the named test: ${row.testName}`);
       if (result !== "pass" || run.code !== 0) throw new Error(`Restored named test failed: ${row.testName}`);
     } else {
       if (result === "pass") throw new Error(`Mutation survived: named test still green: ${row.testName}`);
@@ -107,22 +142,30 @@ export async function runMutation(row: MutationRow, cwd = repo) {
   if (!row.before || text.split(row.before).length !== 2) throw new Error(`Mutation anchor is not unique: ${row.name}`);
   const logs = path.join(cwd, "docs.local/characterization");
   await mkdir(logs, { recursive: true });
+  if (pending) throw new Error("Mutation rows must run serially");
+  const reportDir = row.kind === "named-test" ? await mkdtemp(path.join(logs, `junit-${row.name}-`)) : undefined;
+  pending = { file, original, reportDir };
   const run = async (suffix: string) => {
-    const result = await invoke(row, cwd);
+    const result = await invoke(row, cwd, reportDir ? path.join(reportDir, `${suffix}.xml`) : undefined);
     await writeFile(path.join(logs, `${row.name}-${suffix}.log`), result.stdout + result.stderr);
     return result;
   };
-  let red: Run;
-  try { await writeFile(file, text.replace(row.before, row.after)); red = await run("mutated"); }
-  finally {
-    await writeFile(file, original);
-    if (hash(await readFile(file)) !== hash(original)) throw new Error(`Restoration hash mismatch: ${row.name}`);
+  try {
+    let red: Run;
+    try { await writeFile(file, text.replace(row.before, row.after)); red = await run("mutated"); }
+    finally {
+      await writeFile(file, original);
+      if (hash(await readFile(file)) !== hash(original)) throw new Error(`Restoration hash mismatch: ${row.name}`);
+    }
+    const green = await run("restored");
+    // Check restored first so a missing test has an unambiguous diagnosis.
+    verify(row, green, true);
+    verify(row, red, false);
+    const target = row.kind === "named-test" ? `; test ${row.testName}` : row.kind === "conformance-case" ? `; case ${row.caseId}` : "";
+    process.stdout.write(`${row.name}: mutated FAIL (exit ${red.code}); restored PASS (exit ${green.code})${target}\n`);
+  } finally {
+    try { if (reportDir) await rm(reportDir, { recursive: true, force: true }); }
+    finally { pending = undefined; }
   }
-  const green = await run("restored");
-  // Check the restored observation first so a missing test has an unambiguous diagnosis.
-  verify(row, green, true);
-  verify(row, red, false);
-  const target = row.kind === "named-test" ? `; test ${row.testName}` : row.kind === "conformance-case" ? `; case ${row.caseId}` : "";
-  process.stdout.write(`${row.name}: mutated FAIL (exit ${red.code}); restored PASS (exit ${green.code})${target}\n`);
 }
 if (import.meta.main) for (const row of cases) await runMutation(row);
