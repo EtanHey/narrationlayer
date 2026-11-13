@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import registryData from "./registry.json";
 import activeIds from "./active.json";
 import type { Binding, Connection, Json } from "./binding.js";
 import { FakeClock } from "./clock.js";
-import { withoutWallTime } from "./wall-guard.js";
+import { withoutWallTime, trapState } from "./wall-guard.js";
 export type Row = { id: string; contract_case: string; contract_line: number; side: string; stage: string; owner_slice: string | null; active: boolean };
 export const registry: readonly Row[] = registryData;
 export const slices = ["S0a", "S0b", "S1", "S2", "S3a", "S3b", "S4", "S5", "S6", "S6h", "S5h", "S4h", "S7", "S7h", "S8", "S9", "S10a", "S10b"];
@@ -46,7 +46,7 @@ async function execute(id: string, binding: Binding, run?: Case) {
 }
 export async function runCase(id: string, binding: Binding, run?: Case) {
   const observation = await execute(id, binding, run);
-  return { ...observation.outcome, trace_digest: createHash("sha256").update(canonical(observation)).digest("hex") };
+  return { ...observation.outcome, trace_digest: createHmac("sha256", "nl.conformance/1 public synthetic fixture key").update(canonical(observation)).digest("hex") };
 }
 async function probe(binding: Binding) {
   const clock = new FakeClock();
@@ -61,6 +61,8 @@ async function probe(binding: Binding) {
 }
 export const cases: Record<string, Case> = {
   "CONF-01": async c => { c.assert(await probe(c.binding) === await probe(c.binding)); },
+  "CONF-03": async c => { c.assert(trapState.installed && !trapState.failures.length && !trapState.violations.some(v => v.kind === "network")); },
+  "CONF-04": async c => { c.assert(trapState.installed && !trapState.failures.length && !trapState.violations.some(v => v.kind === "spawn")); },
   "CONF-02": async c => {
     await probe(c.binding);
     let fired = false;
@@ -72,27 +74,24 @@ export const cases: Record<string, Case> = {
 export async function runConformance(binding: Binding, options: { reverse?: boolean; rows?: readonly Row[]; implementations?: Record<string, Case> } = {}) {
   const rows = options.rows ?? registry;
   const implementations = { ...(options.implementations ?? cases) };
-  if (!options.implementations) {
-    implementations["CONF-01"] = async c => {
-      const audit = async () => {
-        const observations = [];
-        for (const row of rows.filter(r => r.active && r.id !== "CONF-01")) observations.push(await execute(row.id, binding, cases[row.id]));
-        return canonical({ probe: await probe(c.binding), observations });
-      };
-      c.assert(await audit() === await audit());
-    };
-    implementations["CONF-02"] = async c => {
-      const observations = [];
-      for (const row of rows.filter(r => r.active)) observations.push(await execute(row.id, binding, cases[row.id]));
-      c.assert(observations.every(o => o.wall_violations === 0));
-      await cases["CONF-02"](c);
-    };
-  }
   const order = [...rows]; if (options.reverse) order.reverse();
   const results = [];
   for (const row of order) {
     const outcome = row.active ? await runCase(row.id, binding, implementations[row.id]) : { id: row.id, result: "inactive", assertions: 0 };
     results.push({ ...outcome, owner_slice: row.owner_slice, side: row.side, stage: row.stage });
+  }
+  // Reconcile process-wide violations after every active case, independent of case order.
+  for (const result of results) {
+    const kind = result.id === "CONF-02" ? "clock" : result.id === "CONF-03" ? "network" : result.id === "CONF-04" ? "spawn" : null;
+    if (result.result !== "inactive" && kind && (trapState.violations.some(v => v.kind === kind) || (kind !== "clock" && (!trapState.installed || trapState.failures.length)))) {
+      result.result = "fail";
+      Object.assign(result, { diagnostic: !trapState.installed ? "traps absent: use the packaged entry" : trapState.failures.length ? `trap installation incomplete: ${trapState.failures.slice().sort().join(", ")}` : `forbidden APIs: ${[...new Set(trapState.violations.filter(v => v.kind === kind).map(v => v.api))].sort().join(", ")}` });
+    }
+    // Only the parent entry can establish the two-process property.
+    if (result.id === "CONF-01") {
+      if (result.result === "pass") Object.assign(result, { diagnostic: "two-process comparison required" });
+      result.result = "fail";
+    }
   }
   return { schema: "nl.conformance/1", binding: binding.name, registry_count: rows.length, inactive: rows.filter(r => !r.active).length,
     inactive_engine: rows.filter(r => !r.active && r.stage === "A" && r.side === "engine").length, rows: results.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) };
