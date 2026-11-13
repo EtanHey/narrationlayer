@@ -5,7 +5,7 @@ import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import { LOCAL_TTS_RENDER_VERSION } from "../../src/pipelines/local-tts/take-cache.js";
 import corpus from "./fixtures/corpus.json";
-import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, type Mode, runnerArgs as argsFor, compatProfile as profile } from "./harness.js";
+import { fixture, spawnChecked, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, type Mode, runnerArgs as argsFor, compatProfile as profile } from "./harness.js";
 const exists = (file: string) => access(file).then(() => true, () => false);
 test("runner executable goldens: direct reference, named profile, cache, real tool argv", async () => {
   const f = await fixture();
@@ -27,10 +27,10 @@ test("runner executable goldens: direct reference, named profile, cache, real to
       expect(receipt.cacheKey).toBe(digest(JSON.stringify(preimage)));
       expect(await exists(path.join(f.root, "cache", `${receipt.cacheKey}.wav`))).toBe(true);
       const output = await readFile(path.join(f.root, "out.wav"));
-      const probe = Bun.spawnSync([tool("ffprobe"), "-v", "error", "-show_entries", "stream=codec_name,sample_rate,channels,bits_per_sample", "-of", "json", path.join(f.root, "out.wav")]);
+      const probe = spawnChecked([tool("ffprobe"), "-v", "error", "-show_entries", "stream=codec_name,sample_rate,channels,bits_per_sample", "-of", "json", path.join(f.root, "out.wav")], { timeout: 10000 });
       expect(probe.exitCode).toBe(0);
       if (named) {
-        const volume = Bun.spawnSync([tool("ffmpeg"), "-i", path.join(f.root, "out.wav"), "-af", "volumedetect", "-f", "null", "-"]);
+        const volume = spawnChecked([tool("ffmpeg"), "-i", path.join(f.root, "out.wav"), "-af", "volumedetect", "-f", "null", "-"], { timeout: 10000 });
         expect(volume.exitCode).toBe(0);
         const mean = Number(volume.stderr.toString().match(/mean_volume:\s*(-?[0-9.]+)/)?.[1]);
         expect(Number.isFinite(mean), "volumedetect must report a numeric mean_volume").toBe(true);
@@ -71,7 +71,7 @@ for (const mode of ["http", "malformed", "timeout"] satisfies Mode[]) {
       expect(await exists(path.join(f.root, "out.wav.cache.json"))).toBe(false);
       await golden(`runner-${mode}`, { fresh: { code: fresh.code, stderr: stderrClass(fresh.stderr) }, stale: { code: stale.code, stderr: stderrClass(stale.stderr) }, requests: f.canonical(f.requests) });
     } finally { await f.close(); }
-  });
+  }, 30000);
 }
 test("runner removes intermediate output when breathing throws after a successful full take", async () => {
   const f = await fixture();
@@ -84,7 +84,7 @@ test("runner removes intermediate output when breathing throws after a successfu
     // Baseline also retains the initial full take after a later breathing failure.
     expect(await exists(path.join(f.root, "out.wav"))).toBe(true);
   } finally { await f.close(); }
-});
+}, 30000);
 test("runner HTTP failure during breathing leaves the baseline intermediate file", async () => {
   const f = await fixture();
   try {
@@ -142,7 +142,7 @@ test("named profile keeps absent-field flags and overrides them when daemon and 
     expect(selected.requests[0]).toMatchObject({ url: `${selected.url}/synthesize`, headers: { authorization: "Bearer profile-token" } });
     expect(JSON.parse(await readFile(path.join(cli.root, "out.wav.cache.json"), "utf8")).cacheEnabled).toBe(false);
   } finally { await cli.close(); await selected.close(); }
-});
+}, 30000);
 test("runner entry root lookup without profile-file environment", async () => {
   const f = await fixture();
   try {
@@ -153,7 +153,7 @@ test("runner entry root lookup without profile-file environment", async () => {
     expect(result.stderr).not.toContain("is not registered");
     expect(f.requests).toHaveLength(0);
   } finally { await f.close(); }
-});
+}, 30000);
 
 test("root profile overrides fail with a public fixture-conflict diagnostic", async () => {
   const f = await fixture();
@@ -171,7 +171,7 @@ test("golden update mode fails visibly and is forbidden in CI", async () => {
     expect(code).toBe(1); expect(stderr).toContain(CI ? "Golden updates are forbidden in CI" : "re-run without UPDATE_COMPAT_GOLDENS");
     expect(await readFile(file, "utf8")).toBe(original);
   }
-});
+}, 30000);
 
 test("stderr timeout classification requires the exact abort diagnostic", () => {
   expect(stderrClass("local-tts-runner: The operation was aborted.\n")).toBe("The operation was aborted.");

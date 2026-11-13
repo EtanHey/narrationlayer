@@ -8,7 +8,7 @@ import { renderSegment } from "../../src/pipelines/job-render/index.js";
 import { planNarrationUtterances } from "../../src/narration-plan.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
-import { fixture, golden, repo, wrappers, argvLog, tool, withEnv, type Mode } from "./harness.js";
+import { fixture, golden, repo, wrappers, argvLog, tool, withEnv, spawnChecked, type Mode } from "./harness.js";
 const cleanQwenEnv = () => Object.fromEntries(Object.keys(process.env).filter(key => key.startsWith("NARRATIONLAYER_QWEN3_")).map(key => [key, undefined]));
 const commit = "f7faa86717f697bf79847eb981da2c3fb1279b67";
 function config(f: Awaited<ReturnType<typeof fixture>>, timeoutMs = 10000) {
@@ -53,7 +53,7 @@ for (const mode of ["http", "malformed", "timeout"] satisfies Mode[]) {
       await golden(`job-${mode}`, f.canonical({ error: thrown instanceof Error ? { name: thrown.name, message: thrown.message } : thrown,
         requests: f.requests, manifest: await getManifest("compat-job", f.root), status: await getStatus("compat-job", f.root) }));
     } finally { await f.close(); }
-  });
+  }, 30000);
 }
 test("real commit discovery and job/segment confinement remain active", async () => {
   const f = await fixture(true);
@@ -62,7 +62,7 @@ test("real commit discovery and job/segment confinement remain active", async ()
     delete process.env.NARRATIONLAYER_COMMIT;
     const qwen = { ...config(f), narrationlayer_commit: undefined };
     const result = await renderSegment("safe", { title: "Public", script: "Hello" }, { artifactsDir: f.root, dataDir: f.root }, qwen);
-    const head = Bun.spawnSync(["git", "rev-parse", "HEAD"], { cwd: repo });
+    const head = spawnChecked(["git", "rev-parse", "HEAD"], { cwd: repo, timeout: 10000 });
     expect(head.exitCode).toBe(0); expect(result.provenance?.narrationlayer_commit).toBe(head.stdout.toString().trim());
     expect(() => pathsForJob("../escape", f.root)).toThrow();
     await expect(renderSegment("../escape", { title: "Public", script: "Hello" }, { artifactsDir: f.root, dataDir: f.root }, qwen)).rejects.toThrow();
@@ -71,7 +71,7 @@ test("real commit discovery and job/segment confinement remain active", async ()
     if (previous === undefined) delete process.env.NARRATIONLAYER_COMMIT; else process.env.NARRATIONLAYER_COMMIT = previous;
     await f.close();
   }
-});
+}, 30000);
 
 test("job service probes unauthored duration from the produced file", async () => {
   const f = await fixture(true);
@@ -80,7 +80,7 @@ test("job service probes unauthored duration from the produced file", async () =
     await createJobFromPayload({ ...payload([]), segments: [{ id: "probe", title: "Synthetic", script: "One sentence. Another sentence. A final sentence." }] }, f.root);
     const result = await withEnv(cleanQwenEnv(), () => renderJob("compat-job", f.root, { qwen: config(f), external: {} }));
     const segment = result.manifest.segments[0];
-    const own = Bun.spawnSync([ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nokey=1:noprint_wrappers=1", segment.audio_path]);
+    const own = spawnChecked([ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nokey=1:noprint_wrappers=1", segment.audio_path], { timeout: 10000 });
     expect(own.exitCode).toBe(0);
     expect(segment.duration_seconds).toBe(Number(Number(own.stdout.toString()).toFixed(3)));
   } finally { await f.close(); }

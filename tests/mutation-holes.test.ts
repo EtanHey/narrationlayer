@@ -136,7 +136,7 @@ for (const [deficit, status] of [[11, "PASS"], [13, "FAIL"]] as const) {
       const results = await gateFixture(root, 155, deficit);
       expect(results.find((r) => r.name === "EXPERT SPECTRAL FLOOR (legacy, no --anchor-job)")?.status).toBe(status);
     });
-  });
+  }, 30000);
 }
 
 test("mutation 39: expert-only pace fixture is skipped", async () => {

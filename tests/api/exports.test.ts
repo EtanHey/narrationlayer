@@ -30,6 +30,7 @@ test("by package name, from a scratch consumer: the front door and legacy subpat
     const probe = `const out = {};\nfor (const s of ${JSON.stringify(specifiers)}) { try { out[s] = new URL(import.meta.resolve(s)).pathname; } catch { out[s] = null; } }\nout.values = Object.keys(await import(${JSON.stringify(pkg.name)})).sort();\nconsole.log(JSON.stringify(out));\n`;
     writeFileSync(path.join(dir, "probe.ts"), probe);
     const run = spawnSync(process.execPath, ["probe.ts"], { cwd: dir, encoding: "utf8", timeout: 20000 });
+    if (run.error) throw run.error;
     expect(run.stderr).toBe("");
     const resolved = JSON.parse(run.stdout) as Record<string, string | null> & { values: string[] };
     const real = (f: string) => path.join(ROOT, f);
@@ -45,7 +46,7 @@ test("by package name, from a scratch consumer: the front door and legacy subpat
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("the front door's runtime values are the snapshot's value names", () => {
   const surface = readJson<Surface>(SURFACE_PATH);

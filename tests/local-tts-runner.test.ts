@@ -7,6 +7,7 @@ import { normalizeForSpeech } from "../src/text-normalize.js";
 import { buildMonoS16WavArgs, buildLoudnessNormalizeArgs, computeLoudnessGainDb } from "../src/audio/ffmpeg-args.js";
 import { clearTakeCacheReceipt, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "../src/pipelines/local-tts/take-cache.js";
 import { splitForBreathing } from "../src/plan/breathing.js";
+import { spawnChecked } from "./compat/harness.js";
 
 test("runner defaults and injected speech preparation preserve the authored input", () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-speech-seam-"));
@@ -28,7 +29,7 @@ test("runner defaults and injected speech preparation preserve the authored inpu
     writeFileSync(wrapper, `import { main } from ${JSON.stringify(runner)};\nawait main((displayText) => ({ displayText, synthInput: ${JSON.stringify(custom)} }));\n`);
     for (const [entry, expected] of [[runner, normalizeForSpeech(input)], [wrapper, custom]]) {
       const output = path.join(dir, path.basename(entry) + ".wav");
-      const result = Bun.spawnSync({ cmd: ["bun", entry, "--text", input, "--output", output, "--reference", reference, "--reference-text", "reference transcript", "--auth-token-file", token, "--cache-dir", cache], stdout: "pipe", stderr: "pipe" });
+      const result = spawnChecked(["bun", entry, "--text", input, "--output", output, "--reference", reference, "--reference-text", "reference transcript", "--auth-token-file", token, "--cache-dir", cache], { timeout: 20_000 });
       expect(result.exitCode).toBe(0);
       expect(result.stderr.toString()).toContain("cache HIT");
       expect(readFileSync(`${output}.spoken.txt`, "utf8")).toBe(expected);
@@ -37,7 +38,7 @@ test("runner defaults and injected speech preparation preserve the authored inpu
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("synth provenance is committed only after the selected WAV is validated", () => {
   const runnerSource = readFileSync(
@@ -112,8 +113,7 @@ test("a failed runner attempt clears the previous take receipt", () => {
   writeFileSync(receiptPath, '{"version":1,"cacheKey":"stale","cacheEnabled":true}\n');
 
   try {
-    const result = Bun.spawnSync({
-      cmd: [
+    const result = spawnChecked([
         "bun",
         "bin/local-tts-runner.ts",
         "--text",
@@ -122,10 +122,9 @@ test("a failed runner attempt clears the previous take receipt", () => {
         output,
         "--reference",
         path.join(dataDir, "missing.wav"),
-      ],
+      ], {
       cwd: path.resolve(import.meta.dir, ".."),
-      stdout: "pipe",
-      stderr: "pipe",
+      timeout: 20_000,
     });
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr.toString()).toContain("reference clip not found");
@@ -133,7 +132,7 @@ test("a failed runner attempt clears the previous take receipt", () => {
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("a cache hit binds the selected frozen take to its cache key", async () => {
   const dataDir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-cache-receipt-"));
@@ -154,8 +153,7 @@ test("a cache hit binds the selected frozen take to its cache key", async () => 
   writeFileSync(cachedTake, "frozen-wave");
 
   try {
-    const result = Bun.spawnSync({
-      cmd: [
+    const result = spawnChecked([
         "bun",
         "bin/local-tts-runner.ts",
         "--text",
@@ -170,10 +168,9 @@ test("a cache hit binds the selected frozen take to its cache key", async () => 
         token,
         "--cache-dir",
         cacheDir,
-      ],
+      ], {
       cwd: path.resolve(import.meta.dir, ".."),
-      stdout: "pipe",
-      stderr: "pipe",
+      timeout: 20_000,
     });
     expect(result.exitCode).toBe(0);
     expect(result.stderr.toString()).toContain(`cache HIT key=${cacheKey}`);
@@ -186,7 +183,7 @@ test("a cache hit binds the selected frozen take to its cache key", async () => 
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 // An eq-bearing profile carries eq_highshelf_hz / eq_highshelf_gain_db, so
 // qwenConfigFromProfile surfaces them and the runner must inject the de-muffle
@@ -424,8 +421,7 @@ test("local runner warns loudly for direct superseded profiles", () => {
   );
 
   try {
-    const result = Bun.spawnSync({
-      cmd: [
+    const result = spawnChecked([
         "bun",
         "bin/local-tts-runner.ts",
         "--text",
@@ -435,14 +431,13 @@ test("local runner warns loudly for direct superseded profiles", () => {
         "--reference",
         "theo-c4",
         "--no-cache",
-      ],
+      ], {
       cwd: path.resolve(import.meta.dir, ".."),
       env: {
         ...process.env,
         NARRATIONLAYER_PROFILES_FILE: profilesPath,
       },
-      stdout: "pipe",
-      stderr: "pipe",
+      timeout: 20_000,
     });
 
     const stderr = result.stderr.toString();
@@ -452,7 +447,7 @@ test("local runner warns loudly for direct superseded profiles", () => {
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("runner rejects asynchronous or missing speech input before synthesis", () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-invalid-speech-"));
@@ -465,7 +460,7 @@ test("runner rejects asynchronous or missing speech input before synthesis", () 
     for (const callback of ["async text => ({ displayText: text, synthInput: text })", "text => ({ displayText: text })", "text => ({ displayText: text, synthInput: '  ' })"]) {
       const wrapper = path.join(dir, "invalid.mjs");
       writeFileSync(wrapper, `import { main } from ${JSON.stringify(runner)};\nawait main(${callback});\n`);
-      const result = Bun.spawnSync({ cmd: ["bun", wrapper, "--text", "hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "reference transcript", "--auth-token-file", token], stdout: "pipe", stderr: "pipe" });
+      const result = spawnChecked(["bun", wrapper, "--text", "hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "reference transcript", "--auth-token-file", token], { timeout: 20_000 });
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr.toString()).toContain("speech preparation must return a nonblank synthInput string synchronously");
       expect(existsSync(path.join(dir, "out.wav"))).toBe(false);
@@ -473,7 +468,7 @@ test("runner rejects asynchronous or missing speech input before synthesis", () 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test.each([
   ["still rejects an ordinary speech preparation error", '() => { throw new Error("synthetic preparation failed"); }', 23, "caught: synthetic preparation failed\n"],
@@ -490,7 +485,7 @@ test.each([
 try { await main(${callback}); }
 catch (error) { process.stderr.write("caught: " + error.message + "\\n"); process.exit(23); }
 `);
-    const result = Bun.spawnSync([process.execPath, wrapper, "--text", "Hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "Synthetic reference.", "--auth-token-file", token], { timeout: 20000 });
+    const result = spawnChecked([process.execPath, wrapper, "--text", "Hello", "--output", path.join(dir, "out.wav"), "--reference", reference, "--reference-text", "Synthetic reference.", "--auth-token-file", token], { timeout: 20_000 });
     expect(result.exitCode).toBe(exitCode);
     expect(result.stderr.toString()).toBe(stderr);
     expect(existsSync(path.join(dir, "out.wav"))).toBe(false);

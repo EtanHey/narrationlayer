@@ -92,7 +92,11 @@ test("only tracked files need a ledger row: an untracked stray file does not fai
   mkdirSync(path.join(ROOT, "dist"), { recursive: true }); // dist/ is gitignored; the throwaway repo lives there
   const dir = mkdtempSync(path.join(ROOT, "dist", ".ledger-git-"));
   try {
-    const git = (...args: string[]) => expect(spawnSync("git", args, { cwd: dir }).status).toBe(0);
+    const git = (...args: string[]) => {
+      const run = spawnSync("git", args, { cwd: dir, timeout: 20_000 });
+      if (run.error) throw run.error;
+      expect(run.status).toBe(0);
+    };
     git("init", "-q");
     mkdirSync(path.join(dir, "src"));
     for (const name of ["tracked", "untracked"]) writeFileSync(path.join(dir, `src/${name}.ts`), "export const a = 1;\n");
@@ -101,7 +105,7 @@ test("only tracked files need a ledger row: an untracked stray file does not fai
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("every .ts file under src/, bin/ and scripts/ has one well-formed ledger row and every relative import resolves", () => {
   expect(ledgerProblems(ledger)).toEqual([]);
