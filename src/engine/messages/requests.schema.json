@@ -1,0 +1,938 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "hello"
+          ]
+        },
+        "client": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "version"
+          ],
+          "additionalProperties": true
+        },
+        "binding": {
+          "enum": [
+            "in-process",
+            "process"
+          ]
+        },
+        "stage": {
+          "enum": [
+            "A",
+            "B"
+          ]
+        },
+        "required_caps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optional_caps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "audible": {
+          "type": "boolean"
+        },
+        "last_owner_epoch": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "client",
+        "binding",
+        "stage",
+        "required_caps"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "enum": [
+                "nl.engine/1"
+              ]
+            },
+            "type": {
+              "enum": [
+                "narrate"
+              ]
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 128
+            },
+            "idempotency_key": {
+              "type": "string"
+            },
+            "use": {
+              "enum": [
+                "read",
+                "speak",
+                "ask_prompt"
+              ]
+            },
+            "input": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "format": {
+                  "enum": [
+                    "plain",
+                    "markdown"
+                  ]
+                },
+                "source": {
+                  "type": "string"
+                },
+                "text_hash": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "format"
+              ],
+              "additionalProperties": true
+            },
+            "voice": {
+              "type": "object",
+              "properties": {
+                "profile": {
+                  "type": "string"
+                },
+                "require_clone": {
+                  "type": "boolean"
+                },
+                "fallback": {
+                  "enum": [
+                    "none",
+                    "declared"
+                  ]
+                }
+              },
+              "required": [
+                "profile",
+                "require_clone",
+                "fallback"
+              ],
+              "additionalProperties": true
+            },
+            "delivery": {
+              "enum": [
+                "pieces",
+                "play"
+              ]
+            },
+            "mode": {
+              "enum": [
+                "announce",
+                "brief",
+                "consult",
+                "converse",
+                "think"
+              ]
+            },
+            "rate": {
+              "type": "string",
+              "pattern": "^[+-][0-9]+%$"
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "now"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "after_session": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "after_session"
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "lookahead": {
+              "type": "integer"
+            },
+            "selection_identity": {
+              "type": "string"
+            },
+            "queue": {
+              "enum": [
+                "replace",
+                "append"
+              ]
+            },
+            "retain_artifact": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "protocol",
+            "type",
+            "request_id",
+            "idempotency_key",
+            "use",
+            "input",
+            "voice",
+            "delivery"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "if": {
+            "properties": {
+              "use": {
+                "const": "speak"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "mode"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "use": {
+                "const": "ask_prompt"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "retain_artifact"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "enum": [
+                "nl.engine/1"
+              ]
+            },
+            "type": {
+              "enum": [
+                "control"
+              ]
+            }
+          },
+          "required": [
+            "protocol",
+            "type"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "pause"
+                  ]
+                },
+                "args": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "enum": [
+                        "user",
+                        "f5",
+                        "ask"
+                      ]
+                    },
+                    "at_ms": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "owner"
+                  ],
+                  "additionalProperties": true
+                },
+                "expected_control_epoch": {
+                  "type": "integer"
+                },
+                "player_instance_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "op",
+                "args"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "resume"
+                  ]
+                },
+                "args": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "enum": [
+                        "user",
+                        "f5",
+                        "ask"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "owner"
+                  ],
+                  "additionalProperties": true
+                },
+                "expected_control_epoch": {
+                  "type": "integer"
+                },
+                "player_instance_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "op",
+                "args"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "seek"
+                  ]
+                },
+                "args": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "audio_ms": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "audio_ms"
+                      ],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "word_index": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "word_index"
+                      ],
+                      "additionalProperties": true
+                    }
+                  ]
+                },
+                "expected_control_epoch": {
+                  "type": "integer"
+                },
+                "player_instance_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "op",
+                "args"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "stop"
+                  ]
+                },
+                "args": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "enum": [
+                        "session",
+                        "queue",
+                        "all_speech"
+                      ]
+                    },
+                    "reason": {
+                      "enum": [
+                        "stop",
+                        "cancel",
+                        "replaced"
+                      ]
+                    },
+                    "at_ms": {
+                      "type": "integer"
+                    },
+                    "except_sessions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "retain_read_queue": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "reason"
+                  ],
+                  "additionalProperties": true
+                },
+                "expected_control_epoch": {
+                  "type": "integer"
+                },
+                "player_instance_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "op",
+                "args"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "replay"
+                  ]
+                },
+                "args": {
+                  "type": "object",
+                  "properties": {
+                    "of_session_id": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "enum": [
+                        "start",
+                        "readback"
+                      ]
+                    },
+                    "audio_ms": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "of_session_id",
+                    "from"
+                  ],
+                  "additionalProperties": true
+                },
+                "expected_control_epoch": {
+                  "type": "integer"
+                },
+                "player_instance_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "op",
+                "args"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "next"
+                  ]
+                },
+                "args": {
+                  "type": "object",
+                  "properties": {
+                    "request_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "request_id"
+                  ],
+                  "additionalProperties": true
+                },
+                "expected_control_epoch": {
+                  "type": "integer"
+                },
+                "player_instance_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "op",
+                "args"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "previous"
+                  ]
+                },
+                "args": {
+                  "type": "object",
+                  "properties": {
+                    "request_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "request_id"
+                  ],
+                  "additionalProperties": true
+                },
+                "expected_control_epoch": {
+                  "type": "integer"
+                },
+                "player_instance_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "op",
+                "args"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "resync"
+                  ]
+                },
+                "args": {
+                  "type": "object",
+                  "properties": {},
+                  "required": [],
+                  "additionalProperties": true
+                },
+                "expected_control_epoch": {
+                  "type": "integer"
+                },
+                "player_instance_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "command_id",
+                "session_id",
+                "op",
+                "args"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "set_speed"
+          ]
+        },
+        "command_id": {
+          "type": "string"
+        },
+        "speed": {
+          "enum": [
+            0.75,
+            1,
+            1.25,
+            1.5,
+            2
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "command_id",
+        "speed"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "player_feedback"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "edge": {
+          "enum": [
+            "spawned",
+            "first_sample",
+            "first_audible",
+            "last_sample",
+            "exited"
+          ]
+        },
+        "t_mono_ms": {
+          "type": "integer"
+        },
+        "source": {
+          "enum": [
+            "player_reported",
+            "derived"
+          ]
+        },
+        "exit": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "completed",
+                "interrupted",
+                "failed"
+              ]
+            },
+            "stopped_at_ms": {
+              "type": "integer"
+            },
+            "code": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "status",
+            "stopped_at_ms"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "session_id",
+        "control_epoch",
+        "player_instance_id",
+        "piece_index",
+        "edge",
+        "t_mono_ms"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "speaker_grant"
+          ]
+        },
+        "permit_id": {
+          "type": "string"
+        },
+        "admission_epoch": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "permit_id",
+        "admission_epoch",
+        "session_id",
+        "scope"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "speaker_deny"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "capture",
+            "f5",
+            "ask",
+            "history",
+            "disabled",
+            "shutdown"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "session_id",
+        "reason"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "speaker_revoke"
+          ]
+        },
+        "admission_epoch": {
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "loan_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "admission_epoch",
+        "reason"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "loan_restore"
+          ]
+        },
+        "loan_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "loan_id",
+        "session_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "capture_state"
+          ]
+        },
+        "admission_epoch": {
+          "type": "integer"
+        },
+        "capture": {
+          "enum": [
+            "idle",
+            "requested",
+            "active",
+            "processing"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "admission_epoch",
+        "capture"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
