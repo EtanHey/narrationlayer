@@ -7,15 +7,9 @@ import path from "node:path";
 export const repo = path.resolve(import.meta.dir, "../..");
 export const digest = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 export type Mode = "ok" | "http" | "malformed" | "timeout";
-/** A synchronous child with a required timeout, kept below its test's budget: a test budget cannot interrupt a blocked
- * spawnSync, so the child's own timeout is what ends it. A timeout or a kill throws an error that names the command. */
-export function spawnChecked(cmd: string[], options: { timeout: number; cwd?: string; env?: Record<string, string | undefined>; stdin?: Buffer }) {
-  const result = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe", ...options, timeout: options.timeout });
-  if (result.exitedDueToTimeout || result.signalCode) {
-    throw new Error(`${cmd.join(" ")}: ${result.exitedDueToTimeout ? `timed out after ${options.timeout} ms` : `killed by ${result.signalCode}`}\n${result.stderr.toString()}`);
-  }
-  return result;
-}
+// Synchronous spawning lives in tests/support/spawn.ts (the spawn guard allows it nowhere else); re-exported for existing importers.
+import { spawnChecked } from "../support/spawn.js";
+export { spawnChecked };
 export async function fixture(mp3 = false) {
   const root = await mkdtemp(path.join(os.tmpdir(), "nl-compat-"));
   const pcm = Buffer.alloc(4800 * 2);

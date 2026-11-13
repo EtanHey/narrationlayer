@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { nodeSpawnChecked } from "../support/spawn.js";
 import path from "node:path";
 import ts from "typescript";
 
@@ -34,7 +34,7 @@ function declaredNames(files: Record<string, string>): Map<string, string[]> {
 }
 
 // Tracked files only (R6), like the importer rule: a stray untracked file in a worktree does not count.
-const tracked = spawnSync("git", ["ls-files", "-z", "--cached"], { cwd: root, encoding: "utf8", timeout: 20_000 });
+const tracked = nodeSpawnChecked("git", ["ls-files", "-z", "--cached"], { cwd: root, timeout: 20_000 });
 if (tracked.status !== 0) throw new Error(`git ls-files failed: ${tracked.stderr}`);
 const files = tracked.stdout.split("\0").filter((f) => /^(src|bin)\/.*\.(?:[cm]?[jt]s|[jt]sx)$/.test(f));
 const declarations = declaredNames(Object.fromEntries(files.map((f) => [f, readFileSync(path.join(root, f), "utf8")])));
@@ -69,7 +69,7 @@ test("runner entry delegates synthesis and ffmpeg; library stages never exit or 
           expect(node.moduleSpecifier.text.replace(/^node:/, ""), file).not.toBe("child_process");
         }
         if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Bun") {
-          expect(["spawn", "spawnSync"], file).not.toContain(node.name.text);
+          expect(node.name.text, file).not.toMatch(/^spawn(?:Sync)?$/);
         }
         if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
           expect(["spawn", "synthesizeQwen3"], file).not.toContain(node.expression.text);
