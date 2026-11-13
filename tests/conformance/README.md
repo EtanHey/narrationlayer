@@ -35,7 +35,7 @@ is guarded at its superclass construction, before native transport initializatio
 on both Bun versions. ShadowRealm is trapped as kind realm, failing the active case that uses it.
 
 Bun.fetch is immutable: default calls are caught by the parent's proxy
-listener, but explicit proxy/unix options and environment edits remain OPEN until S0c. Both cases and import-time uses inherit HTTP_PROXY, HTTPS_PROXY and
+listener. Explicit proxy/unix options and environment edits are denied by the macOS sandbox; they remain OPEN on Linux. Both cases and import-time uses inherit HTTP_PROXY, HTTPS_PROXY and
 ALL_PROXY (upper/lowercase), with NO_PROXY/no_proxy empty. A connection makes
 CONF-03 fail with "connection reached the parent's proxy listener". The parent
 never forwards traffic. Bun.dns is also a read-only container, but its writable
@@ -44,19 +44,44 @@ HTTP proxy. Node DNS and http2 are trapped directly.
 Traps persist until exit, including process.exit/reallyExit; caught calls still
 record violations. The parent computes its own final exit code from its report.
 
-This suite is an in-process tripwire for cooperative adapters accidentally
-using real I/O. Every report declares containment: "in-process-tripwire".
-It is not a containment proof. S0c will run children under an OS sandbox denying
-network/process creation (sandbox-exec on macOS; network namespace on Linux)
-and change this field to the sandbox name.
-CONF-03/04 mean "no trapped network (or spawn) call during any active case,
-and nothing arrived at the parent's listener"; consult the OPEN list below.
+On macOS the parent starts both children with `/usr/bin/sandbox-exec -p` and
+reports `containment: "macos-sandbox"`. The repository-built profile denies
+network operations except outbound IPv4 TCP to `localhost:<parent sink port>` (`tcp4`), and
+denies process-fork (also posix_spawn). process-exec permits only Bun's resolved
+executable so sandbox-exec can start it; a same-image exec replacement retains
+the sandbox. A two-listener test proves that the parent port is reachable while
+a second IPv4 port and an IPv6 listener at the same numeric port are refused,
+including after same-image exec on 1.4.4 (execve is absent on 1.3.11).
+The executable exception permits replacement by the same resolved Bun path
+with new arguments/environment, so it can discard JS traps but cannot discard
+the kernel restrictions. Other executable paths are denied. Threads and workers can start, but a worker cannot spawn a process.
+Filesystem writes and exact registry-shaped report forgery remain outside scope.
+Apple deprecates sandbox-exec, but ships it on the tested macOS 27 system; this
+suite depends on it. Missing sandbox-exec or Linux falls back to
+`containment: "in-process-tripwire"`, never a Linux containment claim.
+`--require-containment` or `NL_CONFORMANCE_REQUIRE_CONTAINMENT=1` fails with
+`required macOS containment unavailable` instead. The macOS test requires both.
+A failing sandbox launch remains red; it never silently retries without a sandbox.
 
-Open until S0c (operating-system containment):
-- Bun.fetch(url, {proxy}): selects a different proxy, bypassing the listener.
-- Bun.fetch(url, {unix}): reaches a unix socket, bypassing the listener.
-- process.env/Bun.env proxy edits: Bun 1.3.11 freezes these variables;
-  1.4.4 refuses frozen descriptors, allowing edits to bypass inherited routing.
+Platform routes (`inventory-excluded.json`'s `platform_routes`):
+- Bun.fetch(url, {proxy}): denied on macOS; OPEN on Linux.
+- Bun.fetch(url, {unix}): denied on macOS; OPEN on Linux.
+- process.env/Bun.env proxy edits and NO_PROXY='*': denied network effects on
+  macOS. OPEN on Linux with Bun 1.4.4; 1.3.11 freezes the variables.
+- Bun.file/write String-object remote schemes: trapped before client creation
+  on both platforms, in addition to macOS network denial.
+
+CONF-03/04 still mean no trapped call and no arrival at the parent's sink.
+An adapter that catches a kernel-denied call can remain green: kernel denial
+proves no traffic escaped, not that a trap observed the attempt. Bun maps denied
+TCP/unix/DNS operations to ECONNREFUSED; UDP and spawning report EPERM.
+The DNS invariant uses a private resolver pointed only at an owned loopback
+UDP listener, with an NXDOMAIN control; it sends no query to the system resolver.
+Two committed snapshots pin each containment value byte for byte, including
+locale/TZ/cwd/reverse-order checks; the field is never normalized away.
+Linux sandbox containment and Linux mutation-gate rows for these macOS-only
+rules are deferred. The focused OS tests run without the trap preload and have
+unsandboxed loopback/marker controls. No external request is used.
 
 A binding that forges a report on the report pipe commits fraud; the suite does
 not defend against a binding forging the suite. The parent checks schema,

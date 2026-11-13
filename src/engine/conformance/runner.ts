@@ -1,3 +1,4 @@
+import type { Containment } from "./sandbox.js";
 import { createHmac } from "node:crypto";
 import registryData from "./registry.json";
 import activeIds from "./active.json";
@@ -66,7 +67,7 @@ async function probe(binding: Binding) {
 export const cases: Record<string, Case> = {
   "CONF-01": async c => { c.assert(await probe(c.binding) === await probe(c.binding)); },
   // CONF-03/04: no trapped network (or spawn) call during any active case,
-  // and nothing arrived at the parent listener; see README OPEN until S0c.
+  // and nothing arrived at the parent listener; see README platform limits.
   "CONF-03": async c => { c.assert(trapsPresent() && !trapState.failures.length); },
   "CONF-04": async c => { c.assert(trapsPresent() && !trapState.failures.length); },
   "CONF-02": async c => {
@@ -106,6 +107,6 @@ export async function runConformance(binding: Binding, options: { reverse?: bool
       result.result = "fail";
     }
   }
-  return { schema: "nl.conformance/1", containment: "in-process-tripwire", binding: binding.name, registry_count: rows.length, inactive: rows.filter(r => !r.active).length,
+  return { schema: "nl.conformance/1", containment: "in-process-tripwire" as Containment, binding: binding.name, registry_count: rows.length, inactive: rows.filter(r => !r.active).length,
     inactive_engine: rows.filter(r => !r.active && r.stage === "A" && r.side === "engine").length, rows: results.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) };
 }

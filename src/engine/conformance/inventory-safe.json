@@ -11,7 +11,7 @@
     "JSONL": "Data, CPU transform, local file, or runtime metadata only; no socket/process creation or wall-clock API.",
     "MD4": "Data, CPU transform, local file, or runtime metadata only; no socket/process creation or wall-clock API.",
     "MD5": "Data, CPU transform, local file, or runtime metadata only; no socket/process creation or wall-clock API.",
-    "ModuleGraph": "Module graph introspection/metadata only; does not open sockets/processes or provide a clock.",
+    "ModuleGraph": "Imports and runs modules in a new module graph in the same realm; builtins retain the trapped functions.",
     "SHA1": "Data, CPU transform, local file, or runtime metadata only; no socket/process creation or wall-clock API.",
     "SHA224": "Data, CPU transform, local file, or runtime metadata only; no socket/process creation or wall-clock API.",
     "SHA256": "Data, CPU transform, local file, or runtime metadata only; no socket/process creation or wall-clock API.",
@@ -124,7 +124,10 @@
     "util": "Pure data, stream/event transformation, local descriptors, or diagnostics; no socket/process creation or wall-clock API.",
     "util/types": "Pure data, stream/event transformation, local descriptors, or diagnostics; no socket/process creation or wall-clock API.",
     "v8": "Runtime heap/serialization introspection; native profiling/flags are outside adapter scope.",
-    "zlib": "Pure data, stream/event transformation, local descriptors, or diagnostics; no socket/process creation or wall-clock API."
+    "zlib": "Pure data, stream/event transformation, local descriptors, or diagnostics; no socket/process creation or wall-clock API.",
+    "node:test": "Same-realm test API: run is unimplemented on 1.3.11 and trips the trapped Date.now on 1.4.4; no independent network/process/realm route.",
+    "bun:main": "1.3.11 entry module namespace in the same realm, with the same trapped functions; absent on 1.4.4.",
+    "bun:app": "1.3.11 application module namespace in the same realm, with the same trapped functions; absent on 1.4.4."
   },
   "globals": {
     "AbortController": "ECMAScript data/control, web data/stream/event, local descriptor, or module data transform; no ambient network/process/clock/new realm.",

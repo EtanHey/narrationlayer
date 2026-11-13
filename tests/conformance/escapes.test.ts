@@ -88,7 +88,7 @@ if ("execve" in process) test("execve cannot replace the child or create its mar
   expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-04").result).toBe("fail");
 });
 test("reallyExit fake stdout cannot forge a report on the dedicated pipe", async () => {
-  const fake = readFileSync(resolve(import.meta.dir, "report.snapshot.json"), "utf8");
+  const fake = readFileSync(resolve(import.meta.dir, (process.platform === "darwin" ? "report.macos-sandbox.snapshot.json" : "report.snapshot.json")), "utf8");
   const result = await run(`process.stdout.write(${JSON.stringify(fake)});process.reallyExit(0);${binding("")}`);
   expect(result.code).toBe(1); expect(result.stderr).toContain(fake.trim());
   expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01").diagnostic).toContain("process.reallyExit");
@@ -143,7 +143,7 @@ test("ShadowRealm cannot start a process or open a socket", async () => {
   } finally { listener.stop(true); }
 });
 test("parent rejects incomplete, foreign, metadata and activation forgeries; full fraud remains possible", async () => {
-  const snapshot = JSON.parse(readFileSync(resolve(import.meta.dir,"report.snapshot.json"),"utf8"));
+  const snapshot = JSON.parse(readFileSync(resolve(import.meta.dir,(process.platform === "darwin" ? "report.macos-sandbox.snapshot.json" : "report.snapshot.json")),"utf8"));
   for (const variant of ["one", "foreign", "metadata", "active", "schema", "full"]) {
     const fake = structuredClone(snapshot);
     if (variant === "one") fake.rows = fake.rows.filter((r: {id:string})=>r.id === "CONF-01");
@@ -189,7 +189,7 @@ test("entry survives report-fd reuse at GC across eight sequential starts", asyn
       const proc = Bun.spawn([process.execPath, "--preload", preload, entry, "--binding", resolve(root,"src/engine/conformance/null-binding.ts")], {stdout:"pipe",stderr:"pipe"});
       const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(),new Response(proc.stderr).text(),proc.exited]);
       expect(stderr).toBe(""); expect(code).toBe(0);
-      expect(stdout).toBe(readFileSync(resolve(import.meta.dir,"report.snapshot.json"),"utf8"));
+      expect(stdout).toBe(readFileSync(resolve(import.meta.dir,(process.platform === "darwin" ? "report.macos-sandbox.snapshot.json" : "report.snapshot.json")),"utf8"));
     }
     expect(performance.now()-start).toBeLessThan(3000);
   } finally { rmSync(dir,{recursive:true}); }

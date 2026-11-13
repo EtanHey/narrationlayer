@@ -1,7 +1,7 @@
 {
   "bun": {
     "WebView": "Native GUI bridge can open windows, browser processes and network connections.",
-    "fetch": "OPEN until S0c: immutable Bun.fetch uses proxy listener by default; explicit proxy or unix options bypass it."
+    "fetch": "Immutable; parent proxy detects default calls. macOS sandbox denies bypass traffic; Linux proxy/unix/env bypasses remain OPEN."
   },
   "modules": {
     "bun:ffi": "Native FFI can call arbitrary OS functions, including sockets, processes and wall clocks.",
@@ -11,9 +11,18 @@
   "globals": {
     "ffi": "Native FFI can call arbitrary OS functions, including sockets, processes and wall clocks."
   },
-  "open_until_S0c": {
-    "Bun.fetch.proxy": "Per-request proxy selects another proxy, bypassing the parent listener.",
-    "Bun.fetch.unix": "Per-request unix connects to a local socket, bypassing the parent listener.",
-    "process.env/Bun.env proxy edits": "Runtime refuses frozen env descriptors; edits can bypass inherited proxy routing on 1.4.4."
+  "platform_routes": {
+    "Bun.fetch.proxy": {
+      "macos-sandbox": "Denied by network policy, except the parent sink.",
+      "in-process-tripwire": "Per-request proxy selects another proxy, bypassing the parent listener."
+    },
+    "Bun.fetch.unix": {
+      "macos-sandbox": "Denied by network policy, except the parent sink.",
+      "in-process-tripwire": "Per-request unix connects to a local socket, bypassing the parent listener."
+    },
+    "process.env/Bun.env proxy edits": {
+      "macos-sandbox": "Denied by network policy, except the parent sink.",
+      "in-process-tripwire": "Runtime refuses frozen env descriptors; edits can bypass inherited proxy routing on 1.4.4."
+    }
   }
 }

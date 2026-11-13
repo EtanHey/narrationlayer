@@ -55,7 +55,7 @@ for (const { name, kind, module } of modules) {
 for (const key of ["file", "write"] as const) {
   const original = Bun[key];
   replace(Bun, key, new Proxy(original, { apply(target, receiver, args) {
-    const path = args[0] instanceof URL ? args[0].href : args[0];
+    const path = typeof args[0] === "number" ? args[0] : String(args[0]);
     if (typeof path === "string" && /^[a-z][a-z0-9+.-]*:/i.test(path) && !/^file:/i.test(path)) deny("network", `Bun.${key} remote scheme`);
     return Reflect.apply(target, receiver, args);
   } }), `Bun.${key}`);

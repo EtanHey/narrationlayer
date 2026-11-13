@@ -48,7 +48,7 @@ for (const [api, caseId, source] of probes) test(`${api} captured at import is R
 test("null report is stable across processes, order, locale, TZ and cwd; snapshot pins it", async () => {
   const a = await run(), b = await run(undefined, { ...process.env, LANG: "tr_TR.UTF-8", LC_ALL: "tr_TR.UTF-8", TZ: "Pacific/Kiritimati" }, scratch, ["--reverse"]);
   expect(a.code).toBe(0); expect(b.code).toBe(0); expect(b.stdout).toBe(a.stdout);
-  expect(a.stdout).toBe(readFileSync(resolve(import.meta.dir, "report.snapshot.json"), "utf8"));
+  expect(a.stdout).toBe(readFileSync(resolve(import.meta.dir, (process.platform === "darwin" ? "report.macos-sandbox.snapshot.json" : "report.snapshot.json")), "utf8"));
 });
 test("import stamp is detected by the entry's own two-process comparison", async () => {
   const result = await run(`const stamp=process.pid; export default {name:'stamp',create(){return {send(){},events:(async function*(){yield {stamp}})(),async shutdown(){}}}}`);
