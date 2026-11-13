@@ -16,6 +16,10 @@
     "src/engine/conformance/null-binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
     "src/engine/conformance/runner.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
     "src/engine/conformance/wall-guard.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
+    "src/engine/messages/schema.ts": { "layer": 1, "area": "plan", "owner": "P2.S1a" },
+    "src/engine/messages/messages.ts": { "layer": 1, "area": "plan", "owner": "P2.S1a" },
+    "src/engine/messages/parser.ts": { "layer": 1, "area": "plan", "owner": "P2.S1a" },
+
     "src/pipelines/local-tts/failure.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
     "src/pipelines/local-tts/loudness.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
     "src/pipelines/local-tts/breathing.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
