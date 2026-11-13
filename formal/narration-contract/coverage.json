@@ -2,7 +2,8 @@
   "status": "T3_DESIGN_SLICE; I01-I10_DESIGN_LEVEL; REAL_BINDING_REQUIRED_PER_IMPLEMENTING_PR",
   "sync_commit": "78d4ec46d3ded56275cbc2a105add830cb413151",
   "source_sha256": {
-    "src/job-store.ts": "8e5411c69ebfc9ad1d710294506d3de5b33240b1ce8855beac2f538a3d5b9f7d"
+    "src/job-store.ts": "8e5411c69ebfc9ad1d710294506d3de5b33240b1ce8855beac2f538a3d5b9f7d",
+    "src/engine/reducer/session.ts": "99b67618624ccc5497793ec33590b9b24f0c139a16cd1594423ec75890f9568e"
   },
   "source_backed": {
     "LegacyExclusive": "src/job-store.ts:168-177 markDone/markFailed; sequential awaited calls only; observed filesystem markers feed SourceTrace.tla"
@@ -81,5 +82,102 @@
     "I08": "VL-DRAIN; BACKEND/STATE/ENGINE",
     "I09": "STATE; VL-CLONE-OPT/SPEAK/ASK and AD-CONSUME",
     "I10": "TIMING; PROJECTION/ENGINE/STRUCTURE-PROSODY/AD-CONSUME"
+  },
+  "reducer_binding": {
+    "scope": "S2a pure reducer only; no real engine/player/journal/History acceptance; I05-I10 unchanged design-level",
+    "source": "src/engine/reducer/session.ts",
+    "tests": "tests/engine/reducer/session.test.ts",
+    "exhaustive": "Depth 4, 35-input alphabet, three reachable two-piece/two-session seeds with one authority each; 4634283 represented prefixes, 44227 visits, 38729 distinct states; previous failed exits, final-piece and control-player fences asserted",
+    "proof_command": "bun test tests/engine/reducer; scratch each source mutation below, require its named test red, restore staged git bytes, rerun green",
+    "invariants": {
+      "I01": {
+        "before": "if (s.playback !== null) return",
+        "after": "if (false) return",
+        "test": "I01: a player failure after the natural end keeps completed",
+        "proof": "named AND exhaustive red; restored git bytes"
+      },
+      "I02": {
+        "before": " && input.identity.attempt_id === s.attempt_id",
+        "after": "",
+        "test": "I02: matching feedback moves state; foreign job owner and attempt cannot",
+        "proof": "named AND exhaustive red; restored git bytes"
+      },
+      "I03": {
+        "before": "s.generation = \"cancelled\"; s.fenced = true;",
+        "after": "s.generation = \"running\"; s.fenced = false;",
+        "test": "I03: cancellation fences delivery and commit, including late backend results",
+        "proof": "named AND exhaustive red; restored git bytes"
+      },
+      "I04": {
+        "before": "s.started && s.delivered.length === s.plan.pieces.length && f.piece_index",
+        "after": "s.started && f.piece_index",
+        "test": "I04: natural EOF needs actual start and N-piece coverage; no seek",
+        "proof": "named AND exhaustive red; restored git bytes"
+      }
+    },
+    "refinement": "formal/narration-contract/REFINEMENT.md",
+    "mutation_rows": {
+      "reducer-I01": {
+        "kind": "named-test",
+        "testFile": "tests/engine/reducer/session.test.ts",
+        "testName": "I01: a player failure after the natural end keeps completed"
+      },
+      "reducer-I02": {
+        "kind": "named-test",
+        "testFile": "tests/engine/reducer/session.test.ts",
+        "testName": "I02: matching feedback moves state; foreign job owner and attempt cannot"
+      },
+      "reducer-I03": {
+        "kind": "named-test",
+        "testFile": "tests/engine/reducer/session.test.ts",
+        "testName": "I03: cancellation fences delivery and commit, including late backend results"
+      },
+      "reducer-I04": {
+        "kind": "named-test",
+        "testFile": "tests/engine/reducer/session.test.ts",
+        "testName": "I04: natural EOF needs actual start and N-piece coverage; no seek"
+      },
+      "reducer-A1-previous-job": {
+        "kind": "named-test",
+        "testFile": "tests/engine/reducer/session.test.ts",
+        "testName": "A1: previous player exits settle in both orders with distinct and reused ids"
+      }
+    },
+    "round_1_scratch_fences": [
+      "I01",
+      "I02",
+      "I03",
+      "I04",
+      "control-stale",
+      "epoch-feedback",
+      "player-feedback",
+      "wire-session",
+      "piece-index",
+      "spawn-adjacency",
+      "spawn-delivered",
+      "live-job",
+      "engine-mints",
+      "host-control-adopts",
+      "host-feedback-adopts",
+      "host-anchor-stale",
+      "terminal-anchor",
+      "host-control-stale",
+      "stop-wins",
+      "seq",
+      "sequenced-errors",
+      "idempotency"
+    ],
+    "round_2_scratch_fences": [
+      "previous slot",
+      "previous epoch/player/piece matching",
+      "slot settlement",
+      "restart epoch",
+      "last planned piece",
+      "control player",
+      "anchor epoch clearing",
+      "host epoch clearing",
+      "host reanchor refusal",
+      "input ownership (named only; external mutation is outside the script alphabet)"
+    ]
   }
 }
