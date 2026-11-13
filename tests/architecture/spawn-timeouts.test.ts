@@ -16,7 +16,8 @@ export function untimedSpawnSyncs(files: Record<string, string>): string[] {
     const visit = (node: ts.Node): void => {
       if (ts.isCallExpression(node)) {
         const callee = node.expression;
-        const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : undefined;
+        const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text
+          : ts.isElementAccessExpression(callee) && ts.isStringLiteralLike(callee.argumentExpression) ? callee.argumentExpression.text : undefined;
         const timed = node.arguments.some((arg) => ts.isObjectLiteralExpression(arg) && arg.properties.some((p) =>
           (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) && ts.isIdentifier(p.name) && p.name.text === "timeout"));
         if (name === "spawnSync" && !timed) out.push(`${file}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`);
@@ -27,6 +28,20 @@ export function untimedSpawnSyncs(files: Record<string, string>): string[] {
   }
   return out;
 }
+
+test.each([
+  ["bare call", `spawnSync("git", ["status"]);`, true],
+  ["property call", `Bun.spawnSync(["git", "status"]);`, true],
+  ["element-access call", `Bun["spawnSync"](["sleep", "37"]);`, true],
+  ["element-access call, template key", "child_process[`spawnSync`](\"git\", []);", true],
+  ["options in a variable", `spawnSync("git", [], options);`, true],
+  ["options only through a spread", `Bun.spawnSync(["git"], { ...options });`, true],
+  ["bare call with timeout", `spawnSync("git", ["status"], { timeout: 1000 });`, false],
+  ["property call with timeout", `Bun.spawnSync(["git", "status"], { timeout: 1000 });`, false],
+  ["element-access call with timeout", `Bun["spawnSync"](["sleep", "37"], { timeout: 1000 });`, false],
+] as const)("untimedSpawnSyncs: %s", (_label, source, flagged) => {
+  expect(untimedSpawnSyncs({ "fixture.ts": source })).toEqual(flagged ? ["fixture.ts:1"] : []);
+});
 
 test("every spawnSync in the tests carries a child timeout in its options", () => {
   const tracked = spawnSync("git", ["ls-files", "-z", "--cached", "tests", "packages"], { cwd: root, encoding: "utf8", timeout: 20_000 });
