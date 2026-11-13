@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 from urllib.parse import urlsplit, parse_qs
+from xml.etree import ElementTree
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -143,15 +144,69 @@ def check_staging(staging, design, dashboard_id, deliveries, served_shell_sha256
         require(recorded is None or recorded == previous, 'MAINTENANCE_PREVIOUS_SHELL')
 
 
+# Media a page may carry. A row without `kind` is an mp3 row: every handoff written before kinds existed.
+MEDIA_EXTENSIONS = {'mp3': ('mp3',), 'webp': ('webp',), 'png': ('png',), 'jpeg': ('jpg', 'jpeg'), 'svg': ('svg',)}
+# mp3 keeps the capsule's existing 5 MiB clip cap. A phone-width image (1170 px at 3x) is 100-400 KB as webp or
+# jpeg, so 2 MiB is headroom for a png diagram, not for a raw screenshot. An svg is text and is scanned in full.
+MEDIA_LIMITS = {'mp3': 5 * 1024 * 1024, 'webp': 2 * 1024 * 1024, 'png': 2 * 1024 * 1024, 'jpeg': 2 * 1024 * 1024, 'svg': 256 * 1024}
+# 200 matches the capsule's per-page audio manifest cap (the largest real page has 124 clips). Each image costs one
+# signed-URL request as it nears the viewport; 40 phone-width images is about 12 MB on a cellular link.
+MEDIA_PER_PAGE, IMAGES_PER_PAGE = 200, 40
+MAGIC = {'png': lambda b: b.startswith(b'\x89PNG\r\n\x1a\n'), 'jpeg': lambda b: b.startswith(b'\xff\xd8\xff'),
+         'webp': lambda b: b[:4] == b'RIFF' and b[8:12] == b'WEBP',
+         'mp3': lambda b: b.startswith(b'ID3') or (len(b) > 1 and b[0] == 0xff and b[1] & 0xe0 == 0xe0)}
+SVG_NS = '{http://www.w3.org/2000/svg}'
+
+
+def check_svg(data):
+    """An svg is shown as an image, which already blocks script; refuse script, handlers and references anyway."""
+    try: text = data.decode('utf8')
+    except UnicodeDecodeError: raise Refusal('MEDIA_SVG_UNSAFE') from None
+    lowered = text.lower()
+    require('<!doctype' not in lowered and '<!entity' not in lowered and '<?' not in re.sub(r'^\s*<\?xml\s[^?]*\?>', '', lowered), 'MEDIA_SVG_UNSAFE')
+    try: root = ElementTree.fromstring(text)
+    except ElementTree.ParseError: raise Refusal('MEDIA_SVG_UNSAFE') from None
+    require(root.tag in ('svg', SVG_NS + 'svg'), 'MEDIA_SVG_UNSAFE')
+    styles = [value for element in root.iter() for value in [element.get('style') or ''] + ([element.text or ''] if element.tag.rsplit('}', 1)[-1] == 'style' else [])]
+    for element in root.iter():
+        require(element.tag.rsplit('}', 1)[-1].lower() not in ('script', 'foreignobject', 'iframe', 'embed', 'object'), 'MEDIA_SVG_UNSAFE')
+        for name, value in element.attrib.items():
+            local = name.rsplit('}', 1)[-1].lower()
+            require(not local.startswith('on') and (local not in ('href', 'src') or value.strip().startswith('#')), 'MEDIA_SVG_UNSAFE')
+            require(not re.search(r'url\(\s*["\']?\s*(?!#)', value, re.I), 'MEDIA_SVG_UNSAFE')
+    require(not any(re.search(r'@import|javascript:|url\(\s*["\']?\s*(?!#)', style, re.I) for style in styles), 'MEDIA_SVG_UNSAFE')
+
+
+def check_media(handoff, media=None):
+    """Manifest rules always; byte rules for every row whose bytes are supplied. An svg row needs its bytes."""
+    rows, visual = handoff['mediaManifest'], handoff['type'] == 'visual'
+    kinds = [row.get('kind', 'mp3') for row in rows]
+    require(len(rows) <= MEDIA_PER_PAGE and sum(kind != 'mp3' for kind in kinds) <= IMAGES_PER_PAGE, 'MEDIA_COUNT')
+    require(len({row['file'] for row in rows}) == len(rows), 'MEDIA_KIND')
+    for row, kind in zip(rows, kinds):
+        require(not (visual and kind == 'mp3'), 'VISUAL_AUDIO')
+        require(re.fullmatch(r'assets/[A-Za-z0-9_-]+\.(%s)' % '|'.join(MEDIA_EXTENSIONS[kind]), row['file']), 'MEDIA_KIND')
+        require(row['size'] <= MEDIA_LIMITS[kind], 'MEDIA_TOO_LARGE')
+        data = (media or {}).get(row['file'])
+        require(data is not None or kind != 'svg', 'MEDIA_SVG_UNCHECKED')
+        if data is None: continue
+        require(len(data) == row['size'] and sha(data) == row['sha256'], 'MEDIA_BYTES')
+        if kind == 'svg': check_svg(data)
+        else: require(MAGIC[kind](data), 'MEDIA_BYTES')
+
+
 def recorded_approval(approval):
     return (isinstance(approval, dict) and all(isinstance(approval.get(field), str)
         and approval[field].strip() and not re.search(r'[\r\n\v\f\x1c-\x1e\x85\u2028\u2029]', approval[field])
         for field in ('reason', 'approvedBy')) and approval['approvedBy'].strip().upper() != 'UNRECORDED')
 
 
-def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider, artifact, lock, owner_pid, runtime_config=ROOT / "answer-runtimes.json", staging=None):
+def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider, artifact, lock, owner_pid, runtime_config=ROOT / "answer-runtimes.json", staging=None, media=None):
     require(handoff is not None, 'HANDOFF_MISSING')
     design = handoff.get('design', {}) if isinstance(handoff, dict) else {}
+    # A visual page is a document with no answers: declaring any answer field is a contradiction, not a schema typo.
+    require(not (isinstance(handoff, dict) and handoff.get('type') == 'visual' and (handoff.get('answerKeys') or
+            {'answerRuntimeSha256', 'answerPersistence'} & handoff.keys())), 'VISUAL_ANSWERS')
     if isinstance(design, dict) and design.get('admission') == 'FIRST_IN_LINEAGE':
         require(recorded_approval(design.get('firstInLineage')), 'FIRST_IN_LINEAGE_UNAPPROVED')
     if isinstance(design, dict) and design.get('admission') == 'REDESIGN_APPROVED':
@@ -168,6 +223,13 @@ def admit(*, handoff, raw, shell, dashboard_id, saved_keys, deliveries, provider
     require(handoff['design']['admission'] != 'FIRST_IN_LINEAGE' or self_accepted
             or not any(row.get('accepted') is True for row in history), 'LINEAGE_EXISTS')
     if staging is not None: check_staging(staging, handoff['design']['admission'], dashboard_id, deliveries, sha(shell))
+    check_media(handoff, media)
+    if handoff['type'] == 'visual':
+        require(not saved_keys and b'installAnswerPersistence' not in raw + shell, 'VISUAL_ANSWERS')
+        require(len(artifact) <= LIMIT, 'ARTIFACT_TOO_LARGE')
+        check_lock(lock, owner_pid)
+        return {'pageType': 'visual', 'answerRuntime': 'none', 'design': handoff['design']['admission'], 'answerIdentity': 'NOT_APPLICABLE',
+                'providerReady': None, 'gateVersion': '2', 'dashboardId': dashboard_id, 'sourceHtmlSha256': sha(raw), 'servedShellSha256': sha(shell)}
     require(handoff['answerPersistence'] == 'PASS', 'ANSWER_PERSISTENCE')
     digest = handoff['answerRuntimeSha256']
     require(runtime_sha(raw) == runtime_sha(shell) == digest, 'ANSWER_RUNTIME_MISMATCH')
@@ -206,6 +268,8 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
     else:
         require(handoff is not None and admission is not None and isinstance(staging, dict), 'STAGING_PROOF')
         validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
+        # Delivery's account proof is an answer round trip; a visual page has no answer to round-trip yet.
+        require(handoff['type'] != 'visual', 'VISUAL_DELIVERY_UNSUPPORTED')
         check_staging(staging, handoff['design']['admission'], handoff['dashboardId'], deliveries, sha(shell))
         require(staging.get('servedShellSha256') == sha(shell), 'STAGING_SHELL')
         require(admission.get('servedShellSha256') == staging['servedShellSha256'], 'ADMISSION_SHELL')

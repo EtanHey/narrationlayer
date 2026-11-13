@@ -12,7 +12,8 @@
     "type": {
       "enum": [
         "decision-flow",
-        "cinema"
+        "cinema",
+        "visual"
       ]
     },
     "sourcePath": {
@@ -248,6 +249,15 @@
           "sha256": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "kind": {
+            "enum": [
+              "mp3",
+              "webp",
+              "png",
+              "jpeg",
+              "svg"
+            ]
           }
         },
         "required": [
@@ -269,14 +279,50 @@
     "type",
     "sourcePath",
     "builtHtmlSha256",
-    "answerRuntimeSha256",
     "sourceHtmlSha256",
     "buildReceiptsSha256",
-    "answerPersistence",
     "answerKeys",
     "design",
     "mediaManifest",
     "createdAt"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "visual"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "answerKeys": {
+            "maxItems": 0
+          }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "answerRuntimeSha256"
+              ]
+            },
+            {
+              "required": [
+                "answerPersistence"
+              ]
+            }
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "answerRuntimeSha256",
+          "answerPersistence"
+        ]
+      }
+    }
+  ]
 }
