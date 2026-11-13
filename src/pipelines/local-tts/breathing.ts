@@ -5,6 +5,7 @@ import { buildPcmSilenceArgs, escapeConcatPath, buildWavConcatArgs } from "../..
 import { ffmpegRun, ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
 import { RunnerFailure } from "./failure.js";
+import type { JoinedPiece } from "./keep-pieces.js";
 
 /**
  * BREATHING stage: re-synthesize the whole-segment text as discrete sentence/clause
@@ -26,6 +27,8 @@ export async function applyBreathingInPlace(opts: {
   eqHighshelfHz?: number;
   eqHighshelfGainDb?: number;
   atempo?: number;
+  /** Called after the join succeeds, while each piece's joined audio still exists. */
+  onJoined?: (pieces: JoinedPiece[]) => Promise<void>;
 }): Promise<{ applied: boolean; pieces: number }> {
   const pieces = toBreathingPieces(breathingV1(
     opts.spokenText,
@@ -40,6 +43,7 @@ export async function applyBreathingInPlace(opts: {
   const dir = path.dirname(opts.output);
   const base = path.basename(opts.output);
   const concatEntries: string[] = [];
+  const joined: JoinedPiece[] = [];
   const cleanup: string[] = [];
   let preserveIntermediates = false;
   try {
@@ -72,6 +76,7 @@ export async function applyBreathingInPlace(opts: {
       } else {
         concatEntries.push(wavPath);
       }
+      joined.push({ text: piece.text, audioPath: concatEntries.at(-1)! });
       // Interleave a PCM-silence breath after every piece except the last.
       if (piece.padAfterSeconds > 0 && i < pieces.length - 1) {
         const silPath = path.join(dir, `${base}.sil-${i}.wav`);
@@ -80,6 +85,7 @@ export async function applyBreathingInPlace(opts: {
           buildPcmSilenceArgs(silPath, piece.padAfterSeconds, opts.sampleRate),
         );
         concatEntries.push(silPath);
+        joined[i]!.pauseAfterPath = silPath;
       }
     }
 
@@ -93,6 +99,7 @@ export async function applyBreathingInPlace(opts: {
     const assembled = path.join(dir, `${base}.breath.out.wav`);
     cleanup.push(assembled);
     await ffmpegRun(buildWavConcatArgs(listPath, assembled));
+    if (opts.onJoined) await opts.onJoined(joined);
     await rename(assembled, opts.output);
     // `assembled` was renamed onto output; drop it from cleanup-removal set.
     cleanup.splice(cleanup.indexOf(assembled), 1);

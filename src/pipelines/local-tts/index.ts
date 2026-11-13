@@ -8,6 +8,7 @@ import { RunnerFailure } from "./failure.js";
 import { applyBreathingInPlace } from "./breathing.js";
 import { loudnessNormalizeInPlace } from "./loudness.js";
 import { computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
+import { assertKeepPiecesDir, keepPieces } from "./keep-pieces.js";
 
 export interface ResolvedLocalTtsVoice extends CacheKeyParams {
   referenceClip: string;
@@ -26,17 +27,25 @@ export interface LocalTtsRenderOptions {
   authToken: string;
   cacheDir: string;
   cache: boolean;
+  /** Render even on a cache HIT and replace the cached take with the new one. Needs `cache`. */
+  refreshCache?: boolean;
+  /** Copy each piece's audio as joined, plus `pieces.json`, into this new or empty directory. */
+  keepPiecesDir?: string;
   timeoutMs: number;
   prepareSpeechChannels: (text: string, pronunciationRules: TermRule[]) => SpeechChannels;
 }
 
 export type LocalTtsRenderResult =
-  | { kind: "cache-hit"; cacheKey: string; cachePath: string; bytes: number }
-  | { kind: "rendered"; cacheKey: string; bytes: number; atempoNote: string; breathingNote: string; loudnessNote: string; cacheNote: string };
+  | { kind: "cache-hit"; cacheKey: string; cachePath: string; bytes: number; piecesNote: string }
+  | { kind: "rendered"; cacheKey: string; bytes: number; atempoNote: string; breathingNote: string; loudnessNote: string; cacheNote: string; piecesNote: string };
+
+const PIECES_ON_HIT = "cache hit: no pieces were rendered";
 
 /** Render one resolved voice configuration without owning the caller's process. */
 export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<LocalTtsRenderResult> {
-  const { output, resolved, authToken, cacheDir, prepareSpeechChannels } = args;
+  const { output, resolved, authToken, cacheDir, prepareSpeechChannels, keepPiecesDir } = args;
+  if (args.refreshCache && !args.cache) throw new RunnerFailure("--refresh-cache cannot be combined with --no-cache");
+  if (keepPiecesDir !== undefined) await assertKeepPiecesDir(keepPiecesDir);
   // Pronunciation normalization (the TERM_MAP respellings) MUST happen here,
   // before the daemon, exactly as renderSegment does. The DISPLAY is unaffected:
   // the build reads the script .md, not this runner's TTS-feed text.
@@ -68,7 +77,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
     params: cacheParams,
   });
   const cachePath = path.join(cacheDir, `${cacheKey}.wav`);
-  if (args.cache && existsSync(cachePath)) {
+  if (args.cache && !args.refreshCache && existsSync(cachePath)) {
     await copyFile(cachePath, output);
     const hitInfo = await stat(output).catch(() => undefined);
     if (!hitInfo || hitInfo.size === 0) {
@@ -77,8 +86,11 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
     // Commit synth provenance only after the selected WAV is known non-empty.
     // A failed rerun must never pair new sidecar bytes with an older output.
     await writeFile(`${output}.spoken.txt`, spokenText, "utf8");
-    await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache });
-    return { kind: "cache-hit", cacheKey, cachePath, bytes: hitInfo.size };
+    // A HIT renders nothing, so it has no pieces to keep: say so instead of re-rendering.
+    const keptPieces = keepPiecesDir === undefined ? undefined : { dir: keepPiecesDir, count: 0, skipped: PIECES_ON_HIT };
+    await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache, keptPieces });
+    const piecesNote = keptPieces ? ` pieces=skipped(${PIECES_ON_HIT})` : "";
+    return { kind: "cache-hit", cacheKey, cachePath, bytes: hitInfo.size, piecesNote };
   }
 
   const audioBuf = await synthesize({
@@ -119,6 +131,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
     resolved.atempo !== undefined ? ` atempo=${resolved.atempo}` : "";
   let breathingNote = "";
   let breathingApplied = false;
+  let piecesKept: number | undefined;
   if (
     resolved.sentencePauseSeconds !== undefined ||
     resolved.commaPauseSeconds !== undefined
@@ -139,6 +152,9 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       eqHighshelfHz: resolved.eqHighshelfHz,
       eqHighshelfGainDb: resolved.eqHighshelfGainDb,
       atempo: resolved.atempo,
+      onJoined: keepPiecesDir === undefined ? undefined : async (pieces) => {
+        piecesKept = await keepPieces(keepPiecesDir, pieces);
+      },
     });
     breathingApplied = breath.applied;
     breathingNote = breath.applied
@@ -161,6 +177,10 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       }
       throw err;
     }
+  }
+  // Not cut into pieces: the whole take, as it stands before loudness, is the one piece.
+  if (keepPiecesDir !== undefined && !breathingApplied) {
+    piecesKept = await keepPieces(keepPiecesDir, [{ text: spokenText, audioPath: output }]);
   }
 
   // Loudness normalization (profile-gated). Order matters: highshelf EQ ran FIRST
@@ -187,12 +207,12 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
   // final non-empty validation has succeeded. Downstream gates derive approved
   // aliases from these bytes, so publishing them before the WAV is accepted is unsafe.
   await writeFile(`${output}.spoken.txt`, spokenText, "utf8");
-  await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache });
 
-  // CONTENT-HASH FREEZE (MISS): store the FINAL processed WAV under the key so this
-  // accepted take is frozen for every future identical request. Best-effort: a cache
-  // store failure must never fail an otherwise-good synth. Atomic via temp+rename so a
-  // crash mid-write never leaves a truncated frozen take.
+  // CONTENT-HASH FREEZE (MISS or REFRESH): store the FINAL processed WAV under the key so
+  // this accepted take is frozen for every future identical request. Atomic via temp+rename
+  // so a crash mid-write never leaves a truncated frozen take, and a failed store leaves the
+  // old entry in place. On a MISS the store is best-effort: a failure must never fail an
+  // otherwise-good synth. On a REFRESH replacing the entry is the point, so a failure fails.
   let cacheNote = "";
   if (args.cache) {
     try {
@@ -200,11 +220,16 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       const cacheTmp = `${cachePath}.tmp-${process.pid}`;
       await copyFile(output, cacheTmp);
       await rename(cacheTmp, cachePath);
-      cacheNote = ` cache MISS->frozen key=${cacheKey}`;
-    } catch {
+      cacheNote = args.refreshCache ? ` cache REFRESH->frozen key=${cacheKey}` : ` cache MISS->frozen key=${cacheKey}`;
+    } catch (error) {
+      if (args.refreshCache)
+        throw new RunnerFailure(`--refresh-cache could not store the new take for key=${cacheKey}: ${error instanceof Error ? error.message : String(error)}`);
       cacheNote = ` cache MISS (store failed key=${cacheKey})`;
     }
   }
+  const keptPieces = keepPiecesDir === undefined ? undefined : { dir: keepPiecesDir, count: piecesKept ?? 0 };
+  await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache, refreshed: args.refreshCache === true, keptPieces });
+  const piecesNote = keptPieces ? ` pieces=${keptPieces.count} kept in ${keptPieces.dir}` : "";
 
-  return { kind: "rendered", cacheKey, bytes: info.size, atempoNote, breathingNote, loudnessNote, cacheNote };
+  return { kind: "rendered", cacheKey, bytes: info.size, atempoNote, breathingNote, loudnessNote, cacheNote, piecesNote };
 }

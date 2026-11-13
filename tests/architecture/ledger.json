@@ -12,6 +12,7 @@
     "src/pipelines/local-tts/failure.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
     "src/pipelines/local-tts/loudness.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
     "src/pipelines/local-tts/breathing.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
+    "src/pipelines/local-tts/keep-pieces.ts": { "layer": 3, "area": "pipelines", "owner": "P3.G6" },
     "src/pipelines/local-tts/synthesis.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
     "src/pipelines/local-tts/index.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
     "src/audio/ffmpeg-run.ts": { "layer": 2, "area": "audio", "owner": "P1.7c" },

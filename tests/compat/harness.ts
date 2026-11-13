@@ -35,6 +35,7 @@ export async function fixture(mp3 = false) {
   let mode: Mode = "ok";
   let failAt = Infinity;
   let failure: Mode = "http";
+  let override: Buffer | undefined;
   const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const body = await request.json();
     expect(request.headers.get("host")).toBe(new URL(request.url).host);
@@ -43,7 +44,7 @@ export async function fixture(mp3 = false) {
     const selected = requests.length >= failAt ? failure : mode;
     if (selected === "timeout") return new Promise<Response>(resolve => { const abort = () => resolve(new Response(null, { status: 499 })); if (request.signal.aborted) abort(); else request.signal.addEventListener("abort", abort, { once: true }); });
     if (selected === "http") return new Response("synthetic failure", { status: 500 });
-    return Response.json(selected === "malformed" ? {} : { audio_b64: audio.toString("base64"), audio_duration_ms: 200, duration_ms: 7 });
+    return Response.json(selected === "malformed" ? {} : { audio_b64: (override ?? audio).toString("base64"), audio_duration_ms: 200, duration_ms: 7 });
   } });
   const url = `http://127.0.0.1:${server.port}`;
   // Canonicalization table: fixture root -> $FIXTURE; ephemeral daemon origin -> $DAEMON;
@@ -54,7 +55,7 @@ export async function fixture(mp3 = false) {
     if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, /^(created_at|updated_at)$/.test(k) ? "$TIME" : canonical(v)]));
     return value;
   };
-  return { root, wav, url, requests, canonical, setMode(value: Mode) { mode = value; }, failAt(value: number, selected: Mode = "http") { failAt = value; failure = selected; }, async close() { server.stop(true); await rm(root, { recursive: true, force: true }); } };
+  return { root, wav, url, requests, canonical, setMode(value: Mode) { mode = value; }, /** Serve these bytes instead of the fixture tone until reset with undefined. */ setAudio(value: Buffer | undefined) { override = value; }, failAt(value: number, selected: Mode = "http") { failAt = value; failure = selected; }, async close() { server.stop(true); await rm(root, { recursive: true, force: true }); } };
 }
 export async function golden(name: string, value: unknown) {
   const file = path.join(import.meta.dir, "fixtures", `${name}.golden.json`);
