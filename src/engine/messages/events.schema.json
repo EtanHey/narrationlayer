@@ -1,0 +1,1983 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "welcome"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "package_version": {
+          "type": "string"
+        },
+        "protocol_minor": {
+          "type": "integer"
+        },
+        "caps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "engines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "enum": [
+                  "qwen3_clone",
+                  "edge",
+                  "xtts",
+                  "f5"
+                ]
+              },
+              "legacy": {
+                "type": "boolean"
+              },
+              "clone": {
+                "type": "boolean"
+              },
+              "timing": {
+                "enum": [
+                  "engine",
+                  "alignment",
+                  "none"
+                ]
+              },
+              "cancel": {
+                "enum": [
+                  "abort_only",
+                  "acknowledged"
+                ]
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "max_chars": {
+                "type": "integer"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "family",
+              "legacy",
+              "clone",
+              "timing",
+              "cancel",
+              "available"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "max_chars": {
+              "type": "object",
+              "properties": {
+                "read": {
+                  "type": "integer"
+                },
+                "speak": {
+                  "type": "integer"
+                },
+                "ask_prompt": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "read",
+                "speak",
+                "ask_prompt"
+              ],
+              "additionalProperties": true
+            },
+            "lookahead": {
+              "type": "integer"
+            },
+            "aligner_reap_ms": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "max_chars",
+            "lookahead",
+            "aligner_reap_ms"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "package_version",
+        "protocol_minor",
+        "caps",
+        "engines",
+        "limits"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "accepted"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "attempt_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "request_id",
+        "session_id",
+        "attempt_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "control_ack"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "command_id": {
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "accept",
+            "noop",
+            "reject"
+          ]
+        },
+        "control_epoch": {
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "offset_ms": {
+          "type": "integer"
+        },
+        "clamped": {
+          "type": "boolean"
+        },
+        "current": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string"
+            },
+            "player_instance_id": {
+              "type": "string"
+            },
+            "control_epoch": {
+              "type": "integer"
+            },
+            "audio_ms": {
+              "type": "integer"
+            },
+            "piece_index": {
+              "type": "integer"
+            },
+            "piece_start_ms": {
+              "type": "integer"
+            },
+            "piece_duration_ms": {
+              "type": "integer"
+            },
+            "duration_ms": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "session_id",
+            "player_instance_id",
+            "control_epoch",
+            "audio_ms",
+            "piece_index",
+            "piece_start_ms",
+            "piece_duration_ms",
+            "duration_ms"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "command_id",
+        "outcome",
+        "control_epoch"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "plan"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "attempt_id": {
+          "type": "string"
+        },
+        "display_document": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "speech_start": {
+              "type": "integer"
+            },
+            "blocks": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "required": [
+            "version",
+            "text",
+            "speech_start",
+            "blocks"
+          ],
+          "additionalProperties": true
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer"
+              },
+              "text": {
+                "type": "string"
+              },
+              "display": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "index",
+              "text",
+              "display"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "pieces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "piece_id": {
+                "type": "string"
+              },
+              "index": {
+                "type": "integer"
+              },
+              "word_start": {
+                "type": "integer"
+              },
+              "word_end": {
+                "type": "integer"
+              },
+              "raw": {
+                "type": "boolean"
+              },
+              "segments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "word_start": {
+                      "type": "integer"
+                    },
+                    "word_end": {
+                      "type": "integer"
+                    },
+                    "kind": {
+                      "enum": [
+                        "heading",
+                        "item",
+                        "sentence",
+                        "prompt"
+                      ]
+                    },
+                    "pause_after_ms": {
+                      "type": "integer"
+                    },
+                    "pause_in": {
+                      "enum": [
+                        "this_piece_end",
+                        "next_piece_start"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "word_start",
+                    "word_end",
+                    "kind",
+                    "pause_after_ms",
+                    "pause_in"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": [
+              "piece_id",
+              "index",
+              "word_start",
+              "word_end",
+              "raw",
+              "segments"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "engine": {
+          "type": "object",
+          "properties": {
+            "family": {
+              "type": "string"
+            },
+            "profile_revision": {
+              "type": "string"
+            },
+            "voice": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "family",
+            "profile_revision",
+            "voice"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "attempt_id",
+        "display_document",
+        "words",
+        "pieces",
+        "engine"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "piece_ready"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "attempt_id": {
+          "type": "string"
+        },
+        "piece_id": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "start_ms": {
+          "type": "integer"
+        },
+        "duration_ms": {
+          "type": "integer"
+        },
+        "spoken_text": {
+          "type": "string"
+        },
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "handle": {
+              "type": "string"
+            },
+            "lease_id": {
+              "type": "string"
+            },
+            "format": {
+              "type": "string"
+            },
+            "sample_rate": {
+              "type": "integer"
+            },
+            "sample_count": {
+              "type": "integer"
+            },
+            "sha256": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "handle",
+            "lease_id",
+            "format",
+            "sample_rate",
+            "sample_count",
+            "sha256"
+          ],
+          "additionalProperties": true
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer"
+              },
+              "start_ms": {
+                "type": "integer"
+              },
+              "end_ms": {
+                "type": "integer"
+              },
+              "timing": {
+                "enum": [
+                  "measured",
+                  "estimated"
+                ]
+              }
+            },
+            "required": [
+              "index",
+              "start_ms",
+              "end_ms",
+              "timing"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "actual": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "segment": {
+                "type": "integer"
+              },
+              "engine": {
+                "type": "string"
+              },
+              "voice": {
+                "type": "string"
+              },
+              "substituted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "segment",
+              "engine",
+              "voice",
+              "substituted"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "synthesis": {
+          "type": "object",
+          "properties": {
+            "rate": {
+              "type": "string"
+            },
+            "attempts": {
+              "type": "array",
+              "items": {}
+            },
+            "unavailable": {
+              "type": "array",
+              "items": {}
+            },
+            "fallback_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    null
+                  ]
+                }
+              ]
+            }
+          },
+          "required": [
+            "rate",
+            "attempts",
+            "unavailable",
+            "fallback_reason"
+          ],
+          "additionalProperties": true
+        },
+        "synthesis_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "attempt_id",
+        "piece_id",
+        "index",
+        "start_ms",
+        "duration_ms",
+        "spoken_text",
+        "artifact",
+        "words",
+        "actual",
+        "synthesis",
+        "synthesis_ms"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "timing_update"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "attempt_id": {
+          "type": "string"
+        },
+        "piece_id": {
+          "type": "string"
+        },
+        "derivation_id": {
+          "type": "string"
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer"
+              },
+              "start_ms": {
+                "type": "integer"
+              },
+              "end_ms": {
+                "type": "integer"
+              },
+              "timing": {
+                "enum": [
+                  "measured",
+                  "estimated"
+                ]
+              }
+            },
+            "required": [
+              "index",
+              "start_ms",
+              "end_ms",
+              "timing"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "attempt_id",
+        "piece_id",
+        "derivation_id",
+        "words"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "duration"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "known_ms": {
+          "type": "integer"
+        },
+        "final": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "known_ms",
+        "final"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "playback_started"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "at_audio_ms": {
+          "type": "integer"
+        },
+        "rate": {
+          "type": "number"
+        },
+        "reanchor": {
+          "type": "string"
+        },
+        "amplitude": {}
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "control_epoch",
+        "player_instance_id",
+        "piece_index",
+        "at_audio_ms",
+        "rate"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "position"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "audio_ms": {
+          "type": "integer"
+        },
+        "word_index": {
+          "type": "integer"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "phase": {
+          "enum": [
+            "playing",
+            "waiting",
+            "paused"
+          ]
+        },
+        "rate": {
+          "type": "number"
+        },
+        "duration_ms": {
+          "type": "integer"
+        },
+        "final": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "control_epoch",
+        "player_instance_id",
+        "audio_ms",
+        "word_index",
+        "piece_index",
+        "phase",
+        "rate",
+        "duration_ms",
+        "final"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "paused"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "audio_ms": {
+          "type": "integer"
+        },
+        "word_index": {
+          "type": "integer"
+        },
+        "owner": {
+          "enum": [
+            "user",
+            "f5",
+            "ask"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "control_epoch",
+        "player_instance_id",
+        "audio_ms",
+        "word_index",
+        "owner"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "resumed"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "audio_ms": {
+          "type": "integer"
+        },
+        "word_index": {
+          "type": "integer"
+        },
+        "owner": {
+          "enum": [
+            "user",
+            "f5",
+            "ask"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "control_epoch",
+        "player_instance_id",
+        "audio_ms",
+        "word_index",
+        "owner"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "player_exited"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "interrupted",
+            "failed"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "at_audio_ms": {
+          "type": "integer"
+        },
+        "exit_code": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "player_instance_id",
+        "piece_index",
+        "status",
+        "reason",
+        "at_audio_ms"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "queue"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "depth": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "string"
+              },
+              "is_current": {
+                "type": "boolean"
+              },
+              "progress": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "session_id",
+              "priority",
+              "is_current",
+              "progress"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "read_count": {
+          "type": "integer"
+        },
+        "current_request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "depth",
+        "items",
+        "read_count",
+        "current_request_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "outcome"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "playback": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "enum": [
+                "completed",
+                "stop",
+                "stop_preparing",
+                "cancel",
+                "replaced",
+                "synth_failed",
+                "speech_failed",
+                "player_failed",
+                "refused",
+                "resume_refused",
+                "barge_in",
+                "expired",
+                "collapsed",
+                "engine_absent",
+                "shutdown"
+              ]
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "additionalProperties": true
+        },
+        "generation": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "committed",
+                "cancelled",
+                "failed",
+                "interrupted"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": true
+        },
+        "stopped_at_ms": {
+          "type": "integer"
+        },
+        "word_index": {
+          "type": "integer"
+        },
+        "heard": {
+          "type": "boolean"
+        },
+        "missing_piece_indices": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "physical": {
+          "enum": [
+            "exited",
+            "unknown"
+          ]
+        },
+        "history": {
+          "type": "object",
+          "properties": {
+            "route": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "route",
+            "state",
+            "reason"
+          ],
+          "additionalProperties": true
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "piece_id": {
+                "type": "string"
+              },
+              "handle": {
+                "type": "string"
+              },
+              "lease_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "piece_id",
+              "handle",
+              "lease_id"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "playback",
+        "generation",
+        "stopped_at_ms",
+        "word_index",
+        "heard",
+        "missing_piece_indices",
+        "physical",
+        "history",
+        "artifacts"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "snapshot"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "sessions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string"
+              },
+              "control_epoch": {
+                "type": "integer"
+              },
+              "audio_ms": {
+                "type": "integer"
+              },
+              "word_index": {
+                "type": "integer"
+              },
+              "pieces_ready": {
+                "type": "integer"
+              },
+              "last_seq": {
+                "type": "integer"
+              },
+              "player_instance_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "request_id",
+              "phase",
+              "control_epoch",
+              "audio_ms",
+              "word_index",
+              "pieces_ready",
+              "last_seq"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "sessions"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "enum": [
+                "nl.engine/1"
+              ]
+            },
+            "type": {
+              "enum": [
+                "lifecycle"
+              ]
+            }
+          },
+          "required": [
+            "protocol",
+            "type"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "allOf": [
+            {
+              "type": "object",
+              "properties": {
+                "protocol": {
+                  "enum": [
+                    "nl.engine/1"
+                  ]
+                },
+                "type": {
+                  "enum": [
+                    "lifecycle"
+                  ]
+                },
+                "owner_epoch": {
+                  "type": "integer"
+                },
+                "seq": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "protocol",
+                "type",
+                "owner_epoch",
+                "seq"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "edge": {
+                      "enum": [
+                        "synthesis_requested"
+                      ]
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "piece_index": {
+                      "type": "integer"
+                    },
+                    "t_mono_ms": {
+                      "type": "integer"
+                    },
+                    "segment_index": {
+                      "type": "integer"
+                    },
+                    "chars": {
+                      "type": "integer"
+                    },
+                    "kind": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "edge",
+                    "session_id",
+                    "piece_index",
+                    "t_mono_ms",
+                    "segment_index",
+                    "chars",
+                    "kind"
+                  ],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "edge": {
+                      "enum": [
+                        "audio_ready"
+                      ]
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "piece_index": {
+                      "type": "integer"
+                    },
+                    "t_mono_ms": {
+                      "type": "integer"
+                    },
+                    "duration_ms": {
+                      "type": "integer"
+                    },
+                    "sample_count": {
+                      "type": "integer"
+                    },
+                    "first_audible_offset_ms": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "edge",
+                    "session_id",
+                    "piece_index",
+                    "t_mono_ms",
+                    "duration_ms",
+                    "sample_count",
+                    "first_audible_offset_ms"
+                  ],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "edge": {
+                      "enum": [
+                        "player_spawned"
+                      ]
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "piece_index": {
+                      "type": "integer"
+                    },
+                    "t_mono_ms": {
+                      "type": "integer"
+                    },
+                    "player_instance_id": {
+                      "type": "string"
+                    },
+                    "control_epoch": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "edge",
+                    "session_id",
+                    "piece_index",
+                    "t_mono_ms",
+                    "player_instance_id",
+                    "control_epoch"
+                  ],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "edge": {
+                      "enum": [
+                        "first_sample"
+                      ]
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "piece_index": {
+                      "type": "integer"
+                    },
+                    "t_mono_ms": {
+                      "type": "integer"
+                    },
+                    "player_instance_id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "enum": [
+                        "player_reported",
+                        "derived"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "edge",
+                    "session_id",
+                    "piece_index",
+                    "t_mono_ms",
+                    "player_instance_id",
+                    "source"
+                  ],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "edge": {
+                      "enum": [
+                        "first_audible"
+                      ]
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "piece_index": {
+                      "type": "integer"
+                    },
+                    "t_mono_ms": {
+                      "type": "integer"
+                    },
+                    "player_instance_id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "enum": [
+                        "player_reported",
+                        "derived"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "edge",
+                    "session_id",
+                    "piece_index",
+                    "t_mono_ms",
+                    "player_instance_id",
+                    "source"
+                  ],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "edge": {
+                      "enum": [
+                        "last_sample"
+                      ]
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "piece_index": {
+                      "type": "integer"
+                    },
+                    "t_mono_ms": {
+                      "type": "integer"
+                    },
+                    "player_instance_id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "enum": [
+                        "player_reported",
+                        "derived"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "edge",
+                    "session_id",
+                    "piece_index",
+                    "t_mono_ms",
+                    "player_instance_id",
+                    "source"
+                  ],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "edge": {
+                      "enum": [
+                        "player_exited"
+                      ]
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "piece_index": {
+                      "type": "integer"
+                    },
+                    "t_mono_ms": {
+                      "type": "integer"
+                    },
+                    "player_instance_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "completed",
+                        "interrupted",
+                        "failed"
+                      ]
+                    },
+                    "exit_code": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "edge",
+                    "session_id",
+                    "piece_index",
+                    "t_mono_ms",
+                    "player_instance_id",
+                    "status",
+                    "exit_code"
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "engine_status"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "engines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "enum": [
+                  "qwen3_clone",
+                  "edge",
+                  "xtts",
+                  "f5"
+                ]
+              },
+              "legacy": {
+                "type": "boolean"
+              },
+              "clone": {
+                "type": "boolean"
+              },
+              "timing": {
+                "enum": [
+                  "engine",
+                  "alignment",
+                  "none"
+                ]
+              },
+              "cancel": {
+                "enum": [
+                  "abort_only",
+                  "acknowledged"
+                ]
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "max_chars": {
+                "type": "integer"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "family",
+              "legacy",
+              "clone",
+              "timing",
+              "cancel",
+              "available"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "engines"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "speaker_request"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "purpose": {
+          "enum": [
+            "read",
+            "speak",
+            "ask_prompt",
+            "returned_read"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "session_id",
+        "player_instance_id",
+        "purpose"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "speaker_released"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "permit_id": {
+          "type": "string"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "physical": {
+          "enum": [
+            "exited",
+            "unknown"
+          ]
+        },
+        "at_audio_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "permit_id",
+        "player_instance_id",
+        "physical",
+        "at_audio_ms"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "aligner_quiet"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "admission_epoch": {
+          "type": "integer"
+        },
+        "child": {
+          "enum": [
+            "reaped",
+            "none",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "admission_epoch",
+        "child"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "error"
+          ]
+        },
+        "owner_epoch": {
+          "type": "integer"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "code": {
+          "enum": [
+            "UNSUPPORTED_VERSION",
+            "MISSING_CAPABILITY",
+            "NOT_NEGOTIATED",
+            "INVALID_REQUEST",
+            "IDEMPOTENCY_CONFLICT",
+            "INPUT_TOO_LONG",
+            "VOICE_UNAVAILABLE",
+            "ENGINE_UNAVAILABLE",
+            "SYNTH_FAILED",
+            "SYNTH_TIMEOUT",
+            "STALE_EPOCH",
+            "UNKNOWN_SESSION",
+            "RESUME_REFUSED",
+            "SPEAKER_DENIED",
+            "PLAYER_FAILED",
+            "ARTIFACT_EXPIRED",
+            "BACKEND_DRAIN_UNKNOWN"
+          ]
+        },
+        "phase": {
+          "enum": [
+            "negotiate",
+            "admit",
+            "plan",
+            "synthesize",
+            "assemble",
+            "align",
+            "deliver",
+            "play",
+            "control",
+            "retain"
+          ]
+        },
+        "retry": {
+          "enum": [
+            "never",
+            "same_request",
+            "new_request",
+            "after_resync"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "command_id": {
+          "type": "string"
+        },
+        "details": {}
+      },
+      "required": [
+        "protocol",
+        "type",
+        "owner_epoch",
+        "seq",
+        "code",
+        "phase",
+        "retry",
+        "message"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
