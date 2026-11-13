@@ -161,6 +161,24 @@ class MediaTest(unittest.TestCase):
         served['provider'] = served['provider'] | {'servedShellSha256': sha(served['shell'])}
         self.assertEqual(self.gate(served)['answerIdentity'], 'PASS')
 
+    def test_any_spelling_of_a_media_path_is_held_to_its_one_place(self):
+        cases = [(b'<div title="assets%2Fa.webp"></div>', 'assets%2Fa.webp'), (b'<div title="ASSETS/a.webp"></div>', 'ASSETS/a.webp'),
+                 (b'<div title="assets%252Fa.webp"></div>', 'assets%252Fa.webp'), (b'<img data-nl-media="Assets/a.webp">', 'Assets/a.webp'),
+                 (b'<a href="https://e.com/ASSETS%2fa.svg">x</a>', 'https://e.com/ASSETS%2fa.svg')]
+        for markup, detail in cases:
+            with self.subTest(detail=detail): self.refuse('MEDIA_REFERENCE', self.visual(markup=markup), detail)
+        self.refuse('MEDIA_REFERENCE', self.visual(markup=b'<base href="https://example.com/">'), 'base')
+        self.refuse('MEDIA_REFERENCE', self.with_media([], {}, markup=b'<base href="/elsewhere/">'), 'base')
+
+    def test_a_served_clip_is_matched_by_its_url_path(self):
+        def served(url):
+            args = self.with_media([row('q.mp3', MP3)], {})
+            args['shell'] = args['shell'].replace(b'src="assets/q.mp3"', b'src="' + url + b'"')
+            return args | {'provider': args['provider'] | {'servedShellSha256': sha(args['shell'])}}
+        self.assertEqual(self.gate(served(b'https://media.invalid/fixture-1/assets/q.mp3?v=2#t'))['answerIdentity'], 'PASS')
+        for url in (b'https://media.invalid/fixture-1/assets/q.mp3.exe', b'https://media.invalid/fixture-1/assets/q.mp3/evil', b'https://media.invalid/x?f=/assets/q.mp3'):
+            with self.subTest(url=url): self.refuse('MEDIA_REFERENCE', served(url))
+
     def test_schema_and_code_agree_except_where_only_code_can_judge(self):
         cases = [('webp row', self.with_media([row('a.webp', WEBP, 'webp')], {}), True, None),
                  ('kind and extension disagree', self.with_media([row('a.png', PNG, 'webp')], {}), False, 'HANDOFF_SCHEMA'),
@@ -180,14 +198,14 @@ class MediaTest(unittest.TestCase):
                 if code is None: self.gate(args)
                 else: self.refuse(code, args)
 
-    def test_a_visual_page_has_no_answer_delivery_yet(self):
+    def test_a_visual_page_without_its_render_proof_has_no_delivery(self):
         args = self.visual()
         with self.assertRaises(Refusal) as raised:
             delivery(path=self.root / 'visual.json', handoff=args['handoff'], admission=admit(**{k: v for k, v in args.items() if k != 'media'}), shell=args['shell'],
                      artifact=b'{}', staging={'mode': 'unlisted-candidate', 'servedShellSha256': sha(args['shell'])},
                      url='https://fixture.invalid/?d=fixture-1', approved_origins=['https://fixture.invalid'],
                      existing_rows=0, runtime_config=self.runtime_config, deliveries={})
-        self.assertEqual(raised.exception.code, 'VISUAL_DELIVERY_UNSUPPORTED')
+        self.assertEqual(raised.exception.code, 'PROOF_KIND')
         self.assertFalse((self.root / 'visual.json').exists())
 
     def test_the_json_adapter_carries_media_bytes(self):

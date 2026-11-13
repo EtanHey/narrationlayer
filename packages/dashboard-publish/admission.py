@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 import re
 import subprocess
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import urlsplit, parse_qs, unquote
 from xml.etree import ElementTree
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -187,26 +187,41 @@ VISUAL_FORBIDDEN = {'applet', 'audio', 'embed', 'frame', 'iframe', 'object', 'so
 ANSWER_ATTRIBUTES = {'data-note', 'data-decision'}  # every answering template card carries both; no visual page needs them
 
 
+def spelled(value):
+    """Every spelling of a path as one: percent-decoded to a fixed point, then case-folded."""
+    previous = None
+    while value != previous: previous, value = value, unquote(value)
+    return value.casefold()
+
+
+def served_clip(value, clips):
+    """A served clip URL names a file by its path's end; a query or fragment does not change which file it is."""
+    path = urlsplit(value).path
+    return any(path.endswith('/' + clip) for clip in clips)
+
+
 def check_markup(handoff, html, served=False):
     """The page's parsed markup, not its text: what a visual page may contain, and how media may be referenced.
 
-    Every attribute value that mentions assets/ must be a manifest file in its one allowed place: an image only as
-    <img data-nl-media>, a clip only as an <audio>/<source> src (the served shell of an audio page carries clips as
-    tailnet URLs ending in the file). Every manifest image must be referenced. What a page's script does at run time
-    is not judged here: the host refuses answers and audio for a visual page (capsule tests).
+    Every attribute value that mentions assets/ in any spelling (percent-encoded, any case) must be, exactly, a
+    manifest file in its one allowed place: an image only as <img data-nl-media>, a clip only as an <audio>/<source>
+    src (the served shell of an audio page carries clips as URLs whose path ends in the file). Every manifest image
+    must be referenced. No page may carry <base>, which would re-point every relative URL. What a page's script does
+    at run time is not judged here: the host refuses answers and audio for a visual page (capsule tests).
     """
     rows, visual = handoff['mediaManifest'], handoff['type'] == 'visual'
     images = {row['file'] for row in rows if row.get('kind', 'mp3') != 'mp3'}
     clips = {row['file'] for row in rows if row.get('kind', 'mp3') == 'mp3'}
     referenced = set()
     for tag, attrs in Scope(html).elements:
+        require(tag != 'base', 'MEDIA_REFERENCE', 'base')
         if visual:
             require(tag not in VISUAL_FORBIDDEN, 'VISUAL_MARKUP', tag)
             require(not ANSWER_ATTRIBUTES & {name for name, _ in attrs}, 'VISUAL_ANSWERS', tag)
         for name, value in attrs:
-            if value is None or 'assets/' not in value: continue
+            if value is None or 'assets/' not in spelled(value): continue
             image = tag == 'img' and name == 'data-nl-media' and value in images
-            clip = tag in ('audio', 'source') and name == 'src' and (value in clips or served and any(value.endswith('/' + c) for c in clips))
+            clip = tag in ('audio', 'source') and name == 'src' and (value in clips or served and served_clip(value, clips))
             require(image or clip, 'MEDIA_REFERENCE', value[:120])
             referenced.add(value)
     require(images <= referenced, 'MEDIA_REFERENCE', 'unreferenced image')
@@ -228,6 +243,29 @@ def check_media(handoff, media=None):
         require(len(data) == row['size'] and sha(data) == row['sha256'], 'MEDIA_BYTES')
         if kind == 'svg': check_svg(data)
         else: require(MAGIC[kind](data), 'MEDIA_BYTES')
+
+
+MIME = {'webp': 'image/webp', 'png': 'image/png', 'jpeg': 'image/jpeg', 'svg': 'image/svg+xml'}
+
+
+def check_visual_proof(proof, handoff, shell):
+    """A visual page's delivery proof. Each condition refuses with its own code, so a failed proof names its part."""
+    images = {row['file']: row for row in handoff['mediaManifest']}
+    renders = sorted(proof['renders'], key=lambda render: render['width'])
+    # The client hashes the shell it assembled; equal to the served shell, the render was of exactly these bytes.
+    require([render['width'] for render in renders] == [390, 1280] and all(
+        render['dashboardId'] == handoff['dashboardId'] and render['shellSha256'] == sha(shell)
+        and set(render['imagesLoaded']) == set(images) for render in renders), 'VISUAL_PROOF_RENDER')
+    media = {row['file']: row for row in proof['media']}
+    require(set(media) == set(images) and len(media) == len(proof['media']), 'VISUAL_PROOF_MEDIA_STATUS')
+    for name, row in images.items():
+        seen = media[name]
+        require(seen['status'] == 200 and re.fullmatch(r'[a-z0-9-]+\.ufs\.sh', seen['loadedFrom']), 'VISUAL_PROOF_MEDIA_STATUS')
+        require(seen['contentType'].split(';')[0].strip().lower() == MIME[row['kind']], 'VISUAL_PROOF_MEDIA_TYPE')
+        require(seen['sha256'] == row['sha256'] and seen['bytes'] == row['size'], 'VISUAL_PROOF_MEDIA_BYTES')
+    require(proof['answerRowsAfter'] == 0, 'VISUAL_PROOF_ANSWER_ROWS')
+    # Always the signed media endpoint: it answers 401 to no session before any catalog lookup, images or none.
+    require(proof['signedOut'] == {'request': 'media', 'status': 401}, 'VISUAL_PROOF_SIGNED_OUT')
 
 
 def recorded_approval(approval):
@@ -301,33 +339,37 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
         require(backfill.get('answerIdentity') == 'PASS' and backfill.get('providerReady') is True, 'BACKFILL_OBSERVATIONS')
         proof = backfill.get('accountProof')
         require(sha(backfill['sourceHtml']) == source_sha, 'SOURCE_SHA')
-        stage = {'mode': 'none-backfill', 'servedShellSha256': sha(shell)}
+        stage, visual = {'mode': 'none-backfill', 'servedShellSha256': sha(shell)}, False
         echo = {'answerRuntime': runtime_status(runtime_sha(shell), runtime_config), 'design': 'UNKNOWN_BACKFILL', 'answerIdentity': backfill['answerIdentity'], 'providerReady': backfill['providerReady'], 'gateVersion': '2'}
     else:
         require(handoff is not None and admission is not None and isinstance(staging, dict), 'STAGING_PROOF')
         validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
-        # Delivery's account proof is an answer round trip; a visual page has no answer to round-trip yet.
-        require(handoff['type'] != 'visual', 'VISUAL_DELIVERY_UNSUPPORTED')
+        # An answer page proves an answer round trip; a visual page proves its render. Neither accepts the other's.
+        visual = handoff['type'] == 'visual'
+        require(isinstance(staging.get('accountProof'), dict) and (staging['accountProof'].get('method') == 'visual-render') == visual, 'PROOF_KIND')
         check_staging(staging, handoff['design']['admission'], handoff['dashboardId'], deliveries, sha(shell))
         require(staging.get('servedShellSha256') == sha(shell), 'STAGING_SHELL')
         require(admission.get('servedShellSha256') == staging['servedShellSha256'], 'ADMISSION_SHELL')
         require(admission.get('sourceHtmlSha256') == handoff['sourceHtmlSha256'], 'ADMISSION_SOURCE')
         require(admission.get('dashboardId') == handoff['dashboardId'], 'ADMISSION_ID')
         require(admission.get('design') == handoff['design']['admission'], 'ADMISSION_DESIGN')
-        require(runtime_status(runtime_sha(shell), runtime_config) == admission.get('answerRuntime'), 'ANSWER_RUNTIME_ECHO')
+        if visual: require(admission.get('pageType') == 'visual' and admission.get('answerRuntime') == 'none' and b'installAnswerPersistence' not in shell, 'ANSWER_RUNTIME_ECHO')
+        else: require(runtime_status(runtime_sha(shell), runtime_config) == admission.get('answerRuntime'), 'ANSWER_RUNTIME_ECHO')
         dashboard_id, source_sha = handoff['dashboardId'], handoff['sourceHtmlSha256']
         proof = staging.get('accountProof', {})
         stage = {key: staging[key] for key in ('mode', 'servedShellSha256')}
         if staging['mode'] == 'in-place-maintenance': stage['previousServedShellSha256'] = staging['previousServedShellSha256']
-        echo = {key: admission.get(key) for key in ('design', 'answerIdentity', 'providerReady', 'answerRuntime', 'gateVersion')}
+        echo = {key: admission.get(key) for key in (('pageType', 'design', 'answerRuntime', 'gateVersion') if visual else ('design', 'answerIdentity', 'providerReady', 'answerRuntime', 'gateVersion'))}
     parsed = urlsplit(url)
     require(parsed.scheme == 'https' and not parsed.username and not parsed.password
             and parsed.scheme + '://' + parsed.netloc in approved_origins
             and parse_qs(parsed.query).get('d') == [dashboard_id], 'DELIVERY_ORIGIN')
-    proof_schema = json.loads((ROOT / 'delivery.schema.json').read_text())['oneOf'][0]['properties']['accountProof']
+    schema = json.loads((ROOT / 'delivery.schema.json').read_text())
+    proof_schema = schema['oneOf'][2 if visual else 0]['properties']['accountProof']
     require(validator(proof_schema).is_valid(proof), 'ACCOUNT_PROOF')
     require(type(existing_rows) is int and existing_rows >= 0
             and proof['existingRowsPreserved'] == existing_rows, 'ACCOUNT_PROOF')
+    if visual: check_visual_proof(proof, handoff, shell)
     value = {'schema': 'audio-dashboard.delivery.v2', 'host': 'lakebed', 'url': url,
         'dashboardId': dashboard_id, 'sourceHtmlSha256': source_sha,
         'servedShellSha256': sha(shell), 'artifactSha256': sha(artifact),

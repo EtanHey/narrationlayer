@@ -2,7 +2,7 @@
 
 Install `requirements.txt` with Python 3.13. Root `bun test` and the dedicated CI job run the Python suite. The JSON schemas describe the v2 handoff and delivery. The only contract source is [golems master](https://github.com/EtanHey/golems/blob/master/skills/golem-powers/audio-dashboard/references/publish-contract-v2.md); read it from golems origin/master, not retired docs.local copies.
 
-`admit()` checks raw HTML, expanded shell, exact artifact bytes, saved key/kind pairs, lineage history, candidate-bound provider probe and an existing lock owned by this process or an ancestor. Stable refusal codes: `HANDOFF_MISSING`, `HANDOFF_SCHEMA`, `DASHBOARD_ID`, `SOURCE_SHA`, `LINEAGE_EXISTS`, `ANSWER_PERSISTENCE`, `ANSWER_IDENTITY`, `PROVIDER_NOT_READY`, `SAVED_LOCAL_ONLY`, `ARTIFACT_TOO_LARGE`, `DEPLOY_LOCK`.
+`admit()` checks raw HTML, expanded shell, exact artifact bytes, saved key/kind pairs, lineage history, candidate-bound provider probe and an existing lock owned by this process or an ancestor. Stable refusal codes: `HANDOFF_MISSING`, `HANDOFF_SCHEMA`, `DASHBOARD_ID`, `SOURCE_SHA`, `LINEAGE_EXISTS`, `ANSWER_PERSISTENCE`, `ANSWER_IDENTITY`, `PROVIDER_NOT_READY`, `SAVED_LOCAL_ONLY`, `ARTIFACT_TOO_LARGE`, `DEPLOY_LOCK`, and the media, visual-page and delivery-proof codes in the tables below (`PROOF_KIND` and `VISUAL_PROOF_*` for delivery). gate.py refuses a malformed request, including a `mediaBase64` that is not an object of base64 strings, with `ADMISSION_INPUT`; it decodes a file only when admission reads it, after the handoff's schema check.
 
 `delivery()` requires an explicit `deliveries` registry (omitted/None refuses DELIVERIES_SCHEMA), a handoff, admission and staging proof bound to the promoted shell. Accepted ids require in-place-maintenance; new ids use unlisted-candidate. Account proof attests server acknowledgement, an independent signed-in client, restoration and cleanup. Required probe is existing-empty-field or dedicated-key; disposableRecord means no prior user data, and cleanedUp means restored pre-probe value, with the row allowed to remain. Approved HTTPS origins come from the operator. builtHtmlSha256 identifies the single-file BUILD output; the gate compares sourceHtmlSha256 only against prepared sourcePath/index.html. Source, shell and artifact hashes represent different bytes. Normal receipts echo `handoff.design.admission`; runtime status is recomputed from shell bytes and config before accepting the admission echo. Existing files are preserved.
 
@@ -48,22 +48,33 @@ Every card appears in page order. Option picks, free-text notes and note-only de
 
 A `mediaManifest` row may declare `kind`: `mp3`, `webp`, `png`, `jpeg` (`.jpg` or `.jpeg`) or `svg`. A row without `kind` is an mp3 row and must be named `assets/<name>.mp3`; a declared kind must name its own extension (`assets/<name>.<ext>`). The schema expresses both, so a mismatch refuses `HANDOFF_SCHEMA`. That is the one tightening of the manifest's shape: the host already refused any other name at run time (`server/dashboard-media-runtime.ts:8`, "Invalid UploadThing entry").
 
-`type: "visual"` is a document with no answers: `answerKeys` is empty, `answerRuntimeSha256` and `answerPersistence` are absent, and every row is an image. Identity, source hash, lineage/design approval, staging, artifact size and lock checks are unchanged. Admission echoes `pageType: visual` and `answerRuntime: none`. `delivery()` refuses `VISUAL_DELIVERY_UNSUPPORTED`: its account proof is an answer round trip, and a visual page's proof is not built yet.
+`type: "visual"` is a document with no answers: `answerKeys` is empty, `answerRuntimeSha256` and `answerPersistence` are absent, and every row is an image. Identity, source hash, lineage/design approval, staging, artifact size and lock checks are unchanged. Admission echoes `pageType: visual` and `answerRuntime: none`. Delivery takes the proof that fits the page (`PROOF_KIND` otherwise): an answer page its answer round trip, a visual page `accountProof.method: "visual-render"` (`delivery.schema.json` third branch). Its admission echo is `pageType: visual`, `answerRuntime: none`. The visual proof records, and `delivery()` checks:
+
+| Code | The proof is refused when |
+|---|---|
+| `VISUAL_PROOF_RENDER` | the renders are not exactly one at 390 and one at 1280, signed in, of this page id, with `shellSha256` equal to the served shell's sha256 (the client hashes the shell it assembled, so the render was of exactly these bytes), each reporting every manifest image loaded and no horizontal overflow |
+| `VISUAL_PROOF_MEDIA_STATUS` | a manifest image has no media row, or its row is not HTTP 200 from a `*.ufs.sh` host |
+| `VISUAL_PROOF_MEDIA_TYPE` | the response's content type (parameters ignored) is not the kind's own (`image/webp`, `image/png`, `image/jpeg`, `image/svg+xml`) |
+| `VISUAL_PROOF_MEDIA_BYTES` | the fetched bytes' sha256 or length differ from the handoff row (a 200 with the wrong bytes fails here) |
+| `VISUAL_PROOF_ANSWER_ROWS` | any answer row exists under the page's id after the proof |
+| `VISUAL_PROOF_SIGNED_OUT` | the request to the signed media endpoint with no session did not answer 401 (images or none: the endpoint refuses before any catalog lookup) |
+
+Who observes what is the publisher's contract: the browser step reports the renders; the publisher itself fetches each image by its key and reads the answer rows and the signed-out status.
 
 | Code | Refused when |
 |---|---|
-| `MEDIA_KIND` | the same file is named twice, or a name breaks the kind/extension rule on a path the schema does not see |
+| `MEDIA_KIND` | the same file is named twice (a name/extension mismatch refuses `HANDOFF_SCHEMA` first; the code keeps the same rule as a second wall) |
 | `MEDIA_TOO_LARGE` | mp3 over 5 MiB, webp/png/jpeg over 2 MiB, svg over 256 KiB |
 | `MEDIA_COUNT` | over 200 files or over 40 images on one page |
 | `MEDIA_BYTES` | supplied bytes differ from the row's size or sha256, or lack the kind's magic bytes |
 | `MEDIA_SVG_UNCHECKED` | an svg row arrives without its bytes (`admit(media=...)`, stdin `mediaBase64`) |
 | `MEDIA_SVG_UNSAFE` | the svg is not well-formed `<svg>`; has a doctype, entity or processing instruction; a `script`, `foreignObject`, `iframe`, `embed` or `object`; an `on*` attribute; an `href`/`src` that is not `#fragment`; a `url(` not to `#fragment`, `@import`, `javascript:`; **any backslash or `/*` in an attribute value or style text** (CSS escapes and comments cannot exist, so the literal checks see everything; entities are decoded by the parser first); or any at-rule except `@media` |
-| `MEDIA_REFERENCE` | in the parsed markup, an attribute value mentioning `assets/` is anything but a manifest image in `<img data-nl-media>` or a manifest clip in an `<audio>`/`<source>` `src` (the served shell of an audio page carries it as a URL ending in the file); or a manifest image is never referenced |
+| `MEDIA_REFERENCE` | in the parsed markup, an attribute value that mentions `assets/` in any spelling (percent-decoded to a fixed point, case-folded) is anything but, exactly, a manifest image in `<img data-nl-media>` or a manifest clip in an `<audio>`/`<source>` `src` (in the served shell of an audio page: a URL whose path ends in the file; query and fragment ignored); or a manifest image is never referenced; or the page has a `<base>` element (detail `base`) |
 | `VISUAL_MARKUP` | a visual page contains `applet`, `audio`, `embed`, `frame`, `iframe`, `object`, `source`, `track` or `video` (detail: the element) |
 | `VISUAL_ANSWERS` | a visual page declares answer fields; or its HTML holds the answer runtime (`installAnswerPersistence`); or its markup carries the template's answer attributes `data-note` or `data-decision` (every answering card has both; no visual page needs them); or rows are saved under its id |
 | `VISUAL_AUDIO` | a visual page has an mp3 row (with or without `kind`) |
 
-**Why an svg's script is inert here:** an svg is only ever referenced as `<img data-nl-media>` (`MEDIA_REFERENCE`). An svg loaded through `<img>` runs no script and loads no outside resource in every browser, and it is served from the media host's origin, not the app's. The scan is a second wall.
+**Why an svg's script is inert here.** What the gate enforces: in the page's markup an svg file is referenced only as `<img data-nl-media>`, by its exact manifest name, with no `<base>` to re-point it (`MEDIA_REFERENCE`), and the svg itself passes the scan (`MEDIA_SVG_UNSAFE`). What the browser enforces: an svg shown through `<img>` runs no script and loads nothing from outside, and it comes from the media host's origin, not the app's. What neither enforces: a page script that fetches the file itself (the gate does not judge script; see below).
 
 **What only code judges** (the schema cannot express it): sizes, counts, duplicates, bytes and magic, the svg scan, the markup rules. **What the gate does not judge:** what a visual page's script does at run time. That a visual page writes no answer and plays no clip is enforced by the host: its answers endpoints refuse a page id that is not a registered audio page, and its signed media endpoint serves a visual page only its own catalog, which holds no audio (capsule tests `server/visual-media.isolated.ts`).
 

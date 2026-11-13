@@ -393,6 +393,218 @@
         "backfilled"
       ],
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "$ref": "#/oneOf/0/properties/schema"
+        },
+        "host": {
+          "$ref": "#/oneOf/0/properties/host"
+        },
+        "url": {
+          "$ref": "#/oneOf/0/properties/url"
+        },
+        "dashboardId": {
+          "$ref": "#/oneOf/0/properties/dashboardId"
+        },
+        "sourceHtmlSha256": {
+          "$ref": "#/oneOf/0/properties/sourceHtmlSha256"
+        },
+        "servedShellSha256": {
+          "$ref": "#/oneOf/0/properties/servedShellSha256"
+        },
+        "artifactSha256": {
+          "$ref": "#/oneOf/0/properties/artifactSha256"
+        },
+        "staging": {
+          "$ref": "#/oneOf/0/properties/staging"
+        },
+        "publishedAt": {
+          "$ref": "#/oneOf/0/properties/publishedAt"
+        },
+        "accountProof": {
+          "type": "object",
+          "description": "A visual page has no answer to round-trip: a signed-in render of the served shell at both widths, every image fetched with its own bytes and type, no answer row, and a signed-out refusal.",
+          "properties": {
+            "method": {
+              "const": "visual-render"
+            },
+            "signedIn": {
+              "const": true
+            },
+            "renders": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "enum": [
+                      390,
+                      1280
+                    ]
+                  },
+                  "signedIn": {
+                    "const": true
+                  },
+                  "dashboardId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "shellSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "imagesLoaded": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^assets/[A-Za-z0-9_-]+\\.(webp|png|jpg|jpeg|svg)$"
+                    },
+                    "uniqueItems": true
+                  },
+                  "noOverflow": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "width",
+                  "signedIn",
+                  "dashboardId",
+                  "shellSha256",
+                  "imagesLoaded",
+                  "noOverflow"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "media": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "pattern": "^assets/[A-Za-z0-9_-]+\\.(webp|png|jpg|jpeg|svg)$"
+                  },
+                  "status": {
+                    "type": "integer"
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "loadedFrom": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file",
+                  "status",
+                  "contentType",
+                  "sha256",
+                  "bytes",
+                  "loadedFrom"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "answerRowsAfter": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "signedOut": {
+              "type": "object",
+              "properties": {
+                "request": {
+                  "const": "media"
+                },
+                "status": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "request",
+                "status"
+              ],
+              "additionalProperties": false
+            },
+            "existingRowsPreserved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "method",
+            "signedIn",
+            "renders",
+            "media",
+            "answerRowsAfter",
+            "signedOut",
+            "existingRowsPreserved",
+            "at"
+          ],
+          "additionalProperties": false
+        },
+        "admission": {
+          "type": "object",
+          "properties": {
+            "pageType": {
+              "const": "visual"
+            },
+            "design": {
+              "$ref": "#/oneOf/0/properties/admission/properties/design"
+            },
+            "answerRuntime": {
+              "const": "none"
+            },
+            "gateVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "pageType",
+            "design",
+            "answerRuntime",
+            "gateVersion"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema",
+        "host",
+        "url",
+        "dashboardId",
+        "sourceHtmlSha256",
+        "servedShellSha256",
+        "artifactSha256",
+        "staging",
+        "accountProof",
+        "admission",
+        "publishedAt"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/oneOf/0/allOf/0"
+        }
+      ]
     }
   ]
 }

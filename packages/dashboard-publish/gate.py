@@ -18,6 +18,17 @@ def manifest_only(candidate, baseline, manifest_path):
             {k: v for k, v in new['server'].items() if k != 'source'}, 'MANIFEST_ONLY')
 
 
+class Media(dict):
+    """mediaBase64 checked for shape up front, each file decoded only when admit() asks for it: after the handoff's
+    schema check, and only for files the validated manifest names."""
+    def __init__(self, value):
+        require(value is None or isinstance(value, dict) and all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()), 'ADMISSION_INPUT')
+        super().__init__(value or {})
+
+    def get(self, name, default=None):
+        return base64.b64decode(super().__getitem__(name), validate=True) if name in self else default
+
+
 def run(request):
     artifact = base64.b64decode(request['artifactBase64'], validate=True)
     if request.get('mode') == 'manifest-only':
@@ -31,7 +42,7 @@ def run(request):
         saved_keys=request['savedKeys'], deliveries=request['deliveries'], provider=request['provider'],
         artifact=artifact, lock=request['lock'], owner_pid=request['ownerPid'],
         runtime_config=request.get('runtimeConfig', ROOT / 'answer-runtimes.json'), staging=request.get('staging'),
-        media={name: base64.b64decode(value, validate=True) for name, value in request.get('mediaBase64', {}).items()})
+        media=Media(request.get('mediaBase64')))
 
 
 if __name__ == '__main__':
