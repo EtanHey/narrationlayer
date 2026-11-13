@@ -100,7 +100,10 @@ records the key, session and original accepted receipt; duplicate keys do nothin
 The index survives JSON round trips and has no eviction in this slice.
 
 A live backend failure emits its synthesis error before the existing outcome;
-its generation/playback/fence transitions are unchanged. Terminal/fenced attempts
+its generation/fence transitions are unchanged. Contract §7 corrects the old
+always-speech_failed fallback: with no delivered audio playback is synth_failed,
+and after any delivered piece it is speech_failed. An existing playback terminal
+(including completed after EOF) still wins. Terminal/fenced attempts
 still emit nothing. These additions cannot reopen an I01 terminal, accept foreign
 I02 feedback, unfreeze I03 delivery, or bypass I04 coverage: admission inputs never
 touch those fields, and failure retains their existing guards. The exhaustive

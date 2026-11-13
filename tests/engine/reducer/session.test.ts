@@ -258,9 +258,10 @@ test("admit: a new request changes nothing and asks for a plan", () => {
 });
 test("ID-04: same key and same request replays the original accepted; a different request conflicts; a different key is a new session", () => {
   const first = reduce(initialState(1, "engine"), acceptance());
+  const original = first.effects[0]; if (original.kind !== "emit" || original.event.type !== "accepted") throw Error("expected original accepted");
   const s: State = JSON.parse(JSON.stringify(run(first.state, piece(), stop)));
   const replay = reduce(s, { kind: "admit", request: { ...request, input: { format: "plain", text: request.input.text }, rate: undefined } });
-  expect(replay.state).toBe(s); expect(replay.effects).toEqual([{ kind: "replay", event: first.effects[0].kind === "emit" ? first.effects[0].event : null }]);
+  expect(replay.state).toBe(s); expect(replay.effects).toEqual([{ kind: "replay", event: original.event }]);
   expect(reduce(s, acceptance())).toEqual({ state: s, effects: [] });
   const conflict = reduce(s, { kind: "admit", request: { ...request, request_id: "different" } });
   expect(conflict.effects).toEqual([{ kind: "emit", event: { protocol: "nl.engine/1", type: "error", owner_epoch: 1, seq: s.seq + 1, code: "IDEMPOTENCY_CONFLICT", phase: "admit", retry: "never", message: "idempotency key reused", request_id: "different" } }]);
@@ -288,12 +289,22 @@ test("refuse: one sequenced error, no session", () => {
 test("ERR-01: a live failure emits error then outcome; a fenced or terminal one emits nothing", () => {
   for (const code of ["SYNTH_FAILED", "SYNTH_TIMEOUT", "ENGINE_UNAVAILABLE", "VOICE_UNAVAILABLE"] as const) {
     const input: Input = { kind: "backend", identity, result: { kind: "failure", error: { code, message: "synthetic failure" } } };
-    for (const s of [accepted(), run(accepted(), piece(), feedback("first_sample")), run(accepted(), piece(), feedback("first_sample"), feedback("exited"))]) {
+    for (const s of [accepted(), run(accepted(), piece()), run(accepted(), piece(), feedback("first_sample")), run(accepted(), piece(), feedback("first_sample"), feedback("exited"))]) {
       const r = reduce(s, input);
-      expect(r.effects).toMatchObject([{ kind: "emit", event: { type: "error", code, phase: "synthesize", retry: "new_request", session_id: identity.session_id, seq: s.seq + 1 } }, { kind: "emit", event: { type: "outcome", seq: s.seq + 2, generation: { status: "failed" }, playback: { reason: view(s).playback ?? "speech_failed" } } }]);
+      expect(r.effects).toMatchObject([{ kind: "emit", event: { type: "error", code, phase: "synthesize", retry: "new_request", session_id: identity.session_id, seq: s.seq + 1 } }, { kind: "emit", event: { type: "outcome", seq: s.seq + 2, generation: { status: "failed" }, playback: { reason: view(s).playback ?? (view(s).delivered.length === 0 ? "synth_failed" : "speech_failed") } } }]);
       for (const e of r.effects) if (e.kind === "emit") expect(parseEvent(e.event).ok).toBe(true);
       expect(reduce(r.state, input).effects).toEqual([]);
     }
     for (const s of [run(accepted(), stop), run(accepted(), piece(), commit)]) expect(reduce(s, input).effects).toEqual([]);
   }
+});
+
+test("GEN-01: failure before any delivered piece ends synth_failed", () => {
+  const r = reduce(accepted(), failure);
+  expect(view(r.state).outcome?.playback.reason).toBe("synth_failed");
+});
+test("GEN-01: failure after a delivered piece ends speech_failed even before playback starts", () => {
+  const r = reduce(run(accepted(2), piece()), failure);
+  expect(view(r.state).started).toBe(false);
+  expect(view(r.state).outcome?.playback.reason).toBe("speech_failed");
 });

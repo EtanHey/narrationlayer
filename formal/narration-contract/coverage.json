@@ -3,7 +3,7 @@
   "sync_commit": "78d4ec46d3ded56275cbc2a105add830cb413151",
   "source_sha256": {
     "src/job-store.ts": "8e5411c69ebfc9ad1d710294506d3de5b33240b1ce8855beac2f538a3d5b9f7d",
-    "src/engine/reducer/session.ts": "ae0533384c8f699fa9b4437bc28e65b327f07ac8ae794a5a9dd27f04c7583e24"
+    "src/engine/reducer/session.ts": "19cc79a7af82aa42b2875c156f22c5cf2defaffa9ceeb4ea3b7627a895e5cf4d"
   },
   "source_backed": {
     "LegacyExclusive": "src/job-store.ts:168-177 markDone/markFailed; sequential awaited calls only; observed filesystem markers feed SourceTrace.tla"

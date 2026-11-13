@@ -120,7 +120,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
         } else if (input.result.kind === "commit") {
           // I04 / Seal + Commit: complete coverage for N planned pieces.
           if (s.delivered.length === s.plan.pieces.length) s.generation = "committed";
-        } else { emit({ type: "error", ...input.result.error, phase: "synthesize", retry: "new_request", session_id }); s.generation = "failed"; s.fenced = true; if (s.playback === null) s.playback = "speech_failed"; }
+        } else { emit({ type: "error", ...input.result.error, phase: "synthesize", retry: "new_request", session_id }); s.generation = "failed"; s.fenced = true; if (s.playback === null) s.playback = s.delivered.length === 0 ? "synth_failed" : "speech_failed"; }
       } else {
         const f = input.feedback;
         if (s.playback !== null) return { state, effects: [] }; // I01: EOF before publication still locks playback.
