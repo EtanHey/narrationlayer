@@ -9,6 +9,7 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/plan/synthesis-units.ts": { "layer": 1, "area": "plan", "owner": "P2.S3a" },
     "src/pipelines/local-tts/failure.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
     "src/pipelines/local-tts/loudness.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
     "src/pipelines/local-tts/breathing.ts": { "layer": 3, "area": "pipelines", "owner": "P1.7c" },
