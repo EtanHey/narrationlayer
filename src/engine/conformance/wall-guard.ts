@@ -1,5 +1,5 @@
 // Case-local guard only; S0b owns the complete process preload and real-I/O traps.
-export async function withoutWallTime<T>(run: () => Promise<T>): Promise<T> {
+export async function withoutWallTime<T>(run: () => Promise<T>, recordViolation: (violated: boolean) => void = () => {}): Promise<T> {
   const targets: [object, string][] = [[Date, "now"], [performance, "now"], [globalThis, "setTimeout"], [globalThis, "setInterval"], [Bun, "sleep"]];
   const originals = targets.map(([target, key]) => Object.getOwnPropertyDescriptor(target, key));
   let violated = false;
@@ -12,6 +12,7 @@ export async function withoutWallTime<T>(run: () => Promise<T>): Promise<T> {
     if (violated) throw new Error("wall time forbidden");
     return result;
   } finally {
+    recordViolation(violated);
     globalThis.Date = OriginalDate;
     targets.forEach(([target, key], i) => { const original = originals[i]; if (original) Object.defineProperty(target, key, original); else Reflect.deleteProperty(target, key); });
   }

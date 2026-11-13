@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import registryData from "./registry.json";
 import activeIds from "./active.json";
 import type { Binding, Connection, Json } from "./binding.js";
@@ -6,7 +7,8 @@ import { withoutWallTime } from "./wall-guard.js";
 export type Row = { id: string; contract_case: string; contract_line: number; side: string; stage: string; owner_slice: string | null; active: boolean };
 export const registry: readonly Row[] = registryData;
 export const slices = ["S0a", "S0b", "S1", "S2", "S3a", "S3b", "S4", "S5", "S6", "S6h", "S5h", "S4h", "S7", "S7h", "S8", "S9", "S10a", "S10b"];
-export function validateRegistry(rows: readonly Row[], listed = activeIds): void {
+export function validateRegistry(rows: readonly Row[], listed = activeIds, implementations = cases): void {
+  if (Object.keys(implementations).some(id => !rows.some(r => r.id === id))) throw new Error("unregistered case implementation");
   if (new Set(rows.map(r => r.id)).size !== rows.length || !rows.length) throw new Error("invalid registry ids");
   if (rows.some(r => r.stage === "A" && (!r.owner_slice || !slices.includes(r.owner_slice)))) throw new Error("invalid registry owner");
   if (listed.some(id => !rows.some(r => r.id === id && r.active)) || rows.some(r => r.active && !listed.includes(r.id))) throw new Error("activation list mismatch");
@@ -22,10 +24,10 @@ export class CaseContext {
     this.binding = { name: binding.name, create: host => {
       const connection = binding.create(host), trace = this.trace;
       return { send: message => connection.send(message), shutdown: deadline => connection.shutdown(deadline),
-        events: (async function* () { for await (const event of connection.events) { trace.push(event); yield event; } })() };
+        events: (async function* () { for await (const event of connection.events) { trace.push(structuredClone(event)); yield event; } })() };
     } };
   }
-  assert(ok: boolean): void { this.assertions++; if (!ok) { this.failed = true; throw new Error("assertion failed"); } }
+  assert(ok: boolean): void { this.assertions++; if (ok !== true) { this.failed = true; throw new Error("assertion failed"); } }
   async expectEvent(stream: AsyncIterator<Json>): Promise<Json> {
     const next = await stream.next();
     this.assert(!next.done);
@@ -36,15 +38,19 @@ export class CaseContext {
 export type Case = (context: CaseContext) => Promise<void>;
 async function execute(id: string, binding: Binding, run?: Case) {
   const context = new CaseContext(binding);
+  let wall_violations = 0;
   let result: "pass" | "fail" = "pass";
-  try { if (!run) throw new Error("missing implementation"); await withoutWallTime(() => run(context)); if (!context.assertions || context.failed) throw new Error("invalid assertions"); }
+  try { if (!run) throw new Error("missing implementation"); await withoutWallTime(() => run(context), violated => { wall_violations += Number(violated); }); if (!context.assertions || context.failed) throw new Error("invalid assertions"); }
   catch { result = "fail"; }
-  return { outcome: { id, result, assertions: context.assertions }, trace: context.trace };
+  return { outcome: { id, result, assertions: context.assertions }, trace: context.trace, wall_violations };
 }
-export async function runCase(id: string, binding: Binding, run?: Case) { return (await execute(id, binding, run)).outcome; }
+export async function runCase(id: string, binding: Binding, run?: Case) {
+  const observation = await execute(id, binding, run);
+  return { ...observation.outcome, trace_digest: createHash("sha256").update(canonical(observation)).digest("hex") };
+}
 async function probe(binding: Binding) {
   const clock = new FakeClock();
-  const connection: Connection = binding.create({ clock });
+  const connection: Connection = binding.create({ clock, hash_key: new Uint8Array(32).fill(1), audible: false, store: new Map<string, Uint8Array>() });
   const events: Json[] = [];
   const collect = (async () => { for await (const event of connection.events) events.push(event); })();
   connection.send({ protocol: "nl.engine/1", type: "hello", version: { major: 1, minor: 0 }, required_caps: [] });
@@ -56,6 +62,7 @@ async function probe(binding: Binding) {
 export const cases: Record<string, Case> = {
   "CONF-01": async c => { c.assert(await probe(c.binding) === await probe(c.binding)); },
   "CONF-02": async c => {
+    await probe(c.binding);
     let fired = false;
     c.clock.schedule(1000, () => { fired = true; });
     await c.clock.advance(999); c.assert(!fired);
@@ -65,19 +72,27 @@ export const cases: Record<string, Case> = {
 export async function runConformance(binding: Binding, options: { reverse?: boolean; rows?: readonly Row[]; implementations?: Record<string, Case> } = {}) {
   const rows = options.rows ?? registry;
   const implementations = { ...(options.implementations ?? cases) };
-  if (!options.implementations) implementations["CONF-01"] = async c => {
-    const audit = async () => {
-      const observations = [];
-      for (const row of rows.filter(r => r.active && r.id !== "CONF-01")) observations.push(await execute(row.id, binding, implementations[row.id]));
-      return canonical({ probe: await probe(binding), observations });
+  if (!options.implementations) {
+    implementations["CONF-01"] = async c => {
+      const audit = async () => {
+        const observations = [];
+        for (const row of rows.filter(r => r.active && r.id !== "CONF-01")) observations.push(await execute(row.id, binding, cases[row.id]));
+        return canonical({ probe: await probe(c.binding), observations });
+      };
+      c.assert(await audit() === await audit());
     };
-    c.assert(await audit() === await audit());
-  };
+    implementations["CONF-02"] = async c => {
+      const observations = [];
+      for (const row of rows.filter(r => r.active)) observations.push(await execute(row.id, binding, cases[row.id]));
+      c.assert(observations.every(o => o.wall_violations === 0));
+      await cases["CONF-02"](c);
+    };
+  }
   const order = [...rows]; if (options.reverse) order.reverse();
   const results = [];
   for (const row of order) {
     const outcome = row.active ? await runCase(row.id, binding, implementations[row.id]) : { id: row.id, result: "inactive", assertions: 0 };
-    results.push({ ...outcome, owner_slice: row.owner_slice });
+    results.push({ ...outcome, owner_slice: row.owner_slice, side: row.side, stage: row.stage });
   }
   return { schema: "nl.conformance/1", binding: binding.name, registry_count: rows.length, inactive: rows.filter(r => !r.active).length,
     inactive_engine: rows.filter(r => !r.active && r.stage === "A" && r.side === "engine").length, rows: results.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) };

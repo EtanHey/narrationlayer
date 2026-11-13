@@ -7,7 +7,7 @@ complete I/O traps and packaged entry. Only CONF-01 and CONF-02 are active here.
 
 Run `bun run conformance --binding src/engine/conformance/null-binding.ts`.
 The binding module's default export implements `Binding`: a name and a factory
-accepting the fake clock and optional fake ports. Every connection exposes
+accepting the fake clock, hash key, store, audible predicate value and optional fake ports. Every connection exposes
 synchronous `send`, an async event stream, and `shutdown(deadline)`; shutdown must
 close the stream. Cases use `CaseContext.expectEvent` for required events: an
 early end fails. Every event consumed through a case's binding is retained only
@@ -20,7 +20,8 @@ including assertion counts and event traces, plus a hello/shutdown probe. The
 null binding is allowed to pass these harness cases; it fails the test-only probe
 that requires an event. The broken binding emits an instance-dependent nonce,
 which fails CONF-01 even when executions happen within one clock tick.
-CONF-02 advances a scheduled callback on fake time and asserts its boundary.
+CONF-02 probes the binding and runs every other active case, asserting zero
+recorded wall violations; it also asserts the fake clock callback boundary.
 All cases run with wall timer/duration reads denied; a caught violation still
 fails. This case-local guard does not replace S0b's preload or certify real I/O.
 
@@ -32,7 +33,9 @@ The frozen `nl.conformance/1` report has exactly these fields:
 - `inactive`: every inactive row.
 - `inactive_engine`: inactive engine stage-A rows (`--exit` fails if nonzero).
 - `rows`: sorted by id; each has `id`, `result` (`pass`, `fail`, `inactive`),
-  `assertions`, and `owner_slice` (null for deferred rows).
+  `assertions`, `owner_slice` (null for deferred rows), `side`, and `stage`.
+  Active rows also carry `trace_digest`, SHA-256 of the canonical outcome,
+  ordered fixture-event trace and wall-violation count.
 
 Keys are sorted recursively; output ends in one newline. There are no path or
 wall-time fields. The committed report snapshot pins the entire schema and
@@ -49,3 +52,27 @@ PAUSE-03, SPEED-01 and JOIN-01. ORDER-01 belongs to S3b; S7 adds its lease claus
 No clause lacked a contract line. `active.json` is append-only: a slice adds its
 ids while activating exactly its registry rows. `validateRegistry` rejects an
 activation mismatch or an invalid stage-A owner before CLI execution.
+
+Round 1 boundaries and types:
+
+- Contract §2.6: observation digests cover synthetic fixture events only. Never
+  run private input through this harness: these are unkeyed test-fixture hashes,
+  not production log hashes. No raw fixture event enters a report.
+- CONF-02 is provisional until S0b's preload. References captured at import and
+  detached tasks after a case returns escape these case-local guards. Other
+  uncovered APIs: process.hrtime / bigint, Bun.nanoseconds, process.uptime,
+  performance.timeOrigin, Intl.DateTimeFormat().format(), setImmediate,
+  Bun.sleepSync, Atomics.wait; sockets, fetch and spawn are not trapped here.
+- Short streams fail through expectEvent; a bare for-await loop does not declare
+  an expected end. Later case authors must use expectEvent for required events.
+- The CLI rejects process.exit during import/execution and records detached
+  rejection failure explicitly. A detached failure after report publication
+  makes the exit red but cannot be attributed to a case in the written report.
+- FakeBackend returns audio bytes plus metadata, including independently wrong
+  duration/sample fields for later decoded-audio checks. The host supplies
+  hash_key, store and audible (contract §8). These are ports/types only.
+- S6h adds the host-under-test shape for VoiceLayer's adapter and the reference
+  and broken host stubs: a host drives engine requests and consumes events, so
+  swapping Binding's directions would confuse engine and host authority.
+- The temporary CLI has no incoming imports; entry-isolation.test.ts guards this
+  until S0b replaces it with the packaged entry. No frozen entry test changed.
