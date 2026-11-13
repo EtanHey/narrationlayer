@@ -9,7 +9,7 @@ export type BackendAudio = { bytes: Uint8Array; samples: number; sample_rate: nu
 export type BackendStep = { latency_ms: number; result: ({ kind: "audio" } & BackendAudio) | { kind: "error"; code: string }; late_after_cancel: boolean };
 export interface FakeBackend {
   script(steps: readonly BackendStep[]): void;
-  synthesize(request: Json, signal: AbortSignal): Promise<BackendAudio>;
+  synthesizeRequest(request: Json, signal: AbortSignal): Promise<BackendAudio>;
   readonly calls: readonly Json[];
 }
 export interface FakePlayer {

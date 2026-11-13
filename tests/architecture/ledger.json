@@ -9,6 +9,9 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/fake-backend.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a2"},
+    "src/engine/conformance/fake-player.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a2"},
+    "src/engine/conformance/host-stub.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a2"},
     "src/engine/conformance/binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
     "src/engine/conformance/broken-binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
     "src/engine/conformance/cli.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
