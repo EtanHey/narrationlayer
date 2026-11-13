@@ -13,6 +13,12 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  {"kind": "named-test", "name": "reducer-I01", "file": "src/engine/reducer/session.ts", "before": "if (s.playback !== null) return", "after": "if (false) return", "testFile": "tests/engine/reducer/session.test.ts", "testName": "I01: a player failure after the natural end keeps completed"},
+  {"kind": "named-test", "name": "reducer-I02", "file": "src/engine/reducer/session.ts", "before": " && input.identity.attempt_id === s.attempt_id", "after": "", "testFile": "tests/engine/reducer/session.test.ts", "testName": "I02: matching feedback moves state; foreign job owner and attempt cannot"},
+  {"kind": "named-test", "name": "reducer-I03", "file": "src/engine/reducer/session.ts", "before": "s.generation = \"cancelled\"; s.fenced = true;", "after": "s.generation = \"running\"; s.fenced = false;", "testFile": "tests/engine/reducer/session.test.ts", "testName": "I03: cancellation fences delivery and commit, including late backend results"},
+  {"kind": "named-test", "name": "reducer-I04", "file": "src/engine/reducer/session.ts", "before": "s.started && s.delivered.length === s.plan.pieces.length && f.piece_index", "after": "s.started && f.piece_index", "testFile": "tests/engine/reducer/session.test.ts", "testName": "I04: natural EOF needs actual start and N-piece coverage; no seek"},
+  {"kind": "named-test", "name": "reducer-A1-previous-job", "file": "src/engine/reducer/session.ts", "before": "if (next) s.previous = !moved ? { player_instance_id: s.current.player_instance_id, piece_index: s.current.piece_index } : null;", "after": "s.previous = null;", "testFile": "tests/engine/reducer/session.test.ts", "testName": "A1: previous player exits settle in both orders with distinct and reused ids"},
+
   {"kind":"compat-pattern","name":"job-daemon-timeout","file":"src/pipelines/job-render/index.ts","before":"timeoutMs: config.timeout_ms ?? 30_000","after":"timeoutMs: config.timeout_ms ?? 31_000","pattern":"job daemon observables"},
   {"kind":"compat-pattern","name":"runner-daemon-timeout","file":"bin/local-tts-runner.ts","before":"timeoutMs: 120_000","after":"timeoutMs: 121_000","pattern":"runner daemon observables"},
   {"kind":"compat-pattern","name":"job-daemon-slash","file":"src/pipelines/job-render/index.ts","before":".replace(/\\/+$/, \"\")","after":"","pattern":"job daemon observables"},

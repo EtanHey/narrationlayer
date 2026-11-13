@@ -5,11 +5,11 @@ import type { Message } from "../../../src/engine/messages/messages";
 const identity = { owner_epoch: 1, session_id: "session-1", attempt_id: "attempt-1" };
 const current = { session_id: identity.session_id, player_instance_id: "player-1", control_epoch: 1, audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 10, duration_ms: 10 };
 const request: Message<"narrate"> = { protocol: "nl.engine/1", type: "narrate", request_id: "req-1", idempotency_key: "key", use: "read", input: { text: "Synthetic words only", format: "plain" }, voice: { profile: "fake", require_clone: false, fallback: "none" }, delivery: "pieces" };
-function acceptance(n = 1, epoch_authority: "engine" | "host" = "engine"): Input {
+function acceptance(n = 1): Input {
   const plan = { type: "plan", session_id: identity.session_id, attempt_id: identity.attempt_id, display_document: { version: 1, text: "Synthetic", speech_start: 0, blocks: [] }, words: [], pieces: Array.from({ length: n }, (_, index) => ({ piece_id: `p${index}`, index, word_start: 0, word_end: 0, raw: false, segments: [] })), engine: { family: "fake", profile_revision: "1", voice: "fake" } } satisfies Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
-  return { kind: "accept", identity, current, epoch_authority, request, plan };
+  return structuredClone({ kind: "accept", identity, current, request, plan });
 }
-function accepted(n = 1, authority: "engine" | "host" = "engine"): State { return reduce(initialState(1), acceptance(n, authority)).state; }
+function accepted(n = 1, authority: "engine" | "host" = "engine"): State { return reduce(initialState(1, authority), acceptance(n)).state; }
 const view = (s: State) => s.sessions[identity.session_id];
 function piece(index = 0): Input {
   return { kind: "backend", identity, result: { kind: "piece", piece: { type: "piece_ready", session_id: identity.session_id, attempt_id: identity.attempt_id, piece_id: `p${index}`, index, start_ms: index * 10, duration_ms: 10, spoken_text: "Synthetic", artifact: { handle: "h", lease_id: "l", format: "wav", sample_rate: 1, sample_count: 1, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "1", attempts: [], unavailable: [], fallback_reason: null }, synthesis_ms: 0 } } };
@@ -69,7 +69,7 @@ test("seq: rejection between emits and interleaved sessions share one owner coun
   const inputs: Input[] = [piece(), feedback("first_sample", { control_epoch: 9 }), piece(1), { ...second, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...second.plan, session_id: "session-2" } }];
   const seq: number[] = []; for (const i of inputs) { const r = reduce(s, i); s = r.state; for (const e of r.effects) if (e.kind === "emit" && "seq" in e.event) seq.push(e.event.seq); }
   expect(seq).toEqual([3, 4, 5, 6, 7]); expect(s.seq).toBe(7);
-  const first = reduce(initialState(1), acceptance()); expect(first.effects.map(e => e.kind === "emit" ? e.event.type : e.kind)).toEqual(["accepted", "plan", "backend"]);
+  const first = reduce(initialState(1, "engine"), acceptance()); expect(first.effects.map(e => e.kind === "emit" ? e.event.type : e.kind)).toEqual(["accepted", "plan", "backend"]);
 });
 test("idempotency: first ack replays without state changes; changed args rejected; 32 receipts", () => {
   const s = run(accepted(), seek), replay = reduce(s, seek);
@@ -93,10 +93,10 @@ test("I03: cancelled attempt emits no piece_ready", () => {
   const s = run(accepted(2), piece(), stop);
   expect(reduce(s, piece(1)).effects).toEqual([]);
 });
-test("live job: next delivered player advances and old player exits are stale", () => {
+test("live job: next delivered player advances and previous exit settles", () => {
   const s = run(accepted(2), piece(), piece(1), feedback("spawned", { piece_index: 1, player_instance_id: "player-2" }));
   expect(view(s).current.player_instance_id).toBe("player-2");
-  expect(reduce(s, feedback("exited")).effects).toMatchObject([{ kind: "emit", event: { code: "STALE_EPOCH" } }]);
+  expect(reduce(s, feedback("exited")).effects).toEqual([]);
 });
 test("epoch authority: host adopts speed/restart generations; engine mints each reanchor", () => {
   let host = run(accepted(1, "host"), piece());
@@ -115,7 +115,7 @@ test("epoch authority: host adopts speed/restart generations; engine mints each 
   expect(run(ended, { kind: "reanchor", session_id: identity.session_id, reason: "restart", target: current })).toEqual(ended);
   const parked = run(accepted(1, "host"), command);
   expect(reduce(parked, { ...seek, command: { ...seek.command, command_id: "low", expected_control_epoch: undefined }, target: current }).effects).toMatchObject([{ kind: "emit", event: { reason: "STALE_EPOCH" } }]);
-  expect(reduce(parked, { kind: "reanchor", session_id: identity.session_id, reason: "speed", target: current }).effects).toMatchObject([{ kind: "emit", event: { code: "STALE_EPOCH" } }]);
+  expect(reduce(parked, { kind: "reanchor", session_id: identity.session_id, reason: "speed", target: current }).effects).toEqual([{ kind: "reject", reason: "HOST_REANCHOR" }]);
 });
 test("stop wins: stale control stop is accepted and fences late pieces", () => {
   const s = run(accepted(2), seek), command: Message<"control"> = { ...seek.command, command_id: "stop", op: "stop", args: { scope: "session", reason: "stop" } };
@@ -131,12 +131,57 @@ test("feedback guards: wire session, piece, delivered spawn, epoch and terminal"
   const host = run(accepted(1, "host"), piece(), { ...seek, target: { ...current, control_epoch: 3 } });
   expect(reduce(host, feedback("first_sample", { control_epoch: 2 })).effects).toMatchObject([{ kind: "emit", event: { code: "STALE_EPOCH" } }]);
 });
+test("A1: previous player exits settle in both orders with distinct and reused ids", () => {
+  for (const reuse of [false, true]) for (const status of ["completed", "failed"] as const) for (const spawnFirst of [false, true]) {
+    const s = run(accepted(2), piece(), piece(1), commit, feedback("first_sample"));
+    const spawn = feedback("spawned", { piece_index: 1, player_instance_id: reuse ? "player-1" : "player-2" });
+    const exit = feedback("exited", { exit: { status, stopped_at_ms: 10 } });
+    const r = reduce(run(s, ...(spawnFirst ? [spawn, spawn] : [exit])), spawnFirst ? exit : spawn);
+    expect(r.effects.some(e => e.kind === "emit" && e.event.type === "error")).toBe(false);
+    expect(view(r.state).playback).toBe(status === "failed" ? "player_failed" : null);
+    if (spawnFirst) expect(view(r.state).previous).toBeNull();
+  }
+});
+test("job fence: same-piece different instance requires a new epoch; epochs clear previous", () => {
+  let s = run(accepted(2), piece(), piece(1), feedback("spawned", { piece_index: 1, player_instance_id: "player-2" }));
+  expect(reduce(s, feedback("spawned", { piece_index: 1, player_instance_id: "player-3" })).effects).toMatchObject([{ kind: "emit", event: { code: "STALE_EPOCH" } }]);
+  s = run(s, { kind: "reanchor", session_id: identity.session_id, reason: "restart", target: { ...current, piece_index: 1 } });
+  expect(view(s).previous).toBeNull();
+  const host = run(accepted(2, "host"), piece(), piece(1), feedback("spawned", { piece_index: 1, player_instance_id: "player-2" }));
+  expect(view(run(host, feedback("first_sample", { piece_index: 1, player_instance_id: "player-2", control_epoch: 2 }))).previous).toBeNull();
+  expect(view(run(host, feedback("exited", { control_epoch: 2, exit: { status: "failed", stopped_at_ms: 0 } }))).playback).toBeNull();
+  expect(view(run(host, feedback("exited", { player_instance_id: "wrong", exit: { status: "failed", stopped_at_ms: 0 } }))).playback).toBeNull();
+  expect(view(run(s, feedback("spawned", { piece_index: 1, player_instance_id: "player-3", control_epoch: 2 }))).current.player_instance_id).toBe("player-3");
+});
+test("I04: completed exit must be the final planned piece", () => {
+  const s = run(accepted(2), piece(), piece(1), feedback("first_sample"));
+  expect(view(run(s, feedback("exited"))).playback).toBeNull();
+});
+test("control fence: wrong player instance gets one stale ack", () => {
+  const s = accepted(); expect(reduce(s, { ...seek, command: { ...seek.command, player_instance_id: "wrong" } }).effects).toMatchObject([{ kind: "emit", event: { type: "control_ack", reason: "STALE_EPOCH" } }]);
+});
+test("authority: engine-wide stage and host reanchor is internal refusal; inputs do not alias", () => {
+  const host = initialState(1, "host"), reanchor = { kind: "reanchor", session_id: identity.session_id, reason: "speed", target: current } satisfies Input;
+  // @ts-expect-error Host bindings do not have a reanchor input.
+  const refused = reduce(host, reanchor);
+  expect(reduce(initialState(1, "engine"), reanchor).effects).toEqual([{ kind: "reject", reason: "UNKNOWN_SESSION" }]);
+  expect(reduce(run(accepted(), stop), reanchor).effects).toEqual([{ kind: "reject", reason: "TERMINAL" }]);
+  expect(refused.effects).toEqual([{ kind: "reject", reason: "HOST_REANCHOR" }]);
+  const input = acceptance(); if (input.kind !== "accept") throw Error("fixture"); const s = reduce(host, input).state;
+  input.request.input.text = "changed"; input.plan.pieces.length = 0; input.current.audio_ms = 99;
+  expect(view(s).plan.pieces).toHaveLength(1); expect(view(s).request.input.text).not.toBe("changed"); expect(view(s).current.audio_ms).toBe(0);
+  const result = piece(); if (result.kind !== "backend") throw Error("fixture"); const delivered = reduce(s, result).state;
+  if (result.kind === "backend" && result.result.kind === "piece") result.result.piece.spoken_text = "changed";
+  expect(view(delivered).delivered[0].spoken_text).not.toBe("changed");
+  const command = structuredClone(seek), commanded = reduce(s, command).state; command.command.command_id = "changed";
+  expect(view(commanded).receipts[0].command.command_id).toBe("seek-1");
+});
 test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sessions", () => {
   const other = acceptance(2); if (other.kind !== "accept") throw Error("fixture");
   const second: Input = { ...other, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...other.plan, session_id: "session-2" } };
   const controls: Input[] = []; for (const reason of ["stop", "cancel", "replaced"] as const) controls.push({ kind: "control", command: { ...seek.command, command_id: reason, op: "stop", args: { scope: "session", reason } }, target: current });
   const toLast: Input = { ...seek, target: { ...current, piece_index: 1 } };
-  const alphabet: Input[] = [{ ...seek, command: { ...seek.command, command_id: "host-low", expected_control_epoch: undefined } }, piece(), piece(1), commit, failure, ...controls, feedback("first_sample"), feedback("exited"), feedback("spawned", { piece_index: 1, player_instance_id: "player-2" }), feedback("spawned", { piece_index: 2 }), feedback("spawned"), feedback("first_sample", { control_epoch: 2 }),
+  const alphabet: Input[] = [feedback("exited", { control_epoch: 2, exit: { status: "failed", stopped_at_ms: 0 } }), feedback("exited", { player_instance_id: "wrong", exit: { status: "failed", stopped_at_ms: 0 } }), feedback("spawned", { piece_index: 1 }), feedback("exited", { piece_index: 1 }), feedback("exited", { exit: { status: "failed", stopped_at_ms: 0 } }), { ...seek, command: { ...seek.command, command_id: "wrong-player", expected_control_epoch: undefined, player_instance_id: "wrong" } }, feedback("spawned", { player_instance_id: "wrong" }), { ...seek, command: { ...seek.command, command_id: "host-low", expected_control_epoch: undefined } }, piece(), piece(1), commit, failure, ...controls, feedback("first_sample"), feedback("exited"), feedback("spawned", { piece_index: 1, player_instance_id: "player-2" }), feedback("spawned", { piece_index: 2 }), feedback("spawned"), feedback("first_sample", { control_epoch: 2 }),
     feedback("first_sample", { piece_index: 1, player_instance_id: "player-2" }), feedback("exited", { piece_index: 1, player_instance_id: "player-2" }), feedback("exited", { piece_index: 1, control_epoch: 2 }), feedback("exited", { piece_index: 1, control_epoch: 2, exit: { status: "failed", stopped_at_ms: 0 } }),
     feedback("first_sample", {}, { ...identity, owner_epoch: 2 }), feedback("first_sample", {}, { ...identity, attempt_id: "attempt-2" }), feedback("first_sample", {}, { ...identity, session_id: "session-2" }), feedback("first_sample", { session_id: "foreign", control_epoch: 0 }),
     { ...seek, command: { ...seek.command, session_id: "missing" } }, toLast, { ...seek, command: { ...seek.command, command_id: "seek-2" } }, { ...seek, command: { ...seek.command, session_id: "session-2" } }, { kind: "reanchor", session_id: identity.session_id, reason: "speed", target: current }, { kind: "reanchor", session_id: identity.session_id, reason: "restart", target: { ...current, control_epoch: 3 } }];
@@ -148,6 +193,7 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
     const id = input.kind === "control" ? input.command.session_id : identity.session_id;
     const a = before.sessions[id], b = after.sessions[id], emitted = effects.flatMap(e => e.kind === "emit" ? [e.event] : []);
     if (emitted.some((e, i) => !("seq" in e) || e.seq !== before.seq + i + 1) || after.seq !== before.seq + emitted.length) throw Error("seq");
+    if (input.kind === "reanchor" && before.epoch_authority === "host") { if (!same(before, after) || effects[0]?.kind !== "reject") throw Error("host reanchor"); return; }
     if (!a) { if (!emitted.some(e => e.type === "error" && e.code === "UNKNOWN_SESSION")) throw Error("unknown session"); return; }
     for (const id of Object.keys(before.sessions)) {
       const x = before.sessions[id], y = after.sessions[id];
@@ -161,22 +207,27 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
       const f = input.feedback, foreign = input.identity.owner_epoch !== a.owner_epoch || input.identity.attempt_id !== a.attempt_id || input.identity.session_id !== a.session_id || f.session_id !== a.session_id;
       if (foreign) { if (!same(before, after) || effects.length) throw Error("I02"); return; }
       if (a.outcome || a.playback !== null) return;
-      const epochOK = a.epoch_authority === "host" ? f.control_epoch >= a.current.control_epoch : f.control_epoch === a.current.control_epoch;
-      const spawnOK = f.edge === "spawned" && [a.current.piece_index, a.current.piece_index + 1].includes(f.piece_index) && a.delivered.some(p => p.index === f.piece_index);
-      if (epochOK && (spawnOK || (f.piece_index === a.current.piece_index && f.player_instance_id === a.current.player_instance_id)) && a.epoch_authority === "host" && b.current.control_epoch !== f.control_epoch) throw Error("host feedback epoch");
+      const previous = f.edge === "exited" && f.control_epoch === a.current.control_epoch && a.previous?.piece_index === f.piece_index && a.previous.player_instance_id === f.player_instance_id;
+      if (previous) { if (emitted.some(e => e.type === "error") || (f.exit?.status === "failed" && b.playback !== "player_failed") || b.previous !== null) throw Error("A1"); return; }
+      if (f.edge === "exited" && f.exit?.status === "completed" && f.piece_index !== a.plan.pieces.at(-1)?.index && b.playback === "completed") throw Error("I04 final piece");
+      const epochOK = before.epoch_authority === "host" ? f.control_epoch >= a.current.control_epoch : f.control_epoch === a.current.control_epoch;
+      const spawnOK = f.edge === "spawned" && (f.piece_index === a.current.piece_index + 1 || (f.piece_index === a.current.piece_index && (f.player_instance_id === a.current.player_instance_id || f.control_epoch > a.job_epoch))) && a.delivered.some(p => p.index === f.piece_index);
+      if (epochOK && (spawnOK || (f.piece_index === a.current.piece_index && f.player_instance_id === a.current.player_instance_id)) && before.epoch_authority === "host" && b.current.control_epoch !== f.control_epoch) throw Error("host feedback epoch");
+      if (epochOK && spawnOK && f.piece_index === a.current.piece_index + 1 && f.control_epoch === a.current.control_epoch && !same(b.previous, { player_instance_id: a.current.player_instance_id, piece_index: a.current.piece_index })) throw Error("A1 slot");
       if (epochOK && spawnOK && (b.current.player_instance_id !== f.player_instance_id || b.current.piece_index !== f.piece_index)) throw Error("live job");
       if ((!epochOK || (!spawnOK && f.player_instance_id !== a.current.player_instance_id)) && !emitted.some(e => e.type === "error" && e.code === "STALE_EPOCH")) throw Error("ID-01");
       if (epochOK && !spawnOK && f.piece_index !== a.current.piece_index && !same(a, b)) throw Error("piece guard");
     }
     if (input.kind === "reanchor" && !a.outcome && a.playback === null) {
-      const expected = a.epoch_authority === "engine" ? a.current.control_epoch + 1 : input.target.control_epoch;
-      if (input.target.control_epoch >= a.current.control_epoch || a.epoch_authority === "engine") { if (b.current.control_epoch !== expected) throw Error("epoch authority"); }
+      const expected = before.epoch_authority === "engine" ? a.current.control_epoch + 1 : input.target.control_epoch;
+      if (before.epoch_authority === "engine") { if (b.current.control_epoch !== expected) throw Error("epoch authority"); }
       else if (!emitted.some(e => e.type === "error" && e.code === "STALE_EPOCH")) throw Error("host stale anchor");
     }
+    if (b.current.control_epoch !== a.current.control_epoch && b.previous !== null) throw Error("previous epoch");
     if (input.kind === "control") {
       const receipt = a.receipts.find(r => r.command.command_id === input.command.command_id);
       if (receipt && same(receipt.command, input.command)) { if (!same(before, after) || effects[0]?.kind !== "replay") throw Error("idempotency"); }
-      const stale = input.command.op !== "stop" && ((input.command.expected_control_epoch !== undefined && input.command.expected_control_epoch !== a.current.control_epoch) || (a.epoch_authority === "host" && input.target.control_epoch < a.current.control_epoch));
+      const stale = input.command.op !== "stop" && ((input.command.player_instance_id !== undefined && input.command.player_instance_id !== a.current.player_instance_id) || (input.command.expected_control_epoch !== undefined && input.command.expected_control_epoch !== a.current.control_epoch) || (before.epoch_authority === "host" && input.target.control_epoch < a.current.control_epoch));
       if (!receipt && stale && !emitted.some(e => e.type === "control_ack" && e.reason === "STALE_EPOCH")) throw Error("control fence");
     }
     if (input.kind === "control" && input.command.op === "stop" && a.generation === "running" && !a.outcome && a.playback === null && !a.receipts.some(r => r.command.command_id === input.command.command_id)) {
