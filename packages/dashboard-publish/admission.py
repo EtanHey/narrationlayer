@@ -264,7 +264,8 @@ def check_visual_proof(proof, handoff, shell):
         require(seen['contentType'].split(';')[0].strip().lower() == MIME[row['kind']], 'VISUAL_PROOF_MEDIA_TYPE')
         require(seen['sha256'] == row['sha256'] and seen['bytes'] == row['size'], 'VISUAL_PROOF_MEDIA_BYTES')
     require(proof['answerRowsAfter'] == 0, 'VISUAL_PROOF_ANSWER_ROWS')
-    require(proof['signedOut'] == {'request': 'media' if images else 'page', 'status': 401}, 'VISUAL_PROOF_SIGNED_OUT')
+    # Always the signed media endpoint: it answers 401 to no session before any catalog lookup, images or none.
+    require(proof['signedOut'] == {'request': 'media', 'status': 401}, 'VISUAL_PROOF_SIGNED_OUT')
 
 
 def recorded_approval(approval):

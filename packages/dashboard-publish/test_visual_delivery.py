@@ -56,7 +56,7 @@ class VisualDeliveryTest(unittest.TestCase):
                  ('VISUAL_PROOF_MEDIA_BYTES', self.edited(['media', 0, 'bytes'], len(WEBP) + 1)),
                  ('VISUAL_PROOF_ANSWER_ROWS', self.proof(answerRowsAfter=1)),
                  ('VISUAL_PROOF_SIGNED_OUT', self.proof(signedOut={'request': 'media', 'status': 200})),
-                 ('VISUAL_PROOF_SIGNED_OUT', self.proof(signedOut={'request': 'page', 'status': 401})),
+                 ('VISUAL_PROOF_SIGNED_OUT', self.proof(signedOut={'request': 'media', 'status': 403})),
                  ('ACCOUNT_PROOF', self.proof(existingRowsPreserved=3)),
                  ('ACCOUNT_PROOF', self.edited(['renders', 0, 'noOverflow'], False))]
         for code, proof in cases:
@@ -65,10 +65,10 @@ class VisualDeliveryTest(unittest.TestCase):
     def test_a_charset_parameter_keeps_the_type(self):
         self.assertEqual(self.deliver(self.edited(['media', 0, 'contentType'], 'image/webp; charset=binary'))['dashboardId'], 'fixture-1')
 
-    def test_a_visual_page_without_images_proves_the_page_signed_out(self):
+    def test_a_visual_page_without_images_still_proves_the_media_endpoint_signed_out(self):
         args = self.visual(rows=[])
-        empty = self.proof(media=[], renders=[r | {'imagesLoaded': [], 'shellSha256': sha(args['shell'])} for r in self.proof()['renders']], signedOut={'request': 'page', 'status': 401})
-        self.assertEqual(self.deliver(empty, args)['accountProof']['signedOut']['request'], 'page')
+        empty = self.proof(media=[], renders=[r | {'imagesLoaded': [], 'shellSha256': sha(args['shell'])} for r in self.proof()['renders']])
+        self.assertEqual(self.deliver(empty, args)['accountProof']['signedOut'], {'request': 'media', 'status': 401})
 
     def test_neither_page_type_accepts_the_other_proof(self):
         roundtrip = {'signedIn': True, 'method': 'note-roundtrip', 'probe': 'existing-empty-field', 'markerSaved': True, 'restoredAfterLocalKeysCleared': True,

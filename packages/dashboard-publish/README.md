@@ -57,7 +57,7 @@ A `mediaManifest` row may declare `kind`: `mp3`, `webp`, `png`, `jpeg` (`.jpg` o
 | `VISUAL_PROOF_MEDIA_TYPE` | the response's content type (parameters ignored) is not the kind's own (`image/webp`, `image/png`, `image/jpeg`, `image/svg+xml`) |
 | `VISUAL_PROOF_MEDIA_BYTES` | the fetched bytes' sha256 or length differ from the handoff row (a 200 with the wrong bytes fails here) |
 | `VISUAL_PROOF_ANSWER_ROWS` | any answer row exists under the page's id after the proof |
-| `VISUAL_PROOF_SIGNED_OUT` | the signed-out request did not answer 401: for the page's media when it has images, for the page itself when it has none |
+| `VISUAL_PROOF_SIGNED_OUT` | the request to the signed media endpoint with no session did not answer 401 (images or none: the endpoint refuses before any catalog lookup) |
 
 Who observes what is the publisher's contract: the browser step reports the renders; the publisher itself fetches each image by its key and reads the answer rows and the signed-out status.
 
