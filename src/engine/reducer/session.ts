@@ -11,34 +11,70 @@ export type SessionState = Identity & {
   fenced: boolean; delivered: Body<Message<"piece_ready">>[]; started: boolean; eof: boolean;
   current: Current; job_epoch: number; previous: Pick<Current, "player_instance_id" | "piece_index"> | null; receipts: Receipt[];
 };
+type RefusalCode = Extract<Message<"error">["code"], "INVALID_REQUEST" | "INPUT_TOO_LONG" | "VOICE_UNAVAILABLE" | "NOT_NEGOTIATED" | "UNSUPPORTED_VERSION" | "MISSING_CAPABILITY">;
+type SynthesisError = Pick<Message<"error">, "message"> & { code: "SYNTH_FAILED" | "SYNTH_TIMEOUT" | "ENGINE_UNAVAILABLE" | "VOICE_UNAVAILABLE" };
 type Authority = "host" | "engine";
-export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; sessions: Record<string, SessionState> };
+export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; sessions: Record<string, SessionState>; admissions: Record<string, { session_id: string; accepted: Message<"accepted"> }> };
 export type Input<A extends Authority = Authority> =
   | (A extends "engine" ? { kind: "reanchor"; session_id: string; reason: "restart" | "speed"; target: Current } : never)
+  | { kind: "admit"; request: Message<"narrate"> }
+  | ({ kind: "refuse"; code: RefusalCode } & Pick<Message<"error">, "message" | "request_id">)
   | { kind: "accept"; identity: Identity; current: Current; request: Message<"narrate">; plan: Body<Message<"plan">> }
   | { kind: "control"; command: Message<"control">; target: Current }
-  | { kind: "backend"; identity: Identity; result: { kind: "piece"; piece: Body<Message<"piece_ready">> } | { kind: "commit" } | { kind: "failure" } }
+  | { kind: "backend"; identity: Identity; result: { kind: "piece"; piece: Body<Message<"piece_ready">> } | { kind: "commit" } | { kind: "failure"; error: SynthesisError } }
   | { kind: "feedback"; identity: Identity; feedback: Message<"player_feedback"> }
   | { kind: "stop"; session_id: string; reason: "stop" | "cancel" | "replaced" };
-export type Effect = { kind: "emit" | "replay"; event: Event }
+export type Effect = { kind: "plan"; request: Message<"narrate"> } | { kind: "emit" | "replay"; event: Event }
   | { kind: "backend"; identity: Identity; op: "start" | "cancel" }
-  | { kind: "reject"; reason: "HOST_REANCHOR" | "UNKNOWN_SESSION" | "TERMINAL" };
+  | { kind: "reject"; reason: "HOST_REANCHOR" | "UNKNOWN_SESSION" | "TERMINAL" | "INVALID_REFUSAL" };
 function key(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(key).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${key(v)}`).join(",")}}`;
   return JSON.stringify(value) ?? "null";
 }
 /** One serialisable value owns the binding counter and every session. */
-export function initialState<A extends Authority>(owner_epoch: number, epoch_authority: A): State<A> { return { owner_epoch, epoch_authority, seq: 0, sessions: {} }; }
-/** Pure S2a transition; targets are pre-resolved cursors, not clock reads. */
+export function initialState<A extends Authority>(owner_epoch: number, epoch_authority: A): State<A> { return { owner_epoch, epoch_authority, seq: 0, sessions: {}, admissions: {} }; }
+/** Pure S2a transition; targets are pre-resolved cursors, not clock reads.
+ * Callers must treat passed/returned states, inputs and effects as immutable.
+ * Unchanged data is shared across snapshots; mutating it changes both snapshots.
+ * Only replay command receipts are detached from caller-owned input.
+ */
 export function reduce<A extends Authority>(state: State<A>, input: Input<NoInfer<A>>): { state: State<A>; effects: Effect[] };
 export function reduce(state: State, input: Input): { state: State; effects: Effect[] } {
-  const engine = structuredClone(state); input = structuredClone(input);
+  const engine = { ...state };
+  let touched: { before: SessionState; after: SessionState } | undefined;
   const effects: Effect[] = [];
+  function result(): { state: State; effects: Effect[] } {
+    if (touched) {
+      const { before, after } = touched;
+      if (after.current !== before.current && Object.entries(after.current).every(([k, v]) => v === Reflect.get(before.current, k))) after.current = before.current;
+      if (Object.entries(after).some(([k, v]) => v !== Reflect.get(before, k))) engine.sessions = { ...engine.sessions, [after.session_id]: after };
+    }
+    return { state: engine.seq === state.seq && engine.sessions === state.sessions && engine.admissions === state.admissions ? state : engine, effects };
+  }
   function emit(body: Body<Exclude<Event, Message<"welcome">>>): Event {
     // Contract L114: ONE sequence across every session and rejection in this owner epoch.
     const event: Event = { ...body, protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: ++engine.seq };
     effects.push({ kind: "emit", event }); return event;
+  }
+  if (input.kind === "refuse") {
+    const rules = {
+      INVALID_REQUEST: { phase: "admit", retry: "never" }, INPUT_TOO_LONG: { phase: "admit", retry: "never" },
+      VOICE_UNAVAILABLE: { phase: "admit", retry: "new_request" }, NOT_NEGOTIATED: { phase: "negotiate", retry: "after_resync" },
+      UNSUPPORTED_VERSION: { phase: "negotiate", retry: "never" }, MISSING_CAPABILITY: { phase: "negotiate", retry: "never" },
+    } satisfies Record<RefusalCode, Pick<Message<"error">, "phase" | "retry">>;
+    if (!Object.hasOwn(rules, input.code)) return { state, effects: [{ kind: "reject", reason: "INVALID_REFUSAL" }] };
+    emit({ type: "error", code: input.code, message: input.message, ...rules[input.code], ...(input.request_id === undefined ? {} : { request_id: input.request_id }) });
+    return result();
+  }
+  // The session must pass the PARSED request; unknown wire fields are not identity.
+  // Recheck at accept so interleaved admits can never start a second session.
+  if (input.kind === "admit" || input.kind === "accept" && Object.hasOwn(engine.admissions, input.request.idempotency_key)) {
+    const k = input.request.idempotency_key, receipt = Object.hasOwn(engine.admissions, k) ? engine.admissions[k] : undefined;
+    if (!receipt) return { state, effects: [{ kind: "plan", request: input.request }] };
+    if (key(engine.sessions[receipt.session_id].request) === key(input.request)) return { state, effects: [{ kind: "replay", event: receipt.accepted }] };
+    emit({ type: "error", code: "IDEMPOTENCY_CONFLICT", phase: "admit", retry: "never", message: "idempotency key reused", request_id: input.request.request_id });
+    return result();
   }
   const session_id = input.kind === "control" ? input.command.session_id : "identity" in input ? input.identity.session_id : input.session_id;
   if (input.kind === "reanchor" && engine.epoch_authority === "host") return { state, effects: [{ kind: "reject", reason: "HOST_REANCHOR" }] };
@@ -47,10 +83,11 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     if (!found && input.identity.owner_epoch === engine.owner_epoch && input.plan.session_id === session_id && input.plan.attempt_id === input.identity.attempt_id) {
       engine.sessions = { ...engine.sessions, [session_id]: { ...input.identity, current: input.current, job_epoch: input.current.control_epoch, previous: null, request: input.request, plan: input.plan,
         generation: "running", playback: null, outcome: null, fenced: false, delivered: [], started: false, eof: false, receipts: [] } };
-      emit({ type: "accepted", request_id: input.request.request_id, session_id, attempt_id: input.identity.attempt_id });
+      const accepted: Message<"accepted"> = { type: "accepted", protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, request_id: input.request.request_id, session_id, attempt_id: input.identity.attempt_id };
+      engine.admissions = { ...engine.admissions, [input.request.idempotency_key]: { session_id, accepted } }; emit(accepted);
       emit(input.plan); effects.push({ kind: "backend", identity: input.identity, op: "start" });
     }
-    return { state: engine, effects };
+    return result();
   }
   function reject(code: "STALE_EPOCH" | "UNKNOWN_SESSION") {
     emit({ type: "error", code, phase: input.kind === "feedback" ? "deliver" : "control", retry: code === "STALE_EPOCH" ? "after_resync" : "never", message: code, session_id, ...(found ? { details: { current: found.current } } : {}) });
@@ -59,9 +96,9 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     // Foreign asynchronous jobs are dropped (I02); addressed commands get UNKNOWN_SESSION.
     if (input.kind === "reanchor") effects.push({ kind: "reject", reason: "UNKNOWN_SESSION" });
     else if (input.kind !== "feedback" && input.kind !== "backend") reject("UNKNOWN_SESSION");
-    return { state: engine, effects };
+    return result();
   }
-  const s = found;
+  const s = { ...found }; touched = { before: found, after: s };
   if (input.kind === "reanchor" && (s.outcome || s.playback !== null)) return { state, effects: [{ kind: "reject", reason: "TERMINAL" }] };
   const identity = { owner_epoch: s.owner_epoch, session_id, attempt_id: s.attempt_id };
   function stop(reason: "stop" | "cancel" | "replaced") {
@@ -84,7 +121,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     else if (["pause", "resume", "seek"].includes(c.op)) anchor(input.target);
     else { answer = "reject"; reason = "control outside S2a"; }
     const ack: Message<"control_ack"> = { protocol: "nl.engine/1", type: "control_ack", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, command_id: c.command_id, outcome: answer, control_epoch: s.current.control_epoch, ...(reason ? { reason } : {}), ...(stale ? { current: s.current } : {}) };
-    emit(ack); if (!previous) s.receipts = [...s.receipts, { command: c, ack }].slice(-32);
+    emit(ack); if (!previous) s.receipts = [...s.receipts, { command: structuredClone(c), ack: structuredClone(ack) }].slice(-32);
   } else if (!s.outcome) { // Domain generation terminal below fences late backend delivery (I03).
     if (input.kind === "stop") stop(input.reason);
     else if (input.kind === "reanchor") {
@@ -97,17 +134,17 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
         if (s.generation !== "running") return { state, effects: [] };
         if (input.result.kind === "piece") {
           const p = input.result.piece, expected = s.plan.pieces[s.delivered.length];
-          if (expected && p.session_id === session_id && p.attempt_id === s.attempt_id && p.index === expected.index && p.piece_id === expected.piece_id) { s.delivered.push(p); emit(p); }
+          if (expected && p.session_id === session_id && p.attempt_id === s.attempt_id && p.index === expected.index && p.piece_id === expected.piece_id) { s.delivered = [...s.delivered, p]; emit(p); }
         } else if (input.result.kind === "commit") {
           // I04 / Seal + Commit: complete coverage for N planned pieces.
           if (s.delivered.length === s.plan.pieces.length) s.generation = "committed";
-        } else { s.generation = "failed"; s.fenced = true; if (s.playback === null) s.playback = "speech_failed"; }
+        } else { const { code, message } = input.result.error; emit({ type: "error", code, message, phase: "synthesize", retry: "new_request", session_id }); s.generation = "failed"; s.fenced = true; if (s.playback === null) s.playback = s.delivered.length === 0 ? "synth_failed" : "speech_failed"; }
       } else {
         const f = input.feedback;
         if (s.playback !== null) return { state, effects: [] }; // I01: EOF before publication still locks playback.
         // ID-01 (no model backing): host generations may advance; engine feedback never mints epochs.
         const epochOK = engine.epoch_authority === "host" ? f.control_epoch >= s.current.control_epoch : f.control_epoch === s.current.control_epoch;
-        if (!epochOK) { reject("STALE_EPOCH"); return { state: engine, effects }; }
+        if (!epochOK) { reject("STALE_EPOCH"); return result(); }
         const moved = f.control_epoch > s.current.control_epoch;
         const previousExit = f.edge === "exited" && !moved && s.previous?.player_instance_id === f.player_instance_id && s.previous.piece_index === f.piece_index;
         if (previousExit) {
@@ -120,10 +157,10 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
             if (next) s.previous = !moved ? { player_instance_id: s.current.player_instance_id, piece_index: s.current.piece_index } : null;
             s.current = { ...s.current, player_instance_id: f.player_instance_id, piece_index: f.piece_index }; s.job_epoch = f.control_epoch;
           }
-          if (f.player_instance_id !== s.current.player_instance_id) { reject("STALE_EPOCH"); return { state: engine, effects }; }
+          if (f.player_instance_id !== s.current.player_instance_id) { reject("STALE_EPOCH"); return result(); }
           if (f.piece_index !== s.current.piece_index) return { state, effects: [] };
           if (moved) s.previous = null;
-          if (engine.epoch_authority === "host") { s.current.control_epoch = f.control_epoch; s.job_epoch = f.control_epoch; }
+          if (engine.epoch_authority === "host") { if (s.current.control_epoch !== f.control_epoch) s.current = { ...s.current, control_epoch: f.control_epoch }; s.job_epoch = f.control_epoch; }
         if (f.edge === "first_sample" && s.delivered.some(p => p.index === f.piece_index)) s.started = true;
         if (f.edge === "exited" && f.exit) {
           // I04 / Feedback: natural EOF requires actual start and ALL delivered pieces.
@@ -140,5 +177,5 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
       missing_piece_indices: s.plan.pieces.filter(p => !s.delivered.some(d => d.index === p.index)).map(p => p.index), history: { route: "host", state: "unconfirmed", reason: "mirror" }, artifacts: s.delivered.map(p => ({ piece_id: p.piece_id, handle: p.artifact.handle, lease_id: p.artifact.lease_id })) };
     s.outcome = { ...body, protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: engine.seq + 1 }; emit(body);
   }
-  return { state: engine, effects };
+  return result();
 }

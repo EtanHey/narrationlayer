@@ -1,0 +1,28 @@
+{
+  "bun": {
+    "WebView": "Native GUI bridge can open windows, browser processes and network connections.",
+    "fetch": "Immutable; parent proxy detects default calls. macOS sandbox denies bypass traffic; Linux proxy/unix/env bypasses remain OPEN."
+  },
+  "modules": {
+    "bun:ffi": "Native FFI can call arbitrary OS functions, including sockets, processes and wall clocks.",
+    "bun:wrap": "Internal native wrapper bridge can expose native functions and real OS effects.",
+    "module": "Native addon loading through the module loader can execute arbitrary native OS effects."
+  },
+  "globals": {
+    "ffi": "Native FFI can call arbitrary OS functions, including sockets, processes and wall clocks."
+  },
+  "platform_routes": {
+    "Bun.fetch.proxy": {
+      "macos-sandbox": "Denied by network policy, except the parent sink.",
+      "in-process-tripwire": "Per-request proxy selects another proxy, bypassing the parent listener."
+    },
+    "Bun.fetch.unix": {
+      "macos-sandbox": "Denied by network policy, except the parent sink.",
+      "in-process-tripwire": "Per-request unix connects to a local socket, bypassing the parent listener."
+    },
+    "process.env/Bun.env proxy edits": {
+      "macos-sandbox": "Denied by network policy, except the parent sink.",
+      "in-process-tripwire": "Runtime refuses frozen env descriptors; edits can bypass inherited proxy routing on 1.4.4."
+    }
+  }
+}
