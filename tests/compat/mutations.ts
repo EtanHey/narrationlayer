@@ -13,6 +13,10 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  {"kind": "named-test", "name": "session-plan-first", "file": "src/engine/session/session.ts", "before": "for (const effect of result.effects) {", "after": "for (const effect of result.effects.reverse()) {", "testFile": "tests/engine/session/session.test.ts", "testName": "PLAN-LAT-01: plan is enqueued before the first backend call"},
+  {"kind": "named-test", "name": "session-piece-order", "file": "src/engine/session/session.ts", "before": "index = session.delivered.length;", "after": "index = session.plan.pieces.length - 1 - session.delivered.length;", "testFile": "tests/engine/session/session.test.ts", "testName": "ORDER-01 (lease clause owed to S7): ordered prefix and no events after outcome"},
+  {"kind": "named-test", "name": "session-result-fence", "file": "src/engine/session/session.ts", "before": "step({ kind: \"backend\", identity, result: { kind: \"piece\", piece: delivered } });", "after": "emit({ ...delivered, protocol: \"nl.engine/1\", owner_epoch: identity.owner_epoch, seq: state.seq + 1 }, false);", "testFile": "tests/engine/session/session.test.ts", "testName": "late result after stop: reducer receives and drops a cancelled backend completion"},
+
   {"kind": "named-test", "name": "reducer-ID04", "file": "src/engine/reducer/session.ts", "before": "key(engine.sessions[receipt.session_id].request) === key(input.request)", "after": "true", "testFile": "tests/engine/reducer/session.test.ts", "testName": "ID-04: same key and same request replays the original accepted; a different request conflicts; a different key is a new session"},
   {"kind": "named-test", "name": "reducer-ERR01", "file": "src/engine/reducer/session.ts", "before": "emit({ type: \"error\", ...input.result.error, phase: \"synthesize\", retry: \"new_request\", session_id }); ", "after": "", "testFile": "tests/engine/reducer/session.test.ts", "testName": "ERR-01: a live failure emits error then outcome; a fenced or terminal one emits nothing"},
 
