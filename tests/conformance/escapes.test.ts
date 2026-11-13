@@ -170,3 +170,43 @@ test("both watchdogs expire and parent terminates within a short real bound", as
     else process.env.NL_CONFORMANCE_WATCHDOG_MS = previous;
   }
 }, 4000);
+test("entry survives report-fd reuse at GC across eight sequential starts", async () => {
+  const dir = mkdtempSync(resolve(scratch, "ownership-")), preload = resolve(dir, "parent.ts");
+  writeFileSync(preload, `const spawn=Bun.spawn;let count=0;
+    Bun.spawn=function(...args){
+      const p=Reflect.apply(spawn,this,args);if(++count!==2)return p;
+      const pipes=p.stdio,fd=pipes[3];
+      pipes[3]=new ReadableStream({async start(c){
+        await Bun.sleep(1);Bun.gc(true);
+        c.enqueue(new TextEncoder().encode(await Bun.file(fd).text()));c.close();
+      }});
+      return new Proxy(p,{get(t,k){if(k==='stdio')return pipes;
+        const v=Reflect.get(t,k,t);return typeof v==='function'?v.bind(t):v}});
+    }`);
+  const start = performance.now();
+  try {
+    for (let i = 0; i < 8; i++) {
+      const proc = Bun.spawn([process.execPath, "--preload", preload, entry, "--binding", resolve(root,"src/engine/conformance/null-binding.ts")], {stdout:"pipe",stderr:"pipe"});
+      const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(),new Response(proc.stderr).text(),proc.exited]);
+      expect(stderr).toBe(""); expect(code).toBe(0);
+      expect(stdout).toBe(readFileSync(resolve(import.meta.dir,"report.snapshot.json"),"utf8"));
+    }
+    expect(performance.now()-start).toBeLessThan(3000);
+  } finally { rmSync(dir,{recursive:true}); }
+});
+test("watchdog bounds a stalled report stream after the real children exit", async () => {
+  const dir = mkdtempSync(resolve(scratch,"stalled-")), preload = resolve(dir,"parent.ts");
+  writeFileSync(preload, `const spawn=Bun.spawn;Bun.spawn=function(...args){
+    const p=Reflect.apply(spawn,this,args);return new Proxy(p,{get(t,k){
+      if(k==='stdio')return [null,null,null,new ReadableStream({start(){}})];const v=Reflect.get(t,k,t);return typeof v==='function'?v.bind(t):v
+    }})};`);
+  try {
+    const start = performance.now();
+    const proc = Bun.spawn([process.execPath,"--preload",preload,entry,"--binding",resolve(root,"src/engine/conformance/null-binding.ts")], {
+      env:{...process.env,NL_CONFORMANCE_WATCHDOG_MS:"150"},stdout:"pipe",stderr:"pipe",
+    });
+    const [stdout,,code] = await Promise.all([new Response(proc.stdout).text(),new Response(proc.stderr).text(),proc.exited]);
+    expect(code).toBe(1); expect(stdout).toContain("child watchdog expired before report/log streams completed");
+    expect(performance.now()-start).toBeLessThan(3000);
+  } finally { rmSync(dir,{recursive:true}); }
+});

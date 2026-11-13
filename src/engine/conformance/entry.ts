@@ -2,7 +2,7 @@
 if (import.meta.main) {
   const { resolve } = await import("node:path");
   const { pathToFileURL } = await import("node:url");
-  const { writeFileSync, closeSync } = await import("node:fs");
+  const { writeFileSync } = await import("node:fs");
   const { canonical, runConformance, validateRegistry, registry } = await import("./runner.js");
   const { default: nullBinding } = await import("./null-binding.js");
   const { trapState, trapsPresent } = await import("./wall-guard.js");
@@ -63,17 +63,23 @@ if (import.meta.main) {
         const run = async (reversed: boolean) => {
           const command = [process.execPath, "--preload", resolve(import.meta.dir, "preload.ts"), import.meta.path,
             "--child", "--binding", absoluteBinding, ...(reversed ? ["--reverse"] : [])];
-          const timeout = Number(process.env.NL_CONFORMANCE_WATCHDOG_MS ?? 30000);
-          if (!Number.isInteger(timeout) || timeout < 1 || timeout > 30000) throw new Error("invalid watchdog");
+          const timeout = Number(process.env.NL_CONFORMANCE_WATCHDOG_MS ?? 1500);
+          if (!Number.isInteger(timeout) || timeout < 1 || timeout > 1500) throw new Error("invalid watchdog");
           const proc = Bun.spawn(command, { cwd: root, env, stdio: ["ignore", "pipe", "pipe", "pipe"] });
-          const deadline = setTimeout(() => proc.kill(9), timeout);
+          let deadline: ReturnType<typeof setTimeout> | undefined;
+          const expired = new Promise<null>(resolve => {
+            deadline = setTimeout(() => { proc.kill(9); resolve(null); }, timeout);
+          });
           const pipe = proc.stdio[3];
           try {
             if (!pipe) throw new Error("report pipe missing");
             const readReport = typeof pipe === "number" ? Bun.file(pipe).text() : new Response(pipe).text();
-            const [bytes, stdout, stderr, code] = await Promise.all([
+            const completed = await Promise.race([Promise.all([
               readReport, new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited,
-            ]);
+            ]), expired]);
+            if (!completed) return { bytes: "", report: undefined, code: -1,
+              error: "child watchdog expired before report/log streams completed" };
+            const [bytes, stdout, stderr, code] = completed;
             process.stderr.write(stdout + stderr);
             let report: Report | undefined;
             let error = "child report unavailable";
@@ -93,7 +99,11 @@ if (import.meta.main) {
               else report = parsed;
             } catch { /* Missing/invalid reports become a named failure below. */ }
             return { bytes, report, code, error };
-          } finally { clearTimeout(deadline); if (typeof pipe === "number") closeSync(pipe); }
+          } finally {
+            clearTimeout(deadline);
+            // Bun owns stdio[3] and closes it when the subprocess is collected.
+            // Closing the raw fd here lets that finalizer close a reused fd.
+          }
         };
         const first = await run(reverse), second = await run(!reverse);
         const report = first.report ?? second.report ?? await runConformance(nullBinding);
@@ -120,8 +130,8 @@ if (import.meta.main) {
         const incomplete = args.includes("--exit") && report.inactive_engine > 0;
         process.exitCode = failedCase || incomplete ? 1 : 0;
       } finally { listener.stop(true); }
-      // Bun 1.3.11 may stay alive after both watchdogs expire. All
-      // streams are drained and the listener closed; terminate the owned CLI.
+      // Stream reads can remain pending after a deadline. The listener is closed;
+      // terminate the owned CLI after publishing the bounded verdict.
       process.exit(process.exitCode ?? 1);
     }
   } catch { process.stderr.write("conformance invocation failed\n"); process.exitCode = 1; }

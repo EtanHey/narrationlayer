@@ -6,8 +6,10 @@ its children. No path enters the report. `--exit` also requires every engine
 stage-A case active. `--reverse` changes execution order, not report order.
 
 `entry.ts` does nothing at import. Only its parent uses real I/O and real time:
-two children, one owned loopback proxy listener, and a 30-second watchdog per
+two children, one owned loopback proxy listener, and a 1.5-second watchdog per
 child (parent-only `NL_CONFORMANCE_WATCHDOG_MS` can shorten it for tests).
+The deadline bounds report/log reads and child exit together. Bun owns the extra
+report descriptor; the parent does not close its raw fd a second time.
 The binding loads only in preloaded children, running cases in opposite orders.
 Children publish at exit over fd 3, after detached rejections; logs go to stderr.
 Code 3 means a completed child report, never a verdict; children never exit 0.
