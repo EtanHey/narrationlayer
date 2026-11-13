@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { initialState, reduce, type State, type Input } from "../../../src/engine/reducer/session";
+import { parseEvent } from "../../../src/engine/messages/parser";
 import type { Message } from "../../../src/engine/messages/messages";
 const identity = { owner_epoch: 1, session_id: "session-1", attempt_id: "attempt-1" };
 const current = { session_id: identity.session_id, player_instance_id: "player-1", control_epoch: 1, audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 10, duration_ms: 10 };
@@ -14,7 +15,7 @@ const view = (s: State) => s.sessions[identity.session_id];
 function piece(index = 0): Input {
   return { kind: "backend", identity, result: { kind: "piece", piece: { type: "piece_ready", session_id: identity.session_id, attempt_id: identity.attempt_id, piece_id: `p${index}`, index, start_ms: index * 10, duration_ms: 10, spoken_text: "Synthetic", artifact: { handle: "h", lease_id: "l", format: "wav", sample_rate: 1, sample_count: 1, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "1", attempts: [], unavailable: [], fallback_reason: null }, synthesis_ms: 0 } } };
 }
-const commit: Input = { kind: "backend", identity, result: { kind: "commit" } }, failure: Input = { kind: "backend", identity, result: { kind: "failure" } }, stop: Input = { kind: "stop", session_id: identity.session_id, reason: "stop" };
+const commit: Input = { kind: "backend", identity, result: { kind: "commit" } }, failure: Input = { kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_FAILED", message: "synthetic failure" } } }, stop: Input = { kind: "stop", session_id: identity.session_id, reason: "stop" };
 function feedback(edge: Message<"player_feedback">["edge"], overrides: Partial<Message<"player_feedback">> = {}, id = identity): Input {
   return { kind: "feedback", identity: id, feedback: { protocol: "nl.engine/1", type: "player_feedback", session_id: identity.session_id, player_instance_id: "player-1", control_epoch: 1, piece_index: 0, t_mono_ms: 0, edge, ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: 10 } } : {}), ...overrides } };
 }
@@ -66,9 +67,10 @@ test("ID-01 fence (no model backing): stale feedback and controls carry current"
 });
 test("seq: rejection between emits and interleaved sessions share one owner counter", () => {
   let s = accepted(2); const second = acceptance(); if (second.kind !== "accept") throw Error("fixture");
-  const inputs: Input[] = [piece(), feedback("first_sample", { control_epoch: 9 }), piece(1), { ...second, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...second.plan, session_id: "session-2" } }];
+  const inputs: Input[] = [{ kind: "admit", request }, { kind: "refuse", error: { type: "error", code: "INVALID_REQUEST", phase: "admit", retry: "never", message: "invalid" } }, piece(), feedback("first_sample", { control_epoch: 9 }), piece(1), { ...second, request: { ...request, request_id: "req-2", idempotency_key: "key-2" }, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...second.plan, session_id: "session-2" } }];
   const seq: number[] = []; for (const i of inputs) { const r = reduce(s, i); s = r.state; for (const e of r.effects) if (e.kind === "emit" && "seq" in e.event) seq.push(e.event.seq); }
-  expect(seq).toEqual([3, 4, 5, 6, 7]); expect(s.seq).toBe(7);
+  expect(seq).toEqual([3, 4, 5, 6, 7, 8]); expect(s.seq).toBe(8);
+  const replay = reduce(s, { kind: "admit", request }); expect(replay.state.seq).toBe(8); expect(replay.effects).toMatchObject([{ kind: "replay", event: { type: "accepted", seq: 1 } }]);
   const first = reduce(initialState(1, "engine"), acceptance()); expect(first.effects.map(e => e.kind === "emit" ? e.event.type : e.kind)).toEqual(["accepted", "plan", "backend"]);
 });
 test("idempotency: first ack replays without state changes; changed args rejected; 32 receipts", () => {
@@ -178,10 +180,10 @@ test("authority: engine-wide stage and host reanchor is internal refusal; inputs
 });
 test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sessions", () => {
   const other = acceptance(2); if (other.kind !== "accept") throw Error("fixture");
-  const second: Input = { ...other, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...other.plan, session_id: "session-2" } };
+  const second: Input = { ...other, request: { ...request, request_id: "req-2", idempotency_key: "key-2" }, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...other.plan, session_id: "session-2" } };
   const controls: Input[] = []; for (const reason of ["stop", "cancel", "replaced"] as const) controls.push({ kind: "control", command: { ...seek.command, command_id: reason, op: "stop", args: { scope: "session", reason } }, target: current });
   const toLast: Input = { ...seek, target: { ...current, piece_index: 1 } };
-  const alphabet: Input[] = [feedback("exited", { control_epoch: 2, exit: { status: "failed", stopped_at_ms: 0 } }), feedback("exited", { player_instance_id: "wrong", exit: { status: "failed", stopped_at_ms: 0 } }), feedback("spawned", { piece_index: 1 }), feedback("exited", { piece_index: 1 }), feedback("exited", { exit: { status: "failed", stopped_at_ms: 0 } }), { ...seek, command: { ...seek.command, command_id: "wrong-player", expected_control_epoch: undefined, player_instance_id: "wrong" } }, feedback("spawned", { player_instance_id: "wrong" }), { ...seek, command: { ...seek.command, command_id: "host-low", expected_control_epoch: undefined } }, piece(), piece(1), commit, failure, ...controls, feedback("first_sample"), feedback("exited"), feedback("spawned", { piece_index: 1, player_instance_id: "player-2" }), feedback("spawned", { piece_index: 2 }), feedback("spawned"), feedback("first_sample", { control_epoch: 2 }),
+  const alphabet: Input[] = [{ kind: "admit", request }, { kind: "admit", request: { ...request, idempotency_key: "new" } }, { kind: "admit", request: { ...request, rate: "+1%" } }, { kind: "refuse", error: { type: "error", code: "INVALID_REQUEST", phase: "admit", retry: "never", message: "invalid" } }, feedback("exited", { control_epoch: 2, exit: { status: "failed", stopped_at_ms: 0 } }), feedback("exited", { player_instance_id: "wrong", exit: { status: "failed", stopped_at_ms: 0 } }), feedback("spawned", { piece_index: 1 }), feedback("exited", { piece_index: 1 }), feedback("exited", { exit: { status: "failed", stopped_at_ms: 0 } }), { ...seek, command: { ...seek.command, command_id: "wrong-player", expected_control_epoch: undefined, player_instance_id: "wrong" } }, feedback("spawned", { player_instance_id: "wrong" }), { ...seek, command: { ...seek.command, command_id: "host-low", expected_control_epoch: undefined } }, piece(), piece(1), commit, failure, ...controls, feedback("first_sample"), feedback("exited"), feedback("spawned", { piece_index: 1, player_instance_id: "player-2" }), feedback("spawned", { piece_index: 2 }), feedback("spawned"), feedback("first_sample", { control_epoch: 2 }),
     feedback("first_sample", { piece_index: 1, player_instance_id: "player-2" }), feedback("exited", { piece_index: 1, player_instance_id: "player-2" }), feedback("exited", { piece_index: 1, control_epoch: 2 }), feedback("exited", { piece_index: 1, control_epoch: 2, exit: { status: "failed", stopped_at_ms: 0 } }),
     feedback("first_sample", {}, { ...identity, owner_epoch: 2 }), feedback("first_sample", {}, { ...identity, attempt_id: "attempt-2" }), feedback("first_sample", {}, { ...identity, session_id: "session-2" }), feedback("first_sample", { session_id: "foreign", control_epoch: 0 }),
     { ...seek, command: { ...seek.command, session_id: "missing" } }, toLast, { ...seek, command: { ...seek.command, command_id: "seek-2" } }, { ...seek, command: { ...seek.command, session_id: "session-2" } }, { kind: "reanchor", session_id: identity.session_id, reason: "speed", target: current }, { kind: "reanchor", session_id: identity.session_id, reason: "restart", target: { ...current, control_epoch: 3 } }];
@@ -193,6 +195,8 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
     const id = input.kind === "control" ? input.command.session_id : identity.session_id;
     const a = before.sessions[id], b = after.sessions[id], emitted = effects.flatMap(e => e.kind === "emit" ? [e.event] : []);
     if (emitted.some((e, i) => !("seq" in e) || e.seq !== before.seq + i + 1) || after.seq !== before.seq + emitted.length) throw Error("seq");
+    for (const e of effects) if (e.kind === "emit" || e.kind === "replay") { const parsed = parseEvent(e.event); if (!parsed.ok || parsed.value === null) throw Error(`event parser: ${JSON.stringify(parsed)}`); }
+    if (input.kind === "admit" || input.kind === "refuse") { if (!same(before.sessions, after.sessions) || !same(before.admissions, after.admissions)) throw Error("admission changed sessions/index"); return; }
     if (input.kind === "reanchor" && before.epoch_authority === "host") { if (!same(before, after) || effects[0]?.kind !== "reject") throw Error("host reanchor"); return; }
     if (!a) { if (!emitted.some(e => e.type === "error" && e.code === "UNKNOWN_SESSION")) throw Error("unknown session"); return; }
     for (const id of Object.keys(before.sessions)) {
@@ -248,3 +252,48 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
   console.log(`exhaustive depth=4 alphabet=${alphabet.length} scripts=${scripts} visits=${visits} distinct=${distinct.size} wall_ms=${(performance.now() - start).toFixed(1)}`);
   expect(scripts).toBe(3 * (1 + alphabet.length + alphabet.length ** 2 + alphabet.length ** 3 + alphabet.length ** 4));
 }, 20000);
+test("admit: a new request changes nothing and asks for a plan", () => {
+  const s = initialState(1, "engine"), r = reduce(s, { kind: "admit", request });
+  expect(r.state).toBe(s); expect(r.effects).toEqual([{ kind: "plan", request }]);
+});
+test("ID-04: same key and same request replays the original accepted; a different request conflicts; a different key is a new session", () => {
+  const first = reduce(initialState(1, "engine"), acceptance());
+  const s: State = JSON.parse(JSON.stringify(run(first.state, piece(), stop)));
+  const replay = reduce(s, { kind: "admit", request: { ...request, input: { format: "plain", text: request.input.text }, rate: undefined } });
+  expect(replay.state).toBe(s); expect(replay.effects).toEqual([{ kind: "replay", event: first.effects[0].kind === "emit" ? first.effects[0].event : null }]);
+  expect(reduce(s, acceptance())).toEqual({ state: s, effects: [] });
+  const conflict = reduce(s, { kind: "admit", request: { ...request, request_id: "different" } });
+  expect(conflict.effects).toEqual([{ kind: "emit", event: { protocol: "nl.engine/1", type: "error", owner_epoch: 1, seq: s.seq + 1, code: "IDEMPOTENCY_CONFLICT", phase: "admit", retry: "never", message: "idempotency key reused", request_id: "different" } }]);
+  expect(conflict.state.sessions).toEqual(s.sessions); expect(conflict.state.admissions).toEqual(s.admissions);
+  const next = acceptance(); if (next.kind !== "accept") throw Error("fixture");
+  next.request = { ...request, request_id: "req-2", idempotency_key: "__proto__" };
+  next.identity.session_id = next.plan.session_id = next.current.session_id = "session-2";
+  expect(reduce(s, { kind: "admit", request: next.request }).effects).toEqual([{ kind: "plan", request: next.request }]);
+  const two = reduce(s, next); expect(Object.keys(two.state.sessions)).toHaveLength(2);
+  expect(reduce(JSON.parse(JSON.stringify(two.state)), { kind: "admit", request: next.request }).effects).toMatchObject([{ kind: "replay", event: { type: "accepted", session_id: "session-2" } }]);
+});
+test("refuse: one sequenced error, no session", () => {
+  for (const error of [
+    { type: "error", code: "INVALID_REQUEST", phase: "plan", retry: "never", message: "invalid", details: { path: "$.input" } },
+    { type: "error", code: "INPUT_TOO_LONG", phase: "admit", retry: "never", message: "long" },
+    { type: "error", code: "VOICE_UNAVAILABLE", phase: "admit", retry: "new_request", message: "voice" },
+    { type: "error", code: "NOT_NEGOTIATED", phase: "negotiate", retry: "after_resync", message: "hello" },
+  ] as const) {
+    const s = accepted(), r = reduce(s, { kind: "refuse", error });
+    expect(r.state).toEqual({ ...s, seq: s.seq + 1 });
+    expect(r.effects).toEqual([{ kind: "emit", event: { ...error, protocol: "nl.engine/1", owner_epoch: 1, seq: s.seq + 1 } }]);
+    expect(parseEvent(r.effects[0].kind === "emit" ? r.effects[0].event : null).ok).toBe(true);
+  }
+});
+test("ERR-01: a live failure emits error then outcome; a fenced or terminal one emits nothing", () => {
+  for (const code of ["SYNTH_FAILED", "SYNTH_TIMEOUT", "ENGINE_UNAVAILABLE", "VOICE_UNAVAILABLE"] as const) {
+    const input: Input = { kind: "backend", identity, result: { kind: "failure", error: { code, message: "synthetic failure" } } };
+    for (const s of [accepted(), run(accepted(), piece(), feedback("first_sample")), run(accepted(), piece(), feedback("first_sample"), feedback("exited"))]) {
+      const r = reduce(s, input);
+      expect(r.effects).toMatchObject([{ kind: "emit", event: { type: "error", code, phase: "synthesize", retry: "new_request", session_id: identity.session_id, seq: s.seq + 1 } }, { kind: "emit", event: { type: "outcome", seq: s.seq + 2, generation: { status: "failed" }, playback: { reason: view(s).playback ?? "speech_failed" } } }]);
+      for (const e of r.effects) if (e.kind === "emit") expect(parseEvent(e.event).ok).toBe(true);
+      expect(reduce(r.state, input).effects).toEqual([]);
+    }
+    for (const s of [run(accepted(), stop), run(accepted(), piece(), commit)]) expect(reduce(s, input).effects).toEqual([]);
+  }
+});

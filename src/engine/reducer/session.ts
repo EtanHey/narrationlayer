@@ -11,16 +11,24 @@ export type SessionState = Identity & {
   fenced: boolean; delivered: Body<Message<"piece_ready">>[]; started: boolean; eof: boolean;
   current: Current; job_epoch: number; previous: Pick<Current, "player_instance_id" | "piece_index"> | null; receipts: Receipt[];
 };
+type AdmissionError = Omit<Body<Message<"error">>, "code" | "phase" | "retry" | "session_id" | "command_id"> & (
+  | { code: "INVALID_REQUEST" | "INPUT_TOO_LONG"; phase: "admit" | "plan"; retry: "never" }
+  | { code: "VOICE_UNAVAILABLE"; phase: "admit" | "plan"; retry: "new_request" }
+  | { code: "NOT_NEGOTIATED"; phase: "negotiate"; retry: "after_resync" }
+);
+type SynthesisError = Pick<Message<"error">, "message"> & { code: "SYNTH_FAILED" | "SYNTH_TIMEOUT" | "ENGINE_UNAVAILABLE" | "VOICE_UNAVAILABLE" };
 type Authority = "host" | "engine";
-export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; sessions: Record<string, SessionState> };
+export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; sessions: Record<string, SessionState>; admissions: Record<string, { session_id: string; accepted: Message<"accepted"> }> };
 export type Input<A extends Authority = Authority> =
   | (A extends "engine" ? { kind: "reanchor"; session_id: string; reason: "restart" | "speed"; target: Current } : never)
+  | { kind: "admit"; request: Message<"narrate"> }
+  | { kind: "refuse"; error: AdmissionError }
   | { kind: "accept"; identity: Identity; current: Current; request: Message<"narrate">; plan: Body<Message<"plan">> }
   | { kind: "control"; command: Message<"control">; target: Current }
-  | { kind: "backend"; identity: Identity; result: { kind: "piece"; piece: Body<Message<"piece_ready">> } | { kind: "commit" } | { kind: "failure" } }
+  | { kind: "backend"; identity: Identity; result: { kind: "piece"; piece: Body<Message<"piece_ready">> } | { kind: "commit" } | { kind: "failure"; error: SynthesisError } }
   | { kind: "feedback"; identity: Identity; feedback: Message<"player_feedback"> }
   | { kind: "stop"; session_id: string; reason: "stop" | "cancel" | "replaced" };
-export type Effect = { kind: "emit" | "replay"; event: Event }
+export type Effect = { kind: "plan"; request: Message<"narrate"> } | { kind: "emit" | "replay"; event: Event }
   | { kind: "backend"; identity: Identity; op: "start" | "cancel" }
   | { kind: "reject"; reason: "HOST_REANCHOR" | "UNKNOWN_SESSION" | "TERMINAL" };
 function key(value: unknown): string {
@@ -29,7 +37,7 @@ function key(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 /** One serialisable value owns the binding counter and every session. */
-export function initialState<A extends Authority>(owner_epoch: number, epoch_authority: A): State<A> { return { owner_epoch, epoch_authority, seq: 0, sessions: {} }; }
+export function initialState<A extends Authority>(owner_epoch: number, epoch_authority: A): State<A> { return { owner_epoch, epoch_authority, seq: 0, sessions: {}, admissions: {} }; }
 /** Pure S2a transition; targets are pre-resolved cursors, not clock reads. */
 export function reduce<A extends Authority>(state: State<A>, input: Input<NoInfer<A>>): { state: State<A>; effects: Effect[] };
 export function reduce(state: State, input: Input): { state: State; effects: Effect[] } {
@@ -40,14 +48,25 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     const event: Event = { ...body, protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: ++engine.seq };
     effects.push({ kind: "emit", event }); return event;
   }
+  if (input.kind === "refuse") { emit(input.error); return { state: engine, effects }; }
+  if (input.kind === "admit") {
+    const k = input.request.idempotency_key, receipt = Object.hasOwn(engine.admissions, k) ? engine.admissions[k] : undefined;
+    if (!receipt) return { state, effects: [{ kind: "plan", request: input.request }] };
+    if (key(engine.sessions[receipt.session_id].request) === key(input.request)) return { state, effects: [{ kind: "replay", event: receipt.accepted }] };
+    emit({ type: "error", code: "IDEMPOTENCY_CONFLICT", phase: "admit", retry: "never", message: "idempotency key reused", request_id: input.request.request_id });
+    return { state: engine, effects };
+  }
   const session_id = input.kind === "control" ? input.command.session_id : "identity" in input ? input.identity.session_id : input.session_id;
   if (input.kind === "reanchor" && engine.epoch_authority === "host") return { state, effects: [{ kind: "reject", reason: "HOST_REANCHOR" }] };
   const found = Object.hasOwn(engine.sessions, session_id) ? engine.sessions[session_id] : undefined;
   if (input.kind === "accept") {
+    // The session must ask admit first; a duplicate accept never starts work again.
+    if (Object.hasOwn(engine.admissions, input.request.idempotency_key)) return { state, effects };
     if (!found && input.identity.owner_epoch === engine.owner_epoch && input.plan.session_id === session_id && input.plan.attempt_id === input.identity.attempt_id) {
       engine.sessions = { ...engine.sessions, [session_id]: { ...input.identity, current: input.current, job_epoch: input.current.control_epoch, previous: null, request: input.request, plan: input.plan,
         generation: "running", playback: null, outcome: null, fenced: false, delivered: [], started: false, eof: false, receipts: [] } };
-      emit({ type: "accepted", request_id: input.request.request_id, session_id, attempt_id: input.identity.attempt_id });
+      const accepted: Message<"accepted"> = { type: "accepted", protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, request_id: input.request.request_id, session_id, attempt_id: input.identity.attempt_id };
+      engine.admissions = { ...engine.admissions, [input.request.idempotency_key]: { session_id, accepted } }; emit(accepted);
       emit(input.plan); effects.push({ kind: "backend", identity: input.identity, op: "start" });
     }
     return { state: engine, effects };
@@ -101,7 +120,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
         } else if (input.result.kind === "commit") {
           // I04 / Seal + Commit: complete coverage for N planned pieces.
           if (s.delivered.length === s.plan.pieces.length) s.generation = "committed";
-        } else { s.generation = "failed"; s.fenced = true; if (s.playback === null) s.playback = "speech_failed"; }
+        } else { emit({ type: "error", ...input.result.error, phase: "synthesize", retry: "new_request", session_id }); s.generation = "failed"; s.fenced = true; if (s.playback === null) s.playback = "speech_failed"; }
       } else {
         const f = input.feedback;
         if (s.playback !== null) return { state, effects: [] }; // I01: EOF before publication still locks playback.

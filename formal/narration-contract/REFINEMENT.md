@@ -88,3 +88,22 @@ settles silently when completed, or accepts player_failed when failed. Repeated
 spawn notifications preserve that pending slot. No terminal reopens. This handles
 distinct and reused player IDs; fixtures cover both exit/spawn orders. All input
 objects are copied at entry so callers cannot change state by mutating a message.
+
+## S2c admission and failure diagnostics outside the model
+
+The model starts at an accepted request. The three input additions are `admit`,
+`refuse`, and backend `failure` carrying an error. `admit` either requests planning
+without changing state, replays the stored original accepted without allocating a
+sequence, or emits one conflict error. `refuse` emits one admission error. Neither
+changes sessions or the serialisable idempotency index. Only a successful `accept`
+records the key, session and original accepted receipt; duplicate keys do nothing.
+The index survives JSON round trips and has no eviction in this slice.
+
+A live backend failure emits its synthesis error before the existing outcome;
+its generation/playback/fence transitions are unchanged. Terminal/fenced attempts
+still emit nothing. These additions cannot reopen an I01 terminal, accept foreign
+I02 feedback, unfreeze I03 delivery, or bypass I04 coverage: admission inputs never
+touch those fields, and failure retains their existing guards. The exhaustive
+code check also parses every fresh and replayed event using the wire parser.
+This extends code coupling, not the formal model or engine acceptance. Retry,
+per-session last seq, speed, pause and index eviction remain outside S2c.
