@@ -123,3 +123,53 @@ export async function withEnv<T>(env: Record<string, string | undefined>, run: (
   };
   try { apply(env); return await run(); } finally { apply(previous); }
 }
+
+// Shared runner run configurations: the executable, defaults and output tests make the same runs.
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+export const runnerArgs = (f: Fixture, text: string, reference = path.join(f.root, "reference.wav")) => [
+  "--text", text, "--output", path.join(f.root, "out.wav"), "--reference", reference,
+  "--reference-text", "Synthetic reference.", "--daemon-url", `${f.url}///`, "--auth-token-file", path.join(f.root, "auth"),
+  "--cache-dir", path.join(f.root, "cache"), "--timeout-ms", "10000",
+];
+export async function compatProfile(f: Fixture) {
+  await writeFile(path.join(f.root, "profiles.yaml"), `profiles:\n  - id: compat-voice\n    accepted: true\n    renderer: voicelayer-qwen3\n    profile_version: synthetic-v1\n    render:\n      reference_clip: ${f.root}/reference.wav\n      reference_text: Profile text.\n      daemon_url: ${f.url}\n      auth_token_file: ${f.root}/auth\n      model: synthetic-model\n      comma_pause_seconds: 0.22\n      eq_highshelf_hz: 4000\n      eq_highshelf_gain_db: 0\n      atempo: 1\n      loudness_target_db: -20\n`);
+}
+export const defaultsText = "First clause, second clause. Last sentence.";
+export type DefaultsRender = { sentence_pause_seconds?: number; comma_pause_seconds?: number; atempo?: number };
+export const defaultsCases: { name: string; render: DefaultsRender; params: Record<string, number>; sentence: number; comma: number }[] = [
+  { name: "sentence-only", render: { sentence_pause_seconds: 0.41, atempo: 1 }, params: { atempo: 1, sentencePauseSeconds: 0.41 }, sentence: 0.41, comma: 0.22 },
+  { name: "comma-only", render: { comma_pause_seconds: 0.17, atempo: 1 }, params: { atempo: 1, commaPauseSeconds: 0.17 }, sentence: 0.55, comma: 0.17 },
+  { name: "no-tempo", render: { sentence_pause_seconds: 0.41, comma_pause_seconds: 0.17 }, params: { sentencePauseSeconds: 0.41, commaPauseSeconds: 0.17 }, sentence: 0.41, comma: 0.17 },
+];
+/** Writes the `compat-defaults` profile: the synthetic voice plus the given render fields. */
+export async function defaultsProfile(f: Fixture, extra: DefaultsRender) {
+  const render = {
+    reference_clip: path.join(f.root, "reference.wav"), reference_text: "Synthetic reference.",
+    daemon_url: f.url, auth_token_file: path.join(f.root, "auth"), model: "synthetic-model", ...extra,
+  };
+  await writeFile(path.join(f.root, "profiles.yaml"), `profiles:\n  - id: compat-defaults\n    accepted: true\n    renderer: voicelayer-qwen3\n    profile_version: synthetic-v1\n    render:\n${Object.entries(render).map(([key, value]) => `      ${key}: ${value}\n`).join("")}`);
+}
+
+/**
+ * Reads a WAV file's own chunks (no ffmpeg, no PATH wrapper): its PCM format, its
+ * sample count per channel and its RMS level in dBFS rounded to 0.1 dB.
+ */
+export async function measureWav(file: string) {
+  const bytes = await readFile(file);
+  if (bytes.toString("ascii", 0, 4) !== "RIFF" || bytes.toString("ascii", 8, 12) !== "WAVE") throw new Error(`${file} is not a RIFF/WAVE file`);
+  let format: { audioFormat: number; channels: number; sampleRate: number; bitsPerSample: number } | undefined;
+  let data: Buffer | undefined;
+  for (let at = 12; at + 8 <= bytes.length;) {
+    const id = bytes.toString("ascii", at, at + 4), size = bytes.readUInt32LE(at + 4), body = bytes.subarray(at + 8, at + 8 + size);
+    if (id === "fmt ") format = { audioFormat: body.readUInt16LE(0), channels: body.readUInt16LE(2), sampleRate: body.readUInt32LE(4), bitsPerSample: body.readUInt16LE(14) };
+    if (id === "data") data = body;
+    at += 8 + size + (size % 2);
+  }
+  if (!format || !data) throw new Error(`${file} has no fmt or data chunk`);
+  if (format.audioFormat !== 1 || format.bitsPerSample !== 16) throw new Error(`${file} is not 16-bit PCM: ${JSON.stringify(format)}`);
+  const values = data.length / 2;
+  let sum = 0;
+  for (let i = 0; i < values; i++) sum += (data.readInt16LE(i * 2) / 32768) ** 2;
+  const rmsDb = values === 0 || sum === 0 ? null : Math.round(10 * Math.log10(sum / values) * 10) / 10;
+  return { format, samples: values / format.channels, rmsDb };
+}

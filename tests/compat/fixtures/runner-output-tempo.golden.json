@@ -1,0 +1,37 @@
+{
+  "runs": [
+    {
+      "run": "tempo-only single piece",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 3900,
+      "rmsDb": -21.3
+    },
+    {
+      "run": "tempo-only several sentences",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 3900,
+      "rmsDb": -21.3
+    },
+    {
+      "run": "breathing with tempo",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 25620,
+      "rmsDb": -24.7
+    }
+  ]
+}

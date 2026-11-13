@@ -5,16 +5,8 @@ import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import { LOCAL_TTS_RENDER_VERSION } from "../../src/pipelines/local-tts/take-cache.js";
 import corpus from "./fixtures/corpus.json";
-import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, type Mode } from "./harness.js";
+import { fixture, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, type Mode, runnerArgs as argsFor, compatProfile as profile } from "./harness.js";
 const exists = (file: string) => access(file).then(() => true, () => false);
-const argsFor = (f: Awaited<ReturnType<typeof fixture>>, text: string, reference = path.join(f.root, "reference.wav")) => [
-  "--text", text, "--output", path.join(f.root, "out.wav"), "--reference", reference,
-  "--reference-text", "Synthetic reference.", "--daemon-url", `${f.url}///`, "--auth-token-file", path.join(f.root, "auth"),
-  "--cache-dir", path.join(f.root, "cache"), "--timeout-ms", "10000",
-];
-async function profile(f: Awaited<ReturnType<typeof fixture>>) {
-  await writeFile(path.join(f.root, "profiles.yaml"), `profiles:\n  - id: compat-voice\n    accepted: true\n    renderer: voicelayer-qwen3\n    profile_version: synthetic-v1\n    render:\n      reference_clip: ${f.root}/reference.wav\n      reference_text: Profile text.\n      daemon_url: ${f.url}\n      auth_token_file: ${f.root}/auth\n      model: synthetic-model\n      comma_pause_seconds: 0.22\n      eq_highshelf_hz: 4000\n      eq_highshelf_gain_db: 0\n      atempo: 1\n      loudness_target_db: -20\n`);
-}
 test("runner executable goldens: direct reference, named profile, cache, real tool argv", async () => {
   const f = await fixture();
   try {

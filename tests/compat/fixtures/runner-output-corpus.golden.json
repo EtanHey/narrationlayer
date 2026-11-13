@@ -1,0 +1,114 @@
+{
+  "runs": [
+    {
+      "run": "corpus[0] direct",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 4800,
+      "rmsDb": -21.3
+    },
+    {
+      "run": "corpus[0] profile",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 14880,
+      "rmsDb": -19.6
+    },
+    {
+      "run": "corpus[1] direct",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 4800,
+      "rmsDb": -21.3
+    },
+    {
+      "run": "corpus[1] profile",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 76800,
+      "rmsDb": -19.6
+    },
+    {
+      "run": "corpus[2] direct",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 4800,
+      "rmsDb": -21.3
+    },
+    {
+      "run": "corpus[2] profile",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 35040,
+      "rmsDb": -19.6
+    },
+    {
+      "run": "corpus[3] direct",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 4800,
+      "rmsDb": -21.3
+    },
+    {
+      "run": "corpus[3] profile",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 81120,
+      "rmsDb": -19.6
+    },
+    {
+      "run": "corpus[4] direct",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 4800,
+      "rmsDb": -21.3
+    },
+    {
+      "run": "corpus[4] profile",
+      "format": {
+        "audioFormat": 1,
+        "channels": 1,
+        "sampleRate": 24000,
+        "bitsPerSample": 16
+      },
+      "samples": 4800,
+      "rmsDb": -19.7
+    }
+  ]
+}
