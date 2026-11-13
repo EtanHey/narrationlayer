@@ -120,19 +120,27 @@ test("pinned as is: an end before its start is kept, not dropped or swapped", ()
   ]);
 });
 
-test("the list comes from word_timings, else words, else word_boundaries; a non-array yields nothing", () => {
-  const w = (word: string) => [{ word, start: 0, end: 1 }];
-  const pick = (payload: { word_timings?: unknown; words?: unknown; word_boundaries?: unknown }) =>
-    normalizeReturnedTimings({ word_timings: payload.word_timings, words: payload.words, word_boundaries: payload.word_boundaries }).map(
-      (timing) => timing.word,
-    );
-  expect(pick({ word_timings: w("wt"), words: w("w"), word_boundaries: w("wb") })).toEqual(["wt"]);
-  expect(pick({ word_timings: null, words: w("w"), word_boundaries: w("wb") })).toEqual(["w"]);
-  expect(pick({ word_boundaries: w("wb") })).toEqual(["wb"]);
+// Each source carries different numbers, so a test that saw only the words would not pass.
+const sourceWordTimings = [{ word: "wt", start: 0.1, end: 0.2 }];
+const sourceWords = [{ word: "w", start_seconds: 1.3, end_seconds: 1.45 }];
+const sourceWordBoundaries = [{ word: "wb", offset_ms: 2500, duration_ms: 125 }];
+const pick = (payload: { word_timings?: unknown; words?: unknown; word_boundaries?: unknown }) =>
+  normalizeReturnedTimings({ word_timings: payload.word_timings, words: payload.words, word_boundaries: payload.word_boundaries });
+
+test("the list comes from word_timings, else words, else word_boundaries; an empty list yields nothing", () => {
+  expect(pick({ word_timings: sourceWordTimings, words: sourceWords, word_boundaries: sourceWordBoundaries })).toEqual([
+    { index: 0, word: "wt", start: 0.1, end: 0.2 },
+  ]);
+  expect(pick({ word_timings: null, words: sourceWords, word_boundaries: sourceWordBoundaries })).toEqual([
+    { index: 0, word: "w", start: 1.3, end: 1.45 },
+  ]);
+  expect(pick({ word_boundaries: sourceWordBoundaries })).toEqual([{ index: 0, word: "wb", start: 2.5, end: 2.625 }]);
   // An empty word_timings array does not fall through to words.
-  expect(pick({ word_timings: [], words: w("w") })).toEqual([]);
-  // pinned as is: a present but non-array word_timings does not fall through either.
-  expect(pick({ word_timings: { word: "x" }, words: w("w") })).toEqual([]);
+  expect(pick({ word_timings: [], words: sourceWords })).toEqual([]);
+});
+
+test("pinned as is: a present but non-array word_timings yields nothing and does not fall through to words", () => {
+  expect(pick({ word_timings: { word: "x", start: 0, end: 1 }, words: sourceWords })).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------------------------
