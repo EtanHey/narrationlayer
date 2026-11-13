@@ -141,7 +141,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S0b",
-    "active": false
+    "active": true
   },
   {
     "id": "CONF-04",
@@ -150,7 +150,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S0b",
-    "active": false
+    "active": true
   },
   {
     "id": "CTRL-01",

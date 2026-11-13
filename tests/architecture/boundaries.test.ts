@@ -128,6 +128,6 @@ test("the baseline is sorted, unique and owned by a slice or a named exemption",
 });
 
 test("entry files keep their import.meta.main block and import.meta.dir profile root", () => {
-  expect(Object.entries(ledger.files).filter(([, e]) => e.entry).map(([f]) => f).sort()).toEqual(["bin/local-tts-runner.ts", "bin/narration-gate.ts", "src/cli.ts", "src/mcp-server.ts"]);
+  expect(Object.entries(ledger.files).filter(([, e]) => e.entry).map(([f]) => f).sort()).toEqual(["bin/local-tts-runner.ts", "bin/narration-gate.ts", "src/cli.ts", "src/engine/conformance/entry.ts", "src/mcp-server.ts"]);
   expect(entryProblems(ledger)).toEqual([]);
 });
