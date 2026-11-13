@@ -10,11 +10,26 @@ Bun, ffmpeg and ffprobe must be on PATH; missing dependencies fail explicitly.
   written once with
   `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat/runner-defaults.test.ts tests/compat/job-defaults.test.ts`
   (intentionally exits 1 after writing; re-run without the variable to verify;
-  forbidden when CI is set). Do not regenerate a frozen file, with one exception:
-  a render-version raise regenerates every runner golden that records a cache key
-  or key preimage (`tests/compat/take-cache-version.test.ts` lists them and prints
-  the command), and each regenerated file may differ from the one before only in
-  key material (the version in each key preimage and the cache keys).
+  forbidden when CI is set). A frozen file is regenerated only when the code
+  behind it changed on purpose, in this sequence:
+  1. change the code;
+  2. regenerate all the goldens the harness writes, with
+     `UPDATE_COMPAT_GOLDENS=1 bun test tests/compat` (it exits 1 after writing),
+     then run `bun test tests/compat` without the variable; that rewrites twelve of
+     the thirteen files, the keyed runner goldens included, and only those the
+     change touches differ. `plan-pieces.golden.json` has no writer: if the change
+     moves its rows, its test fails and the rows are edited by hand. That complete
+     behaviour diff, with the reason, goes in the PR: it is the review item;
+  3. run `bun test`: `tests/compat/take-cache-version.test.ts` then asks for a
+     render-version raise or an attested re-record (if it asks for neither but the
+     runner's cutting, pauses or ffmpeg chain changed audibly, raise anyway: the
+     test sees only what the goldens record);
+  4. a raise regenerates every runner golden that records a cache key or key
+     preimage again (the test lists them and prints the command), and that second
+     diff is key material only (the version in each key preimage and the cache keys).
+  Forbidden: a regeneration with no behaviour change behind it, one that hides a
+  diff (refreshing only to turn a failing test green), and a key-material
+  regeneration whose diff goes beyond key material.
 - Prove sensitivity: `bun tests/compat/mutations.ts`. This sequential command
   temporarily mutates production files, restores them in `finally`, and checks
   FAIL then PASS for each mutation. Do not run other tests concurrently with it.

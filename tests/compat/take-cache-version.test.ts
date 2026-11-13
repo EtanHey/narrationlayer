@@ -150,8 +150,9 @@ const raiseSteps = (version: number) => [
   `     Regenerate them with`,
   `       UPDATE_COMPAT_GOLDENS=1 bun test ${[...new Set(KEYED_RUNNER_GOLDENS.map(g => g.writtenBy))].join(" ")}`,
   `     (it exits 1 after writing), then run the same command again without the variable.`,
-  `     This is the one sanctioned regeneration of these frozen goldens: each regenerated file may differ from the one before it`,
-  `     only in key material (the renderVersion in each keyPreimage and each receipt cacheKey). Any other diff, in these files or`,
+  `     This is the raise's own regeneration; it comes after the behaviour regeneration in tests/compat/README.md, so each`,
+  `     regenerated file may differ from the one before it only in key material (the renderVersion in each keyPreimage and each`,
+  `     receipt cacheKey). Any other diff, in these files or`,
   `     in any other golden the command rewrites, is a review stop.`,
   `  3. ${TABLE}: append this row, with the reason filled in:`,
   JSON.stringify({
@@ -246,13 +247,19 @@ test("render version: the runner's audible behaviour matches the row recorded fo
     "with these:",
     ...entries(added, now).map(line => line.replace(/^ {2}/, "  + add ")),
     "If the cutting, the pauses or the ffmpeg chain changed in the same edit, the cases whose key did not change (and the",
-    "breathing rows) ask for the raise instead. The test matches cases by kind and count only, not by descent: a removed case",
+    "breathing rows) ask for the raise only if they exercise that change. None did, or this message would not show, so if",
+    "that change is audible, raise the version anyway. The test matches cases by kind and count only, not by descent: a removed case",
     "plus an unrelated new one looks the same, so a reviewer must look at what was removed.",
   ]);
   if (added.length) throw failure([
-    `${added.length} golden case(s) are not recorded for render version ${row.version}. A new case is not a change: add these`,
-    `entries to the "cases" of the version ${row.version} row in ${TABLE} (no version raise needed):`,
+    `${added.length} golden case(s) are not recorded for render version ${row.version}. A new case alone needs no raise: add these`,
+    `entries to the "cases" of the version ${row.version} row in ${TABLE}:`,
     ...entries(added, now),
+    "",
+    "But if you added it to show a change you made to the runner's cutting, pauses or ffmpeg chain, that change is audible",
+    "for texts already cached: raise the version, even though no recorded case moved. This test sees only what the recorded",
+    "cases exercise. Instead of the entries above:",
+    raiseSteps(row.version + 1),
   ]);
 });
 
