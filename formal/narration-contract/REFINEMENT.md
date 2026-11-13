@@ -95,8 +95,11 @@ The model starts at an accepted request. The three input additions are `admit`,
 `refuse`, and backend `failure` carrying an error. `admit` either requests planning
 without changing state, replays the stored original accepted without allocating a
 sequence, or emits one conflict error. `refuse` emits one admission error. Neither
-changes sessions or the serialisable idempotency index. Only a successful `accept`
-records the key, session and original accepted receipt; duplicate keys do nothing.
+changes sessions or the serialisable idempotency index. Only a successful new `accept`
+records the key, session and original accepted receipt. A duplicate `accept`
+rechecks admission: identical requests replay; differing requests conflict, even
+if the caller already minted a different session ID. No second session or backend
+start is created. The caller passes parsed requests for canonical comparison.
 The index survives JSON round trips and has no eviction in this slice.
 
 A live backend failure emits its synthesis error before the existing outcome;
@@ -108,5 +111,21 @@ still emit nothing. These additions cannot reopen an I01 terminal, accept foreig
 I02 feedback, unfreeze I03 delivery, or bypass I04 coverage: admission inputs never
 touch those fields, and failure retains their existing guards. The exhaustive
 code check also parses every fresh and replayed event using the wire parser.
+The refusal input carries only code, message and optional request_id. The reducer
+copies §2.5's six admission/negotiation phase/retry pairs; planner failures use
+INVALID_REQUEST/admit. Unknown runtime codes get internal INVALID_REFUSAL, with
+no sequence/event. Both refusal and synthesis errors copy only named fields:
+extra caller type/details/session/command fields never become wire diagnostics.
+Refused keys are not recorded; plan is not replayed; a new owner epoch starts a
+new index. Same request_id under different keys remains allowed pending the
+contract decision. Later eviction must remove a session and its index together.
+
+The exhaustive checker retains every depth, letter and safety assertion, adds a
+duplicate-accept letter, verifies original accepted replay/conflict/error ordering,
+parses each distinct serialized event once, and caches JSON fingerprints of
+immutable traversal objects (WeakMap). These caches only avoid repeating parsing
+or serialization; each transition still executes the actual reducer and every
+applicable assertion. The timeout remains 20 seconds.
+
 This extends code coupling, not the formal model or engine acceptance. Retry,
 per-session last seq, speed, pause and index eviction remain outside S2c.

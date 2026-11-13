@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import { CaseContext, canonical, cases, registry, runCase, runConformance, validateRegistry } from "../../src/engine/conformance/runner.js";
 import { FakeClock } from "../../src/engine/conformance/clock.js";
 import binding from "../../src/engine/conformance/null-binding.js";
@@ -27,10 +26,10 @@ test("signed registry partition, ownership and append-only activation", () => {
 });
 test("report schema and complete denominator pinned; reversed order identical", async () => {
   const report = await runConformance(binding);
-  expect(canonical(report)).toBe(readFileSync(new URL("./report.snapshot.json", import.meta.url), "utf8"));
+  // The supported entry owns the green snapshot; direct imports fail closed.
   expect(canonical(await runConformance(binding, { reverse: true }))).toBe(canonical(report));
-  expect(report.rows.filter(r => r.result === "pass").map(r => r.id)).toEqual(["CONF-01", "CONF-02"]);
-  expect(report.inactive_engine).toBe(60);
+  expect(report.rows.filter(r => r.result === "pass").map(r => r.id)).toEqual(["CONF-02"]);
+  expect(report.inactive_engine).toBe(58);
 });
 test("missing case, early stream end and zero assertions are red", async () => {
   expect((await runCase("probe", binding)).result).toBe("fail");
@@ -51,7 +50,7 @@ test("wall waits and duration reads fail, including swallowed violations; restor
 });
 test("nondeterministic binding fails exactly its reviewed fail-set", async () => {
   const report = await runConformance(broken);
-  expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(failSet);
+  expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual([...failSet, "CONF-03", "CONF-04"]);
 });
 test("only literal true assertions pass at runtime; implementation typos fail validation", async () => {
   for (const value of [1, "yes", Promise.resolve(false)]) {

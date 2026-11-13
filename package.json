@@ -52,7 +52,7 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "answers": "node ./packages/dashboard-publish/answers-export.mjs",
-    "conformance": "bun run ./src/engine/conformance/cli.ts"
+    "conformance": "bun run ./src/engine/conformance/entry.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.3.3",
