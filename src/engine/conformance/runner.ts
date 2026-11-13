@@ -3,7 +3,7 @@ import registryData from "./registry.json";
 import activeIds from "./active.json";
 import type { Binding, Connection, Json } from "./binding.js";
 import { FakeClock } from "./clock.js";
-import { withoutWallTime, trapState } from "./wall-guard.js";
+import { withoutWallTime, trapState, trapsPresent } from "./wall-guard.js";
 export type Row = { id: string; contract_case: string; contract_line: number; side: string; stage: string; owner_slice: string | null; active: boolean };
 export const registry: readonly Row[] = registryData;
 export const slices = ["S0a", "S0b", "S1", "S2", "S3a", "S3b", "S4", "S5", "S6", "S6h", "S5h", "S4h", "S7", "S7h", "S8", "S9", "S10a", "S10b"];
@@ -61,8 +61,8 @@ async function probe(binding: Binding) {
 }
 export const cases: Record<string, Case> = {
   "CONF-01": async c => { c.assert(await probe(c.binding) === await probe(c.binding)); },
-  "CONF-03": async c => { c.assert(trapState.installed && !trapState.failures.length && !trapState.violations.some(v => v.kind === "network")); },
-  "CONF-04": async c => { c.assert(trapState.installed && !trapState.failures.length && !trapState.violations.some(v => v.kind === "spawn")); },
+  "CONF-03": async c => { c.assert(trapsPresent() && !trapState.failures.length); },
+  "CONF-04": async c => { c.assert(trapsPresent() && !trapState.failures.length); },
   "CONF-02": async c => {
     await probe(c.binding);
     let fired = false;
@@ -83,9 +83,16 @@ export async function runConformance(binding: Binding, options: { reverse?: bool
   // Reconcile process-wide violations after every active case, independent of case order.
   for (const result of results) {
     const kind = result.id === "CONF-02" ? "clock" : result.id === "CONF-03" ? "network" : result.id === "CONF-04" ? "spawn" : null;
-    if (result.result !== "inactive" && kind && (trapState.violations.some(v => v.kind === kind) || (kind !== "clock" && (!trapState.installed || trapState.failures.length)))) {
+    const missingTraps = !trapsPresent();
+    const failures = trapState.failures.slice().sort();
+    const apis = [...new Set(trapState.violations.filter(v => v.kind === kind).map(v => v.api))].sort();
+    const needsTraps = kind !== "clock" && (missingTraps || failures.length);
+    if (result.result !== "inactive" && kind && (apis.length || needsTraps)) {
       result.result = "fail";
-      Object.assign(result, { diagnostic: !trapState.installed ? "traps absent: use the packaged entry" : trapState.failures.length ? `trap installation incomplete: ${trapState.failures.slice().sort().join(", ")}` : `forbidden APIs: ${[...new Set(trapState.violations.filter(v => v.kind === kind).map(v => v.api))].sort().join(", ")}` });
+      let diagnostic = `forbidden APIs: ${apis.join(", ")}`;
+      if (missingTraps) diagnostic = "traps absent: use the packaged entry";
+      else if (failures.length) diagnostic = `trap installation incomplete: ${failures.join(", ")}`;
+      Object.assign(result, { diagnostic });
     }
     // Only the parent entry can establish the two-process property.
     if (result.id === "CONF-01") {

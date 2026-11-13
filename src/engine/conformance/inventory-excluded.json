@@ -1,0 +1,10 @@
+{
+  "bun": {
+    "WebView": "Native GUI bridge can open windows, browser processes and network connections."
+  },
+  "modules": {
+    "bun:ffi": "Native FFI can call arbitrary OS functions, including sockets, processes and wall clocks.",
+    "bun:wrap": "Internal native wrapper bridge can expose native functions and real OS effects.",
+    "module": "Native addon loading through the module loader can execute arbitrary native OS effects."
+  }
+}

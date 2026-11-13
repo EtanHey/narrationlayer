@@ -1,4 +1,4 @@
-export const trapState: { installed: boolean; failures: string[]; violations: { kind: "clock" | "network" | "spawn" | "exit"; api: string }[] } = { installed: false, failures: [], violations: [] };
+export const trapState: { installed: boolean; fetchTrap?: typeof fetch; failures: string[]; violations: { kind: "clock" | "network" | "spawn" | "exit"; api: string }[] } = { installed: false, failures: [], violations: [] };
 // Case-local guard only; S0b owns the complete process preload and real-I/O traps.
 export async function withoutWallTime<T>(run: () => Promise<T>, recordViolation: (violated: boolean) => void = () => {}): Promise<T> {
   if (trapState.installed) {
@@ -22,3 +22,5 @@ export async function withoutWallTime<T>(run: () => Promise<T>, recordViolation:
     targets.forEach(([target, key], i) => { const original = originals[i]; if (original) Object.defineProperty(target, key, original); else Reflect.deleteProperty(target, key); });
   }
 }
+
+export const trapsPresent = () => trapState.installed && trapState.fetchTrap === globalThis.fetch;

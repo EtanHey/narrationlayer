@@ -2,6 +2,9 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { runConformance } from "../../src/engine/conformance/runner.js";
+import { trapState } from "../../src/engine/conformance/wall-guard.js";
+import networkFailSet from "./network-binding.fail-set.json";
+import spawnFailSet from "./spawn-binding.fail-set.json";
 import binding from "../../src/engine/conformance/null-binding.js";
 const root = resolve(import.meta.dir, "../..");
 const entry = resolve(root, "src/engine/conformance/entry.ts");
@@ -12,7 +15,7 @@ async function run(source?: string, env = process.env, cwd = root, extra: string
   const dir = mkdtempSync(resolve(scratch, "fixture-"));
   const path = resolve(dir, "binding.ts");
   if (source) writeFileSync(path, source);
-  const proc = Bun.spawn([runtime, entry, "--binding", source ? path : "src/engine/conformance/null-binding.ts", ...extra], { cwd, env, stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn([runtime, entry, "--binding", source ? path : resolve(root, "src/engine/conformance/null-binding.ts"), ...extra], { cwd, env, stdout: "pipe", stderr: "pipe" });
   try { const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]); return { stdout, stderr, code, report: stdout ? JSON.parse(stdout) : null }; }
   finally { rmSync(dir, { recursive: true }); }
 }
@@ -56,7 +59,7 @@ test("within-process nondeterminism is never promoted by equal child reports", a
   expect(result.code).toBe(1); expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01").result).toBe("fail");
 });
 test("network and spawn have committed fail-sets, even when caught", async () => {
-  for (const [api, expected] of [["fetch", ["CONF-01", "CONF-03"]], ["Bun.spawn", ["CONF-01", "CONF-04"]]] as const) {
+  for (const [api, expected] of [["fetch", networkFailSet], ["Bun.spawn", spawnFailSet]] as const) {
     const result = await run(fixture(`const saved=${api}`));
     expect(result.report.rows.filter((r: { result: string }) => r.result === "fail").map((r: { id: string }) => r.id)).toEqual(expected);
   }
@@ -77,4 +80,9 @@ test("entry import has no effects", async () => {
 test("explicit fixture dates remain usable without a clock violation", async () => {
   const result = await run(fixture("const saved=()=>new Intl.DateTimeFormat('en-US',{timeZone:'UTC'}).format(new Date(0))"));
   expect(result.code).toBe(0);
+});
+test("the mutable flag alone cannot spoof a preload in direct callers", async () => {
+  trapState.installed = true;
+  try { const report = await runConformance(binding); expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["CONF-01", "CONF-03", "CONF-04"]); }
+  finally { trapState.installed = false; }
 });

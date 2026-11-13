@@ -1,67 +1,77 @@
 # Conformance gate
 
-The supported command is `bun run conformance --binding <module path>`.
-Paths are resolved relative to the package root, independent of cwd. `--exit`
-also requires every engine stage-A case to be active. `--reverse` changes case
-execution order. Do not invoke the internal child mode as a gate.
+Run `bun run conformance --binding <module path>`. The parent resolves the
+binding against the caller's working directory and passes an absolute path to
+its children. No path enters the report. `--exit` also requires every engine
+stage-A case active. `--reverse` changes execution order, not report order.
 
-The guarded `entry.ts` does nothing when imported. Its parent process alone
-uses real spawn and a 30-second watchdog: it never imports the binding. It runs
-two disposable children, one in registry order and one reversed. Each child
-loads `preload.ts` before the entry, runner or binding. The parent compares the
-canonical reports, including observation digests, and promotes CONF-01 only
-when both children finished cleanly, the reports match, and the local probe
-was deterministic. Direct `runConformance` calls leave CONF-01 red until this
-comparison; without preload CONF-03/04 also fail with `traps absent`.
+`entry.ts` does nothing at import. Its parent alone performs real I/O: spawning
+two children, opening one owned loopback proxy listener, and enforcing each
+child's 30-second whole-run watchdog. The binding never loads in the parent.
+Each child loads `preload.ts` first and runs the cases in normal/reversed order.
+Child reports travel over dedicated fd 3, separate from binding logs. The parent
+forwards stdout/stderr logs to stderr and prints only the final canonical report.
+Children publish synchronously to that pipe at exit, after detached rejections.
+Code 3 means a completed child report, not a verdict; a child never exits 0.
+The parent alone establishes CONF-01 from two parseable, equal reports and two
+clean child codes. An ordinary red case does not itself fail CONF-01. Exit-kind
+violations, a late unhandled rejection and a dead child have named diagnostics.
+Direct runConformance calls leave CONF-01 red; no preload also fails CONF-03/04.
 
-The preload records API names, never arguments, for forbidden calls. Caught
-exceptions remain violations. Traps persist until process termination; exit is
-never restored. The child's exit handler forces failure for recorded violations
-or failed cases, and the parent computes its own exit status from both children
-and the final report. Timers and workers cannot schedule detached work. An
-unhandled rejection also forces a nonzero child status. The watchdog kills a
-hung child; a missing/invalid report makes the parent fail without a green report.
+`inventory-trapped.json`, `inventory-safe.json` and `inventory-excluded.json`
+classify every own key of Bun and every builtinModules entry. Every running
+key must occur in exactly one table. Unknown keys, duplicate classifications
+and missing rows fail closed, naming the capability. Safe rows give a reason
+why they cannot reach network/process/clock; excluded rows name their real effects. Both Bun 1.3.11 and 1.4.4 are tested;
+a row for an absent capability does not create it. Trap installation errors
+fail CONF-03/04 with API names. Presence checks require the immutable installed
+marker and the actual global fetch trap, not a mutable boolean alone.
 
-Trapped APIs (each has a captured-at-import fixture in `traps.test.ts`):
+Traps cover writable Bun network clients and aliases (S3, SQL, Redis, UDP),
+fetch/WebSocket, all callable exports of network builtins (including ws,
+undici, _http_client, http2, dns and dns/promises), process spawning/execve,
+workers, timers, sleep, Date, Intl formatting without an explicit date,
+process clocks, os.uptime, performance/prototype now/timeOrigin/mark/measure/
+eventLoopUtilization, AbortSignal.timeout, Temporal.Now where present,
+randomUUIDv7, and vm run/compile/Script constructors. ws's callable CJS default
+is guarded at its superclass construction, before native transport initialization
+on both Bun versions. Every listed review escape is exercised through the entry.
 
-- Spawn: Bun.spawn, spawnSync, $, Worker, every function export of
-  node:child_process and node:worker_threads (including constructors).
-- Network: fetch, WebSocket, Bun.connect/listen/serve, every function export of
-  node:net/tls/http/https/dgram, and existing HTTP(S) globalAgent
-  createConnection/addRequest. Builtins load before patching; ESM named exports
-  are synchronized before any binding loads.
-- Clocks: setTimeout/Interval/Immediate; Bun.sleep/sleepSync/nanoseconds;
-  node:timers and node:timers/promises scheduling functions and scheduler
-  wait/yield; Atomics.wait/waitAsync; Date() and new Date() without arguments;
-  Date.now; performance.now/timeOrigin; process.hrtime/bigint/uptime;
-  Intl.DateTimeFormat.format/formatToParts without an explicit date.
-- Termination: process.exit. Trap installation failures are retained by name
-  and fail CONF-03/04 closed; they cannot produce a passing gate.
+Bun.fetch is not trappable in process; it is caught by the parent's proxy
+listener. Both cases and import-time uses inherit HTTP_PROXY, HTTPS_PROXY and
+ALL_PROXY (upper/lowercase), with NO_PROXY/no_proxy empty. A connection makes
+CONF-03 fail with "connection reached the parent's proxy listener". The parent
+never forwards traffic. Bun.dns is also a read-only container, but its writable
+lookup/resolve methods are trapped in place: standalone DNS does not use an
+HTTP proxy. Node DNS is trapped directly. http2 is covered, not out of scope.
+Traps persist until exit, including process.exit/reallyExit; caught calls still
+record violations. The parent computes its own final exit code from its report.
 
-This is a conformance harness for cooperative adapters, not an OS sandbox.
-Filesystem I/O, native addons/FFI, alternate networking modules such as http2,
-DNS resolvers, and deliberate runtime tampering are outside its trap inventory.
-Do not run private inputs: fixtures are synthetic and public. Explicit dates
-remain available; fake clock scheduling is the only supported timing source.
+This suite targets cooperative adapters, not an OS sandbox. The complete
+EXCLUDED table (real effects; do not invoke these in a binding) is:
 
-The report is canonical `nl.conformance/1` JSON with sorted keys and case IDs,
-one final newline, no wall time or absolute paths, and the complete registry
-denominator. Each active row records result, assertion count, metadata and a
-trace_digest: HMAC-SHA256 of its canonical outcome, ordered synthetic trace and
-wall-violation count. The fixed public fixture key is the UTF-8 string
-`nl.conformance/1 public synthetic fixture key`. It provides cross-process and
-cross-repository comparability; it is not a per-install privacy key. Production
-diagnostics must use the host's private per-install key (§2.6).
+- Bun.WebView: native GUI can open windows, browser processes and network connections.
+- bun:ffi: native functions can open sockets, start processes and read clocks.
+- bun:wrap: internal native wrappers can expose native functions and real OS effects.
+- module: native addon loading can execute arbitrary native OS effects.
 
-Registry source is contract draft 0.2, SHA-256
+Filesystem access and deliberate runtime tampering remain outside containment.
+No excluded capability is invoked by the tests. Fixtures are synthetic/public;
+do not supply private inputs. No speaker, microphone or real backend runs.
+Fake clock scheduling is supported; explicit fixture dates remain available.
+
+The canonical nl.conformance/1 JSON has sorted keys/ids, one final newline and
+the complete registry denominator. Active rows carry a trace_digest: HMAC-SHA256
+of the canonical outcome, ordered synthetic event trace and wall-violation count.
+The fixed public UTF-8 fixture key is `nl.conformance/1 public synthetic fixture key`.
+It enables cross-process/repository comparison, not protection against guessing.
+Production diagnostics use the host's private per-install key (§2.6).
+
+Registry: contract draft 0.2 SHA-256
 `95dc426432d015c60c91c139583cd45ae2dc477eb9b8889ff1498c78720ef617`,
-PLAN-v4 and errata 0.3. Stage A: 62 engine, 40 host, 2 joint, 2 host-supplied;
-18 deferred stage-B rows. `active.json` is append-only. S0b activates CONF-03/04;
-S0a's CONF-01/02 remain active. Later engine and host cases stay inactive until
-implemented. `expectEvent` asserts a required stream element; bare iteration
-does not assert an expected end. S0a2 owns fake ports; the host-under-test port
-belongs to S6h, not the engine binding's send/events directions.
-
+PLAN-v4/errata 0.3. Stage A: 62 engine, 40 host, 2 joint, 2 host-supplied; 18
+stage-B rows. CONF-01/02/03/04 active; active.json stays append-only. expectEvent
+asserts a required element; bare iteration does not declare an expected end.
 
 Every case using ScriptedBackend, ScriptedSpawn or ScriptedPlayer must call
 each fake's `assertDrained()` at its end. `pending` counts unused steps (and

@@ -1,40 +1,111 @@
-// All imports and effects stay inside the guard: importing this file is harmless.
+// Importing the packaged command has no effects.
 if (import.meta.main) {
   const { resolve } = await import("node:path");
   const { pathToFileURL } = await import("node:url");
+  const { writeFileSync, closeSync } = await import("node:fs");
   const { canonical, runConformance, validateRegistry, registry } = await import("./runner.js");
-  const { trapState } = await import("./wall-guard.js");
-  const root = resolve(import.meta.dir, "../../..");
-  const args = process.argv.slice(2), index = args.indexOf("--binding"), modulePath = args[index + 1];
+  const { default: nullBinding } = await import("./null-binding.js");
+  const { trapState, trapsPresent } = await import("./wall-guard.js");
+  type Report = Awaited<ReturnType<typeof runConformance>>;
+  const CLEAN_CHILD = 3;
+  const args = process.argv.slice(2);
+  const index = args.indexOf("--binding"), modulePath = args[index + 1];
   const child = args.includes("--child"), reverse = args.includes("--reverse");
+  const root = resolve(import.meta.dir, "../../..");
+  const diagnostic = (report: Report, id: string, message: string) => {
+    const row = report.rows.find(r => r.id === id);
+    if (row) { row.result = "fail"; Object.assign(row, { diagnostic: message }); }
+  };
   try {
-    if (index < 0 || !modulePath || modulePath.startsWith("-") || args.filter(a => a === "--binding").length !== 1 || args.some((a, i) => i !== index + 1 && !["--binding", "--exit", "--reverse", "--child"].includes(a))) throw new Error("invalid arguments");
+    const known = ["--binding", "--exit", "--reverse", "--child"];
+    const badArgument = args.some((a, i) => i !== index + 1 && !known.includes(a));
+    const oneBinding = args.filter(a => a === "--binding").length === 1;
+    if (index < 0 || !modulePath || modulePath.startsWith("-") || !oneBinding || badArgument) throw new Error("invalid arguments");
     if (child && process.env.NL_CONFORMANCE_CHILD !== "1") throw new Error("internal mode");
     validateRegistry(registry);
     if (child) {
-      if (!trapState.installed) throw new Error("traps absent");
-      const { default: binding } = await import(pathToFileURL(resolve(root, modulePath)).href);
-      if (!binding || typeof binding.name !== "string" || typeof binding.create !== "function") throw new Error("invalid binding");
-      const report = await runConformance(binding, { reverse });
-      process.stdout.write(canonical(report));
-      process.on("exit", () => { if (trapState.violations.length || trapState.failures.length || report.rows.some(r => r.result === "fail" && r.id !== "CONF-01")) process.exitCode = 1; });
-      process.exitCode = report.rows.some(r => r.result === "fail" && r.id !== "CONF-01") || trapState.violations.length || trapState.failures.length ? 1 : 0;
+      let report: Report;
+      try {
+        if (!trapsPresent()) throw new Error("traps absent");
+        const { default: binding } = await import(pathToFileURL(modulePath).href);
+        if (!binding || typeof binding.name !== "string" || typeof binding.create !== "function") throw new Error("invalid binding");
+        report = await runConformance(binding, { reverse });
+      } catch {
+        report = await runConformance(nullBinding);
+        diagnostic(report, "CONF-01", "binding import or conformance invocation failed");
+        process.exitCode = 1;
+      }
+      // Publish at exit, after detached rejections have been delivered. Logs use
+      // stdout/stderr; only this dedicated pipe carries a report to the parent.
+      const invocationFailed = process.exitCode === 1 && !trapState.violations.length;
+      process.on("exit", () => {
+        const exits = trapState.violations.filter(v => v.kind === "exit");
+        if (exits.length) diagnostic(report, "CONF-01", `forbidden APIs: ${[...new Set(exits.map(v => v.api))].sort().join(", ")}`);
+        const fatal = exits.length || invocationFailed;
+        process.exitCode = fatal ? 1 : CLEAN_CHILD;
+        try { writeFileSync(3, canonical(report)); }
+        catch { process.stderr.write("conformance report pipe unavailable\n"); process.exitCode = 1; }
+      });
+      process.exitCode = CLEAN_CHILD;
     } else {
-      // Parent alone spawns; the binding never loads here. Both children start with traps.
-      const run = async (reversed: boolean) => {
-        const proc = Bun.spawn([process.execPath, "--preload", resolve(import.meta.dir, "preload.ts"), import.meta.path, "--child", "--binding", modulePath, ...(reversed ? ["--reverse"] : [])], { cwd: root, env: { ...process.env, NL_CONFORMANCE_CHILD: "1" }, stdout: "pipe", stderr: "pipe" });
-        const deadline = setTimeout(() => proc.kill(), 30000);
-        try { const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]); return { stdout, stderr, code }; }
-        finally { clearTimeout(deadline); }
-      };
-      const first = await run(reverse), second = await run(!reverse);
-      const report: Awaited<ReturnType<typeof runConformance>> = JSON.parse(first.stdout);
-      const row = report.rows.find(r => r.id === "CONF-01");
-      if (!row) throw new Error("missing CONF-01");
-      row.result = first.stdout === second.stdout && first.code === 0 && second.code === 0 && "diagnostic" in row && row.diagnostic === "two-process comparison required" ? "pass" : "fail";
-      Reflect.deleteProperty(row, "diagnostic");
-      process.stdout.write(canonical(report));
-      process.exitCode = first.code || second.code || report.rows.some(r => r.result === "fail") || (args.includes("--exit") && report.inactive_engine > 0) ? 1 : 0;
+      const absoluteBinding = resolve(process.cwd(), modulePath);
+      let connections = 0;
+      // Parent alone uses real I/O: two children, one loopback proxy listener.
+      const listener = Bun.listen({ hostname: "127.0.0.1", port: 0, socket: {
+        open(socket) { connections++; socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"); },
+        data() {}, error() {},
+      } });
+      try {
+        const proxy = `http://127.0.0.1:${listener.port}`;
+        const env = { ...process.env, NL_CONFORMANCE_CHILD: "1", NO_PROXY: "", no_proxy: "",
+          HTTP_PROXY: proxy, HTTPS_PROXY: proxy, ALL_PROXY: proxy,
+          http_proxy: proxy, https_proxy: proxy, all_proxy: proxy };
+        const run = async (reversed: boolean) => {
+          const command = [process.execPath, "--preload", resolve(import.meta.dir, "preload.ts"), import.meta.path,
+            "--child", "--binding", absoluteBinding, ...(reversed ? ["--reverse"] : [])];
+          const proc = Bun.spawn(command, { cwd: root, env, stdio: ["ignore", "pipe", "pipe", "pipe"] });
+          const deadline = setTimeout(() => proc.kill(), 30000);
+          const pipe = proc.stdio[3];
+          try {
+            if (!pipe) throw new Error("report pipe missing");
+            const readReport = typeof pipe === "number" ? Bun.file(pipe).text() : new Response(pipe).text();
+            const [bytes, stdout, stderr, code] = await Promise.all([
+              readReport, new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited,
+            ]);
+            process.stderr.write(stdout + stderr);
+            let report: Report | undefined;
+            try {
+              const parsed = JSON.parse(bytes);
+              if (parsed.schema === "nl.conformance/1" && Array.isArray(parsed.rows)) report = parsed;
+            } catch { /* Missing/invalid reports become a named failure below. */ }
+            return { bytes, report, code };
+          } finally { clearTimeout(deadline); if (typeof pipe === "number") closeSync(pipe); }
+        };
+        const first = await run(reverse), second = await run(!reverse);
+        const report = first.report ?? second.report ?? await runConformance(nullBinding);
+        if (!first.report && !second.report) {
+          report.binding = "unavailable";
+          for (const row of report.rows.filter(r => r.result !== "inactive")) {
+            row.assertions = 0;
+            diagnostic(report, row.id, "child report unavailable");
+          }
+        }
+        const parseable = Boolean(first.report && second.report);
+        const clean = first.code === CLEAN_CHILD && second.code === CLEAN_CHILD;
+        const equal = first.bytes === second.bytes;
+        const row = report.rows.find(r => r.id === "CONF-01");
+        if (!row) throw new Error("missing CONF-01");
+        row.result = parseable && clean && equal ? "pass" : "fail";
+        if (row.result === "pass") Reflect.deleteProperty(row, "diagnostic");
+        else if (!parseable) diagnostic(report, "CONF-01", `child report unavailable; child exited ${first.code}, ${second.code}`);
+        else if (!clean && !("diagnostic" in row && String(row.diagnostic).startsWith("forbidden APIs:"))) diagnostic(report, "CONF-01", `child did not complete cleanly; child exited ${first.code}, ${second.code}`);
+        else if (!equal) diagnostic(report, "CONF-01", "independent child reports differ");
+        if (connections) diagnostic(report, "CONF-03", "connection reached the parent's proxy listener");
+        process.stdout.write(canonical(report));
+        const failedCase = report.rows.some(r => r.result === "fail");
+        const incomplete = args.includes("--exit") && report.inactive_engine > 0;
+        process.exitCode = failedCase || incomplete ? 1 : 0;
+      } finally { listener.stop(true); }
     }
   } catch { process.stderr.write("conformance invocation failed\n"); process.exitCode = 1; }
 }
