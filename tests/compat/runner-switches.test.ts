@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { existsSync, readdirSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
@@ -68,6 +68,62 @@ test("a failed --refresh-cache keeps the old cache entry", async () => {
   } finally { await f.close(); }
 }, 30000);
 
+/** Makes the cache directory read-only for `run`, so the runner's store fails for real (EACCES), then restores it. */
+async function readOnlyCache<T>(f: Fixture, run: () => Promise<T>): Promise<T> {
+  const dir = path.join(f.root, "cache");
+  await mkdir(dir, { recursive: true });
+  await chmod(dir, 0o555);
+  try {
+    // The precondition, checked: a process that ignores permissions (root) would make these tests vacuous.
+    await expect(writeFile(path.join(dir, "probe"), "x")).rejects.toThrow();
+    return await run();
+  } finally { await chmod(dir, 0o755); }
+}
+
+test("a failed cache store on a plain MISS still succeeds, with the right output and its receipt", async () => {
+  const f = await fixture();
+  try {
+    const args = runnerArgs(f, "Hello there");
+    const key = directKey(f, "Hello there");
+    const missed = await readOnlyCache(f, () => runner(f, args));
+    expect(missed.code, missed.stderr).toBe(0);
+    expect(missed.stderr).toContain(`cache MISS (store failed key=${key})`);
+    expect(readdirSync(path.join(f.root, "cache"))).toEqual([]);
+    const output = await readFile(out(f));
+    expect(await receipt(f)).toEqual({ version: 1, cacheKey: key, cacheEnabled: true });
+    expect(await readFile(`${out(f)}.spoken.txt`, "utf8")).toBe(normalizeForSpeech("Hello there"));
+    // The right output: byte-identical to the same request whose store succeeds.
+    const stored = await runner(f, args);
+    expect(stored.stderr).toContain(`cache MISS->frozen key=${key}`);
+    expect((await readFile(out(f))).equals(output)).toBe(true);
+  } finally { await f.close(); }
+}, 30000);
+
+// PINNED, NOT APPROVED: a refresh whose store fails exits non-zero but has already written the new
+// output and its spoken-text file, and writes no receipt beside them (the receipt comes after the store).
+test("a failed cache store under --refresh-cache fails readably, keeps the old entry, and leaves output + spoken text with no receipt", async () => {
+  const f = await fixture();
+  try {
+    const args = runnerArgs(f, "Hello there");
+    const key = directKey(f, "Hello there");
+    const cached = path.join(f.root, "cache", `${key}.wav`);
+    expect((await runner(f, args)).code).toBe(0);
+    const first = await readFile(cached);
+    await rm(`${out(f)}.cache.json`);
+    await rm(`${out(f)}.spoken.txt`);
+    f.setAudio(quieter(f.wav));
+    const failed = await readOnlyCache(f, () => runner(f, [...args, "--refresh-cache"]));
+    expect(failed.code).toBe(1);
+    expect(failed.stderr).toContain(`--refresh-cache could not store the new take for key=${key}:`);
+    expect((await readFile(cached)).equals(first)).toBe(true);
+    expect(readdirSync(path.join(f.root, "cache"))).toEqual([path.basename(cached)]);
+    // What the failed run leaves behind today:
+    expect((await readFile(out(f))).equals(first)).toBe(false);
+    expect(await readFile(`${out(f)}.spoken.txt`, "utf8")).toBe(normalizeForSpeech("Hello there"));
+    expect(existsSync(`${out(f)}.cache.json`)).toBe(false);
+  } finally { await f.close(); }
+}, 30000);
+
 test("--refresh-cache with --no-cache is refused before any request", async () => {
   const f = await fixture();
   try {
@@ -118,6 +174,10 @@ test("--keep-pieces writes each joined piece; pieces and pauses add up; the outp
     expect(texts.length).toBeGreaterThan(1);
     const json = await checkPieces(dir, out(f), texts);
     expect(json.pieces.slice(0, -1).every(p => p.pauseAfterSamples > 0)).toBe(true);
+    // The pause is the profile's: comma after "First clause", sentence after "second clause.", none at the end.
+    expect(texts).toEqual(["First clause", "second clause.", "Last sentence."]);
+    expect(json.pieces.map(p => p.pauseAfterSeconds)).toEqual([0.17, 0.41, 0]);
+    expect(json.pieces.map(p => p.pauseAfterSamples)).toEqual([0.17 * 24000, 0.41 * 24000, 0].map(Math.round));
     expect((await receipt(f)).keptPieces).toEqual({ dir, count: texts.length });
     // No log line carries the spoken text.
     for (const text of texts) expect(kept.stderr).not.toContain(text);
@@ -162,5 +222,48 @@ test("--keep-pieces refuses a non-empty directory and deletes nothing in it", as
     expect(result.stderr).toContain("must not exist or must be empty");
     expect(readdirSync(dir)).toEqual(["keep-me.txt"]);
     expect(f.requests).toHaveLength(0);
+  } finally { await f.close(); }
+}, 30000);
+
+/** A 24 kHz mono 16-bit tone: each piece gets its own amplitude and period, so wrong audio of the right length fails. */
+function tone(amplitude: number, period: number, samples = 4800): Buffer {
+  const pcm = Buffer.alloc(samples * 2);
+  for (let i = 0; i < samples; i++) pcm.writeInt16LE(Math.round(amplitude * Math.sin(i * 2 * Math.PI / period)), i * 2);
+  const header = Buffer.alloc(44);
+  header.write("RIFF"); header.writeUInt32LE(36 + pcm.length, 4); header.write("WAVEfmt ", 8);
+  header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(24000, 24); header.writeUInt32LE(48000, 28);
+  header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34); header.write("data", 36); header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+const pcmOf = async (file: string) => { const b = await readFile(file); return b.subarray(b.indexOf("data") + 8); };
+
+test("--keep-pieces keeps the audio that was joined: each piece's own audio, processed, in order", async () => {
+  const f = await fixture();
+  try {
+    // No loudness pass, so the final file IS the join and each piece can be found in it sample for sample.
+    await defaultsProfile(f, { sentence_pause_seconds: 0.41, comma_pause_seconds: 0.17, atempo: 1.25 });
+    const texts = splitForBreathing(normalizeForSpeech(defaultsText), 0.41, 0.17).map(p => p.text);
+    const voices = new Map(texts.map((text, i) => [text, { amplitude: [3000, 9000, 18000][i]!, period: [20, 40, 80][i]! }]));
+    f.setAudio(body => { const v = voices.get(body.text ?? ""); return v ? tone(v.amplitude, v.period) : f.wav; });
+    const dir = path.join(f.root, "pieces");
+    const result = await runner(f, ["--text", defaultsText, "--output", out(f), "--reference", "compat-defaults", "--no-cache", "--timeout-ms", "10000", "--keep-pieces", dir]);
+    expect(result.code, result.stderr).toBe(0);
+    const json = await checkPieces(dir, out(f), texts);
+    const final = await pcmOf(out(f));
+    const levels: number[] = [];
+    for (const piece of json.pieces) {
+      const kept = await pcmOf(path.join(dir, piece.file));
+      // The kept piece is exactly the stretch of the joined file at its offset, and the pause after it is silence.
+      expect(kept.equals(final.subarray(piece.offsetSamples * 2, (piece.offsetSamples + piece.samples) * 2))).toBe(true);
+      const pause = final.subarray((piece.offsetSamples + piece.samples) * 2, (piece.offsetSamples + piece.samples + piece.pauseAfterSamples) * 2);
+      expect(pause.every(byte => byte === 0)).toBe(true);
+      // It is THIS piece's audio after atempo: its level matches the tone served for its text, not a neighbour's.
+      levels.push((await measureWav(path.join(dir, piece.file))).rmsDb!);
+    }
+    const expected = [...voices.values()].map(v => 20 * Math.log10(v.amplitude / 32768 / Math.SQRT2));
+    for (const [i, level] of levels.entries()) expect(Math.abs(level - expected[i]!)).toBeLessThan(1.5);
+    // Each piece's audio is different from every other's (distinct by more than the 1.5 dB tolerance).
+    expect(new Set(await Promise.all(json.pieces.map(async p => (await pcmOf(path.join(dir, p.file))).toString("base64")))).size).toBe(texts.length);
   } finally { await f.close(); }
 }, 30000);
