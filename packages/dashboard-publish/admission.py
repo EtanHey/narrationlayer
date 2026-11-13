@@ -230,6 +230,28 @@ def check_media(handoff, media=None):
         else: require(MAGIC[kind](data), 'MEDIA_BYTES')
 
 
+MIME = {'webp': 'image/webp', 'png': 'image/png', 'jpeg': 'image/jpeg', 'svg': 'image/svg+xml'}
+
+
+def check_visual_proof(proof, handoff, shell):
+    """A visual page's delivery proof. Each condition refuses with its own code, so a failed proof names its part."""
+    images = {row['file']: row for row in handoff['mediaManifest']}
+    renders = sorted(proof['renders'], key=lambda render: render['width'])
+    # The client hashes the shell it assembled; equal to the served shell, the render was of exactly these bytes.
+    require([render['width'] for render in renders] == [390, 1280] and all(
+        render['dashboardId'] == handoff['dashboardId'] and render['shellSha256'] == sha(shell)
+        and set(render['imagesLoaded']) == set(images) for render in renders), 'VISUAL_PROOF_RENDER')
+    media = {row['file']: row for row in proof['media']}
+    require(set(media) == set(images) and len(media) == len(proof['media']), 'VISUAL_PROOF_MEDIA_STATUS')
+    for name, row in images.items():
+        seen = media[name]
+        require(seen['status'] == 200 and re.fullmatch(r'[a-z0-9-]+\.ufs\.sh', seen['loadedFrom']), 'VISUAL_PROOF_MEDIA_STATUS')
+        require(seen['contentType'].split(';')[0].strip().lower() == MIME[row['kind']], 'VISUAL_PROOF_MEDIA_TYPE')
+        require(seen['sha256'] == row['sha256'] and seen['bytes'] == row['size'], 'VISUAL_PROOF_MEDIA_BYTES')
+    require(proof['answerRowsAfter'] == 0, 'VISUAL_PROOF_ANSWER_ROWS')
+    require(proof['signedOut'] == {'request': 'media' if images else 'page', 'status': 401}, 'VISUAL_PROOF_SIGNED_OUT')
+
+
 def recorded_approval(approval):
     return (isinstance(approval, dict) and all(isinstance(approval.get(field), str)
         and approval[field].strip() and not re.search(r'[\r\n\v\f\x1c-\x1e\x85\u2028\u2029]', approval[field])
@@ -301,33 +323,37 @@ def delivery(*, path, shell, artifact, url, approved_origins, existing_rows,
         require(backfill.get('answerIdentity') == 'PASS' and backfill.get('providerReady') is True, 'BACKFILL_OBSERVATIONS')
         proof = backfill.get('accountProof')
         require(sha(backfill['sourceHtml']) == source_sha, 'SOURCE_SHA')
-        stage = {'mode': 'none-backfill', 'servedShellSha256': sha(shell)}
+        stage, visual = {'mode': 'none-backfill', 'servedShellSha256': sha(shell)}, False
         echo = {'answerRuntime': runtime_status(runtime_sha(shell), runtime_config), 'design': 'UNKNOWN_BACKFILL', 'answerIdentity': backfill['answerIdentity'], 'providerReady': backfill['providerReady'], 'gateVersion': '2'}
     else:
         require(handoff is not None and admission is not None and isinstance(staging, dict), 'STAGING_PROOF')
         validate(handoff, 'publish-handoff', 'HANDOFF_SCHEMA')
-        # Delivery's account proof is an answer round trip; a visual page has no answer to round-trip yet.
-        require(handoff['type'] != 'visual', 'VISUAL_DELIVERY_UNSUPPORTED')
+        # An answer page proves an answer round trip; a visual page proves its render. Neither accepts the other's.
+        visual = handoff['type'] == 'visual'
+        require(isinstance(staging.get('accountProof'), dict) and (staging['accountProof'].get('method') == 'visual-render') == visual, 'PROOF_KIND')
         check_staging(staging, handoff['design']['admission'], handoff['dashboardId'], deliveries, sha(shell))
         require(staging.get('servedShellSha256') == sha(shell), 'STAGING_SHELL')
         require(admission.get('servedShellSha256') == staging['servedShellSha256'], 'ADMISSION_SHELL')
         require(admission.get('sourceHtmlSha256') == handoff['sourceHtmlSha256'], 'ADMISSION_SOURCE')
         require(admission.get('dashboardId') == handoff['dashboardId'], 'ADMISSION_ID')
         require(admission.get('design') == handoff['design']['admission'], 'ADMISSION_DESIGN')
-        require(runtime_status(runtime_sha(shell), runtime_config) == admission.get('answerRuntime'), 'ANSWER_RUNTIME_ECHO')
+        if visual: require(admission.get('pageType') == 'visual' and admission.get('answerRuntime') == 'none' and b'installAnswerPersistence' not in shell, 'ANSWER_RUNTIME_ECHO')
+        else: require(runtime_status(runtime_sha(shell), runtime_config) == admission.get('answerRuntime'), 'ANSWER_RUNTIME_ECHO')
         dashboard_id, source_sha = handoff['dashboardId'], handoff['sourceHtmlSha256']
         proof = staging.get('accountProof', {})
         stage = {key: staging[key] for key in ('mode', 'servedShellSha256')}
         if staging['mode'] == 'in-place-maintenance': stage['previousServedShellSha256'] = staging['previousServedShellSha256']
-        echo = {key: admission.get(key) for key in ('design', 'answerIdentity', 'providerReady', 'answerRuntime', 'gateVersion')}
+        echo = {key: admission.get(key) for key in (('pageType', 'design', 'answerRuntime', 'gateVersion') if visual else ('design', 'answerIdentity', 'providerReady', 'answerRuntime', 'gateVersion'))}
     parsed = urlsplit(url)
     require(parsed.scheme == 'https' and not parsed.username and not parsed.password
             and parsed.scheme + '://' + parsed.netloc in approved_origins
             and parse_qs(parsed.query).get('d') == [dashboard_id], 'DELIVERY_ORIGIN')
-    proof_schema = json.loads((ROOT / 'delivery.schema.json').read_text())['oneOf'][0]['properties']['accountProof']
+    schema = json.loads((ROOT / 'delivery.schema.json').read_text())
+    proof_schema = schema['oneOf'][2 if visual else 0]['properties']['accountProof']
     require(validator(proof_schema).is_valid(proof), 'ACCOUNT_PROOF')
     require(type(existing_rows) is int and existing_rows >= 0
             and proof['existingRowsPreserved'] == existing_rows, 'ACCOUNT_PROOF')
+    if visual: check_visual_proof(proof, handoff, shell)
     value = {'schema': 'audio-dashboard.delivery.v2', 'host': 'lakebed', 'url': url,
         'dashboardId': dashboard_id, 'sourceHtmlSha256': source_sha,
         'servedShellSha256': sha(shell), 'artifactSha256': sha(artifact),

@@ -48,7 +48,18 @@ Every card appears in page order. Option picks, free-text notes and note-only de
 
 A `mediaManifest` row may declare `kind`: `mp3`, `webp`, `png`, `jpeg` (`.jpg` or `.jpeg`) or `svg`. A row without `kind` is an mp3 row and must be named `assets/<name>.mp3`; a declared kind must name its own extension (`assets/<name>.<ext>`). The schema expresses both, so a mismatch refuses `HANDOFF_SCHEMA`. That is the one tightening of the manifest's shape: the host already refused any other name at run time (`server/dashboard-media-runtime.ts:8`, "Invalid UploadThing entry").
 
-`type: "visual"` is a document with no answers: `answerKeys` is empty, `answerRuntimeSha256` and `answerPersistence` are absent, and every row is an image. Identity, source hash, lineage/design approval, staging, artifact size and lock checks are unchanged. Admission echoes `pageType: visual` and `answerRuntime: none`. `delivery()` refuses `VISUAL_DELIVERY_UNSUPPORTED`: its account proof is an answer round trip, and a visual page's proof is not built yet.
+`type: "visual"` is a document with no answers: `answerKeys` is empty, `answerRuntimeSha256` and `answerPersistence` are absent, and every row is an image. Identity, source hash, lineage/design approval, staging, artifact size and lock checks are unchanged. Admission echoes `pageType: visual` and `answerRuntime: none`. Delivery takes the proof that fits the page (`PROOF_KIND` otherwise): an answer page its answer round trip, a visual page `accountProof.method: "visual-render"` (`delivery.schema.json` third branch). Its admission echo is `pageType: visual`, `answerRuntime: none`. The visual proof records, and `delivery()` checks:
+
+| Code | The proof is refused when |
+|---|---|
+| `VISUAL_PROOF_RENDER` | the renders are not exactly one at 390 and one at 1280, signed in, of this page id, with `shellSha256` equal to the served shell's sha256 (the client hashes the shell it assembled, so the render was of exactly these bytes), each reporting every manifest image loaded and no horizontal overflow |
+| `VISUAL_PROOF_MEDIA_STATUS` | a manifest image has no media row, or its row is not HTTP 200 from a `*.ufs.sh` host |
+| `VISUAL_PROOF_MEDIA_TYPE` | the response's content type (parameters ignored) is not the kind's own (`image/webp`, `image/png`, `image/jpeg`, `image/svg+xml`) |
+| `VISUAL_PROOF_MEDIA_BYTES` | the fetched bytes' sha256 or length differ from the handoff row (a 200 with the wrong bytes fails here) |
+| `VISUAL_PROOF_ANSWER_ROWS` | any answer row exists under the page's id after the proof |
+| `VISUAL_PROOF_SIGNED_OUT` | the signed-out request did not answer 401: for the page's media when it has images, for the page itself when it has none |
+
+Who observes what is the publisher's contract: the browser step reports the renders; the publisher itself fetches each image by its key and reads the answer rows and the signed-out status.
 
 | Code | Refused when |
 |---|---|

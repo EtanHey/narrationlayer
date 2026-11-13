@@ -180,14 +180,14 @@ class MediaTest(unittest.TestCase):
                 if code is None: self.gate(args)
                 else: self.refuse(code, args)
 
-    def test_a_visual_page_has_no_answer_delivery_yet(self):
+    def test_a_visual_page_without_its_render_proof_has_no_delivery(self):
         args = self.visual()
         with self.assertRaises(Refusal) as raised:
             delivery(path=self.root / 'visual.json', handoff=args['handoff'], admission=admit(**{k: v for k, v in args.items() if k != 'media'}), shell=args['shell'],
                      artifact=b'{}', staging={'mode': 'unlisted-candidate', 'servedShellSha256': sha(args['shell'])},
                      url='https://fixture.invalid/?d=fixture-1', approved_origins=['https://fixture.invalid'],
                      existing_rows=0, runtime_config=self.runtime_config, deliveries={})
-        self.assertEqual(raised.exception.code, 'VISUAL_DELIVERY_UNSUPPORTED')
+        self.assertEqual(raised.exception.code, 'PROOF_KIND')
         self.assertFalse((self.root / 'visual.json').exists())
 
     def test_the_json_adapter_carries_media_bytes(self):
