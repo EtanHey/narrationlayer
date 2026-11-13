@@ -204,3 +204,32 @@ test("N4: accept observer failure propagates instead of becoming a planner refus
   expect(() => h.session.send(request)).toThrow("observer failed");
   expect(h.events()).toEqual([]);
 });
+
+test("aliasing: a planner or publication that mutates what it returned cannot change the read", async () => {
+  const h = harness(), plan = h.planner.plan, publish = h.publication.piece;
+  let keptPlan: ReturnType<ReadPlanner["plan"]> | undefined;
+  let keptPiece: Awaited<ReturnType<typeof publish>> | undefined;
+  h.planner.plan = (...args) => { keptPlan = plan(...args); return keptPlan; };
+  h.publication.piece = async (...args) => {
+    if (keptPlan) keptPlan.plan.pieces.length = 1;
+    const receipt = await publish(...args); keptPiece ??= receipt; return receipt;
+  };
+  h.script(); h.session.send(request); await h.tick();
+  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(2);
+  if (!keptPiece) throw Error("missing publication");
+  keptPiece.artifact.handle = "mutated";
+  h.stop();
+  expect(h.events().at(-1)).toMatchObject({ type: "outcome", generation: { status: "committed" }, artifacts: [{ piece_id: "piece-session-1-1-0", handle: "synthetic", lease_id: "synthetic" }, { piece_id: "piece-session-1-1-1", handle: "synthetic", lease_id: "synthetic" }] });
+});
+test("parser refusal: raw correlation requires a narrate request_id within schema bounds", () => {
+  const h = harness();
+  for (const message of [{ ...request, request_id: "x".repeat(5000) }, { ...request, request_id: "ab" }, { protocol: "nl.engine/1", type: "unsupported", request_id: "req-other" }]) {
+    h.session.send(message);
+    expect(h.events().at(-1)).toMatchObject({ type: "error", code: "INVALID_REQUEST" });
+    expect(h.events().at(-1)).not.toHaveProperty("request_id");
+  }
+  for (const request_id of ["abc", "x".repeat(128)]) {
+    h.session.send({ ...request, request_id, voice: 7 });
+    expect(h.events().at(-1)).toMatchObject({ type: "error", request_id });
+  }
+});

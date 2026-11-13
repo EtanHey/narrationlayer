@@ -4,6 +4,7 @@ import type { Event, Limits, Message } from "../messages/messages";
 type Identity = Pick<Message<"accepted">, "owner_epoch" | "session_id" | "attempt_id">;
 type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
 type Piece = Omit<Message<"piece_ready">, "protocol" | "owner_epoch" | "seq">;
+/** Returned plans and requests become engine-owned; the session detaches them before storage. */
 export interface ReadPlanner {
   plan(request: Message<"narrate">, limits: Limits, identity: Identity): { plan: Plan; requests: readonly { piece_index: number; text: string }[] };
 }
@@ -14,7 +15,8 @@ export interface Clock {
 export interface Backend<Audio> {
   synthesizeRequest(request: { piece_index: number; text: string }, signal: AbortSignal): Promise<Audio>;
 }
-/** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio. */
+/** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio.
+ * Returned receipts become engine-owned; the session detaches them before storage. */
 export interface Publication<Audio> {
   piece(audio: Audio, context: Identity & { index: number; piece_id: string; start_ms: number; synthesis_ms: number; spoken_text: string }, signal: AbortSignal): Promise<Piece>;
   commit(identity: Identity, signal: AbortSignal): Promise<void>;
@@ -91,7 +93,7 @@ export function createEngineSession<Audio>(options: {
       return;
     }
     // §2 L116: accept emits the complete plan before its backend-start effect.
-    step({ kind: "accept", identity, request, plan: prepared.plan, current: {
+    step({ kind: "accept", identity, request, plan: structuredClone(prepared.plan), current: {
       session_id: identity.session_id, player_instance_id: "", control_epoch: 0,
       audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 0, duration_ms: 0,
     } });
@@ -117,7 +119,7 @@ export function createEngineSession<Audio>(options: {
           synthesis_ms: options.clock.monotonic() - started, spoken_text: request.text,
         }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.
-        step({ kind: "backend", identity, result: { kind: "piece", piece: delivered } });
+        step({ kind: "backend", identity, result: { kind: "piece", piece: structuredClone(delivered) } });
         const updated = state.sessions[identity.session_id];
         if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
       }
@@ -132,7 +134,7 @@ export function createEngineSession<Audio>(options: {
       if (closed) return;
       const parsed = parseRequest(message, options.limits);
       if (!parsed.ok) {
-        const request_id = message !== null && typeof message === "object" && "request_id" in message && typeof message.request_id === "string" ? message.request_id : undefined;
+        const request_id = message !== null && typeof message === "object" && "type" in message && message.type === "narrate" && "request_id" in message && typeof message.request_id === "string" && message.request_id.length >= 3 && message.request_id.length <= 128 ? message.request_id : undefined;
         refuse(parsed.error.code, request_id); return;
       }
       const value = parsed.value;

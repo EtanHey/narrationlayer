@@ -140,7 +140,7 @@ replay comparisons and cached fingerprints. State remains plain JSON data.
 A transition copies the top level and only its changed session, replacing changed
 cursors, delivered arrays and receipt arrays. Other sessions and unchanged fields
 retain their references; a transition with no change returns the original state.
-The sessions/index maps are shallow-copied only when their entries change. This
+The sessions/admissions maps are shallow-copied only when their entries change. This
 still costs O(number of sessions) for a changed session map, but never copies the
 other sessions' text or word tables. Admission-only errors share the maps.
 
@@ -151,8 +151,18 @@ only freshly constructed scalar fields. The former defensive copying guarantee
 for requests, plans, cursors and delivered pieces is intentionally replaced by
 the immutable-input contract; command mutation isolation remains tested.
 
-All ordinary reducer tests and every exhaustive transition freeze state and input
-recursively. A differential traversal compares state and effects against
-bf3e3f827db45e733508138a9e145e0f06f0017a across the same three seeds and alphabet.
+Ordinary reducer tests and every exhaustive transition freeze state and input
+recursively, except the deliberate post-call command/replay mutation probes.
+The S2d builder (w52, 2026-11-14) compared state and effects against bf3e3f82
+on 220,640 transitions, zero differences. The independent reviewer (rv88,
+2026-11-14) reran 219,920 merged traversal transitions plus 478 named/setup
+calls on Bun 1.4.4 and 1.3.11, zero differences. These were scratch proofs,
+recorded in [the merge receipt](https://github.com/EtanHey/narrationlayer/pull/91#issuecomment-6867412155)
+and [the review](https://github.com/EtanHey/narrationlayer/pull/91#issuecomment-6867316348).
+A later slice owes validation of untyped cursors with missing or extra keys;
+the reference-restoration comparison currently assumes full typed cursors.
+Replay effects detach accepted/control ack events before handing them out.
+The session detaches planner plans and publication pieces on ingestion, so a
+provider retaining and mutating its return value cannot rewrite a live read.
 This changes storage ownership and cost, not the fences, inputs or wire behavior.
 No eviction, per-session last seq or retry input is introduced.
