@@ -1,6 +1,13 @@
 """A visual page's delivery proof: a signed-in render of the served shell, its images, no answers, a signed-out 401."""
+import base64
 import copy
+import json
+import subprocess
+import sys
 import unittest
+from pathlib import Path
+
+from gate import run
 
 from admission import Refusal, admit, delivery, sha
 import test_visual_media as visual_cases
@@ -69,6 +76,24 @@ class VisualDeliveryTest(unittest.TestCase):
         args = self.visual(rows=[])
         empty = self.proof(media=[], renders=[r | {'imagesLoaded': [], 'shellSha256': sha(args['shell'])} for r in self.proof()['renders']])
         self.assertEqual(self.deliver(empty, args)['accountProof']['signedOut'], {'request': 'media', 'status': 401})
+
+    def test_the_json_adapter_refuses_a_malformed_media_map_and_decodes_after_the_schema(self):
+        args = self.visual()
+        request = lambda media: {'handoff': args['handoff'], 'rawBase64': base64.b64encode(args['raw']).decode(), 'shellBase64': base64.b64encode(args['shell']).decode(),
+            'dashboardId': 'fixture-1', 'savedKeys': [], 'deliveries': {}, 'provider': {}, 'artifactBase64': base64.b64encode(b'{}').decode(),
+            'lock': str(self.lock), 'ownerPid': self.args['owner_pid'], 'runtimeConfig': str(self.runtime_config), 'mediaBase64': media}
+        for media in (None, {}):
+            with self.subTest(media=media): self.assertEqual(run(request(media))['pageType'], 'visual')
+        for media in ('x', [], 7, {'assets/a.webp': 7}):
+            with self.subTest(media=media), self.assertRaises(Refusal) as raised: run(request(media))
+            self.assertEqual(raised.exception.code, 'ADMISSION_INPUT')
+        # Bytes that are not base64 are never decoded when the schema refuses first, nor when no manifest row names them.
+        broken = request({'assets/a.webp': '%%% not base64'}) | {'handoff': args['handoff'] | {'createdAt': None}}
+        with self.assertRaises(Refusal) as raised: run(broken)
+        self.assertEqual(raised.exception.code, 'HANDOFF_SCHEMA')
+        self.assertEqual(run(request({'assets/unnamed.webp': '%%% not base64'}))['pageType'], 'visual')
+        process = subprocess.run([sys.executable, '-B', str(Path(__file__).with_name('gate.py'))], input=json.dumps(request(None) | {'mediaBase64': 'x'}), capture_output=True, text=True)
+        self.assertEqual((process.returncode, process.stderr.strip()), (1, 'ADMISSION_INPUT'))
 
     def test_neither_page_type_accepts_the_other_proof(self):
         roundtrip = {'signedIn': True, 'method': 'note-roundtrip', 'probe': 'existing-empty-field', 'markerSaved': True, 'restoredAfterLocalKeysCleared': True,

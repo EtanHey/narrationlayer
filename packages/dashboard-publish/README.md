@@ -2,7 +2,7 @@
 
 Install `requirements.txt` with Python 3.13. Root `bun test` and the dedicated CI job run the Python suite. The JSON schemas describe the v2 handoff and delivery. The only contract source is [golems master](https://github.com/EtanHey/golems/blob/master/skills/golem-powers/audio-dashboard/references/publish-contract-v2.md); read it from golems origin/master, not retired docs.local copies.
 
-`admit()` checks raw HTML, expanded shell, exact artifact bytes, saved key/kind pairs, lineage history, candidate-bound provider probe and an existing lock owned by this process or an ancestor. Stable refusal codes: `HANDOFF_MISSING`, `HANDOFF_SCHEMA`, `DASHBOARD_ID`, `SOURCE_SHA`, `LINEAGE_EXISTS`, `ANSWER_PERSISTENCE`, `ANSWER_IDENTITY`, `PROVIDER_NOT_READY`, `SAVED_LOCAL_ONLY`, `ARTIFACT_TOO_LARGE`, `DEPLOY_LOCK`.
+`admit()` checks raw HTML, expanded shell, exact artifact bytes, saved key/kind pairs, lineage history, candidate-bound provider probe and an existing lock owned by this process or an ancestor. Stable refusal codes: `HANDOFF_MISSING`, `HANDOFF_SCHEMA`, `DASHBOARD_ID`, `SOURCE_SHA`, `LINEAGE_EXISTS`, `ANSWER_PERSISTENCE`, `ANSWER_IDENTITY`, `PROVIDER_NOT_READY`, `SAVED_LOCAL_ONLY`, `ARTIFACT_TOO_LARGE`, `DEPLOY_LOCK`, and the media, visual-page and delivery-proof codes in the tables below (`PROOF_KIND` and `VISUAL_PROOF_*` for delivery). gate.py refuses a malformed request, including a `mediaBase64` that is not an object of base64 strings, with `ADMISSION_INPUT`; it decodes a file only when admission reads it, after the handoff's schema check.
 
 `delivery()` requires an explicit `deliveries` registry (omitted/None refuses DELIVERIES_SCHEMA), a handoff, admission and staging proof bound to the promoted shell. Accepted ids require in-place-maintenance; new ids use unlisted-candidate. Account proof attests server acknowledgement, an independent signed-in client, restoration and cleanup. Required probe is existing-empty-field or dedicated-key; disposableRecord means no prior user data, and cleanedUp means restored pre-probe value, with the row allowed to remain. Approved HTTPS origins come from the operator. builtHtmlSha256 identifies the single-file BUILD output; the gate compares sourceHtmlSha256 only against prepared sourcePath/index.html. Source, shell and artifact hashes represent different bytes. Normal receipts echo `handoff.design.admission`; runtime status is recomputed from shell bytes and config before accepting the admission echo. Existing files are preserved.
 
@@ -63,7 +63,7 @@ Who observes what is the publisher's contract: the browser step reports the rend
 
 | Code | Refused when |
 |---|---|
-| `MEDIA_KIND` | the same file is named twice, or a name breaks the kind/extension rule on a path the schema does not see |
+| `MEDIA_KIND` | the same file is named twice (a name/extension mismatch refuses `HANDOFF_SCHEMA` first; the code keeps the same rule as a second wall) |
 | `MEDIA_TOO_LARGE` | mp3 over 5 MiB, webp/png/jpeg over 2 MiB, svg over 256 KiB |
 | `MEDIA_COUNT` | over 200 files or over 40 images on one page |
 | `MEDIA_BYTES` | supplied bytes differ from the row's size or sha256, or lack the kind's magic bytes |
