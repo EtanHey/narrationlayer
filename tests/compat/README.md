@@ -14,8 +14,10 @@ Bun, ffmpeg and ffprobe must be on PATH; missing dependencies fail explicitly.
   same way by `tests/compat/runner-output.test.ts`. Those three pin what the
   runner writes for each run: the output WAV's PCM format, exact sample count
   (also checked against the count its pieces, tempo and pauses imply) and RMS
-  level within 0.3 dB, so they prove a stage's result reached the output file;
-  they do not judge how it sounds, and pin no content hash because the hosted
+  level within 0.3 dB, so they show a stage's result reached the output file
+  only where it changes the sample count or the RMS: a change of content with
+  the same sample count and the same RMS passes them. They do not judge how it
+  sounds, and pin no content hash because the hosted
   ffmpeg is unpinned. A frozen file is regenerated only when the code
   behind it changed on purpose, in this sequence:
   1. change the code;

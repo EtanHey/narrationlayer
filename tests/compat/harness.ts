@@ -7,6 +7,15 @@ import path from "node:path";
 export const repo = path.resolve(import.meta.dir, "../..");
 export const digest = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 export type Mode = "ok" | "http" | "malformed" | "timeout";
+/** A synchronous child with a required timeout, kept below its test's budget: a test budget cannot interrupt a blocked
+ * spawnSync, so the child's own timeout is what ends it. A timeout or a kill throws an error that names the command. */
+export function spawnChecked(cmd: string[], options: { timeout: number; cwd?: string; env?: Record<string, string | undefined>; stdin?: Buffer }) {
+  const result = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe", ...options, timeout: options.timeout });
+  if (result.exitedDueToTimeout || result.signalCode) {
+    throw new Error(`${cmd.join(" ")}: ${result.exitedDueToTimeout ? `timed out after ${options.timeout} ms` : `killed by ${result.signalCode}`}\n${result.stderr.toString()}`);
+  }
+  return result;
+}
 export async function fixture(mp3 = false) {
   const root = await mkdtemp(path.join(os.tmpdir(), "nl-compat-"));
   const pcm = Buffer.alloc(4800 * 2);
@@ -19,7 +28,7 @@ export async function fixture(mp3 = false) {
   const wav = Buffer.concat([header, pcm]);
   await writeFile(path.join(root, "reference.wav"), wav);
   await writeFile(path.join(root, "auth"), "synthetic-token\n");
-  const encoded = mp3 ? Bun.spawnSync([tool("ffmpeg"), "-v", "error", "-i", path.join(root, "reference.wav"), "-f", "mp3", "pipe:1"], { timeout: 10000 }) : undefined;
+  const encoded = mp3 ? spawnChecked([tool("ffmpeg"), "-v", "error", "-i", path.join(root, "reference.wav"), "-f", "mp3", "pipe:1"], { timeout: 10000 }) : undefined;
   if (encoded && encoded.exitCode !== 0) throw new Error(encoded.stderr.toString());
   const audio = encoded?.stdout ?? wav;
   const requests: unknown[] = [];

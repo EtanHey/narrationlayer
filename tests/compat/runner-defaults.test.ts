@@ -4,7 +4,7 @@ import path from "node:path";
 import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import { LOCAL_TTS_RENDER_VERSION } from "../../src/pipelines/local-tts/take-cache.js";
-import { argvLog, defaultsCases as cases, defaultsProfile, defaultsText, digest, fixture, golden, runner, stderrClass, tool, wrappers } from "./harness.js";
+import { argvLog, defaultsCases as cases, defaultsProfile, defaultsText, digest, fixture, golden, spawnChecked, runner, stderrClass, tool, wrappers } from "./harness.js";
 
 for (const variant of cases) test(`runner defaults: ${variant.name}`, async () => {
   const f = await fixture();
@@ -24,7 +24,7 @@ for (const variant of cases) test(`runner defaults: ${variant.name}`, async () =
     const receipt = JSON.parse(await readFile(`${output}.cache.json`, "utf8"));
     expect(receipt.cacheKey).toBe(digest(JSON.stringify(preimage)));
     expect(await readFile(path.join(f.root, "cache", `${receipt.cacheKey}.wav`))).toEqual(await readFile(output));
-    const probe = Bun.spawnSync([tool("ffprobe"), "-v", "error", "-show_entries",
+    const probe = spawnChecked([tool("ffprobe"), "-v", "error", "-show_entries",
       "stream=codec_name,sample_rate,channels,bits_per_sample", "-of", "json", output], { timeout: 10000 });
     expect(probe.exitCode, probe.stderr.toString()).toBe(0);
     const breathingNote = result.stderr.match(/ breathing=[^\n]+?\)/)?.[0];

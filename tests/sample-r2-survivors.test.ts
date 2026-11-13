@@ -11,7 +11,7 @@ import { renderSegment as renderQwen3Segment } from "../src/pipelines/job-render
 import { renderSegment as renderFakeSegment } from "../src/renderers/fake.js";
 import { initializeJob } from "../src/job-store.js";
 import { parseNarrationJob, type NormalizedNarrationJob } from "../src/schema.js";
-import { fixture, runner, wrappers } from "./compat/harness.js";
+import { fixture, runner, spawnChecked, wrappers } from "./compat/harness.js";
 
 const repo = path.resolve(import.meta.dir, "..");
 const bun = process.execPath;
@@ -191,13 +191,11 @@ test("sample 30: the fake renderer estimates max(words, 1) / 2.5 seconds and spa
 test("sample 31: NARRATIONLAYER_DATA_DIR=~/<dir> stores the job under HOME/<dir>", () => {
   const home = tempDir("home");
   try {
-    const child = Bun.spawnSync(
+    const child = spawnChecked(
       [bun, path.join(repo, "src/cli.ts"), "create-job", path.join(repo, "examples/sample-job.json"), "--json"],
       {
         cwd: repo,
         env: { PATH: process.env.PATH, HOME: home, NARRATIONLAYER_DATA_DIR: "~/sample-store-dir" },
-        stdout: "pipe",
-        stderr: "pipe",
         timeout: 20_000,
       },
     );
@@ -209,7 +207,7 @@ test("sample 31: NARRATIONLAYER_DATA_DIR=~/<dir> stores the job under HOME/<dir>
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 // ---------------------------------------------------------------------------------------------
 // Sample 32 (src/job-store.ts:67): the job file on disk is 2-space JSON plus a newline.
@@ -240,12 +238,10 @@ test("sample 38: the MCP server answers an unsupported method with error code -3
   const dataDir = tempDir("mcp");
   try {
     const request = JSON.stringify({ jsonrpc: "2.0", id: 7, method: "resources/list" });
-    const child = Bun.spawnSync([bun, path.join(repo, "src/mcp-server.ts")], {
+    const child = spawnChecked([bun, path.join(repo, "src/mcp-server.ts")], {
       cwd: repo,
       env: { PATH: process.env.PATH, HOME: dataDir, NARRATIONLAYER_DATA_DIR: dataDir },
       stdin: Buffer.from(`${request}\n`),
-      stdout: "pipe",
-      stderr: "pipe",
       timeout: 20_000,
     });
     const lines = child.stdout.toString().trim().split("\n").filter(Boolean);
@@ -258,7 +254,7 @@ test("sample 38: the MCP server answers an unsupported method with error code -3
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 // ---------------------------------------------------------------------------------------------
 // Sample 40 (src/cli.ts:62): `status <id>` prints 2-space JSON and the console's newline.
@@ -267,11 +263,9 @@ test("sample 38: the MCP server answers an unsupported method with error code -3
 test("sample 40: `narrationlayer status <id>` prints JSON.stringify(payload, null, 2) exactly", () => {
   const dataDir = tempDir("cli");
   const run = (args: string[]) =>
-    Bun.spawnSync([bun, path.join(repo, "src/cli.ts"), ...args], {
+    spawnChecked([bun, path.join(repo, "src/cli.ts"), ...args], {
       cwd: repo,
       env: { PATH: process.env.PATH, HOME: dataDir, NARRATIONLAYER_DATA_DIR: dataDir },
-      stdout: "pipe",
-      stderr: "pipe",
       timeout: 20_000,
     });
   try {
@@ -288,4 +282,4 @@ test("sample 40: `narrationlayer status <id>` prints JSON.stringify(payload, nul
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);

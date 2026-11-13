@@ -99,7 +99,7 @@ test("create-job, render, status, and manifest end-to-end", async () => {
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("doctor prints resolved data directory", async () => {
   const dataDir = createTempDir();
@@ -110,7 +110,7 @@ test("doctor prints resolved data directory", async () => {
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("qwen3-lora-prepare writes raw JSONL from a local metadata config", async () => {
   const dataDir = createTempDir();
@@ -148,7 +148,7 @@ test("qwen3-lora-prepare writes raw JSONL from a local metadata config", async (
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("qwen3-lora-preflight reports prepared run readiness", async () => {
   const dataDir = createTempDir();

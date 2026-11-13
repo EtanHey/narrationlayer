@@ -64,7 +64,7 @@ test("CLI create-job rejects unsafe job and segment IDs without writing jobs", a
   } finally {
     await rm(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("CLI lookups reject unsafe IDs", async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "nl-path-cli-lookup-"));
@@ -81,7 +81,7 @@ test("CLI lookups reject unsafe IDs", async () => {
   } finally {
     await rm(dataDir, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 test("UUIDs, fixture IDs and omitted defaults remain usable on disk", async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "nl-path-valid-"));
