@@ -69,7 +69,7 @@ test("runner entry delegates synthesis and ffmpeg; library stages never exit or 
           expect(node.moduleSpecifier.text.replace(/^node:/, ""), file).not.toBe("child_process");
         }
         if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Bun") {
-          expect(["spawn", "spawnSync"], file).not.toContain(node.name.text);
+          expect(node.name.text, file).not.toMatch(/^spawn(?:Sync)?$/);
         }
         if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
           expect(["spawn", "synthesizeQwen3"], file).not.toContain(node.expression.text);
