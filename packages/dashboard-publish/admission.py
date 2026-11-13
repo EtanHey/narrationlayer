@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 import re
 import subprocess
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import urlsplit, parse_qs, unquote
 from xml.etree import ElementTree
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -187,26 +187,41 @@ VISUAL_FORBIDDEN = {'applet', 'audio', 'embed', 'frame', 'iframe', 'object', 'so
 ANSWER_ATTRIBUTES = {'data-note', 'data-decision'}  # every answering template card carries both; no visual page needs them
 
 
+def spelled(value):
+    """Every spelling of a path as one: percent-decoded to a fixed point, then case-folded."""
+    previous = None
+    while value != previous: previous, value = value, unquote(value)
+    return value.casefold()
+
+
+def served_clip(value, clips):
+    """A served clip URL names a file by its path's end; a query or fragment does not change which file it is."""
+    path = urlsplit(value).path
+    return any(path.endswith('/' + clip) for clip in clips)
+
+
 def check_markup(handoff, html, served=False):
     """The page's parsed markup, not its text: what a visual page may contain, and how media may be referenced.
 
-    Every attribute value that mentions assets/ must be a manifest file in its one allowed place: an image only as
-    <img data-nl-media>, a clip only as an <audio>/<source> src (the served shell of an audio page carries clips as
-    tailnet URLs ending in the file). Every manifest image must be referenced. What a page's script does at run time
-    is not judged here: the host refuses answers and audio for a visual page (capsule tests).
+    Every attribute value that mentions assets/ in any spelling (percent-encoded, any case) must be, exactly, a
+    manifest file in its one allowed place: an image only as <img data-nl-media>, a clip only as an <audio>/<source>
+    src (the served shell of an audio page carries clips as URLs whose path ends in the file). Every manifest image
+    must be referenced. No page may carry <base>, which would re-point every relative URL. What a page's script does
+    at run time is not judged here: the host refuses answers and audio for a visual page (capsule tests).
     """
     rows, visual = handoff['mediaManifest'], handoff['type'] == 'visual'
     images = {row['file'] for row in rows if row.get('kind', 'mp3') != 'mp3'}
     clips = {row['file'] for row in rows if row.get('kind', 'mp3') == 'mp3'}
     referenced = set()
     for tag, attrs in Scope(html).elements:
+        require(tag != 'base', 'MEDIA_REFERENCE', 'base')
         if visual:
             require(tag not in VISUAL_FORBIDDEN, 'VISUAL_MARKUP', tag)
             require(not ANSWER_ATTRIBUTES & {name for name, _ in attrs}, 'VISUAL_ANSWERS', tag)
         for name, value in attrs:
-            if value is None or 'assets/' not in value: continue
+            if value is None or 'assets/' not in spelled(value): continue
             image = tag == 'img' and name == 'data-nl-media' and value in images
-            clip = tag in ('audio', 'source') and name == 'src' and (value in clips or served and any(value.endswith('/' + c) for c in clips))
+            clip = tag in ('audio', 'source') and name == 'src' and (value in clips or served and served_clip(value, clips))
             require(image or clip, 'MEDIA_REFERENCE', value[:120])
             referenced.add(value)
     require(images <= referenced, 'MEDIA_REFERENCE', 'unreferenced image')
