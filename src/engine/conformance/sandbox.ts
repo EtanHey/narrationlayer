@@ -10,6 +10,13 @@ export function sandboxProfile(port: number, binary = process.execPath): string 
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("invalid sandbox sink port");
   return `(version 1)
 (allow default)
+(deny mach-lookup)
+(deny lsopen)
+(deny appleevent-send)
+(deny file-write*)
+(allow file-write* (literal "/dev/null"))
+(deny signal)
+(allow signal (target self))
 (deny network*)
 (allow network-outbound (remote tcp4 "localhost:${port}"))
 (deny process-fork)

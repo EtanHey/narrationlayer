@@ -44,24 +44,26 @@ HTTP proxy. Node DNS and http2 are trapped directly.
 Traps persist until exit, including process.exit/reallyExit; caught calls still
 record violations. The parent computes its own final exit code from its report.
 
-On macOS the parent starts both children with `/usr/bin/sandbox-exec -p` and
-reports `containment: "macos-sandbox"`. The repository-built profile denies
-network operations except outbound IPv4 TCP to `localhost:<parent sink port>` (`tcp4`), and
-denies process-fork (also posix_spawn). process-exec permits only Bun's resolved
-executable so sandbox-exec can start it; a same-image exec replacement retains
-the sandbox. A two-listener test proves that the parent port is reachable while
-a second IPv4 port and an IPv6 listener at the same numeric port are refused,
-including after same-image exec on 1.4.4 (execve is absent on 1.3.11).
-The executable exception permits replacement by the same resolved Bun path
-with new arguments/environment, so it can discard JS traps but cannot discard
-the kernel restrictions. Other executable paths are denied. Threads and workers can start, but a worker cannot spawn a process.
-Filesystem writes and exact registry-shaped report forgery remain outside scope.
-Apple deprecates sandbox-exec, but ships it on the tested macOS 27 system; this
-suite depends on it. Missing sandbox-exec or Linux falls back to
-`containment: "in-process-tripwire"`, never a Linux containment claim.
+What `macos-sandbox` means:
+
+- Network operations denied except outbound IPv4 TCP to the parent's loopback
+  listener port (`tcp4`). Another port and same-port IPv6 are refused.
+- Process creation denied (fork and posix_spawn). Exec permits only the resolved
+  Bun executable, needed for initial startup. Same-image exec with new arguments
+  can drop JS traps but retains every kernel restriction; other paths are denied.
+- All Mach service lookups denied, with no service-name exceptions. This closes
+  the system-resolver and LaunchServices/Apple Events lookup routes; the profile
+  also denies `lsopen` and `appleevent-send` (accepted on macOS 27).
+- File writes denied except `/dev/null`. Inherited report/stdout/stderr descriptors
+  continue to work. No per-run writable-directory exception is needed.
+- Signals denied except to self; a signal-0 probe targets only an owned child.
+
+The parent starts both children with `/usr/bin/sandbox-exec -p`. Apple deprecates
+sandbox-exec but ships it on the tested macOS 27 system; the suite depends on it.
+Linux or a Mac without it reports `in-process-tripwire`, never containment.
 `--require-containment` or `NL_CONFORMANCE_REQUIRE_CONTAINMENT=1` fails with
-`required macOS containment unavailable` instead. The macOS test requires both.
-A failing sandbox launch remains red; it never silently retries without a sandbox.
+`required macOS containment unavailable` instead; the macOS test requires both.
+A failing launch remains red, without retrying outside the sandbox.
 
 Platform routes (`inventory-excluded.json`'s `platform_routes`):
 - Bun.fetch(url, {proxy}): denied on macOS; OPEN on Linux.
@@ -69,14 +71,21 @@ Platform routes (`inventory-excluded.json`'s `platform_routes`):
 - process.env/Bun.env proxy edits and NO_PROXY='*': denied network effects on
   macOS. OPEN on Linux with Bun 1.4.4; 1.3.11 freezes the variables.
 - Bun.file/write String-object remote schemes: trapped before client creation
-  on both platforms, in addition to macOS network denial.
+  on both platforms, including a String with an overridden toString: its internal
+  value is read with String.prototype.valueOf.call before falling back to String(x).
 
 CONF-03/04 still mean no trapped call and no arrival at the parent's sink.
 An adapter that catches a kernel-denied call can remain green: kernel denial
 proves no traffic escaped, not that a trap observed the attempt. Bun maps denied
-TCP/unix/DNS operations to ECONNREFUSED; UDP and spawning report EPERM.
+TCP/DNS operations to ECONNREFUSED; unix reports ECONNREFUSED on 1.4.4
+and ENOENT on 1.3.11; UDP, spawning, file writes and signals report EPERM.
 The DNS invariant uses a private resolver pointed only at an owned loopback
-UDP listener, with an NXDOMAIN control; it sends no query to the system resolver.
+UDP listener, with an NXDOMAIN control. System-resolver confinement is proven
+separately: no-preload bootstrap_look_up probes for com.apple.dnssd.service,
+com.apple.coreservices.launchservicesd and com.apple.coreservices.appleevents
+return 1100 sandboxed and succeed in controls. Only lookup is performed, never
+a message to those services. localhost resolves from /etc/hosts in process even
+when lookups are denied; a localhost query or sandbox log is not this proof.
 Two committed snapshots pin each containment value byte for byte, including
 locale/TZ/cwd/reverse-order checks; the field is never normalized away.
 Linux sandbox containment and Linux mutation-gate rows for these macOS-only
@@ -96,15 +105,20 @@ are trapped as network before constructing a native client.
 ECMAScript data/control, web data/stream/event, local descriptors and module
 transforms share reviewed-safe category reasons; realm, ambient clock, network
 and process capabilities have individual rows.
+process.dlopen is a spawn tripwire because native code can request processes.
 Other EXCLUDED capabilities (real effects; do not invoke in a binding):
 
 - Bun.WebView: native GUI can open windows, browser processes and network connections.
 - bun:ffi: native functions can open sockets, start processes and read clocks.
 - bun:wrap: internal native wrappers can expose native functions and real OS effects.
-- process.dlopen and module: native addon loading can execute arbitrary native OS effects.
+- module: native addon loading can execute arbitrary native OS effects;
+  loaded code remains subject to the profile denying all service lookups.
 
-Filesystem access and deliberate runtime tampering remain outside containment.
-No excluded capability is invoked by the tests. Fixtures are synthetic/public;
+On Linux filesystem writes remain outside the tripwire: writing a shell profile,
+LaunchAgent or git hook can start a process later. macOS denies those writes.
+Deliberate report forgery remains out of scope. The only native OS probe uses
+bun:ffi without preload for the three authorized lookups; it sends no message.
+Fixtures are synthetic/public;
 do not supply private inputs. No speaker, microphone or real backend runs.
 Fake clock scheduling is supported; explicit fixture dates remain available.
 

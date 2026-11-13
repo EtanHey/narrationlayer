@@ -9,7 +9,7 @@ function kinds(rows: Record<string, unknown>): Record<string, TrapKind> {
     return [key, kind];
   }));
 }
-export const trapped = { bun: kinds(trappedData.bun), modules: kinds(trappedData.modules), globals: kinds(trappedData.globals) };
+export const trapped = { process: kinds(trappedData.process), bun: kinds(trappedData.bun), modules: kinds(trappedData.modules), globals: kinds(trappedData.globals) };
 export const reviewedSafe = safeData;
 export const excluded = excludedData;
 export function verifyInventory(

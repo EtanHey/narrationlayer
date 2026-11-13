@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { sandboxAvailable, sandboxCommand, sandboxProfile } from "../../src/engine/conformance/sandbox.js";
 const root = resolve(import.meta.dir, "../..");
@@ -31,7 +31,7 @@ for (const route of ["tcp", "udp", "unix", "dns", "bun-spawn", "node-spawn", "ex
       // Minimal authoritative NXDOMAIN reply, entirely on loopback.
       const reply = Buffer.from(data); reply[2] = 0x81; reply[3] = 0x83; s.send(reply, port, address);
     } } });
-    const childCode = `require('fs').writeFileSync(${JSON.stringify(marker)},'escaped')`;
+    const childCode = `try{require('fs').writeFileSync(${JSON.stringify(marker)},'escaped')}catch{}`;
     const cmd = JSON.stringify([process.execPath, "-e", childCode]);
     const routes: Record<string, string> = {
       tcp: `await new Promise((ok,no)=>{const s=require('net').connect(${target.port},'127.0.0.1',()=>{s.end();ok()});s.on('error',no)})`,
@@ -54,6 +54,7 @@ for (const route of ["tcp", "udp", "unix", "dns", "bun-spawn", "node-spawn", "ex
     try {
       const denied = await run(true);
       console.log(route, denied.out.trim()); expect(denied.code).toBe(7); expect(denied.out).not.toContain("allowed");
+      if (route.includes("spawn")) expect(denied.out).toContain("EPERM");
       expect(tcp + packets + sockets).toBe(0); expect(existsSync(marker)).toBe(false);
       const control = await run(false);
       expect(control).toEqual({ out: "allowed\n", err: "", code: 0 });
@@ -61,7 +62,7 @@ for (const route of ["tcp", "udp", "unix", "dns", "bun-spawn", "node-spawn", "ex
       else if (route === "unix") expect(sockets).toBe(1);
       else if (route === "dns" || route === "udp") expect(packets).toBeGreaterThan(0);
       else expect(existsSync(marker)).toBe(true);
-    } finally { sink.stop(true); target.stop(true); local.stop(true); udp.close(); rmSync(dir, { recursive: true }); }
+    } finally { sink.stop(true); target.stop(true); local.stop(true); rmSync(unix, { force: true }); udp.close(); rmSync(dir, { recursive: true }); }
   });
 }
 test("required containment fails closed when the resolver cannot find sandbox-exec", async () => {
@@ -77,7 +78,7 @@ test("required containment fails closed when the resolver cannot find sandbox-ex
     }
   } finally { rmSync(dir, { recursive: true }); }
 });
-for (const route of ["proxy", "unix", "env-assign", "env-delete", "no-proxy", "file-string", "write-string"]) {
+for (const route of ["proxy", "unix", "env-assign", "env-delete", "no-proxy", "file-string", "write-string", "file-string-own", "write-string-own"]) {
   macTest(`full entry contains ${route}`, async () => {
     const dir = mkdtempSync(resolve(scratch, "entry-"));
     const unix = resolve(root, "docs.local", `f${process.pid}${route.slice(0,3)}.sock`);
@@ -87,7 +88,10 @@ for (const route of ["proxy", "unix", "env-assign", "env-delete", "no-proxy", "f
     const local = Bun.listen({ unix, socket });
     const url = JSON.stringify(`http://127.0.0.1:${tcp.port}`);
     const edits = `for(const env of [process.env,Bun.env])for(const k of ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy']){try{${route === "env-delete" ? 'delete env[k]' : 'env[k]='+url}}catch{}};try{process.env.NO_PROXY='*'}catch{}`;
-    const action = route === "proxy" ? `await Bun.fetch(${url},{proxy:${url}})` : route === "unix" ? `await Bun.fetch(${url},{unix:${JSON.stringify(unix)}})` : route.includes("string") ? `${edits};await Bun.${route.startsWith("file") ? "file(new String('s3://fixture/key')," : "write(new String('s3://fixture/key'),'fixture',"}{endpoint:${url},accessKeyId:'fixture',secretAccessKey:'fixture'}).${route.startsWith("file") ? "text()" : "then(()=>{})"}` : `${edits};await Bun.fetch(${url})`;
+    const boxed = route.endsWith("-own") ? `Object.assign(new String('s3://fixture/key'),{n:0,toString(){return this.n++?'s3://fixture/key':'fixture-local'}})` : `new String('s3://fixture/key')`;
+    const options = `{endpoint:${url},accessKeyId:'fixture',secretAccessKey:'fixture'}`;
+    const remoteFile = route.startsWith("file") ? `Bun.file(${boxed},${options}).text()` : `Bun.write(${boxed},'fixture',${options})`;
+    const action = route === "proxy" ? `await Bun.fetch(${url},{proxy:${url}})` : route === "unix" ? `await Bun.fetch(${url},{unix:${JSON.stringify(unix)}})` : route.includes("string") ? `${edits};await ${remoteFile}` : `${edits};await Bun.fetch(${url})`;
     const file = resolve(dir, "binding.ts");
     writeFileSync(file, `export default {name:'escape',create(){let p;return {send(){p=(async()=>{${action}})().catch(()=>{})},events:(async function*(){})(),async shutdown(){await p}}}}`);
     try {
@@ -96,7 +100,7 @@ for (const route of ["proxy", "unix", "env-assign", "env-delete", "no-proxy", "f
       expect(arrivals).toBe(0); expect(err).toBe(""); expect(JSON.parse(out).containment).toBe("macos-sandbox");
       // Kernel-denied calls caught by a binding need not be tripwire-red.
       if (route.includes("string")) expect(out).toContain("remote scheme");
-    } finally { tcp.stop(true); local.stop(true); rmSync(dir, { recursive: true }); }
+    } finally { tcp.stop(true); local.stop(true); rmSync(unix, { force: true }); rmSync(dir, { recursive: true }); }
   });
 }
 macTest("containment permits parent's port but refuses a second loopback port, including after same-image exec", async () => {
@@ -142,5 +146,44 @@ macTest("child reports clean=3 and trapped exit=1 on dedicated fd3", async () =>
       const [report, , , exit] = await Promise.all([typeof pipe === "number" ? Bun.file(pipe).text() : new Response(pipe).text(), new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
       expect(exit).toBe(code); expect(JSON.parse(report).containment).toBe("macos-sandbox");
     }
+  } finally { rmSync(dir, { recursive: true }); }
+});
+test("platform snapshots differ only in their explicit containment value", () => {
+  const tripwire = JSON.parse(readFileSync(resolve(import.meta.dir, "report.snapshot.json"), "utf8"));
+  const sandbox = JSON.parse(readFileSync(resolve(import.meta.dir, "report.macos-sandbox.snapshot.json"), "utf8"));
+  expect(tripwire.containment).toBe("in-process-tripwire"); expect(sandbox.containment).toBe("macos-sandbox");
+  expect({ ...tripwire, containment: "macos-sandbox" }).toEqual(sandbox);
+});
+const services = ["com.apple.dnssd.service", "com.apple.coreservices.launchservicesd", "com.apple.coreservices.appleevents"];
+for (const route of [...services, "file-write", "signal"]) macTest(`containment: untrapped ${route} denied with successful control`, async () => {
+  const dir = mkdtempSync(resolve(scratch, "boundary-")), file = resolve(dir, "probe.ts"), marker = resolve(dir, "marker");
+  // Own a live target; signal 0 only tests permission, never delivers a signal.
+  const target = Bun.spawn([process.execPath, "-e", "process.stdin.resume()"], { stdio: ["pipe", "ignore", "ignore"] });
+  const lookup = `const {dlopen,ptr}=require('bun:ffi');
+    const k=dlopen('/usr/lib/libSystem.B.dylib',{task_self_trap:{args:[],returns:'u32'},task_get_special_port:{args:['u32','i32','ptr'],returns:'i32'},bootstrap_look_up:{args:['u32','ptr','ptr'],returns:'i32'}});
+    const bp=new Uint32Array(1),out=new Uint32Array(1);if(k.symbols.task_get_special_port(k.symbols.task_self_trap(),4,ptr(bp)))throw Error('bootstrap port unavailable');
+    const status=k.symbols.bootstrap_look_up(bp[0],ptr(Buffer.concat([Buffer.from(${JSON.stringify(route)}),Buffer.from([0])])),ptr(out));
+    console.log('lookup='+status);if(status!==0)process.exit(7);if(!out[0])throw Error('missing send right');`;
+  const body = route === "signal" ? `process.kill(${target.pid},0)` : route === "file-write" ? `require('fs').writeFileSync(${JSON.stringify(marker)},'fixture')` : lookup;
+  writeFileSync(file, `try{${body};console.log('allowed')}catch(e){console.log(e.code);process.exitCode=7}`);
+  try {
+    for (const contained of [true, false]) {
+      const command = [process.execPath, file];
+      const p = Bun.spawn(contained ? sandboxCommand(command, 1) : command, { stdout: "pipe", stderr: "pipe" });
+      const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+      console.log(route, contained ? "sandbox" : "control", out.trim());
+      expect(err).toBe(""); expect(code).toBe(contained ? 7 : 0);
+      expect(out).toContain(route.startsWith("com.apple.") ? `lookup=${contained ? 1100 : 0}` : contained ? "EPERM" : "allowed");
+      expect(existsSync(marker)).toBe(route === "file-write" && !contained);
+    }
+  } finally { target.kill(); await target.exited; rmSync(dir, { recursive: true }); }
+});
+macTest("native addon loading is a spawn tripwire before calling dlopen", async () => {
+  const dir = mkdtempSync(resolve(scratch, "native-")), file = resolve(dir, "binding.ts");
+  writeFileSync(file, `export default {name:'native',create(){return {send(){try{process.dlopen({exports:{}},'/usr/lib/libSystem.B.dylib')}catch{}},events:(async function*(){})(),async shutdown(){}}}}`);
+  try {
+    const p = Bun.spawn([process.execPath, entry, "--binding", file], { stdout: "pipe", stderr: "pipe" });
+    const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+    expect(code).toBe(1); expect(err).toBe(""); expect(JSON.parse(out).rows.find((r: { id: string }) => r.id === "CONF-04")).toMatchObject({ result: "fail", diagnostic: "forbidden APIs: process.dlopen" });
   } finally { rmSync(dir, { recursive: true }); }
 });
