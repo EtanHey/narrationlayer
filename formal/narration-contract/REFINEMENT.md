@@ -86,8 +86,7 @@ No order is assumed between the current exit and the next spawn. A next-piece
 spawn retains one previous `(player_instance_id,piece_index)`; its same-epoch exit
 settles silently when completed, or accepts player_failed when failed. Repeated
 spawn notifications preserve that pending slot. No terminal reopens. This handles
-distinct and reused player IDs; fixtures cover both exit/spawn orders. All input
-objects are copied at entry so callers cannot change state by mutating a message.
+distinct and reused player IDs; fixtures cover both exit/spawn orders. Input ownership follows the S2d immutable snapshot contract below.
 
 ## S2c admission and failure diagnostics outside the model
 
@@ -129,3 +128,31 @@ applicable assertion. The timeout remains 20 seconds.
 
 This extends code coupling, not the formal model or engine acceptance. Retry,
 per-session last seq, speed, pause and index eviction remain outside S2c.
+
+## S2d immutable snapshots and reducer cost
+
+Callers must never mutate a state passed to or returned by `reduce`, an input
+once passed, or an effect. The reducer relies on that ownership contract: it
+shares requests, plans, cursors and delivered pieces by reference. Mutating a
+shared session or payload would change multiple snapshots at once and invalidate
+replay comparisons and cached fingerprints. State remains plain JSON data.
+
+A transition copies the top level and only its changed session, replacing changed
+cursors, delivered arrays and receipt arrays. Other sessions and unchanged fields
+retain their references; a transition with no change returns the original state.
+The sessions/index maps are shallow-copied only when their entries change. This
+still costs O(number of sessions) for a changed session map, but never copies the
+other sessions' text or word tables. Admission-only errors share the maps.
+
+Replay is the exception to input sharing: the small control command and its ack
+are deep-copied into the bounded receipt list. Later caller mutation of a command
+cannot alter its original replay identity or response. Accepted receipts contain
+only freshly constructed scalar fields. The former defensive copying guarantee
+for requests, plans, cursors and delivered pieces is intentionally replaced by
+the immutable-input contract; command mutation isolation remains tested.
+
+All ordinary reducer tests and every exhaustive transition freeze state and input
+recursively. A differential traversal compares state and effects against
+bf3e3f827db45e733508138a9e145e0f06f0017a across the same three seeds and alphabet.
+This changes storage ownership and cost, not the fences, inputs or wire behavior.
+No eviction, per-session last seq or retry input is introduced.

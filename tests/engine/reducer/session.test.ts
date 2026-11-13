@@ -1,8 +1,17 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { initialState, reduce, type State, type Input } from "../../../src/engine/reducer/session";
+import { initialState, reduce as transition, type State, type Input } from "../../../src/engine/reducer/session";
 import { parseEvent } from "../../../src/engine/messages/parser";
 import type { Message } from "../../../src/engine/messages/messages";
+const frozen = new WeakSet<object>();
+function freeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !frozen.has(value)) {
+    for (const child of Object.values(value)) freeze(child);
+    Object.freeze(value); frozen.add(value);
+  }
+  return value;
+}
+const reduce: typeof transition = (state, input) => transition(freeze(state), freeze(input));
 const identity = { owner_epoch: 1, session_id: "session-1", attempt_id: "attempt-1" };
 const current = { session_id: identity.session_id, player_instance_id: "player-1", control_epoch: 1, audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 10, duration_ms: 10 };
 const request: Message<"narrate"> = { protocol: "nl.engine/1", type: "narrate", request_id: "req-1", idempotency_key: "key", use: "read", input: { text: "Synthetic words only", format: "plain" }, voice: { profile: "fake", require_clone: false, fallback: "none" }, delivery: "pieces" };
@@ -162,24 +171,21 @@ test("I04: completed exit must be the final planned piece", () => {
 test("control fence: wrong player instance gets one stale ack", () => {
   const s = accepted(); expect(reduce(s, { ...seek, command: { ...seek.command, player_instance_id: "wrong" } }).effects).toMatchObject([{ kind: "emit", event: { type: "control_ack", reason: "STALE_EPOCH" } }]);
 });
-test("authority: engine-wide stage and host reanchor is internal refusal; inputs do not alias", () => {
+test("authority: engine-wide stage and host reanchor is internal refusal; replay commands do not alias", () => {
   const host = initialState(1, "host"), reanchor = { kind: "reanchor", session_id: identity.session_id, reason: "speed", target: current } satisfies Input;
   // @ts-expect-error Host bindings do not have a reanchor input.
   const refused = reduce(host, reanchor);
   expect(reduce(initialState(1, "engine"), reanchor).effects).toEqual([{ kind: "reject", reason: "UNKNOWN_SESSION" }]);
   expect(reduce(run(accepted(), stop), reanchor).effects).toEqual([{ kind: "reject", reason: "TERMINAL" }]);
   expect(refused.effects).toEqual([{ kind: "reject", reason: "HOST_REANCHOR" }]);
-  const input = acceptance(); if (input.kind !== "accept") throw Error("fixture"); const s = reduce(host, input).state;
-  input.request.input.text = "changed"; input.plan.pieces.length = 0; input.current.audio_ms = 99;
-  expect(view(s).plan.pieces).toHaveLength(1); expect(view(s).request.input.text).not.toBe("changed"); expect(view(s).current.audio_ms).toBe(0);
-  const result = piece(); if (result.kind !== "backend") throw Error("fixture"); const delivered = reduce(s, result).state;
-  if (result.kind === "backend" && result.result.kind === "piece") result.result.piece.spoken_text = "changed";
-  expect(view(delivered).delivered[0].spoken_text).not.toBe("changed");
-  const command = structuredClone(seek), commanded = reduce(s, command).state; command.command.command_id = "changed";
+  const input = acceptance(); if (input.kind !== "accept") throw Error("fixture"); const s: State = reduce(host, input).state;
+  expect(view(s).request).toBe(input.request); expect(view(s).plan).toBe(input.plan); expect(view(s).current).toBe(input.current);
+  const result = piece(); const delivered = reduce(s, result).state;
+  if (result.kind === "backend" && result.result.kind === "piece") expect(view(delivered).delivered[0]).toBe(result.result.piece);
+  const command = structuredClone(seek), commanded = transition(freeze(s), command).state; command.command.command_id = "changed";
   expect(view(commanded).receipts[0].command.command_id).toBe("seek-1");
 });
-const exhaustiveResults: { seed: string; scripts: number; visits: number; distinct: number }[] = [];
-for (const seed of ["bare", "ready", "host"] as const) test(`exhaustive seed=${seed}: I01 I02 I03 I04 and guards through depth 4 with two-piece sessions`, () => {
+test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sessions", () => {
   const other = acceptance(2); if (other.kind !== "accept") throw Error("fixture");
   const second: Input = { ...other, request: { ...request, request_id: "req-2", idempotency_key: "key-2" }, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...other.plan, session_id: "session-2" } };
   const controls: Input[] = []; for (const reason of ["stop", "cancel", "replaced"] as const) controls.push({ kind: "control", command: { ...seek.command, command_id: reason, op: "stop", args: { scope: "session", reason } }, target: current });
@@ -189,9 +195,9 @@ for (const seed of ["bare", "ready", "host"] as const) test(`exhaustive seed=${s
     feedback("first_sample", {}, { ...identity, owner_epoch: 2 }), feedback("first_sample", {}, { ...identity, attempt_id: "attempt-2" }), feedback("first_sample", {}, { ...identity, session_id: "session-2" }), feedback("first_sample", { session_id: "foreign", control_epoch: 0 }),
     { ...seek, command: { ...seek.command, session_id: "missing" } }, toLast, { ...seek, command: { ...seek.command, command_id: "seek-2" } }, { ...seek, command: { ...seek.command, session_id: "session-2" } }, { kind: "reanchor", session_id: identity.session_id, reason: "speed", target: current }, { kind: "reanchor", session_id: identity.session_id, reason: "restart", target: { ...current, control_epoch: 3 } }];
   const bare = run(accepted(2), second), ready = run(bare, piece(), piece(1)), host = run(accepted(2, "host"), second, piece(), piece(1));
-  let frontier = new Map<string, { state: State; paths: number }>([{ bare, ready, host }[seed]].map(state => [JSON.stringify(state), { state, paths: 1 }]));
+  let frontier = new Map<string, { state: State; paths: number }>([bare, ready, host].map(state => [JSON.stringify(state), { state, paths: 1 }]));
   const parsedEvents = new Set<string>();
-  const distinct = new Set<string>(); let visits = 0, scripts = 1; const start = performance.now();
+  const distinct = new Set<string>(); let visits = 0, scripts = 3; const start = performance.now();
   // Reducer snapshots and effects are immutable throughout this traversal.
   const fingerprints = new WeakMap<object, string>();
   function encode(value: unknown): string | undefined {
@@ -272,21 +278,11 @@ for (const seed of ["bare", "ready", "host"] as const) test(`exhaustive seed=${s
     }
     frontier = next;
   }
-  console.log(`exhaustive seed=${seed} depth=4 alphabet=${alphabet.length} scripts=${scripts} visits=${visits} distinct=${distinct.size} wall_ms=${(performance.now() - start).toFixed(1)}`);
-  exhaustiveResults.push({ seed, scripts, visits, distinct: distinct.size });
-  expect(scripts).toBe(1 + alphabet.length + alphabet.length ** 2 + alphabet.length ** 3 + alphabet.length ** 4);
+  console.log(`exhaustive depth=4 alphabet=${alphabet.length} scripts=${scripts} visits=${visits} distinct=${distinct.size} wall_ms=${(performance.now() - start).toFixed(1)}`);
+  expect(visits).toBe(44227); expect(distinct.size).toBe(38729);
+  expect(scripts).toBe(7876923);
+  expect(scripts).toBe(3 * (1 + alphabet.length + alphabet.length ** 2 + alphabet.length ** 3 + alphabet.length ** 4));
 }, 20000);
-test("exhaustive: split retains all three seed traversals", () => {
-  // Baselines measured with the original traversal isolated to each seed.
-  expect(exhaustiveResults).toEqual([
-    { seed: "bare", scripts: 2625641, visits: 12808, distinct: 11238 },
-    { seed: "ready", scripts: 2625641, visits: 14584, distinct: 12741 },
-    { seed: "host", scripts: 2625641, visits: 17037, distinct: 14934 },
-  ]);
-  expect(exhaustiveResults.reduce((sum, result) => sum + result.scripts, 0)).toBe(7876923);
-  // Shared states overlap: the old multi-source Map merged them across seeds
-  // (44227 visits, 38729 distinct), while the split counts each seed separately.
-});
 test("admit: a new request changes nothing and asks for a plan", () => {
   const s = initialState(1, "engine"), r = reduce(s, { kind: "admit", request });
   expect(r.state).toBe(s); expect(r.effects).toEqual([{ kind: "plan", request }]);
@@ -354,4 +350,22 @@ test("GEN-01: failure after a delivered piece ends speech_failed even before pla
   const r = reduce(run(accepted(2), piece()), failure);
   expect(view(r.state).started).toBe(false);
   expect(view(r.state).outcome?.playback.reason).toBe("speech_failed");
+});
+
+test("immutability: reduce never writes to its state or its input", () => {
+  const s = accepted(2), delivered = reduce(s, piece()).state;
+  expect(view(delivered).request).toBe(view(s).request); expect(view(delivered).plan).toBe(view(s).plan);
+  expect(view(delivered).current).toBe(view(s).current); expect(view(s).delivered).toHaveLength(0);
+  const next = reduce(delivered, piece(1)).state;
+  expect(view(next).delivered[0]).toBe(view(delivered).delivered[0]);
+  expect(reduce(next, { ...commit, identity: { ...identity, attempt_id: "foreign" } }).state).toBe(next);
+  const sampled = reduce(next, feedback("first_sample")).state;
+  expect(reduce(sampled, feedback("first_sample")).state).toBe(sampled);
+  const stale = reduce(next, { ...seek, command: { ...seek.command, expected_control_epoch: 99 } }).state;
+  expect(view(stale).receipts[0].ack.current).toEqual(view(next).current);
+  expect(view(stale).receipts[0].ack.current).not.toBe(view(next).current);
+  const other = acceptance(); if (other.kind !== "accept") throw Error("fixture");
+  const two = reduce(next, { ...other, identity: { ...identity, session_id: "second" }, request: { ...request, idempotency_key: "second" }, current: { ...current, session_id: "second" }, plan: { ...other.plan, session_id: "second" } }).state;
+  expect(reduce(two, stop).state.sessions.second).toBe(two.sessions.second);
+  expect(reduce(two, { kind: "refuse", code: "INVALID_REQUEST", message: "synthetic" }).state.sessions).toBe(two.sessions);
 });
