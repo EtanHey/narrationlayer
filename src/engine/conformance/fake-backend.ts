@@ -15,25 +15,45 @@ export function pcmAudio(samples: number, sample_rate = 1000, duration_ms = samp
 export class ScriptedBackend implements FakeBackend {
   private steps: BackendStep[] = [];
   private requests: Json[] = [];
+  private active = new Set<{ waiting: boolean }>();
   constructor(private clock: Clock) {}
   // Case-only request observations, never lifecycle records or logs; preserve text for case assertions.
   get calls(): readonly Json[] { return structuredClone(this.requests); }
-  script(steps: readonly BackendStep[]): void { this.steps.push(...structuredClone(steps)); }
+  get pending(): number { return this.steps.length + this.active.size; }
+  assertDrained(): void {
+    if (this.pending) throw new Error(`backend: ${this.steps.length} unused steps, ${this.active.size} pending requests${[...this.active].some(s => s.waiting) ? "; late_after_cancel step was never cancelled" : ""}`);
+  }
+  script(steps: readonly BackendStep[]): void {
+    steps.forEach((s, index) => {
+      const known = (value: object, keys: string[]) => Object.keys(value).every(k => keys.includes(k));
+      const r = s?.result;
+      if (!s || typeof s !== "object" || Array.isArray(s) || !known(s, ["latency_ms", "late_after_cancel", "result"]) || !Number.isFinite(s.latency_ms) || s.latency_ms < 0 || typeof s.late_after_cancel !== "boolean" || !r || typeof r !== "object" || Array.isArray(r) ||
+        (r.kind !== "audio" && r.kind !== "error") || (r.kind === "error" ? !known(r, ["kind", "code"]) || typeof r.code !== "string" :
+          !known(r, ["kind", "bytes", "samples", "sample_rate", "duration_ms", "timings"]) || !(r.bytes instanceof Uint8Array) || !Number.isSafeInteger(r.samples) || r.samples < 0 || r.bytes.length !== 44 + r.samples * 2 ||
+          !Number.isSafeInteger(r.sample_rate) || r.sample_rate <= 0 || !Number.isFinite(r.duration_ms) || r.duration_ms < 0 || r.timings === undefined)) throw new Error(`invalid backend step ${index}`);
+    });
+    this.steps.push(...structuredClone(steps));
+  }
   synthesizeRequest(request: Json, signal: AbortSignal): Promise<BackendAudio> {
     this.requests.push(structuredClone(request));
     const step = this.steps.shift();
     if (!step) return Promise.reject(new Error("backend script exhausted"));
+    const state = { waiting: step.late_after_cancel }; this.active.add(state);
     return new Promise((resolve, reject) => {
-      const abort = () => { cancel(); signal.removeEventListener("abort", abort); reject(new Error("cancelled")); };
-      const cancel = this.clock.schedule(step.latency_ms, () => {
-        signal.removeEventListener("abort", abort);
+      let cancel = () => {};
+      const deliver = () => {
+        this.active.delete(state); signal.removeEventListener("abort", abort);
         if (step.result.kind === "error") reject(new Error(step.result.code));
         else { const { kind, ...audio } = step.result; resolve(structuredClone(audio)); }
-      });
-      if (!step.late_after_cancel) {
-        signal.addEventListener("abort", abort, { once: true });
-        if (signal.aborted) abort();
-      }
+      };
+      const abort = () => {
+        signal.removeEventListener("abort", abort);
+        if (step.late_after_cancel) { state.waiting = false; cancel = this.clock.schedule(step.latency_ms, deliver); }
+        else { cancel(); this.active.delete(state); reject(new Error("cancelled")); }
+      };
+      signal.addEventListener("abort", abort, { once: true });
+      if (signal.aborted) abort();
+      else if (!step.late_after_cancel) cancel = this.clock.schedule(step.latency_ms, deliver);
     });
   }
 }

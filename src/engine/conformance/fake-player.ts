@@ -8,6 +8,8 @@ export class ScriptedSpawn implements FakeSpawn {
   private sequence = 0;
   constructor(private clock: Clock) {}
   get calls(): readonly (readonly string[])[] { return structuredClone(this.argv); }
+  get pending(): number { return this.steps.length; }
+  assertDrained(): void { if (this.pending) throw new Error(`spawn: ${this.pending} unused steps`); }
   script(steps: readonly SpawnStep[]): void { this.steps.push(...structuredClone(steps)); }
   start(argv: readonly string[], step = this.steps.shift(), onExit: (code: number, killed: boolean) => void = () => {}) {
     if (!step) throw new Error("spawn script exhausted");
@@ -34,10 +36,12 @@ export class ScriptedPlayer implements FakePlayer {
   private live = new Map<string, () => void>();
   constructor(private clock: Clock, readonly spawn = new ScriptedSpawn(clock)) {}
   get edges(): readonly Json[] { return structuredClone(this.records); }
+  get pending(): number { return this.steps.length; }
+  assertDrained(): void { if (this.pending) throw new Error(`player: ${this.pending} unused steps`); }
   script(steps: readonly PlayerStep[]): void {
     for (const s of steps) {
-      const times = [0, s.first_sample_ms, s.first_audible_ms, s.last_sample_ms, s.exit_ms];
-      if (times.some((t, i) => !Number.isFinite(t) || (i > 0 && t < times[i - 1])) || !Number.isInteger(s.exit_code)) throw new Error("unordered player edges");
+      const times = [0, s.first_sample_ms, s.first_audible_ms, s.last_sample_ms];
+      if (times.some((t, i) => !Number.isFinite(t) || (i > 0 && t < times[i - 1])) || !Number.isFinite(s.exit_ms) || s.exit_ms < 0 || !Number.isInteger(s.exit_code)) throw new Error("unordered player edges");
     }
     this.steps.push(...structuredClone(steps));
   }

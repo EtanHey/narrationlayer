@@ -24,7 +24,7 @@ export interface FakeSpawn {
 export interface HostStub {
   capture(state: "requested" | "active" | "idle"): void;
   permit(session: string): void;
-  revoke(session: string): void;
+  revoke(session: string, loan_id?: string): void;
   loan(from: string, to: string): void;
   readonly records: readonly Json[];
 }

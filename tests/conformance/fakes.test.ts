@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import type { BackendAudio, BackendStep, Json } from "../../src/engine/conformance/binding.js";
+import type { BackendAudio, BackendStep, HostStub, Json } from "../../src/engine/conformance/binding.js";
 import { FakeClock } from "../../src/engine/conformance/clock.js";
 import { pcmAudio, ScriptedBackend } from "../../src/engine/conformance/fake-backend.js";
 import { ScriptedPlayer, ScriptedSpawn } from "../../src/engine/conformance/fake-player.js";
@@ -34,9 +34,10 @@ test("backend (c) result arrives after cancel", async () => {
   const { clock, backend, abort } = setup(); backend.script([audioStep(pcmAudio(21), 10, true)]);
   const events: Json[] = [];
   const pending = backend.synthesizeRequest({}, abort.signal).then(a => events.push({ samples: a.samples, at: clock.now() }), () => events.push("rejected"));
-  clock.schedule(2, () => { abort.abort(); events.push({ cancel: clock.now() }); });
-  await clock.advance(9); expect(events).toEqual([{ cancel: 2 }]);
-  await clock.advance(1); await pending; expect(events).toEqual([{ cancel: 2 }, { samples: 21, at: 10 }]);
+  clock.schedule(15, () => { abort.abort(); events.push({ cancel: clock.now() }); });
+  await clock.advance(14); expect(events).toEqual([]);
+  await clock.advance(10); expect(events).toEqual([{ cancel: 15 }]);
+  await clock.advance(1); await pending; expect(events).toEqual([{ cancel: 15 }, { samples: 21, at: 25 }]); backend.assertDrained();
 });
 test("backend ordinary cancellation and pre-aborted request reject without late delivery", async () => {
   for (const before of [true, false]) {
@@ -89,10 +90,61 @@ test("killed player exits once and cancels future sample edges", async () => {
 });
 test("spawn records argv, scripted exit code and idempotent kill", async () => {
   const clock = new FakeClock(), spawn = new ScriptedSpawn(clock); spawn.script([{ exit_ms: 7, exit_code: 9 }, { exit_ms: 8, exit_code: 0 }]);
-  const first = spawn.start(["fake", "one"]), killed = spawn.start(["fake", "two"]); killed.kill(); killed.kill();
+  const exits: number[] = [];
+  const first = spawn.start(["fake", "one"]), killed = spawn.start(["fake", "two"], undefined, code => exits.push(code)); killed.kill(); killed.kill();
   await clock.advance(6); let exited = false; void first.exited.then(() => { exited = true; }); await Promise.resolve(); expect(exited).toBe(false);
   await clock.advance(1); expect(await first.exited).toBe(9); expect(await killed.exited).toBe(137); await clock.advance(20);
   expect(spawn.calls).toEqual([["fake", "one"], ["fake", "two"]]);
+  expect(exits).toEqual([137]); spawn.assertDrained();
+});
+test("late-after-cancel without abort stays pending and drain reports why", async () => {
+  const { clock, backend, abort } = setup(); backend.script([audioStep(pcmAudio(50), 10, true)]);
+  let delivered = false; void backend.synthesizeRequest({}, abort.signal).then(() => { delivered = true; });
+  await clock.advance(25); expect(delivered).toBe(false); expect(backend.pending).toBe(1);
+  expect(() => backend.assertDrained()).toThrow("late_after_cancel step was never cancelled");
+  abort.abort(); await clock.advance(10); expect(delivered).toBe(true); backend.assertDrained();
+});
+test("backend drain rejects an unconsumed failure step", async () => {
+  const { clock, backend, abort } = setup(); backend.script([audioStep(), { latency_ms: 0, late_after_cancel: false, result: { kind: "error", code: "UNUSED" } }]);
+  const first = backend.synthesizeRequest({}, abort.signal); await clock.advance(10); await first;
+  expect(backend.pending).toBe(1); expect(() => backend.assertDrained()).toThrow("1 unused steps");
+  const failure = backend.synthesizeRequest({}, abort.signal).catch(e => e.message); await clock.advance(0);
+  expect(await failure).toBe("UNUSED"); expect(backend.pending).toBe(0); backend.assertDrained();
+});
+test("spawn drain rejects an unconsumed failure step", async () => {
+  const clock = new FakeClock(), spawn = new ScriptedSpawn(clock); spawn.script([{ exit_ms: 0, exit_code: 9 }]);
+  expect(spawn.pending).toBe(1); expect(() => spawn.assertDrained()).toThrow("spawn: 1 unused steps");
+  const child = spawn.start(["fake"]); await clock.advance(0); expect(await child.exited).toBe(9); expect(spawn.pending).toBe(0); spawn.assertDrained();
+});
+test("player drain rejects an unconsumed failure step", async () => {
+  const clock = new FakeClock(), player = new ScriptedPlayer(clock); player.script([{ ...playerStep, exit_code: 9 }]);
+  expect(player.pending).toBe(1); expect(() => player.assertDrained()).toThrow("player: 1 unused steps");
+  player.play(identity); await clock.advance(10); expect(player.pending).toBe(0); player.assertDrained();
+});
+test("backend script validates steps at the first bad index", () => {
+  const { backend } = setup(), good = audioStep();
+  const invalid = [
+    { ...good, late_after_cancle: true }, { ...good, late_after_cancel: "yes" }, { ...good, latency_ms: -1 }, { ...good, latency_ms: Infinity },
+    { ...good, result: { kind: "unknown" } }, { ...good, result: { kind: "error", code: 1 } },
+    { ...good, result: { kind: "audio", ...pcmAudio(5), bytes: new Uint8Array(4) } },
+    { ...good, result: { kind: "audio", ...pcmAudio(5), typo: true } },
+  ];
+  for (const bad of invalid) {
+    expect(() => Reflect.apply(backend.script, backend, [[good, bad]])).toThrow("invalid backend step 1"); expect(backend.pending).toBe(0);
+  }
+});
+test("player scripts a mid-piece crash and cancels later edges", async () => {
+  const clock = new FakeClock(), player = new ScriptedPlayer(clock); player.script([{ ...playerStep, exit_ms: 4, exit_code: 9 }]);
+  player.play(identity); await clock.advance(20);
+  expect(player.edges).toEqual(["player_spawned", "first_sample", "first_audible", "player_exited"].map(edge => expect.objectContaining({ edge })));
+  expect(player.edges.at(-1)).toEqual(expect.objectContaining({ status: "failed", exit_code: 9, t_mono_ms: 4 })); player.assertDrained();
+});
+test("host sends a matching stage-B loan revoke and restore", () => {
+  const host: HostStub = new ScriptedHost(new FakeClock()); host.revoke("s1", "loan-1"); host.loan("loan-1", "s1");
+  expect(host.records).toEqual([
+    { t_mono_ms: 0, message: { protocol: "nl.engine/1", type: "speaker_revoke", admission_epoch: 1, reason: "capture", loan_id: "loan-1" } },
+    { t_mono_ms: 0, message: { protocol: "nl.engine/1", type: "loan_restore", loan_id: "loan-1", session_id: "s1" } },
+  ]);
 });
 test("host skeleton sends capture, permits, revokes and loans on the fake clock", async () => {
   const clock = new FakeClock(), messages: Json[] = [], host = new ScriptedHost(clock, m => messages.push(m));
