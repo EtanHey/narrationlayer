@@ -61,3 +61,10 @@ S0a's CONF-01/02 remain active. Later engine and host cases stay inactive until
 implemented. `expectEvent` asserts a required stream element; bare iteration
 does not assert an expected end. S0a2 owns fake ports; the host-under-test port
 belongs to S6h, not the engine binding's send/events directions.
+
+
+Every case using ScriptedBackend, ScriptedSpawn or ScriptedPlayer must call
+each fake's `assertDrained()` at its end. `pending` counts unused steps (and
+backend requests still awaiting delivery). A late-after-cancel step waits for
+abort, then delivers after its latency; without abort, draining fails explicitly.
+S1b, the next slice writing cases, owns automatic runner drain enforcement.
