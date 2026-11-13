@@ -91,7 +91,13 @@ export function computeContentHashKey(input: {
 export async function writeTakeCacheReceipt(
   output: string,
   cacheKey: string,
-  options: { cacheEnabled: boolean },
+  options: {
+    cacheEnabled: boolean;
+    /** The take was rendered fresh under --refresh-cache and replaced the cached entry. */
+    refreshed?: boolean;
+    /** --keep-pieces: where the pieces went and how many; `skipped` says why none were written. */
+    keptPieces?: { dir: string; count: number; skipped?: string };
+  },
 ): Promise<string> {
   if (!/^[a-f0-9]{64}$/.test(cacheKey)) {
     throw new Error(`invalid cache key for take receipt: ${cacheKey}`);
@@ -100,7 +106,14 @@ export async function writeTakeCacheReceipt(
   const temporaryPath = `${receiptPath}.tmp-${process.pid}`;
   await writeFile(
     temporaryPath,
-    `${JSON.stringify({ version: 1, cacheKey, cacheEnabled: options.cacheEnabled })}\n`,
+    // The optional fields appear only when their switch was given, so a default receipt is unchanged.
+    `${JSON.stringify({
+      version: 1,
+      cacheKey,
+      cacheEnabled: options.cacheEnabled,
+      ...(options.refreshed ? { cacheRefreshed: true } : {}),
+      ...(options.keptPieces ? { keptPieces: options.keptPieces } : {}),
+    })}\n`,
     "utf8",
   );
   await rename(temporaryPath, receiptPath);

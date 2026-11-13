@@ -65,6 +65,10 @@ interface Args {
   cache: boolean;
   /** Override the cache directory (default ~/.narrationlayer/tts-cache). */
   cacheDir?: string;
+  /** Render even on a HIT and replace the cached take (--refresh-cache). */
+  refreshCache: boolean;
+  /** Keep each joined piece and pieces.json here (--keep-pieces <dir>). */
+  keepPieces?: string;
 }
 
 function expandHome(value: string): string {
@@ -79,7 +83,7 @@ function fail(message: string): never {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { sampleRate: 24000, timeoutMs: 120_000, cache: true };
+  const args: Args = { sampleRate: 24000, timeoutMs: 120_000, cache: true, refreshCache: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const takeValue = (): string => {
@@ -128,6 +132,12 @@ function parseArgs(argv: string[]): Args {
       case "--cache-dir":
         args.cacheDir = takeValue();
         break;
+      case "--refresh-cache":
+        args.refreshCache = true;
+        break;
+      case "--keep-pieces":
+        args.keepPieces = takeValue();
+        break;
       case "-h":
       case "--help":
         process.stdout.write(USAGE);
@@ -137,6 +147,8 @@ function parseArgs(argv: string[]): Args {
         fail(`unknown argument: ${arg}`);
     }
   }
+  if (args.refreshCache && !args.cache)
+    fail("--refresh-cache cannot be combined with --no-cache (a refresh stores the new take in the cache)");
   return args;
 }
 
@@ -162,6 +174,16 @@ Options:
   --cache / --no-cache       Content-hash freeze cache (default ON). On a HIT the
                              frozen WAV is copied to --output, skipping the daemon.
   --cache-dir <path>         Cache directory (default ~/.narrationlayer/tts-cache)
+  --refresh-cache            Render a fresh take even on a HIT, then replace the cached
+                             take with it (atomically; a failed render keeps the old one).
+                             The receipt <output>.cache.json says cacheRefreshed. Not
+                             allowed with --no-cache.
+  --keep-pieces <dir>        Copy each piece's audio as it was joined (before loudness)
+                             to <dir>/piece-NNN.wav and write <dir>/pieces.json (text,
+                             samples, duration, pause after, offset). An uncut render
+                             keeps one piece. <dir> must not exist or must be empty. On
+                             a cache HIT nothing is rendered, so none are written; the
+                             receipt says so. Neither switch changes the audio or key.
 
 Fail-closed: a missing profile/reference exits non-zero. Never falls back to system TTS.
 `;
@@ -316,6 +338,8 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
       authToken,
       cacheDir: path.resolve(expandHome(args.cacheDir ?? "~/.narrationlayer/tts-cache")),
       cache: args.cache,
+      refreshCache: args.refreshCache,
+      keepPiecesDir: args.keepPieces === undefined ? undefined : path.resolve(expandHome(args.keepPieces)),
       timeoutMs: args.timeoutMs,
       prepareSpeechChannels,
     });
@@ -325,12 +349,12 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
   }
   if (result.kind === "cache-hit") {
     process.stderr.write(
-      `local-tts-runner: cache HIT key=${result.cacheKey} role=${args.role ?? "-"} via ${resolved.source} -> ${output} (${result.bytes} bytes, frozen take ${result.cachePath})\n`,
+      `local-tts-runner: cache HIT key=${result.cacheKey} role=${args.role ?? "-"} via ${resolved.source} -> ${output} (${result.bytes} bytes, frozen take ${result.cachePath})${result.piecesNote}\n`,
     );
     process.exit(0);
   }
   process.stderr.write(
-    `local-tts-runner: ok role=${args.role ?? "-"} via ${resolved.source} -> ${output} (${result.bytes} bytes, mono s16 @ ${args.sampleRate}Hz)${result.atempoNote}${result.breathingNote}${result.loudnessNote}${result.cacheNote}\n`,
+    `local-tts-runner: ok role=${args.role ?? "-"} via ${resolved.source} -> ${output} (${result.bytes} bytes, mono s16 @ ${args.sampleRate}Hz)${result.atempoNote}${result.breathingNote}${result.loudnessNote}${result.cacheNote}${result.piecesNote}\n`,
   );
   process.exit(0);
 }
