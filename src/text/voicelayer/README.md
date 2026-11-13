@@ -31,3 +31,6 @@ own socket event, which is VoiceLayer's wire format and not part of projection.
 In `tts-sections.test.ts`, the `conserves exact ranges for …` callback calls
 `check(source, 7)` in a block body and returns nothing, as required by this
 repository's Bun test types. Its name and assertions are unchanged.
+
+Reviewed all four ported tests, including comments and test names for quoted
+remarks: fixtures are invented text; no owner's own words or data were found.
