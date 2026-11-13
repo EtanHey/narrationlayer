@@ -3,7 +3,7 @@
   "sync_commit": "78d4ec46d3ded56275cbc2a105add830cb413151",
   "source_sha256": {
     "src/job-store.ts": "8e5411c69ebfc9ad1d710294506d3de5b33240b1ce8855beac2f538a3d5b9f7d",
-    "src/engine/reducer/session.ts": "ea1b367621c7e95cb688905673d240d6d83b77f0a0cac1e4ea99a8c04451314c"
+    "src/engine/reducer/session.ts": "aa387f5e4fff5bce3571b74918348a42b848373d1210d4c9cdf43bb1ae3a9a54"
   },
   "source_backed": {
     "LegacyExclusive": "src/job-store.ts:168-177 markDone/markFailed; sequential awaited calls only; observed filesystem markers feed SourceTrace.tla"
@@ -87,50 +87,59 @@
     "scope": "S2a pure reducer only; no real engine/player/journal/History acceptance; I05-I10 unchanged design-level",
     "source": "src/engine/reducer/session.ts",
     "tests": "tests/engine/reducer/session.test.ts",
-    "exhaustive": "Nine-input alphabet, every script through length 6, 597871 visits, 50 distinct states; foreign session/owner plus control epochs 1 and 2",
+    "exhaustive": "Depth 4, 28-input alphabet; state/depth folding with path multiplicity from three reachable two-piece/two-session seeds; state and effects assertions, all three I02 identity fields; final counts in PR proof receipt",
     "proof_command": "bun test tests/engine/reducer; scratch each source mutation below, require its named test red, restore staged git bytes, rerun green",
     "invariants": {
       "I01": {
-        "before": "if (s.playback === null) s.playback = reason",
-        "after": "if (true) s.playback = reason",
-        "test": "I01:"
+        "before": "if (s.playback !== null) return",
+        "after": "if (false) return",
+        "test": "I01: a player failure after the natural end keeps completed",
+        "proof": "named AND exhaustive red; restored git bytes"
       },
       "I02": {
-        "before": "if (!matches) return",
-        "after": "if (false) return",
-        "test": "I02:"
+        "before": " && input.identity.attempt_id === s.attempt_id",
+        "after": "",
+        "test": "I02: matching feedback moves state; foreign job owner and attempt cannot",
+        "proof": "named AND exhaustive red; restored git bytes"
       },
       "I03": {
         "before": "s.generation = \"cancelled\"; s.fenced = true;",
         "after": "s.generation = \"running\"; s.fenced = false;",
-        "test": "I03:"
+        "test": "I03: cancellation fences delivery and commit, including late backend results",
+        "proof": "named AND exhaustive red; restored git bytes"
       },
       "I04": {
-        "before": "s.started && s.delivered.length === s.plan!.pieces.length && f.piece_index",
+        "before": "s.started && s.delivered.length === s.plan.pieces.length && f.piece_index",
         "after": "s.started && f.piece_index",
-        "test": "I04:"
-      },
-      "ID-01": {
-        "before": "if (f.control_epoch !== s.current.control_epoch || f.player_instance_id !== s.current.player_instance_id)",
-        "after": "if (false)",
-        "test": "ID-01 fence"
-      },
-      "seq": {
-        "before": "seq: ++s.seq",
-        "after": "seq: (s.seq += 2)",
-        "test": "seq:"
-      },
-      "idempotency": {
-        "before": "if (previous && key(previous.command) === key(c))",
-        "after": "if (previous && key(previous.command) === key(c) && false)",
-        "test": "idempotency:"
-      },
-      "exhaustive": {
-        "before": "if (!matches) return",
-        "after": "if (false) return",
-        "test": "exhaustive:"
+        "test": "I04: natural EOF needs actual start and N-piece coverage; no seek",
+        "proof": "named AND exhaustive red; restored git bytes"
       }
     },
-    "refinement": "formal/narration-contract/REFINEMENT.md"
+    "refinement": "formal/narration-contract/REFINEMENT.md",
+    "mutation_rows": "owed: four named-test rows (I01-I04) in tests/compat/mutations.ts after S2b",
+    "round_1_scratch_fences": [
+      "I01",
+      "I02",
+      "I03",
+      "I04",
+      "control-stale",
+      "epoch-feedback",
+      "player-feedback",
+      "wire-session",
+      "piece-index",
+      "spawn-adjacency",
+      "spawn-delivered",
+      "live-job",
+      "engine-mints",
+      "host-control-adopts",
+      "host-feedback-adopts",
+      "host-anchor-stale",
+      "terminal-anchor",
+      "host-control-stale",
+      "stop-wins",
+      "seq",
+      "sequenced-errors",
+      "idempotency"
+    ]
   }
 }
