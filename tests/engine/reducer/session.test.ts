@@ -178,7 +178,8 @@ test("authority: engine-wide stage and host reanchor is internal refusal; inputs
   const command = structuredClone(seek), commanded = reduce(s, command).state; command.command.command_id = "changed";
   expect(view(commanded).receipts[0].command.command_id).toBe("seek-1");
 });
-test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sessions", () => {
+const exhaustiveResults: { seed: string; scripts: number; visits: number; distinct: number }[] = [];
+for (const seed of ["bare", "ready", "host"] as const) test(`exhaustive seed=${seed}: I01 I02 I03 I04 and guards through depth 4 with two-piece sessions`, () => {
   const other = acceptance(2); if (other.kind !== "accept") throw Error("fixture");
   const second: Input = { ...other, request: { ...request, request_id: "req-2", idempotency_key: "key-2" }, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...other.plan, session_id: "session-2" } };
   const controls: Input[] = []; for (const reason of ["stop", "cancel", "replaced"] as const) controls.push({ kind: "control", command: { ...seek.command, command_id: reason, op: "stop", args: { scope: "session", reason } }, target: current });
@@ -188,9 +189,9 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
     feedback("first_sample", {}, { ...identity, owner_epoch: 2 }), feedback("first_sample", {}, { ...identity, attempt_id: "attempt-2" }), feedback("first_sample", {}, { ...identity, session_id: "session-2" }), feedback("first_sample", { session_id: "foreign", control_epoch: 0 }),
     { ...seek, command: { ...seek.command, session_id: "missing" } }, toLast, { ...seek, command: { ...seek.command, command_id: "seek-2" } }, { ...seek, command: { ...seek.command, session_id: "session-2" } }, { kind: "reanchor", session_id: identity.session_id, reason: "speed", target: current }, { kind: "reanchor", session_id: identity.session_id, reason: "restart", target: { ...current, control_epoch: 3 } }];
   const bare = run(accepted(2), second), ready = run(bare, piece(), piece(1)), host = run(accepted(2, "host"), second, piece(), piece(1));
-  let frontier = new Map<string, { state: State; paths: number }>([bare, ready, host].map(state => [JSON.stringify(state), { state, paths: 1 }]));
+  let frontier = new Map<string, { state: State; paths: number }>([{ bare, ready, host }[seed]].map(state => [JSON.stringify(state), { state, paths: 1 }]));
   const parsedEvents = new Set<string>();
-  const distinct = new Set<string>(); let visits = 0, scripts = 3; const start = performance.now();
+  const distinct = new Set<string>(); let visits = 0, scripts = 1; const start = performance.now();
   // Reducer snapshots and effects are immutable throughout this traversal.
   const fingerprints = new WeakMap<object, string>();
   function encode(value: unknown): string | undefined {
@@ -271,9 +272,21 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
     }
     frontier = next;
   }
-  console.log(`exhaustive depth=4 alphabet=${alphabet.length} scripts=${scripts} visits=${visits} distinct=${distinct.size} wall_ms=${(performance.now() - start).toFixed(1)}`);
-  expect(scripts).toBe(3 * (1 + alphabet.length + alphabet.length ** 2 + alphabet.length ** 3 + alphabet.length ** 4));
+  console.log(`exhaustive seed=${seed} depth=4 alphabet=${alphabet.length} scripts=${scripts} visits=${visits} distinct=${distinct.size} wall_ms=${(performance.now() - start).toFixed(1)}`);
+  exhaustiveResults.push({ seed, scripts, visits, distinct: distinct.size });
+  expect(scripts).toBe(1 + alphabet.length + alphabet.length ** 2 + alphabet.length ** 3 + alphabet.length ** 4);
 }, 20000);
+test("exhaustive: split retains all three seed traversals", () => {
+  // Baselines measured with the original traversal isolated to each seed.
+  expect(exhaustiveResults).toEqual([
+    { seed: "bare", scripts: 2625641, visits: 12808, distinct: 11238 },
+    { seed: "ready", scripts: 2625641, visits: 14584, distinct: 12741 },
+    { seed: "host", scripts: 2625641, visits: 17037, distinct: 14934 },
+  ]);
+  expect(exhaustiveResults.reduce((sum, result) => sum + result.scripts, 0)).toBe(7876923);
+  // Shared states overlap: the old multi-source Map merged them across seeds
+  // (44227 visits, 38729 distinct), while the split counts each seed separately.
+});
 test("admit: a new request changes nothing and asks for a plan", () => {
   const s = initialState(1, "engine"), r = reduce(s, { kind: "admit", request });
   expect(r.state).toBe(s); expect(r.effects).toEqual([{ kind: "plan", request }]);
