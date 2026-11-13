@@ -2,74 +2,92 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "anyOf": [
     {
-      "type": "object",
-      "properties": {
-        "protocol": {
-          "enum": [
-            "nl.engine/1"
-          ]
-        },
-        "type": {
-          "enum": [
-            "hello"
-          ]
-        },
-        "client": {
+      "allOf": [
+        {
           "type": "object",
           "properties": {
-            "name": {
-              "type": "string"
+            "protocol": {
+              "enum": [
+                "nl.engine/1"
+              ]
             },
-            "version": {
-              "type": "string"
+            "type": {
+              "enum": [
+                "hello"
+              ]
+            },
+            "client": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "version"
+              ],
+              "additionalProperties": true
+            },
+            "binding": {
+              "enum": [
+                "in-process",
+                "process"
+              ]
+            },
+            "stage": {
+              "enum": [
+                "A",
+                "B"
+              ]
+            },
+            "required_caps": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "optional_caps": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "audible": {
+              "type": "boolean"
+            },
+            "last_owner_epoch": {
+              "type": "integer"
             }
           },
           "required": [
-            "name",
-            "version"
+            "protocol",
+            "type",
+            "client",
+            "binding",
+            "stage",
+            "required_caps"
           ],
           "additionalProperties": true
         },
-        "binding": {
-          "enum": [
-            "in-process",
-            "process"
-          ]
-        },
-        "stage": {
-          "enum": [
-            "A",
-            "B"
-          ]
-        },
-        "required_caps": {
-          "type": "array",
-          "items": {
-            "type": "string"
+        {
+          "if": {
+            "required": [
+              "audible"
+            ]
+          },
+          "then": {
+            "properties": {
+              "binding": {
+                "const": "process"
+              }
+            }
           }
-        },
-        "optional_caps": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "audible": {
-          "type": "boolean"
-        },
-        "last_owner_epoch": {
-          "type": "integer"
         }
-      },
-      "required": [
-        "protocol",
-        "type",
-        "client",
-        "binding",
-        "stage",
-        "required_caps"
-      ],
-      "additionalProperties": true
+      ]
     },
     {
       "allOf": [
@@ -379,7 +397,7 @@
                   ]
                 },
                 "args": {
-                  "anyOf": [
+                  "oneOf": [
                     {
                       "type": "object",
                       "properties": {

@@ -48,9 +48,6 @@
               "clone": {
                 "type": "boolean"
               },
-              "max_chars": {
-                "type": "integer"
-              },
               "timing": {
                 "enum": [
                   "engine",
@@ -67,6 +64,9 @@
               "available": {
                 "type": "boolean"
               },
+              "max_chars": {
+                "type": "integer"
+              },
               "reason": {
                 "type": "string"
               }
@@ -75,7 +75,6 @@
               "family",
               "legacy",
               "clone",
-              "max_chars",
               "timing",
               "cancel",
               "available"
@@ -800,9 +799,7 @@
         "reanchor": {
           "type": "string"
         },
-        "amplitude": {
-          "type": "number"
-        }
+        "amplitude": {}
       },
       "required": [
         "protocol",
@@ -1092,7 +1089,7 @@
                 "type": "string"
               },
               "priority": {
-                "type": "number"
+                "type": "string"
               },
               "is_current": {
                 "type": "boolean"
@@ -1718,9 +1715,6 @@
               "clone": {
                 "type": "boolean"
               },
-              "max_chars": {
-                "type": "integer"
-              },
               "timing": {
                 "enum": [
                   "engine",
@@ -1737,6 +1731,9 @@
               "available": {
                 "type": "boolean"
               },
+              "max_chars": {
+                "type": "integer"
+              },
               "reason": {
                 "type": "string"
               }
@@ -1745,7 +1742,6 @@
               "family",
               "legacy",
               "clone",
-              "max_chars",
               "timing",
               "cancel",
               "available"

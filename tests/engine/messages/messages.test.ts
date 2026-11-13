@@ -7,7 +7,7 @@ import { negotiate, parseEvent, parseRequest, requireNegotiated } from "../../..
 import { schemaFiles } from "./generate-schemas";
 const receive = (direction: string, value: unknown) => direction === "event" ? parseEvent(value) : parseRequest(value);
 for (const f of fixtures) {
-  test(`fixture ${f.name}: valid, missing required, wrong type, extra fields`, () => {
+  test(`fixture ${f.name}: valid, selected missing field, null rejection, extra fields`, () => {
     const parsed = receive(f.direction, f.valid);
     expect<unknown>(parsed).toEqual({ ok: true, value: f.valid });
     expect(structuredClone(parsed)).toEqual(parsed);

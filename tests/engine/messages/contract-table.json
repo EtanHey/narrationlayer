@@ -1,0 +1,2617 @@
+{
+  "source": "CONTRACT-nl.engine-1.draft-0.2.md sha256 95dc426432d015c60c91c139583cd45ae2dc477eb9b8889ff1498c78720ef617 with ERRATA-0.3; manually transcribed, never regenerated from implementation",
+  "messages": {
+    "hello": {
+      "line": 124,
+      "objects": {
+        "$": {
+          "line": 124,
+          "required": [
+            "protocol",
+            "type",
+            "client",
+            "binding",
+            "stage",
+            "required_caps"
+          ],
+          "optional": [
+            "optional_caps",
+            "audible",
+            "last_owner_epoch"
+          ]
+        },
+        "$.client": {
+          "line": 124,
+          "required": [
+            "name",
+            "version"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "hello"
+        ],
+        "$.binding": [
+          "in-process",
+          "process"
+        ],
+        "$.stage": [
+          "A",
+          "B"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          124,
+          124
+        ],
+        "$.binding": [
+          124,
+          124
+        ],
+        "$.stage": [
+          124,
+          124
+        ]
+      }
+    },
+    "narrate": {
+      "line": 135,
+      "objects": {
+        "$": {
+          "line": 135,
+          "required": [
+            "protocol",
+            "type",
+            "request_id",
+            "idempotency_key",
+            "use",
+            "input",
+            "voice",
+            "delivery"
+          ],
+          "optional": [
+            "mode",
+            "rate",
+            "start",
+            "lookahead",
+            "selection_identity",
+            "queue",
+            "retain_artifact"
+          ]
+        },
+        "$.input": {
+          "line": 139,
+          "required": [
+            "text",
+            "format"
+          ],
+          "optional": [
+            "source",
+            "text_hash"
+          ]
+        },
+        "$.voice": {
+          "line": 140,
+          "required": [
+            "profile",
+            "require_clone",
+            "fallback"
+          ],
+          "optional": []
+        },
+        "$.start": {
+          "line": 142,
+          "required": [
+            "after_session"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "narrate"
+        ],
+        "$.use": [
+          "read",
+          "speak",
+          "ask_prompt"
+        ],
+        "$.mode": [
+          "announce",
+          "brief",
+          "consult",
+          "converse",
+          "think"
+        ],
+        "$.input.format": [
+          "plain",
+          "markdown"
+        ],
+        "$.voice.fallback": [
+          "none",
+          "declared"
+        ],
+        "$.delivery": [
+          "pieces",
+          "play"
+        ],
+        "$.queue": [
+          "replace",
+          "append"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          135,
+          135
+        ],
+        "$.use": [
+          135,
+          135
+        ],
+        "$.mode": [
+          135,
+          135
+        ],
+        "$.input.format": [
+          135,
+          135
+        ],
+        "$.voice.fallback": [
+          135,
+          135
+        ],
+        "$.delivery": [
+          135,
+          135
+        ],
+        "$.queue": [
+          135,
+          135
+        ]
+      },
+      "union_enums": {
+        "$.start": [
+          [
+            "now"
+          ],
+          null
+        ]
+      }
+    },
+    "control-pause": {
+      "line": 158,
+      "objects": {
+        "$": {
+          "line": 158,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "session_id",
+            "op",
+            "args"
+          ],
+          "optional": [
+            "expected_control_epoch",
+            "player_instance_id"
+          ]
+        },
+        "$.args": {
+          "line": 162,
+          "required": [
+            "owner"
+          ],
+          "optional": [
+            "at_ms"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control"
+        ],
+        "$.op": [
+          "pause"
+        ],
+        "$.args.owner": [
+          "user",
+          "f5",
+          "ask"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          158,
+          158
+        ],
+        "$.op": [
+          158,
+          158
+        ],
+        "$.args.owner": [
+          158,
+          158
+        ]
+      }
+    },
+    "control-resume": {
+      "line": 158,
+      "objects": {
+        "$": {
+          "line": 158,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "session_id",
+            "op",
+            "args"
+          ],
+          "optional": [
+            "expected_control_epoch",
+            "player_instance_id"
+          ]
+        },
+        "$.args": {
+          "line": 163,
+          "required": [
+            "owner"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control"
+        ],
+        "$.op": [
+          "resume"
+        ],
+        "$.args.owner": [
+          "user",
+          "f5",
+          "ask"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          158,
+          158
+        ],
+        "$.op": [
+          158,
+          158
+        ],
+        "$.args.owner": [
+          158,
+          158
+        ]
+      }
+    },
+    "control-seek": {
+      "line": 158,
+      "objects": {
+        "$": {
+          "line": 158,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "session_id",
+            "op",
+            "args"
+          ],
+          "optional": [
+            "expected_control_epoch",
+            "player_instance_id"
+          ]
+        },
+        "$.args": {
+          "line": 164,
+          "required": [
+            "word_index"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control"
+        ],
+        "$.op": [
+          "seek"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          158,
+          158
+        ],
+        "$.op": [
+          158,
+          158
+        ]
+      },
+      "alternatives": {
+        "$.args": [
+          {
+            "required": [
+              "audio_ms"
+            ],
+            "optional": []
+          },
+          {
+            "required": [
+              "word_index"
+            ],
+            "optional": []
+          }
+        ]
+      }
+    },
+    "control-stop": {
+      "line": 158,
+      "objects": {
+        "$": {
+          "line": 158,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "session_id",
+            "op",
+            "args"
+          ],
+          "optional": [
+            "expected_control_epoch",
+            "player_instance_id"
+          ]
+        },
+        "$.args": {
+          "line": 165,
+          "required": [
+            "scope",
+            "reason"
+          ],
+          "optional": [
+            "at_ms",
+            "except_sessions",
+            "retain_read_queue"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control"
+        ],
+        "$.op": [
+          "stop"
+        ],
+        "$.args.scope": [
+          "session",
+          "queue",
+          "all_speech"
+        ],
+        "$.args.reason": [
+          "stop",
+          "cancel",
+          "replaced"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          158,
+          158
+        ],
+        "$.op": [
+          158,
+          158
+        ],
+        "$.args.scope": [
+          158,
+          158
+        ],
+        "$.args.reason": [
+          158,
+          158
+        ]
+      }
+    },
+    "control-replay": {
+      "line": 158,
+      "objects": {
+        "$": {
+          "line": 158,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "session_id",
+            "op",
+            "args"
+          ],
+          "optional": [
+            "expected_control_epoch",
+            "player_instance_id"
+          ]
+        },
+        "$.args": {
+          "line": 166,
+          "required": [
+            "of_session_id",
+            "from"
+          ],
+          "optional": [
+            "audio_ms"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control"
+        ],
+        "$.op": [
+          "replay"
+        ],
+        "$.args.from": [
+          "start",
+          "readback"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          158,
+          158
+        ],
+        "$.op": [
+          158,
+          158
+        ],
+        "$.args.from": [
+          158,
+          158
+        ]
+      }
+    },
+    "control-next": {
+      "line": 158,
+      "objects": {
+        "$": {
+          "line": 158,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "session_id",
+            "op",
+            "args"
+          ],
+          "optional": [
+            "expected_control_epoch",
+            "player_instance_id"
+          ]
+        },
+        "$.args": {
+          "line": 167,
+          "required": [
+            "request_id"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control"
+        ],
+        "$.op": [
+          "next"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          158,
+          158
+        ],
+        "$.op": [
+          158,
+          158
+        ]
+      }
+    },
+    "control-previous": {
+      "line": 158,
+      "objects": {
+        "$": {
+          "line": 158,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "session_id",
+            "op",
+            "args"
+          ],
+          "optional": [
+            "expected_control_epoch",
+            "player_instance_id"
+          ]
+        },
+        "$.args": {
+          "line": 167,
+          "required": [
+            "request_id"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control"
+        ],
+        "$.op": [
+          "previous"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          158,
+          158
+        ],
+        "$.op": [
+          158,
+          158
+        ]
+      }
+    },
+    "control-resync": {
+      "line": 158,
+      "objects": {
+        "$": {
+          "line": 158,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "session_id",
+            "op",
+            "args"
+          ],
+          "optional": [
+            "expected_control_epoch",
+            "player_instance_id"
+          ]
+        },
+        "$.args": {
+          "line": 168,
+          "required": [],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control"
+        ],
+        "$.op": [
+          "resync"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          158,
+          158
+        ],
+        "$.op": [
+          158,
+          158
+        ]
+      }
+    },
+    "set_speed": {
+      "line": 170,
+      "objects": {
+        "$": {
+          "line": 170,
+          "required": [
+            "protocol",
+            "type",
+            "command_id",
+            "speed"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "set_speed"
+        ],
+        "$.speed": [
+          0.75,
+          1,
+          1.25,
+          1.5,
+          2
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          170,
+          170
+        ],
+        "$.speed": [
+          170,
+          170
+        ]
+      }
+    },
+    "player_feedback": {
+      "line": 174,
+      "objects": {
+        "$": {
+          "line": 174,
+          "required": [
+            "protocol",
+            "type",
+            "session_id",
+            "control_epoch",
+            "player_instance_id",
+            "piece_index",
+            "edge",
+            "t_mono_ms"
+          ],
+          "optional": [
+            "source",
+            "exit"
+          ]
+        },
+        "$.exit": {
+          "line": 174,
+          "required": [
+            "status",
+            "stopped_at_ms"
+          ],
+          "optional": [
+            "code"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "player_feedback"
+        ],
+        "$.edge": [
+          "spawned",
+          "first_sample",
+          "first_audible",
+          "last_sample",
+          "exited"
+        ],
+        "$.source": [
+          "player_reported",
+          "derived"
+        ],
+        "$.exit.status": [
+          "completed",
+          "interrupted",
+          "failed"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          174,
+          174
+        ],
+        "$.edge": [
+          174,
+          174
+        ],
+        "$.source": [
+          174,
+          174
+        ],
+        "$.exit.status": [
+          174,
+          174
+        ]
+      }
+    },
+    "speaker_grant": {
+      "line": 199,
+      "objects": {
+        "$": {
+          "line": 199,
+          "required": [
+            "protocol",
+            "type",
+            "permit_id",
+            "admission_epoch",
+            "session_id",
+            "scope"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "speaker_grant"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          199,
+          199
+        ]
+      }
+    },
+    "speaker_deny": {
+      "line": 200,
+      "objects": {
+        "$": {
+          "line": 200,
+          "required": [
+            "protocol",
+            "type",
+            "session_id",
+            "reason"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "speaker_deny"
+        ],
+        "$.reason": [
+          "capture",
+          "f5",
+          "ask",
+          "history",
+          "disabled",
+          "shutdown"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          200,
+          200
+        ],
+        "$.reason": [
+          200,
+          200
+        ]
+      }
+    },
+    "speaker_revoke": {
+      "line": 201,
+      "objects": {
+        "$": {
+          "line": 201,
+          "required": [
+            "protocol",
+            "type",
+            "admission_epoch",
+            "reason"
+          ],
+          "optional": [
+            "loan_id"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "speaker_revoke"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          201,
+          201
+        ]
+      }
+    },
+    "loan_restore": {
+      "line": 203,
+      "objects": {
+        "$": {
+          "line": 203,
+          "required": [
+            "protocol",
+            "type",
+            "loan_id",
+            "session_id"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "loan_restore"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          203,
+          203
+        ]
+      }
+    },
+    "capture_state": {
+      "line": 204,
+      "objects": {
+        "$": {
+          "line": 204,
+          "required": [
+            "protocol",
+            "type",
+            "admission_epoch",
+            "capture"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "capture_state"
+        ],
+        "$.capture": [
+          "idle",
+          "requested",
+          "active",
+          "processing"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          204,
+          204
+        ],
+        "$.capture": [
+          204,
+          204
+        ]
+      }
+    },
+    "welcome": {
+      "line": 125,
+      "objects": {
+        "$": {
+          "line": 125,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "package_version",
+            "protocol_minor",
+            "caps",
+            "engines",
+            "limits"
+          ],
+          "optional": []
+        },
+        "$.engines[]": {
+          "line": 349,
+          "required": [
+            "family",
+            "legacy",
+            "clone",
+            "timing",
+            "cancel",
+            "available"
+          ],
+          "optional": [
+            "max_chars",
+            "reason"
+          ]
+        },
+        "$.limits": {
+          "line": 125,
+          "required": [
+            "max_chars",
+            "lookahead",
+            "aligner_reap_ms"
+          ],
+          "optional": []
+        },
+        "$.limits.max_chars": {
+          "line": 125,
+          "required": [
+            "read",
+            "speak",
+            "ask_prompt"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "welcome"
+        ],
+        "$.engines[].family": [
+          "qwen3_clone",
+          "edge",
+          "xtts",
+          "f5"
+        ],
+        "$.engines[].timing": [
+          "engine",
+          "alignment",
+          "none"
+        ],
+        "$.engines[].cancel": [
+          "abort_only",
+          "acknowledged"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          125,
+          125
+        ],
+        "$.engines[].family": [
+          125,
+          125
+        ],
+        "$.engines[].timing": [
+          125,
+          125
+        ],
+        "$.engines[].cancel": [
+          125,
+          125
+        ]
+      }
+    },
+    "accepted": {
+      "line": 154,
+      "objects": {
+        "$": {
+          "line": 154,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "request_id",
+            "session_id",
+            "attempt_id"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "accepted"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          154,
+          154
+        ]
+      }
+    },
+    "control_ack": {
+      "line": 172,
+      "objects": {
+        "$": {
+          "line": 172,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "command_id",
+            "outcome",
+            "control_epoch"
+          ],
+          "optional": [
+            "reason",
+            "offset_ms",
+            "clamped",
+            "current"
+          ]
+        },
+        "$.current": {
+          "line": 172,
+          "required": [
+            "session_id",
+            "player_instance_id",
+            "control_epoch",
+            "audio_ms",
+            "piece_index",
+            "piece_start_ms",
+            "piece_duration_ms",
+            "duration_ms"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "control_ack"
+        ],
+        "$.outcome": [
+          "accept",
+          "noop",
+          "reject"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          172,
+          172
+        ],
+        "$.outcome": [
+          172,
+          172
+        ]
+      }
+    },
+    "plan": {
+      "line": 180,
+      "objects": {
+        "$": {
+          "line": 180,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "attempt_id",
+            "display_document",
+            "words",
+            "pieces",
+            "engine"
+          ],
+          "optional": []
+        },
+        "$.display_document": {
+          "line": 180,
+          "required": [
+            "version",
+            "text",
+            "speech_start",
+            "blocks"
+          ],
+          "optional": []
+        },
+        "$.words[]": {
+          "line": 180,
+          "required": [
+            "index",
+            "text",
+            "display"
+          ],
+          "optional": []
+        },
+        "$.pieces[]": {
+          "line": 180,
+          "required": [
+            "piece_id",
+            "index",
+            "word_start",
+            "word_end",
+            "raw",
+            "segments"
+          ],
+          "optional": []
+        },
+        "$.pieces[].segments[]": {
+          "line": 180,
+          "required": [
+            "word_start",
+            "word_end",
+            "kind",
+            "pause_after_ms",
+            "pause_in"
+          ],
+          "optional": []
+        },
+        "$.engine": {
+          "line": 180,
+          "required": [
+            "family",
+            "profile_revision",
+            "voice"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "plan"
+        ],
+        "$.display_document.version": [
+          1
+        ],
+        "$.pieces[].segments[].kind": [
+          "heading",
+          "item",
+          "sentence",
+          "prompt"
+        ],
+        "$.pieces[].segments[].pause_in": [
+          "this_piece_end",
+          "next_piece_start"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          180,
+          180
+        ],
+        "$.display_document.version": [
+          180,
+          180
+        ],
+        "$.pieces[].segments[].kind": [
+          180,
+          180
+        ],
+        "$.pieces[].segments[].pause_in": [
+          180,
+          180
+        ]
+      }
+    },
+    "piece_ready": {
+      "line": 181,
+      "objects": {
+        "$": {
+          "line": 181,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "attempt_id",
+            "piece_id",
+            "index",
+            "start_ms",
+            "duration_ms",
+            "spoken_text",
+            "artifact",
+            "words",
+            "actual",
+            "synthesis",
+            "synthesis_ms"
+          ],
+          "optional": []
+        },
+        "$.artifact": {
+          "line": 181,
+          "required": [
+            "handle",
+            "lease_id",
+            "format",
+            "sample_rate",
+            "sample_count",
+            "sha256"
+          ],
+          "optional": []
+        },
+        "$.words[]": {
+          "line": 181,
+          "required": [
+            "index",
+            "start_ms",
+            "end_ms",
+            "timing"
+          ],
+          "optional": []
+        },
+        "$.actual[]": {
+          "line": 181,
+          "required": [
+            "segment",
+            "engine",
+            "voice",
+            "substituted"
+          ],
+          "optional": []
+        },
+        "$.synthesis": {
+          "line": 181,
+          "required": [
+            "rate",
+            "attempts",
+            "unavailable",
+            "fallback_reason"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "piece_ready"
+        ],
+        "$.words[].timing": [
+          "measured",
+          "estimated"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          181,
+          181
+        ],
+        "$.words[].timing": [
+          181,
+          181
+        ]
+      },
+      "union_enums": {
+        "$.synthesis.fallback_reason": [
+          null,
+          [
+            null
+          ]
+        ]
+      }
+    },
+    "timing_update": {
+      "line": 182,
+      "objects": {
+        "$": {
+          "line": 182,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "attempt_id",
+            "piece_id",
+            "derivation_id",
+            "words"
+          ],
+          "optional": []
+        },
+        "$.words[]": {
+          "line": 181,
+          "required": [
+            "index",
+            "start_ms",
+            "end_ms",
+            "timing"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "timing_update"
+        ],
+        "$.words[].timing": [
+          "measured",
+          "estimated"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          182,
+          182
+        ],
+        "$.words[].timing": [
+          182,
+          182
+        ]
+      }
+    },
+    "duration": {
+      "line": 183,
+      "objects": {
+        "$": {
+          "line": 183,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "known_ms",
+            "final"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "duration"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          183,
+          183
+        ]
+      }
+    },
+    "playback_started": {
+      "line": 184,
+      "objects": {
+        "$": {
+          "line": 184,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "control_epoch",
+            "player_instance_id",
+            "piece_index",
+            "at_audio_ms",
+            "rate"
+          ],
+          "optional": [
+            "reanchor",
+            "amplitude"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "playback_started"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          184,
+          184
+        ]
+      }
+    },
+    "position": {
+      "line": 185,
+      "objects": {
+        "$": {
+          "line": 185,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "control_epoch",
+            "player_instance_id",
+            "audio_ms",
+            "word_index",
+            "piece_index",
+            "phase",
+            "rate",
+            "duration_ms",
+            "final"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "position"
+        ],
+        "$.phase": [
+          "playing",
+          "waiting",
+          "paused"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          185,
+          185
+        ],
+        "$.phase": [
+          185,
+          185
+        ]
+      }
+    },
+    "paused": {
+      "line": 186,
+      "objects": {
+        "$": {
+          "line": 186,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "control_epoch",
+            "player_instance_id",
+            "audio_ms",
+            "word_index",
+            "owner"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "paused"
+        ],
+        "$.owner": [
+          "user",
+          "f5",
+          "ask"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          186,
+          186
+        ],
+        "$.owner": [
+          186,
+          186
+        ]
+      }
+    },
+    "resumed": {
+      "line": 186,
+      "objects": {
+        "$": {
+          "line": 186,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "control_epoch",
+            "player_instance_id",
+            "audio_ms",
+            "word_index",
+            "owner"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "resumed"
+        ],
+        "$.owner": [
+          "user",
+          "f5",
+          "ask"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          186,
+          186
+        ],
+        "$.owner": [
+          186,
+          186
+        ]
+      }
+    },
+    "player_exited": {
+      "line": 187,
+      "objects": {
+        "$": {
+          "line": 187,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "player_instance_id",
+            "piece_index",
+            "status",
+            "reason",
+            "at_audio_ms"
+          ],
+          "optional": [
+            "exit_code"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "player_exited"
+        ],
+        "$.status": [
+          "completed",
+          "interrupted",
+          "failed"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          187,
+          187
+        ],
+        "$.status": [
+          187,
+          187
+        ]
+      }
+    },
+    "queue": {
+      "line": 188,
+      "objects": {
+        "$": {
+          "line": 188,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "depth",
+            "items",
+            "read_count",
+            "current_request_id"
+          ],
+          "optional": []
+        },
+        "$.items[]": {
+          "line": 188,
+          "required": [
+            "session_id",
+            "priority",
+            "is_current",
+            "progress"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "queue"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          188,
+          188
+        ]
+      }
+    },
+    "outcome": {
+      "line": 189,
+      "objects": {
+        "$": {
+          "line": 189,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "playback",
+            "generation",
+            "stopped_at_ms",
+            "word_index",
+            "heard",
+            "missing_piece_indices",
+            "physical",
+            "history",
+            "artifacts"
+          ],
+          "optional": []
+        },
+        "$.playback": {
+          "line": 401,
+          "required": [
+            "reason"
+          ],
+          "optional": []
+        },
+        "$.generation": {
+          "line": 189,
+          "required": [
+            "status"
+          ],
+          "optional": [
+            "reason"
+          ]
+        },
+        "$.history": {
+          "line": 189,
+          "required": [
+            "route",
+            "state",
+            "reason"
+          ],
+          "optional": []
+        },
+        "$.artifacts[]": {
+          "line": 189,
+          "required": [
+            "piece_id",
+            "handle",
+            "lease_id"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "outcome"
+        ],
+        "$.playback.reason": [
+          "completed",
+          "stop",
+          "stop_preparing",
+          "cancel",
+          "replaced",
+          "synth_failed",
+          "speech_failed",
+          "player_failed",
+          "refused",
+          "resume_refused",
+          "barge_in",
+          "expired",
+          "collapsed",
+          "engine_absent",
+          "shutdown"
+        ],
+        "$.generation.status": [
+          "committed",
+          "cancelled",
+          "failed",
+          "interrupted"
+        ],
+        "$.physical": [
+          "exited",
+          "unknown"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          189,
+          189
+        ],
+        "$.playback.reason": [
+          401,
+          416
+        ],
+        "$.generation.status": [
+          189,
+          189
+        ],
+        "$.physical": [
+          189,
+          189
+        ]
+      }
+    },
+    "snapshot": {
+      "line": 190,
+      "objects": {
+        "$": {
+          "line": 190,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "sessions"
+          ],
+          "optional": []
+        },
+        "$.sessions[]": {
+          "line": 190,
+          "required": [
+            "session_id",
+            "request_id",
+            "phase",
+            "control_epoch",
+            "audio_ms",
+            "word_index",
+            "pieces_ready",
+            "last_seq"
+          ],
+          "optional": [
+            "player_instance_id"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "snapshot"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          190,
+          190
+        ]
+      }
+    },
+    "lifecycle-synthesis_requested": {
+      "line": 247,
+      "objects": {
+        "$": {
+          "line": 247,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "edge",
+            "session_id",
+            "piece_index",
+            "t_mono_ms",
+            "segment_index",
+            "chars",
+            "kind"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "lifecycle"
+        ],
+        "$.edge": [
+          "synthesis_requested"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          247,
+          247
+        ],
+        "$.edge": [
+          247,
+          247
+        ]
+      }
+    },
+    "lifecycle-audio_ready": {
+      "line": 248,
+      "objects": {
+        "$": {
+          "line": 248,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "edge",
+            "session_id",
+            "piece_index",
+            "t_mono_ms",
+            "duration_ms",
+            "sample_count",
+            "first_audible_offset_ms"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "lifecycle"
+        ],
+        "$.edge": [
+          "audio_ready"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          248,
+          248
+        ],
+        "$.edge": [
+          248,
+          248
+        ]
+      }
+    },
+    "lifecycle-player_spawned": {
+      "line": 249,
+      "objects": {
+        "$": {
+          "line": 249,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "edge",
+            "session_id",
+            "piece_index",
+            "t_mono_ms",
+            "player_instance_id",
+            "control_epoch"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "lifecycle"
+        ],
+        "$.edge": [
+          "player_spawned"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          249,
+          249
+        ],
+        "$.edge": [
+          249,
+          249
+        ]
+      }
+    },
+    "lifecycle-first_sample": {
+      "line": 250,
+      "objects": {
+        "$": {
+          "line": 250,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "edge",
+            "session_id",
+            "piece_index",
+            "t_mono_ms",
+            "player_instance_id",
+            "source"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "lifecycle"
+        ],
+        "$.edge": [
+          "first_sample"
+        ],
+        "$.source": [
+          "player_reported",
+          "derived"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          250,
+          250
+        ],
+        "$.edge": [
+          250,
+          250
+        ],
+        "$.source": [
+          250,
+          250
+        ]
+      }
+    },
+    "lifecycle-first_audible": {
+      "line": 251,
+      "objects": {
+        "$": {
+          "line": 251,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "edge",
+            "session_id",
+            "piece_index",
+            "t_mono_ms",
+            "player_instance_id",
+            "source"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "lifecycle"
+        ],
+        "$.edge": [
+          "first_audible"
+        ],
+        "$.source": [
+          "player_reported",
+          "derived"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          251,
+          251
+        ],
+        "$.edge": [
+          251,
+          251
+        ],
+        "$.source": [
+          251,
+          251
+        ]
+      }
+    },
+    "lifecycle-last_sample": {
+      "line": 252,
+      "objects": {
+        "$": {
+          "line": 252,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "edge",
+            "session_id",
+            "piece_index",
+            "t_mono_ms",
+            "player_instance_id",
+            "source"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "lifecycle"
+        ],
+        "$.edge": [
+          "last_sample"
+        ],
+        "$.source": [
+          "player_reported",
+          "derived"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          252,
+          252
+        ],
+        "$.edge": [
+          252,
+          252
+        ],
+        "$.source": [
+          252,
+          252
+        ]
+      }
+    },
+    "lifecycle-player_exited": {
+      "line": 253,
+      "objects": {
+        "$": {
+          "line": 253,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "edge",
+            "session_id",
+            "piece_index",
+            "t_mono_ms",
+            "player_instance_id",
+            "status",
+            "exit_code"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "lifecycle"
+        ],
+        "$.edge": [
+          "player_exited"
+        ],
+        "$.status": [
+          "completed",
+          "interrupted",
+          "failed"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          253,
+          253
+        ],
+        "$.edge": [
+          253,
+          253
+        ],
+        "$.status": [
+          253,
+          253
+        ]
+      }
+    },
+    "engine_status": {
+      "line": 192,
+      "objects": {
+        "$": {
+          "line": 192,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "engines"
+          ],
+          "optional": []
+        },
+        "$.engines[]": {
+          "line": 349,
+          "required": [
+            "family",
+            "legacy",
+            "clone",
+            "timing",
+            "cancel",
+            "available"
+          ],
+          "optional": [
+            "max_chars",
+            "reason"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "engine_status"
+        ],
+        "$.engines[].family": [
+          "qwen3_clone",
+          "edge",
+          "xtts",
+          "f5"
+        ],
+        "$.engines[].timing": [
+          "engine",
+          "alignment",
+          "none"
+        ],
+        "$.engines[].cancel": [
+          "abort_only",
+          "acknowledged"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          192,
+          192
+        ],
+        "$.engines[].family": [
+          192,
+          192
+        ],
+        "$.engines[].timing": [
+          192,
+          192
+        ],
+        "$.engines[].cancel": [
+          192,
+          192
+        ]
+      }
+    },
+    "speaker_request": {
+      "line": 198,
+      "objects": {
+        "$": {
+          "line": 198,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "session_id",
+            "player_instance_id",
+            "purpose"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "speaker_request"
+        ],
+        "$.purpose": [
+          "read",
+          "speak",
+          "ask_prompt",
+          "returned_read"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          198,
+          198
+        ],
+        "$.purpose": [
+          198,
+          198
+        ]
+      }
+    },
+    "speaker_released": {
+      "line": 202,
+      "objects": {
+        "$": {
+          "line": 202,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "permit_id",
+            "player_instance_id",
+            "physical",
+            "at_audio_ms"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "speaker_released"
+        ],
+        "$.physical": [
+          "exited",
+          "unknown"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          202,
+          202
+        ],
+        "$.physical": [
+          202,
+          202
+        ]
+      }
+    },
+    "aligner_quiet": {
+      "line": 205,
+      "objects": {
+        "$": {
+          "line": 205,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "admission_epoch",
+            "child"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "aligner_quiet"
+        ],
+        "$.child": [
+          "reaped",
+          "none",
+          "unknown"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          205,
+          205
+        ],
+        "$.child": [
+          205,
+          205
+        ]
+      }
+    },
+    "error": {
+      "line": 209,
+      "objects": {
+        "$": {
+          "line": 209,
+          "required": [
+            "protocol",
+            "type",
+            "owner_epoch",
+            "seq",
+            "code",
+            "phase",
+            "retry",
+            "message"
+          ],
+          "optional": [
+            "request_id",
+            "session_id",
+            "command_id",
+            "details"
+          ]
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "error"
+        ],
+        "$.code": [
+          "UNSUPPORTED_VERSION",
+          "MISSING_CAPABILITY",
+          "NOT_NEGOTIATED",
+          "INVALID_REQUEST",
+          "IDEMPOTENCY_CONFLICT",
+          "INPUT_TOO_LONG",
+          "VOICE_UNAVAILABLE",
+          "ENGINE_UNAVAILABLE",
+          "SYNTH_FAILED",
+          "SYNTH_TIMEOUT",
+          "STALE_EPOCH",
+          "UNKNOWN_SESSION",
+          "RESUME_REFUSED",
+          "SPEAKER_DENIED",
+          "PLAYER_FAILED",
+          "ARTIFACT_EXPIRED",
+          "BACKEND_DRAIN_UNKNOWN"
+        ],
+        "$.phase": [
+          "negotiate",
+          "admit",
+          "plan",
+          "synthesize",
+          "assemble",
+          "align",
+          "deliver",
+          "play",
+          "control",
+          "retain"
+        ],
+        "$.retry": [
+          "never",
+          "same_request",
+          "new_request",
+          "after_resync"
+        ]
+      },
+      "enum_lines": {
+        "$.protocol": [
+          110,
+          110
+        ],
+        "$.type": [
+          209,
+          209
+        ],
+        "$.code": [
+          213,
+          229
+        ],
+        "$.phase": [
+          209,
+          209
+        ],
+        "$.retry": [
+          209,
+          209
+        ]
+      }
+    }
+  }
+}

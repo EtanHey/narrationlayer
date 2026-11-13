@@ -1,12 +1,12 @@
 import { events, requests, type Event, type Limits, type Message, type Request } from "./messages";
-import { InvalidField, json, type Schema } from "./schema";
+import { InvalidField, type Schema } from "./schema";
 export type ParseError = { code: "INVALID_REQUEST" | "UNSUPPORTED_VERSION" | "INPUT_TOO_LONG" | "NOT_NEGOTIATED" | "MISSING_CAPABILITY"; path: string; phase: "admit" | "negotiate"; retry: "never" | "after_resync"; message: string };
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ParseError };
 const fail = (code: ParseError["code"], path: string): Result<never> => ({ ok: false, error: { code, path, phase: ["UNSUPPORTED_VERSION", "NOT_NEGOTIATED", "MISSING_CAPABILITY"].includes(code) ? "negotiate" : "admit", retry: code === "NOT_NEGOTIATED" ? "after_resync" : "never", message: code } });
 function parse<T>(input: unknown, registry: Record<string, Schema<T>>, ignoreUnknown: boolean): Result<T | null> {
   try {
-    const value = json.read(input, "$");
-    if (!value || typeof value !== "object" || Array.isArray(value)) return fail("INVALID_REQUEST", "$");
+    if (!input || typeof input !== "object" || Array.isArray(input)) return fail("INVALID_REQUEST", "$");
+    const value = input as Record<string, unknown>;
     if (typeof value.protocol !== "string" || !/^nl\.engine\/\d+$/.test(value.protocol)) return fail("INVALID_REQUEST", "$.protocol");
     if (value.protocol !== "nl.engine/1") return fail("UNSUPPORTED_VERSION", "$.protocol");
     if (typeof value.type !== "string") return fail("INVALID_REQUEST", "$.type");
@@ -20,7 +20,6 @@ export function parseRequest(input: unknown, limits?: Limits): Result<Request> {
   if (!result.ok) return result;
   const value = result.value;
   if (!value) return fail("INVALID_REQUEST", "$.type");
-  if (value.type === "hello" && value.audible !== undefined && value.binding !== "process") return fail("INVALID_REQUEST", "$.audible");
   if (value.type === "narrate") {
     if (limits && value.input.text.length > limits.max_chars[value.use]) return fail("INPUT_TOO_LONG", "$.input.text");
   }
@@ -32,6 +31,7 @@ export const parseEvent = (input: unknown): Result<Event | null> => parse<Event>
 export function requireNegotiated(welcomed: boolean): Result<true> { return welcomed ? { ok: true, value: true } : fail("NOT_NEGOTIATED", "$.type"); }
 /** Pure hello -> welcome negotiation. The caller supplies its immutable advertised welcome. */
 export function negotiate(input: unknown, welcome: Message<"welcome">): Result<Message<"welcome">> {
+  try { if (!input || typeof input !== "object" || !("type" in input) || input.type !== "hello") return fail("NOT_NEGOTIATED", "$.type"); } catch { return fail("NOT_NEGOTIATED", "$.type"); }
   const parsed = parseRequest(input);
   if (!parsed.ok) return parsed;
   if (parsed.value.type !== "hello") return fail("NOT_NEGOTIATED", "$.type");

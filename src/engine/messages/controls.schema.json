@@ -109,7 +109,7 @@
           ]
         },
         "args": {
-          "anyOf": [
+          "oneOf": [
             {
               "type": "object",
               "properties": {

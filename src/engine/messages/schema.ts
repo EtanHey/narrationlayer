@@ -21,7 +21,7 @@ export function object<R extends Record<string, Schema<unknown>>, O extends Reco
     if (!v || typeof v !== "object" || Array.isArray(v)) throw new InvalidField(p);
     const input = v as Record<string, unknown>, result: Record<string, unknown> = {};
     for (const [key, s] of Object.entries(required)) result[key] = s.read(Object.hasOwn(input, key) ? input[key] : undefined, `${p}.${key}`);
-    for (const [key, s] of Object.entries(optional ?? {})) if (Object.hasOwn(input, key)) result[key] = s.read(input[key], `${p}.${key}`);
+    for (const [key, s] of Object.entries(optional ?? {})) if (Object.hasOwn(input, key) && input[key] !== undefined) result[key] = s.read(input[key], `${p}.${key}`);
     return result as { [K in keyof R]: Value<R[K]> } & { [K in keyof O]?: Value<O[K]> };
   } };
 }
