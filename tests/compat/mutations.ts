@@ -57,6 +57,7 @@ export const cases: MutationRow[] = [
   {"kind":"compat-pattern","name":"job-assembly-dir","file":"src/audio.ts","before":"path.join(os.tmpdir(), \"narrationlayer-audio-\")","after":"path.join(path.dirname(outputPath), \"narrationlayer-audio-\")","pattern":"job service manifest"},
   {"kind":"compat-pattern","name":"runner-http-exit","file":"src/pipelines/local-tts/synthesis.ts","before":"throw new RunnerFailure(\n        `daemon /synthesize failed","after":"throw new Error(\n        `daemon /synthesize failed","pattern":"runner HTTP failure during breathing"},
   { kind: "named-test", name: "planner-minimum-words", file: "src/plan/synthesis-units.ts", before: "const MIN_SYNTHESIS_WORDS = 3;", after: "const MIN_SYNTHESIS_WORDS = 2;", testFile: "tests/plan/synthesis-units.test.ts", testName: "PLAN-D5: two-word remainder joins; a three-word remainder stands" },
+  { kind: "named-test", name: "planner-word-boundary", file: "src/plan/synthesis-units.ts", before: "[,;:—―–-](?=\\s|$)", after: "[,;:―–-](?=\\s|$)|[—]", testFile: "tests/plan/synthesis-round1.test.ts", testName: "word boundary: every cut falls on whitespace" },
   // Clock deadline inclusivity is independent of the conformance command entry module.
   { kind: "conformance-case", name: "conformance-clock-deadline", file: "src/engine/conformance/clock.ts", before: "next[1].at > end", after: "next[1].at >= end", binding: "src/engine/conformance/null-binding.ts", caseId: "CONF-02" },
 ];
