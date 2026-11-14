@@ -198,12 +198,18 @@ The shape fixture includes labels, inline code, link labels, a bare URL and
 paragraph sentences. PLAN-D5 counts tokens containing a letter or digit.
 All reads use invented in-memory PCM, fake time and synthetic stage-A feedback.
 
-PLAN-D4 and PLAN-02 remain inactive. Over-limit sentence cuts in PLAN-03 and
-short-remainder merging in PLAN-D5 and the one-word remainder in PLAN-01 remain owed to the second planning PR after
-S3p4 separates the serving-engine cap from the input limit. Today over-limit
-headings/items stay whole at cutter level; the engine admission limit prevents
-exercising them through this binding. The legacy-budget half of PLAN-03 remains
-covered by the tests/plan characterization golden, not by this engine case.
+PLAN-D4 and PLAN-02 now exercise over-limit sentences through the packaged
+entry. An independent document scan enumerates whitespace cuts with at least
+three words on each side, preferring the last fitting comma, semicolon, colon
+or spaced dash; otherwise it uses the last fitting space. It reads the serving
+family's max_chars from welcome. Plain and markdown fixtures cover repeated
+cuts, invalid short heads/tails, unspaced dashes and sentence-end pause controls.
+PLAN-03 covers its over-limit sentence clause; PLAN-D5 covers short remainders.
+The one-word remainder clause in PLAN-01 and the legacy-budget half of PLAN-03
+remain owed. Over-limit headings/items remain whole and are outside this slice.
+The two new broken engines consistently change plan, delivered text and backend
+requests (or only pause metadata where text stays the same), each failing exactly
+its named case. Twenty-eight rows are active.
 PAUSE-PL-01 checks the plan half: each boundary's expected pause appears once,
 on its ending segment, every raw flag is false, every pause_in is
 this_piece_end, and the final pause is zero. Raw piece 0/next_piece_start is owed
