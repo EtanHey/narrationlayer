@@ -22,7 +22,8 @@ async function fixture(failures: number) {
   const cacheDir = path.join(dir, "cache");
   await mkdir(cacheDir);
   const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
-    expect((await req.json()).text).toBe(normalizeForSpeech("Hello moon."));
+    const body: unknown = await req.json();
+    expect(body).toEqual(expect.objectContaining({ text: normalizeForSpeech("Hello moon.") }));
     calls++;
     // No failing take may have reached the cache before a subsequent request.
     expect(await readdir(cacheDir)).toEqual([]);
