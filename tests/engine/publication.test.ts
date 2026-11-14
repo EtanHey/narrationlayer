@@ -70,7 +70,7 @@ const planner: ReadPlanner = { plan(req, _limits, id) { return { plan: { ...id, 
   engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" }, pieces: words.map((_, index) => ({ index, piece_id: `piece-${index}`, word_start: index, word_end: index + 1, raw: false, segments: [{ word_start: index, word_end: index + 1, kind: "sentence", pause_after_ms: 0, pause_in: "this_piece_end" }] })) }, requests: words.map((w, piece_index) => ({ piece_index, text: w.text })) }; } };
 async function read(lengths: number[], lie = 1) {
   const clock = new FakeClock(), backend = new ScriptedBackend(clock), events: Event[] = [], store = new Map<string, Uint8Array>();
-  const publication = createPublication({ async put(bytes) { const handle = `artifact-${store.size}`; store.set(handle, bytes); return { handle, lease_id: handle, format: "wav" }; }, async commit() {} });
+  const publication = createPublication({ async put(bytes) { const handle = `artifact-${store.size}`; store.set(handle, bytes); return { handle, lease_id: handle, format: "wav" }; }, release() { return { kind: "released" }; }, async commit() {} });
   const publish = publication.piece;
   publication.piece = (audio, context, signal) => {
     expect(context.words).toEqual([words[context.index]]);
@@ -132,7 +132,7 @@ for (const kind of ["overrun", "two data", "partial frame", "non-ASCII id", "zer
   });
 test("publication byte copy: caller overwrite during put preserves the stored hash", async () => {
   const audio = pcmAudio(20), stored: Uint8Array[] = [];
-  const publication = createPublication({ async put(bytes) { audio.bytes.fill(0x55); stored.push(bytes.slice()); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, async commit() {} });
+  const publication = createPublication({ async put(bytes) { audio.bytes.fill(0x55); stored.push(bytes.slice()); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, release() { return { kind: "released" }; }, async commit() {} });
   const piece = await publication.piece(audio, { owner_epoch: 1, session_id: "synthetic", attempt_id: "synthetic", index: 0, piece_id: "synthetic", prefix: [], synthesis_ms: 1, spoken_text: "Copper boats drift", words, segments: 1, rate: "+0%", engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" } }, new AbortController().signal);
   expect(audio.bytes.every(b => b === 0x55)).toBe(true);
   expect(piece.artifact.sha256).toBe(createHash("sha256").update(stored[0]).digest("hex"));
@@ -199,7 +199,7 @@ async function lifecycleRead(failSecond = false, stopFirst = false, decrease = f
   let now = 0, calls = 0;
   const events: Event[] = [], clock = { monotonic: () => now, schedule: () => () => {} };
   const rates = [24000, 48000, 24000], lengths = [12, 24, 36];
-  const publication = createPublication({ async put() { now += 11; if (failStore) throw Error("synthetic publication failure"); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, async commit() {} });
+  const publication = createPublication({ async put() { now += 11; if (failStore) throw Error("synthetic publication failure"); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, release() { return { kind: "released" }; }, async commit() {} });
   const publish = publication.piece;
   publication.piece = async (...args) => { const result = await publish(...args); if (decrease && args[1].index === 1) result.known_ms = 0; return result; };
   const session = createEngineSession({ owner_epoch: 1, limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 100 }, clock,
