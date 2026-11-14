@@ -207,3 +207,17 @@ are documented in `docs/mcp-tools.json` and drift-tested against
 - `src/schema.ts` — schema and validation helpers
 - `src/contract.ts` — shared MCP tool contract
 - `src/service.ts` — shared CLI/MCP job lifecycle
+The standalone runner accepts `--take-checks --pitch-ceiling <hz>` to screen every
+final take, including cache hits, for pitch runaway. `--take-retries <count>` allows
+zero through ten retries after the first render (default two). Rejected takes are
+never frozen or published; exhaustion exits 1 and reports attempts, failure reasons
+and give-up in stderr only, preserving the previous audio and receipt. Successful receipts record render attempts and each failure
+reason. Checks use their own cache key; leaving the switch off preserves existing
+keys and bytes. The runner has no recognition pass, so first-word omission remains
+the build's `check-take` responsibility. Each retry sends a fresh request; the daemon
+supplies variance because this backend request has no seed field.
+
+
+Check execution errors stop immediately without retrying or publishing audio; the runner exits 2. A failing take uses the bounded retry path and exits 1 on give-up.
+
+A take shorter than one full second passes the runner pitch screen without retry; its receipt and output say "not judged: shorter than one window". Longer takes with no judged pitch windows still use the bounded failure path.
