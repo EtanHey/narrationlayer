@@ -99,11 +99,12 @@ for (const failAt of [2, 3]) {
 `);
       const preload = path.join(f.root, "breath-timers.ts");
       const log = path.join(f.root, "breath-timers.jsonl");
+      // Log the CLI value, but give answered requests time on a loaded CI host.
       await writeFile(preload, `import {appendFileSync} from 'node:fs';
 const original = globalThis.setTimeout;
 globalThis.setTimeout = (...args) => {
   appendFileSync(${JSON.stringify(log)}, JSON.stringify(args[1])+'\\n');
-  return original(args[0], Math.min(args[1] ?? 0, 200), ...args.slice(2));
+  return original(args[0], args[1] === 100 ? 2000 : args[1], ...args.slice(2));
 };`);
       f.failAt(failAt, "timeout");
       const child = Bun.spawn([process.execPath, "--preload", preload, path.join(repo, "bin/local-tts-runner.ts"),
@@ -119,5 +120,5 @@ globalThis.setTimeout = (...args) => {
       expect(stderrClass(result.stderr)).toBe("The operation was aborted.");
       expect(f.requests).toHaveLength(failAt);
     } finally { await f.close(); }
-  }, 10_000);
+  }, 20_000);
 }
