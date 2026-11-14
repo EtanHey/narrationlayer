@@ -12,9 +12,9 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
     const fail = () => { if (armed && !thrown) { thrown = true; throw new TypeError("Copper boats drift."); } };
     c.binding.create = host => {
       const clock = host.clock;
-      const wrapped: Parameters<Binding["create"]>[0] = { ...host, clock: {
+      const wrapped: Parameters<Binding["create"]>[0] = { ...host, synthesis_timeout_ms: 91, clock: {
         now: () => clock.now(), monotonic: () => { if (fault === "monotonic") fail(); return clock.monotonic(); },
-        schedule(ms, callback) { if (fault === "schedule") fail(); const cancel = clock.schedule(ms, callback); return () => { cancel(); if (fault === "cancel") fail(); }; },
+        schedule(ms, callback) { if (fault === "schedule" && ms === 91) fail(); const cancel = clock.schedule(ms, callback); return () => { cancel(); if (fault === "cancel") fail(); }; },
       }, observe: { event(event) { if (fault === "emit" || fault === "log" || fault === "outcome" && event && typeof event === "object" && "type" in event && event.type === "outcome") fail(); } },
       log(entry) { logs.push(entry); if (fault === "log") throw Error("Copper boats drift."); } };
       for (const method of ["has", "set", "get", "delete"] as const) {

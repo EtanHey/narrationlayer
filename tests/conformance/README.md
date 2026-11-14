@@ -481,3 +481,14 @@ fresh bounds, exact ticks, pause/feedback independence and timer cancellation
 are engine unit proofs. Publication and byte-port bounds remain owed.
 
 Narrowed ruling 78 spares every reached session whose playback ended, even while generation is still committing. Unknown after_session identities are refused at admission with INVALID_REQUEST and no session or backend work.
+
+BIND-03 (contract L429/558, rulings 99-103) injects one-shot observer,
+clock, backend, byte-store, cancellation and log faults through `setup`.
+The schedule fault targets only the host-selected synthesis bound (91 ms),
+so a conforming transport can still schedule its own delayed events.
+The same engine then serves a fresh read to one completed outcome. The harness
+records unhandled rejections; no case installs a process-global handler.
+The throwing observer is `observe.event`, the existing diagnostic callback,
+not a second event transport. Planner faults remain admission refusals.
+Owed: VoiceLayer adoption and shape confirmation of the optional `log` port,
+and its decision whether host synthesis faults need a distinct error code.

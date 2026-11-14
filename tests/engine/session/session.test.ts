@@ -700,3 +700,13 @@ for (const method of ["now", "schedule"] as const) test(`BIND-03: shutdown ${met
   await h.session.shutdown(100);
   expect(h.logs).toEqual([{ callback: `clock.${method}`, error_name: "RangeError" }]); // R102(c),103
 });
+
+for (const callback of ["piece", "commit"] as const) test(`BIND-03: rejected publication ${callback} is logged and contained`, async () => {
+  const h = harness(1, units.slice(0, 1)), original = h.publication[callback]; h.script(2);
+  Reflect.set(h.publication, callback, () => Promise.reject(new Error(request.input.text)));
+  h.session.send(request); await h.tick(); Reflect.set(h.publication, callback, original);
+  expect(h.logs).toContainEqual({ callback: `publication.${callback}`, error_name: "Error" }); // R102(b),103
+  expect(h.events()).toContainEqual(expect.objectContaining({ type: "error", code: "SYNTH_FAILED", phase: "synthesize" }));
+  h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
+  expect(h.events().filter(e => e.type === "accepted")).toHaveLength(2);
+});
