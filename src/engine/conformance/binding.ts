@@ -1,3 +1,5 @@
+import type { Voices } from "../selection/voice";
+import type { Message } from "../messages/messages";
 // S1 owns wire schemas. These ports accept structured-clone-safe JSON without importing that slice.
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface Clock {
@@ -38,5 +40,5 @@ export interface Connection {
 export interface Binding {
   name: string;
   // S0a2 supplies the optional ports; S0a's harness-only bindings need only the clock.
-  create(host: { clock: Clock; ports?: FakePorts; hash_key: Uint8Array; store: Map<string, Uint8Array>; audible: boolean }): Connection;
+  create(host: { voices?: Voices; engines?: Message<"welcome">["engines"]; clock: Clock; ports?: FakePorts; hash_key: Uint8Array; store: Map<string, Uint8Array>; audible: boolean }): Connection;
 }

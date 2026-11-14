@@ -9,6 +9,10 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/selection/voice.ts": {"layer": 1, "area": "plan", "owner": "P2.S7e1"},
+    "src/engine/conformance/selection-cases.ts": {"layer": 4, "area": "engine", "owner": "P2.S7e1"},
+    "src/engine/conformance/broken-eng-01.ts": {"layer": 4, "area": "engine", "owner": "P2.S7e1"},
+    "src/engine/conformance/broken-sub-01.ts": {"layer": 4, "area": "engine", "owner": "P2.S7e1"},
     "src/engine/conformance/broken-shut-01.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7b2" },
     "src/engine/conformance/pacing-cases.ts": { "layer": 4, "area": "engine", "owner": "P2.S3b3d" },
     "src/engine/conformance/broken-pacing.ts": { "layer": 4, "area": "engine", "owner": "P2.S3b3d" },

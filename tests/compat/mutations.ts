@@ -13,6 +13,9 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  { kind: "conformance-case", name: "selection-required-clone", file: "src/engine/selection/voice.ts", before: "if (request.voice.require_clone) throw", after: "if (false) throw", binding: "src/engine/conformance/engine-binding.ts", caseId: "ENG-01" },
+  { kind: "conformance-case", name: "selection-shortcut-boundary", file: "src/engine/selection/voice.ts", before: "speechLength < 50", after: "speechLength <= 50", binding: "src/engine/conformance/engine-binding.ts", caseId: "SUB-01" },
+  { kind: "conformance-case", name: "selection-substitution-wire", file: "src/engine/session/session.ts", before: "substituted: requests.get(identity.session_id)?.selection?.substituted ?? false", after: "substituted: false", binding: "src/engine/conformance/engine-binding.ts", caseId: "SUB-01" },
   { kind: "named-test", name: "shutdown-reason", file: "src/engine/reducer/session.ts", before: 's.playback = "shutdown"', after: 's.playback = "cancel"', testFile: "tests/conformance/engine-binding.test.ts", testName: "engine binding: the packaged entry passes the active cases under containment" },
   { kind: "named-test", name: "shutdown-release", file: "src/engine/session/session.ts", before: 'options.artifacts?.releaseFromHost(parsed.value.lease_id);', after: ';', testFile: "tests/conformance/engine-binding.test.ts", testName: "engine binding: the packaged entry passes the active cases under containment" },
   { kind: "named-test", name: "engine-reach-blocking-call", file: "src/plan/synthesis-units.ts", before: "const MIN_SYNTHESIS_WORDS = 3;", after: "const MIN_SYNTHESIS_WORDS = 3;\nconst blocked = () => existsSync(\"synthetic\");", testFile: "tests/architecture/engine-reach.test.ts", testName: "engine reach: nothing the engine imports can block" },

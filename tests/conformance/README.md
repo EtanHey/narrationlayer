@@ -338,3 +338,13 @@ byte-port calls inside send/shutdown and rejects any synchronous call.
 Still owed: BACKEND_DRAIN_UNKNOWN when settlement misses the deadline; physical
 status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
 (BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).
+
+ENG-01 now covers admission: missing or unavailable mandated clones refuse before
+acceptance or backend work, with an available-clone positive control (Q67).
+SUB-01 covers announce, Hebrew converse and missing-profile substitutions on
+all pieces, plus the 50-character and brief-mode controls (§6, Q65–68).
+The host can supply plain `voices` and `engines` data; the default remains the
+synthetic preset. The synthesize half of ENG-01, per-segment failure fallback,
+XTTS/F5 cascade limits, mode rates and auto-slow remain owed.
+`broken-eng-01` serves a mandated clone using Edge; `broken-sub-01` hides the
+substitution flag. Their receipts pin ENG-01 and SUB-01 respectively.

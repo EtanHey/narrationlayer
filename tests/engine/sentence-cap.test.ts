@@ -18,9 +18,9 @@ async function run(text: string, mode: "binding" | "uncapped" | "unknown" = "bin
     ? binding.create({ clock, store: new Map(), hash_key: new Uint8Array(32), audible: false, ports: { backend, spawn: new ScriptedSpawn(clock), player: new ScriptedPlayer(clock, new ScriptedSpawn(clock)), host: new ScriptedHost(clock) } })
     : createEngine({ clock, backend, owner_epoch: 1, package_version: "synthetic",
       limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 10, aligner_reap_ms: 50 },
-      engines: [{ family: "edge", legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true },
+      engines: [...(mode === "unknown" ? [] : [{ family: "edge" as const, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true } as const]),
         { family: "xtts", max_chars: 1, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }],
-      chooseEngine: () => ({ family: mode === "unknown" ? "missing" : "edge", profile_revision: "synthetic", voice: "synthetic" }),
+      voices: { profiles: { synthetic: { kind: "preset", revision: "synthetic", voice: "synthetic" } }, default_voice: "synthetic", hebrew_voice: "he-IL-HilaNeural" },
       artifacts: createArtifactStore(new Map(), 1) });
   const events: Event[] = [], collect = (async () => { for await (const event of c.events) events.push(event); })();
   try {

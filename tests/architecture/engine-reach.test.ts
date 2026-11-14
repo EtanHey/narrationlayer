@@ -13,6 +13,7 @@ const pinned = [
   "src/engine/publication/time.ts",
   "src/engine/reducer/pacing.ts",
   "src/engine/reducer/session.ts",
+  "src/engine/selection/voice.ts",
   "src/engine/session/session.ts",
   "src/plan/read-plan.ts",
   "src/plan/synthesis-units.ts",

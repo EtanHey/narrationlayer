@@ -5,7 +5,7 @@ import { startMs, wordTimes, type Samples } from "./time";
 type Plan = Message<"plan">;
 export type PublicationContext = Pick<Plan, "session_id" | "attempt_id" | "owner_epoch" | "engine"> & {
   index: number; piece_id: string; prefix: readonly Samples[]; synthesis_ms: number; spoken_text: string;
-  words: Plan["words"]; segments: number; rate: string;
+  words: Plan["words"]; segments: number; rate: string; substituted?: boolean; fallback_reason?: string | null;
 };
 export type PublishedPiece = Omit<Message<"piece_ready">, "protocol" | "owner_epoch" | "seq"> & {
   known_ms: number; first_audible_offset_ms: number;
@@ -31,8 +31,8 @@ export function createPublication(artifacts: ArtifactPort) {
         return { type: "piece_ready", session_id: context.session_id, attempt_id: context.attempt_id, index: context.index, piece_id: context.piece_id,
           start_ms, duration_ms, known_ms, first_audible_offset_ms, spoken_text: context.spoken_text, synthesis_ms: Math.round(context.synthesis_ms),
           artifact: { ...stored, sample_count: decoded.sample_count, sample_rate: decoded.sample_rate, sha256 }, words,
-          actual: Array.from({ length: context.segments }, (_, segment) => ({ segment, engine: context.engine.family, voice: context.engine.voice, substituted: false })),
-          synthesis: { rate: context.rate, attempts: [], unavailable: [], fallback_reason: null } };
+          actual: Array.from({ length: context.segments }, (_, segment) => ({ segment, engine: context.engine.family, voice: context.engine.voice, substituted: context.substituted ?? false })),
+          synthesis: { rate: context.rate, attempts: [], unavailable: [], fallback_reason: context.fallback_reason ?? null } };
       } catch (error) { artifacts.release(stored.lease_id); throw error; }
     },
     release: artifacts.release.bind(artifacts),

@@ -84,7 +84,7 @@ test("custody: release offsets preserve exactly the remaining delivered leases",
     const session = createEngine({ clock, backend, artifacts: store, owner_epoch: 1, package_version: "0.0.0-test",
       limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 },
       engines: [{ family: "edge", max_chars: 40, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }],
-      chooseEngine: () => ({ family: "edge", voice: "synthetic", profile_revision: "1" }) });
+      voices: { profiles: { synthetic: { kind: "preset", revision: "1", voice: "synthetic" } }, default_voice: "synthetic", hebrew_voice: "he-IL-HilaNeural" } });
     const collect = (async () => { for await (const e of session.events) events.push(e); })();
     const give = async (lease_id: string) => { session.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id }); for (let i = 0; i < 16; i++) await Promise.resolve(); released.add(lease_id); };
     session.send(hello);
@@ -178,7 +178,7 @@ test("shutdown: settlement leaves no unnamed lease at every publication offset",
       for (let i = 0; i < 8; i++) await Promise.resolve(); // Hold the stored receipt in flight.
       return receipt;
     } }, owner_epoch: 1, package_version: "0", limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 },
-      engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], chooseEngine: () => ({ family: "edge", voice: "synthetic", profile_revision: "1" }) });
+      engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], voices: { profiles: { synthetic: { kind: "preset", revision: "1", voice: "synthetic" } }, default_voice: "synthetic", hebrew_voice: "he-IL-HilaNeural" } });
     function arm(lease_id?: string) {
       let turns = offset;
       const interrupt = () => { if (turns--) queueMicrotask(interrupt); else {
@@ -220,7 +220,7 @@ function shutdownEngine() {
   let failDelete = false;
   const store = createArtifactStore({ has: h => bytes.has(h), get: h => bytes.get(h), set: (h, b) => bytes.set(h, b), delete(h) { if (failDelete) throw Error("synthetic refusal"); return bytes.delete(h); } }, 1);
   const engine = createEngine({ clock, backend, artifacts: store, owner_epoch: 1, package_version: "0", observe: { event(e) { events.push(e); } },
-    limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 }, engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], chooseEngine: () => ({ family: "edge", voice: "synthetic", profile_revision: "1" }) });
+    limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 }, engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], voices: { profiles: { synthetic: { kind: "preset", revision: "1", voice: "synthetic" } }, default_voice: "synthetic", hebrew_voice: "he-IL-HilaNeural" } });
   engine.send(hello);
   const read = (id: string) => engine.send({ protocol: "nl.engine/1", type: "narrate", request_id: id, idempotency_key: id, use: "read", input: { text: "Copper boats drift.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
   return { engine, clock, backend, bytes, events, read, failDelete(value: boolean) { failDelete = value; } };

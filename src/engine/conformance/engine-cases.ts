@@ -1,3 +1,4 @@
+import { selectionCases } from "./selection-cases";
 import { pacingCases } from "./pacing-cases";
 import { artifactCases } from "./artifact-cases";
 import { negotiationCases } from "./negotiation-cases";
@@ -17,10 +18,10 @@ async function bounded(c: CaseContext, promise: Promise<unknown>) {
   for (let i = 0; i < 8 && !done; i++) { await c.clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve(); }
   c.assert(done); if (error) throw error;
 }
-export function setup(c: CaseContext, steps: BackendStep[]) {
+export function setup(c: CaseContext, steps: BackendStep[], selection: Pick<Parameters<CaseContext["binding"]["create"]>[0], "voices" | "engines"> = {}) {
   const backend = new ScriptedBackend(c.clock), spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
   backend.script(steps);
-  const connection = c.binding.create({ clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
+  const connection = c.binding.create({ ...selection, clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
   const seen: Event[] = [];
   const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })().catch(() => { c.failed = true; });
   const settle = async (ms = 0) => { await c.clock.advance(ms); for (let i = 0; i < 128; i++) await Promise.resolve(); };
@@ -112,6 +113,7 @@ function textFree(c: CaseContext, text: string) {
   for (let i = 0; i <= text.length - 8; i++) c.assert(!raw.includes(text.slice(i, i + 8)));
 }
 export const engineCases: Record<string, Case> = {
+  ...selectionCases,
   ...negotiationCases,
   ...pacingCases,
   ...artifactCases,
