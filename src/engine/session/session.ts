@@ -214,8 +214,7 @@ export function createEngineSession<Audio>(options: {
         try {
           try { audio = await callBackend(); }
           catch (error) {
-            abort.signal.throwIfAborted();
-            if (state.sessions[identity.session_id].generation !== "running") throw error;
+            if (abort.signal.aborted || state.sessions[identity.session_id].generation !== "running") throw error;
             if (engine.family !== "qwen3_clone") throw error;
             if (session.request.voice.require_clone) throw new SynthesisFailure("VOICE_UNAVAILABLE"); // Q95
             if (session.request.voice.fallback !== "declared") throw error;
