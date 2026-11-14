@@ -68,7 +68,7 @@ test("network and spawn have committed fail-sets, even when caught", async () =>
 // including the four planning rows. A mutable flag supplies no real traps.
 test("in-process callers without preload fail closed, including determinism", async () => {
   const report = await runConformance(binding);
-  expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["ART-01", "ART-04", "CONF-01", "CONF-03", "CONF-04", "CTRL-01", "DET-01", "ERR-01", "GEN-01e", "GEN-02", "ID-03", "ID-04", "ID-05e", "LIFE-01e", "LIM-01", "NEG-01", "NEG-02", "NEG-03", "ORDER-01", "PACE-01", "PACE-02", "PAUSE-PL-01", "PLAN-01", "PLAN-02", "PLAN-03", "PLAN-D4", "PLAN-D5", "PLAN-LAT-01", "PRIV-01e", "SESS-01", "SHUT-01", "TIME-01", "TIME-02", "VER-01", "VER-02e", "WORD-02"]);
+  expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["ART-01", "ART-04", "BIND-01", "CONF-01", "CONF-03", "CONF-04", "CTRL-01", "DET-01", "ERR-01", "GEN-01e", "GEN-02", "ID-03", "ID-04", "ID-05e", "LIFE-01e", "LIM-01", "NEG-01", "NEG-02", "NEG-03", "ORDER-01", "PACE-01", "PACE-02", "PAUSE-PL-01", "PLAN-01", "PLAN-02", "PLAN-03", "PLAN-D4", "PLAN-D5", "PLAN-LAT-01", "PRIV-01e", "SESS-01", "SHUT-01", "TIME-01", "TIME-02", "VER-01", "VER-02e", "WORD-02"]);
   for (const id of ["CONF-03", "CONF-04"]) expect(report.rows.find(r => r.id === id)).toMatchObject({ diagnostic: "traps absent: use the packaged entry" });
 });
 test("late exit after shutdown cannot overwrite the red exit status", async () => {
@@ -86,6 +86,6 @@ test("explicit fixture dates remain usable without a clock violation", async () 
 });
 test("the mutable flag alone cannot spoof a preload in direct callers", async () => {
   trapState.installed = true;
-  try { const report = await runConformance(binding); expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["ART-01", "ART-04", "CONF-01", "CONF-03", "CONF-04", "CTRL-01", "DET-01", "ERR-01", "GEN-01e", "GEN-02", "ID-03", "ID-04", "ID-05e", "LIFE-01e", "LIM-01", "NEG-01", "NEG-02", "NEG-03", "ORDER-01", "PACE-01", "PACE-02", "PAUSE-PL-01", "PLAN-01", "PLAN-02", "PLAN-03", "PLAN-D4", "PLAN-D5", "PLAN-LAT-01", "PRIV-01e", "SESS-01", "SHUT-01", "TIME-01", "TIME-02", "VER-01", "VER-02e", "WORD-02"]); }
+  try { const report = await runConformance(binding); expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["ART-01", "ART-04", "BIND-01", "CONF-01", "CONF-03", "CONF-04", "CTRL-01", "DET-01", "ERR-01", "GEN-01e", "GEN-02", "ID-03", "ID-04", "ID-05e", "LIFE-01e", "LIM-01", "NEG-01", "NEG-02", "NEG-03", "ORDER-01", "PACE-01", "PACE-02", "PAUSE-PL-01", "PLAN-01", "PLAN-02", "PLAN-03", "PLAN-D4", "PLAN-D5", "PLAN-LAT-01", "PRIV-01e", "SESS-01", "SHUT-01", "TIME-01", "TIME-02", "VER-01", "VER-02e", "WORD-02"]); }
   finally { trapState.installed = false; }
 });

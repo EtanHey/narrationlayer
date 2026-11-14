@@ -375,3 +375,20 @@ Owed or out of scope: `plan.display_document.blocks` remains stripped whole, as
 the contract explicitly identifies its blocks as text-bearing.
 Transformations beyond case folding (such as reversal, base64 and splitting
 characters across fields) remain outside this row's eight-character-run rule.
+BIND-01 proves that no host port starting work, touching storage or arming a timer
+runs inside `send` or synchronous `shutdown`. This engine's event iterator returns
+native promises, so no consumer callback runs inside `send`. BIND-01's depth
+counters cannot fail through the runner: it wraps every binding's events in an
+async generator, a hop that hides a synchronous-thenable engine from every case.
+This is a limit of the proof. Its fake clock also permits
+a zero-delay timer armed after the turn; this engine's exact microtask counts
+belong to its unit suite. Backend calls and abort listeners run after the turn;
+the reducer fences a stop before the deferred abort fires.
+
+`chooseEngine` (selection) and `observe` (diagnostic) are supplied through
+`createEngine` options and still run inside `send`; neither is reachable through
+a public door today. The coming `./engine` door must not expose `observe` (owed
+to that slice). The planner also runs synchronously as a pure request decision.
+Clock reads (`now` and `monotonic`) are not wrapped: a read is not I/O under line
+425. The bounded synthesis timeout remains owed. BIND-01 does not catch deferring
+the whole `send`; other conformance rows cover that fault.
