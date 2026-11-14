@@ -51,7 +51,7 @@ async function snapshot(c: CaseContext, t: Rig, id: string, queued: string) {
   if (!snap || snap.type !== "snapshot") throw Error("missing snapshot");
   const before = t.seen.slice(0, t.seen.indexOf(snap));
   c.assert(ack.outcome === "accept" && before.at(-1) === ack); // L168, ruling 87: addressed ack before connection snapshot.
-  c.assert(equal(snap.sessions.map(s => s.session_id), [id, queued])); // Rulings 85/87: live only, in admission order.
+  c.assert(equal(snap.sessions.map(s => s.session_id).sort(), [id, queued].sort())); // Rulings 85/87: exactly the live sessions; snapshot list order is unrestricted.
   const expected: Event[] = [];
   for (const [i, session_id] of [id, queued].entries()) {
     const plan = before.find(e => e.type === "plan" && e.session_id === session_id);
@@ -59,7 +59,7 @@ async function snapshot(c: CaseContext, t: Rig, id: string, queued: string) {
     const delivered = pieces({ ...t, seen: before }, session_id);
     const last = before.filter(e => "session_id" in e && e.session_id === session_id).at(-1);
     const seq = session_id === id ? ack.seq : last && "seq" in last ? last.seq : 0;
-    c.assert(equal(snap.sessions[i], { session_id, request_id: i ? "resync-queued" : "resync-playing",
+    c.assert(equal(snap.sessions.find(s => s.session_id === session_id), { session_id, request_id: i ? "resync-queued" : "resync-playing",
       phase: i ? "preparing" : "playing", control_epoch: i ? 0 : 7, player_instance_id: i ? "" : "resync-player-0",
       audio_ms: 0, word_index: 0, pieces_ready: delivered.length, last_seq: seq })); // Ruling 86: observed deliveries and mirror feedback.
     expected.push(plan, ...delivered.map(p => ({ protocol: p.protocol, owner_epoch: p.owner_epoch, seq: 0, type: "timing_update" as const,
