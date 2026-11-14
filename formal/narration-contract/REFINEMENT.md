@@ -222,3 +222,20 @@ Reducer SHA-256: `efe6e0cd67d1f5389054eb78edcec9cc709b7001eaa22202bf498454ce3b0d
 S7b-2 adds a shutdown input: complete delivered coverage commits, otherwise
 interrupted; playback ends as shutdown only when no earlier terminal was accepted. The bounded alphabet still omits this
 input; custody offset tests and SHUT-01 exercise it, not the model alphabet.
+
+## S5d resync display state
+
+Rulings 83-88 add a pure resync transaction: one addressed ack, one connection
+snapshot of sessions without outcomes in admission order, their plans and one
+resync timing update per delivered piece. No delivery or lease is created. Each
+fresh event advances seq; replayed receipts do not. The separate session_seqs
+map records every addressed emission, including acks and guarded-feedback errors,
+without changing the domain session map. Snapshot position is the stage-A mirror.
+I01-I04 guards and transitions are unchanged; resync changes only sequence
+metadata and the command receipt. Existing exhaustive depth/alphabet remain 4/40;
+metadata distinguishes formerly equal states: visits 44,380 -> 46,613, distinct
+38,876 -> 40,762; represented prefixes stay 7,876,923. The feedback-guards test's
+whole-state assertion now explicitly includes only the intended last-seq update.
+SNAP-01 source mutations remove the live filter or substitute untimed plan words;
+the whole mutation driver supplies sensitivity and restored-pass evidence.
+No new model-level or host/player acceptance is claimed.

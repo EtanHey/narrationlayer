@@ -9,6 +9,12 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/resync-variants.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+    "src/engine/conformance/broken-snap-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+    "src/engine/conformance/broken-seq-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+    "src/engine/conformance/broken-stale-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+
+    "src/engine/conformance/resync-cases.ts": {"layer": 4, "area": "engine", "owner": "P2.S5d"},
     "src/engine/conformance/stop-variants.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5c"},
     "src/engine/conformance/broken-stop-started-queued.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5c"},
     "src/engine/conformance/broken-stop-replaced-others.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5c"},

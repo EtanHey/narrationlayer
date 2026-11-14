@@ -794,7 +794,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "Host display reconstruction and sequence-gap detection that triggers resync; stage-A positions are mirror values."
   },
   {
     "id": "SESS-01",
@@ -822,7 +823,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "Host display reconstruction and sequence-gap detection that triggers resync; stage-A positions are mirror values."
   },
   {
     "id": "SPEED-01b",
@@ -993,7 +995,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "Host display reconstruction and sequence-gap detection that triggers resync; stage-A positions are mirror values."
   },
   {
     "id": "STOP-01e",

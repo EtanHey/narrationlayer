@@ -139,7 +139,7 @@ test("feedback guards: wire session, piece, delivered spawn, epoch and terminal"
   const s = run(accepted(2), piece());
   for (const f of [feedback("first_sample", { session_id: "foreign", control_epoch: 0 }), feedback("first_sample", { piece_index: 1 }), feedback("exited", { piece_index: 1, exit: { status: "failed", stopped_at_ms: 0 } }), feedback("spawned", { piece_index: 1 }), feedback("spawned", { piece_index: 2 })]) expect(run(s, f)).toEqual(s);
   const full = run(accepted(3), piece(), piece(1), piece(2));
-  expect(run(full, feedback("spawned", { piece_index: 2, player_instance_id: "far-player" }))).toEqual({ ...full, seq: full.seq + 1 });
+  expect(run(full, feedback("spawned", { piece_index: 2, player_instance_id: "far-player" }))).toEqual({ ...full, seq: full.seq + 1, session_seqs: { ...full.session_seqs, [identity.session_id]: full.seq + 1 } });
   const host = run(accepted(1, "host"), piece(), { ...seek, target: { ...current, control_epoch: 3 } });
   expect(reduce(host, feedback("first_sample", { control_epoch: 2 })).effects).toMatchObject([{ kind: "emit", event: { code: "STALE_EPOCH" } }]);
 });
@@ -291,7 +291,7 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
     frontier = next;
   }
   console.log(`exhaustive depth=4 alphabet=${alphabet.length} scripts=${scripts} visits=${visits} distinct=${distinct.size} wall_ms=${(performance.now() - start).toFixed(1)}`);
-  expect(visits).toBe(44380); expect(distinct.size).toBe(38876);
+  expect(visits).toBe(46613); expect(distinct.size).toBe(40762);
   expect(scripts).toBe(7876923);
   expect(scripts).toBe(3 * (1 + alphabet.length + alphabet.length ** 2 + alphabet.length ** 3 + alphabet.length ** 4));
 }, 20000);
@@ -540,3 +540,35 @@ for (const authority of ["host", "engine"] as const) for (const ruling of [78, 7
       expect(noop.effects).toMatchObject([{ kind: "emit", event: { type: "control_ack", outcome: "noop" } }]); // R80.
     }
   });
+
+test("resync R83-87: one connection snapshot, fresh plans and current delivered words, immutable domains", () => {
+  let s = run(accepted(2, "host"), piece(), feedback("first_sample"));
+  const queued = acceptance(); if (queued.kind !== "accept") throw Error("fixture");
+  s = run(s, { ...queued, identity: { ...identity, session_id: "queued" }, request: { ...request, idempotency_key: "queued", request_id: "queued" },
+    current: { ...current, session_id: "queued" }, plan: { ...queued.plan, session_id: "queued" } });
+  const c = { kind: "control", command: { protocol: "nl.engine/1", type: "control", command_id: "sync", session_id: identity.session_id, op: "resync", args: {} }, target: current } satisfies Input;
+  for (const phase of ["playing", "paused", "preparing"]) {
+    const before = { ...s, sessions: { ...s.sessions, [identity.session_id]: { ...view(s), started: phase !== "preparing", ...(phase === "paused" ? { pause_owner: "user" as const } : {}) } } };
+    const r = reduce(before, c), events = r.effects.flatMap(e => e.kind === "emit" ? [e.event] : []);
+    expect(events.map(e => e.type)).toEqual(["control_ack", "snapshot", "plan", "timing_update", "plan"]);
+    expect(events[1]).toMatchObject({ sessions: [{ session_id: identity.session_id, phase, pieces_ready: 1, last_seq: before.seq + 1 }, { session_id: "queued", phase: "preparing", last_seq: before.session_seqs.queued }] });
+    expect(events[3]).toMatchObject({ derivation_id: "resync", words: view(before).delivered[0].words });
+    expect(events.map(e => "seq" in e ? e.seq : 0)).toEqual([1, 2, 3, 4, 5].map(n => n + before.seq));
+    expect(view(r.state)).toEqual({ ...view(before), receipts: expect.any(Array) });
+    expect(reduce(r.state, c)).toEqual({ state: r.state, effects: [{ kind: "replay", event: events[0] }] });
+  }
+  const ended = run(s, stop), r = reduce(ended, c);
+  expect(r.effects).toMatchObject([{ event: { outcome: "accept" } }, { event: { sessions: [{ session_id: "queued" }] } }, { event: { type: "plan" } }]);
+  expect(reduce(s, { ...c, command: { ...c.command, session_id: "unknown" } }).effects).toMatchObject([{ kind: "emit", event: { type: "error", code: "UNKNOWN_SESSION" } }]);
+});
+
+test("resync R86: word holder comes from delivered timing, with zero in a gap", () => {
+  const delivered = piece(); if (delivered.kind !== "backend" || delivered.result.kind !== "piece") throw Error("fixture");
+  delivered.result.piece.words = [{ index: 3, start_ms: 2, end_ms: 8, timing: "estimated" }];
+  const s = run(accepted(1, "host"), delivered);
+  for (const [audio_ms, word_index] of [[5, 3], [9, 0]]) {
+    const state = { ...s, sessions: { ...s.sessions, [identity.session_id]: { ...view(s), current: { ...view(s).current, audio_ms } } } };
+    const r = reduce(state, { kind: "control", command: { protocol: "nl.engine/1", type: "control", command_id: "word-sync", session_id: identity.session_id, op: "resync", args: {} }, target: current });
+    expect(r.effects).toContainEqual(expect.objectContaining({ event: expect.objectContaining({ type: "snapshot", sessions: [expect.objectContaining({ audio_ms, word_index })] }) }));
+  }
+});
