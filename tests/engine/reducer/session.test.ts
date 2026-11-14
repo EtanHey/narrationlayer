@@ -420,3 +420,11 @@ test("LIFE-01e: requested input is fenced by identity, running state and outcome
   expect(reduce(s, { ...input, identity: { ...identity, attempt_id: "foreign" } }).effects).toEqual([]);
   expect(reduce(initialState(1, "engine"), input).effects).toEqual([]);
 });
+
+test("shutdown preserves playback completed before commit while ending generation", () => {
+  const ended = run(accepted(), piece(), feedback("spawned"), feedback("first_sample"), feedback("exited"));
+  expect(view(ended).generation).toBe("running"); expect(view(ended).playback).toBe("completed"); expect(view(ended).outcome).toBeNull();
+  const shutdown = run(ended, { kind: "shutdown", session_id: identity.session_id });
+  expect(view(shutdown).outcome).toMatchObject({ playback: { reason: "completed" }, generation: { status: "committed" }, heard: true });
+  expect(run(shutdown, commit, failure)).toEqual(shutdown);
+});

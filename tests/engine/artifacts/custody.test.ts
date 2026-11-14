@@ -1,3 +1,4 @@
+import { createEngine } from "../../../src/engine/core/engine";
 import { hello } from "../../../src/engine/conformance/engine-cases";
 import { expect, test } from "bun:test";
 import { createArtifactStore } from "../../../src/engine/artifacts/store";
@@ -212,4 +213,58 @@ test("shutdown: pending deletes retry once outside the call and custody preserve
   expect(deletes).toBe(2); expect(store.custody().pending_delete).toEqual([]); expect(store.resolve(b.handle, b.lease_id)).toEqual({ kind: "resolved", bytes: new Uint8Array([2]) });
   store.releaseFromHost(b.lease_id); expect(store.resolve(b.handle, b.lease_id).kind).toBe("expired");
   for (let i = 0; i < 8; i++) await Promise.resolve(); expect(bytes.size).toBe(0);
+});
+
+function shutdownEngine() {
+  const clock = new FakeClock(), backend = new ScriptedBackend(clock), bytes = new Map<string, Uint8Array>(), events: Event[] = [];
+  let failDelete = false;
+  const store = createArtifactStore({ has: h => bytes.has(h), get: h => bytes.get(h), set: (h, b) => bytes.set(h, b), delete(h) { if (failDelete) throw Error("synthetic refusal"); return bytes.delete(h); } }, 1);
+  const engine = createEngine({ clock, backend, artifacts: store, owner_epoch: 1, package_version: "0", observe: { event(e) { events.push(e); } },
+    limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 }, engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], chooseEngine: () => ({ family: "edge", voice: "synthetic", profile_revision: "1" }) });
+  engine.send(hello);
+  const read = (id: string) => engine.send({ protocol: "nl.engine/1", type: "narrate", request_id: id, idempotency_key: id, use: "read", input: { text: "Copper boats drift.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+  return { engine, clock, backend, bytes, events, read, failDelete(value: boolean) { failDelete = value; } };
+}
+const microtasks = async () => { for (let i = 0; i < 128; i++) await Promise.resolve(); };
+test("shutdown: engine custody pins live and pending handles through every release", async () => {
+  for (const fail of [false, true]) {
+    const t = shutdownEngine(); t.backend.script([{ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(24) } }]);
+    t.read("engine-custody"); await t.clock.advance(1); await microtasks();
+    const pieces = t.events.filter(e => e.type === "piece_ready"); expect(pieces).toHaveLength(1);
+    const live = pieces.map(p => ({ lease_id: p.artifact.lease_id, handle: p.artifact.handle, session_id: p.session_id, piece_id: p.piece_id }));
+    expect(t.engine.custody()).toEqual({ live, pending_delete: [] });
+    await t.engine.shutdown(100); expect(t.engine.custody()).toEqual({ live, pending_delete: [] });
+    expect(t.engine.custody().live.map(({ session_id, ...a }) => a)).toEqual(t.events.filter(e => e.type === "outcome").flatMap(e => e.artifacts));
+    t.failDelete(fail); t.engine.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: live[0].lease_id }); await microtasks();
+    expect(t.engine.custody()).toEqual({ live: [], pending_delete: fail ? [live[0].handle] : [] });
+  }
+
+});
+test("shutdown: mixed settlement custody property keeps the deadline at every offset", async () => {
+  for (let offset = 0; offset < 16; offset++) {
+    const t = shutdownEngine(); let release!: () => void, calls = 0;
+    t.backend.synthesizeRequest = (_request, signal) => new Promise((resolve, reject) => {
+      if (++calls === 1) signal.addEventListener("abort", () => reject(Error("synthetic abort")), { once: true });
+      else release = () => resolve(pcmAudio(24));
+    });
+    t.read("mixed-settles"); t.read("mixed-stuck");
+    for (let i = 0; i < offset; i++) await Promise.resolve();
+    let done = false; const pending = t.engine.shutdown(30).then(() => { done = true; }); await microtasks();
+    expect(done).toBe(false); expect(t.events.filter(e => e.type === "outcome")).toHaveLength(2);
+    await t.clock.advance(29); await microtasks(); expect(done).toBe(false);
+    await t.clock.advance(1); await microtasks(); expect(done).toBe(true); await pending;
+    expect(t.engine.custody()).toEqual({ live: [], pending_delete: [] }); release(); await microtasks();
+  }
+});
+for (const deadline of [NaN, -Infinity]) test(`shutdown: deadline ${deadline} resolves immediately without rejection`, async () => {
+  const t = shutdownEngine(); let release!: () => void;
+  t.backend.synthesizeRequest = () => new Promise(resolve => { release = () => resolve(pcmAudio(24)); }); t.read("nonfinite-now");
+  await expect(t.engine.shutdown(deadline)).resolves.toBeUndefined(); expect(t.clock.now()).toBe(0); release(); await microtasks();
+});
+test("shutdown: positive Infinity schedules no timer and waits for settlement", async () => {
+  const t = shutdownEngine(); let release!: () => void, scheduled = 0;
+  t.backend.synthesizeRequest = () => new Promise(resolve => { release = () => resolve(pcmAudio(24)); }); t.read("nonfinite-wait");
+  t.clock.schedule = () => { scheduled++; throw Error("unexpected timer"); };
+  let done = false; const pending = t.engine.shutdown(Infinity).then(() => { done = true; }); await microtasks();
+  expect(done).toBe(false); expect(scheduled).toBe(0); release(); await pending; expect(done).toBe(true);
 });

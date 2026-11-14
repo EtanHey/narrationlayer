@@ -247,8 +247,8 @@ export function createEngineSession<Audio>(options: {
       for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
       shutdownPromise = new Promise<void>(resolve => {
         const remaining = deadline - options.clock.now();
-        if (remaining <= 0) { resolve(); return; }
-        const cancel = options.clock.schedule(remaining, resolve);
+        if (!(remaining > 0)) { resolve(); return; }
+        const cancel = Number.isFinite(remaining) ? options.clock.schedule(remaining, resolve) : () => {};
         void Promise.allSettled(active).then(() => { cancel(); resolve(); });
       });
       return shutdownPromise;

@@ -139,7 +139,8 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
   } else if (!s.outcome) { // Domain generation terminal below fences late backend delivery (I03).
     if (input.kind === "shutdown") {
       s.generation = s.delivered.length === s.plan.pieces.length ? "committed" : "interrupted";
-      s.playback = "shutdown"; s.fenced = true;
+      if (s.playback === null) s.playback = "shutdown";
+      s.fenced = true;
       effects.push({ kind: "backend", identity, op: "cancel" });
     } else if (input.kind === "stop") stop(input.reason);
     else if (input.kind === "reanchor") {
