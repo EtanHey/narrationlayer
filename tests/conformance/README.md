@@ -338,3 +338,28 @@ byte-port calls inside send/shutdown and rejects any synchronous call.
 Still owed: BACKEND_DRAIN_UNKNOWN when settlement misses the deadline; physical
 status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
 (BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).
+
+PRIV-01e observes raw events (including unknown fields and object keys), never
+parser projections. A unique 8-character-run set from a 104-character invented
+canary detects partial leaks. Only `plan.display_document.text`, its `blocks`,
+`plan.words[].text`, and `piece_ready.spoken_text` are removed from event copies.
+The input text and resolved audio bytes are text-bearing too; timing word indices
+are not. Plain display text and words must match the submitted document.
+Twenty-two fresh connections cover completion, markdown and its five shapes,
+backend failure, over-limit and invalid refusals, conflict, opaque host ids and
+metadata, unknown controls, a live stop, shutdown, queuing, release twice,
+repeated hello, pre-hello narrate, and a second read that fails.
+Each scenario wraps all five console methods and stdout/stderr writes, confirms
+seven observable routes, and restores them in finally. This covers writes through
+these JavaScript methods during the scenario in this process; independently
+captured native descriptors and other processes are outside that observation.
+The report uses fd 3, separately. Unit coverage checks engine-level custody,
+which the conformance connection does not expose. The wrong synthesis-error
+engine leaks long-input snippets and fails exactly PRIV-01e; shared null/network/spawn/broken receipts gain that
+row because they cannot supply the required read plans. PLAN-LAT-01, ART-04
+SESS-01 and SHUT-01 wrong-engine receipts also gain PRIV-01e: they respectively
+omit a second read, miss the repeated release refusal, omit the unknown-session
+refusal, and report the old shutdown reason.
+PRIV-01h still owes host adapter logs. HASH-01 stays inactive: the engine writes
+no hash today; when it writes one to a journal it must be keyed: nothing to test
+yet. Fleet journal and telemetry are absent from this engine and remain owed.

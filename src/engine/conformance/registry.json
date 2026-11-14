@@ -327,7 +327,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": false,
+    "owed": "The engine writes no hash today; when it writes one to a journal it must be keyed: nothing to test yet."
   },
   {
     "id": "HIST-01",
@@ -728,7 +729,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true,
+    "owed": "Fleet journal and telemetry privacy: the engine has neither; host adapter logs belong to PRIV-01h."
   },
   {
     "id": "PRIV-01h",
@@ -737,7 +739,8 @@
     "side": "host",
     "stage": "A",
     "owner_slice": "S7h",
-    "active": false
+    "active": false,
+    "owed": "Host-side adapter logs are not observed by the engine conformance process."
   },
   {
     "id": "QUEUE-01",
