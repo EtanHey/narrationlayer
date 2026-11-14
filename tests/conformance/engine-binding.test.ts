@@ -26,7 +26,8 @@ for (let i = 0; i < ids.length; i += 4) {
   const group = ids.slice(i, i + 4);
   test(`broken engines match their exact fail-sets: ${group.join(", ")}`, async () => {
     const results = await Promise.allSettled(group.map(proof));
-    for (const result of results) if (result.status === "rejected") throw result.reason;
+    const errors = results.flatMap((result, index) => result.status === "rejected" ? [`${group[index]}: ${String(result.reason)}`] : []);
+    if (errors.length) throw new Error(errors.join("\n"));
   });
 }
 test("unconditional negotiation emits one unnumbered welcome; malformed and repeated hello are refused", async () => {
