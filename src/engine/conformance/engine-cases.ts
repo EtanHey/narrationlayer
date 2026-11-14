@@ -2,7 +2,7 @@ import { pacingCases } from "./pacing-cases";
 import { artifactCases } from "./artifact-cases";
 import { negotiationCases } from "./negotiation-cases";
 import type { Case, CaseContext } from "./runner";
-import type { BackendStep, Json } from "./binding";
+import type { Binding, BackendStep, Json } from "./binding";
 import { pcmAudio, ScriptedBackend } from "./fake-backend";
 import { ScriptedPlayer, ScriptedSpawn } from "./fake-player";
 import { ScriptedHost } from "./host-stub";
@@ -17,10 +17,43 @@ async function bounded(c: CaseContext, promise: Promise<unknown>) {
   for (let i = 0; i < 8 && !done; i++) { await c.clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve(); }
   c.assert(done); if (error) throw error;
 }
+// Every fixture checks host work at the send/shutdown boundary, including work
+// reached indirectly through an abort listener on a host backend.
+export function createProbed(c: CaseContext, host: Parameters<Binding["create"]>[0]) {
+  let depth = 0;
+  const violations: string[] = [];
+  const record = (name: string) => { if (depth) violations.push(name); };
+  for (const method of ["get", "set", "has", "delete"] as const) {
+    const original = host.store[method].bind(host.store);
+    Reflect.set(host.store, method, (...args: unknown[]) => {
+      record(`store.${method}`); return Reflect.apply(original, host.store, args);
+    });
+  }
+  if (host.ports) {
+    const backend = host.ports.backend;
+    host = { ...host, ports: { ...host.ports, backend: {
+      script: steps => backend.script(steps),
+      get calls() { return backend.calls; },
+      synthesizeRequest(request, signal) { record("backend.synthesizeRequest"); return backend.synthesizeRequest(request, signal); },
+    } } };
+  }
+  const schedule = host.clock.schedule.bind(host.clock);
+  host.clock.schedule = (delay, callback) => { record("clock.schedule"); return schedule(delay, callback); };
+  const connection = c.binding.create(host), send = connection.send.bind(connection), shutdown = connection.shutdown.bind(connection);
+  connection.send = message => { depth++; try { send(message); } finally { depth--; } };
+  connection.shutdown = deadline => {
+    depth++;
+    try { return shutdown(deadline).then(() => {
+      if (violations.length) throw new Error(`host work inside send/shutdown: ${violations.join(", ")}`);
+      c.assert(violations.length === 0);
+    }); } finally { depth--; }
+  };
+  return connection;
+}
 export function setup(c: CaseContext, steps: BackendStep[]) {
   const backend = new ScriptedBackend(c.clock), spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
   backend.script(steps);
-  const connection = c.binding.create({ clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
+  const connection = createProbed(c, { clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
   const seen: Event[] = [];
   const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })().catch(() => { c.failed = true; });
   const settle = async (ms = 0) => { await c.clock.advance(ms); for (let i = 0; i < 128; i++) await Promise.resolve(); };
@@ -112,6 +145,56 @@ function textFree(c: CaseContext, text: string) {
   for (let i = 0; i <= text.length - 8; i++) c.assert(!raw.includes(text.slice(i, i + 8)));
 }
 export const engineCases: Record<string, Case> = {
+  "BIND-01": async c => {
+    for (const reenter of [false, true]) {
+      const backend = new ScriptedBackend(c.clock);
+      let calls = 0, aborts = 0, depth = 0;
+      backend.synthesizeRequest = (_request, signal) => {
+        calls++;
+        signal.addEventListener("abort", () => { aborts++; c.clock.schedule(0, () => {}); });
+        return new Promise(() => {});
+      };
+      const spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
+      const connection = createProbed(c, { clock: c.clock, ports: { backend, spawn, player, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32), audible: false });
+      const seen: Event[] = [];
+      const send = (message: Json) => { c.assert(depth === 0); depth++; try { connection.send(message); } finally { depth--; } };
+      let ended = false;
+      const collect = (async () => {
+        for await (const raw of connection.events) {
+          c.assert(depth === 0);
+          const event = parseEvent(raw); c.assert(event.ok);
+          if (!event.ok || !event.value) continue;
+          seen.push(event.value);
+          if (reenter && event.value.type === "accepted" && event.value.request_id === "bind-first") {
+            send({ protocol: "nl.engine/1", type: "control", command_id: "bind-stop", session_id: event.value.session_id, op: "stop", args: { scope: "session", reason: "stop" } });
+            send(read("bind-second"));
+          }
+        }
+        ended = true;
+      })().catch(() => { c.failed = true; ended = true; });
+      send(hello); send(read("bind-first"));
+      c.assert(calls === 0 && aborts === 0 && seen.length === 0);
+      for (let i = 0; i < 64; i++) await Promise.resolve();
+      c.assert(calls === (reenter ? 2 : 1));
+      c.assert(seen.filter(e => e.type === "accepted" && e.request_id === "bind-first").length === 1);
+      c.assert(seen.filter(e => e.type === "plan").length === (reenter ? 2 : 1));
+      if (reenter) {
+        const plan = seen.findIndex(e => e.type === "plan");
+        const ack = seen.findIndex(e => e.type === "control_ack");
+        const second = seen.findIndex(e => e.type === "accepted" && e.request_id === "bind-second");
+        c.assert(plan >= 0 && ack > plan && second > ack);
+      } else {
+        const accepted = seen.find(e => e.type === "accepted"); c.assert(accepted?.type === "accepted");
+        if (accepted?.type === "accepted") send({ protocol: "nl.engine/1", type: "control", command_id: "bind-stop", session_id: accepted.session_id, op: "stop", args: { scope: "session", reason: "stop" } });
+        c.assert(aborts === 0);
+      }
+      await bounded(c, connection.shutdown(c.clock.now()));
+      for (let i = 0; i < 64; i++) await Promise.resolve();
+      c.assert(ended && aborts === (reenter ? 2 : 1)); await collect;
+      const seq = seen.filter(e => "seq" in e).map(e => "seq" in e ? e.seq : 0);
+      c.assert(seq.every((n, i) => n === i + 1));
+    }
+  },
   ...negotiationCases,
   ...pacingCases,
   ...artifactCases,
@@ -212,7 +295,7 @@ export const engineCases: Record<string, Case> = {
       const backend = new ScriptedBackend(c.clock), spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
       backend.script(Array.from({ length: target }, () => audio()));
       const original = backend.synthesizeRequest.bind(backend);
-      const connection = c.binding.create({ clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32), audible: false });
+      const connection = createProbed(c, { clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32), audible: false });
       const seen: Event[] = [];
       const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })().catch(() => { c.failed = true; });
       connection.send(hello);

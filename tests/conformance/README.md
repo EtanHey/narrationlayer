@@ -338,3 +338,11 @@ byte-port calls inside send/shutdown and rejects any synchronous call.
 Still owed: BACKEND_DRAIN_UNKNOWN when settlement misses the deadline; physical
 status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
 (BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).
+
+BIND-01 proves synchronous admission and asynchronous host work and event delivery.
+`chooseEngine` and the planner run inside `send`: they are pure request decisions,
+as are clock reads. Backend calls, byte-port work, clock scheduling and firing
+abort listeners run after the turn, in request order. The reducer fences a stop
+before the deferred abort fires. A same-turn narrate and stop starts no backend.
+`observe` is this repository's synchronous diagnostic hook, not a host callback
+provided by the contract. BIND-01's bounded synthesis timeout remains owed.

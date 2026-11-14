@@ -80,7 +80,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true,
+    "owed": "Bounded synthesis timeout and SYNTH_TIMEOUT (third clause)."
   },
   {
     "id": "BIND-02",

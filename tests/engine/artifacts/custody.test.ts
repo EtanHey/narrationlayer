@@ -248,6 +248,7 @@ test("shutdown: mixed settlement custody property keeps the deadline at every of
       else release = () => resolve(pcmAudio(24));
     });
     t.read("mixed-settles"); t.read("mixed-stuck");
+    expect(calls).toBe(0); await microtasks(); expect(calls).toBe(2);
     for (let i = 0; i < offset; i++) await Promise.resolve();
     let done = false; const pending = t.engine.shutdown(30).then(() => { done = true; }); await microtasks();
     expect(done).toBe(false); expect(t.events.filter(e => e.type === "outcome")).toHaveLength(2);
@@ -259,11 +260,13 @@ test("shutdown: mixed settlement custody property keeps the deadline at every of
 for (const deadline of [NaN, -Infinity]) test(`shutdown: deadline ${deadline} resolves immediately without rejection`, async () => {
   const t = shutdownEngine(); let release!: () => void;
   t.backend.synthesizeRequest = () => new Promise(resolve => { release = () => resolve(pcmAudio(24)); }); t.read("nonfinite-now");
+  expect(release).toBeUndefined(); await microtasks(); expect(release).toBeFunction();
   await expect(t.engine.shutdown(deadline)).resolves.toBeUndefined(); expect(t.clock.now()).toBe(0); release(); await microtasks();
 });
 test("shutdown: positive Infinity schedules no timer and waits for settlement", async () => {
   const t = shutdownEngine(); let release!: () => void, scheduled = 0;
   t.backend.synthesizeRequest = () => new Promise(resolve => { release = () => resolve(pcmAudio(24)); }); t.read("nonfinite-wait");
+  expect(release).toBeUndefined(); await microtasks(); expect(release).toBeFunction();
   t.clock.schedule = () => { scheduled++; throw Error("unexpected timer"); };
   let done = false; const pending = t.engine.shutdown(Infinity).then(() => { done = true; }); await microtasks();
   expect(done).toBe(false); expect(scheduled).toBe(0); release(); await pending; expect(done).toBe(true);

@@ -11,6 +11,7 @@ import { planSynthesisUnits, type SynthesisSourceUnit } from "../../../src/plan/
 import { FakeClock } from "../../../src/engine/conformance/clock";
 import { ScriptedBackend, pcmAudio } from "../../../src/engine/conformance/fake-backend";
 const request: Message<"narrate"> = { protocol: "nl.engine/1", type: "narrate", request_id: "req-one", idempotency_key: "key-one", use: "read", input: { text: "Synthetic text only.", format: "plain" }, voice: { profile: "fake", require_clone: false, fallback: "none" }, delivery: "pieces" };
+const turn = async () => { for (let i = 0; i < 4; i++) await Promise.resolve(); };
 const limits = { max_chars: { read: 1000, speak: 100, ask_prompt: 100 }, lookahead: 2, aligner_reap_ms: 100 };
 const units: SynthesisSourceUnit[] = [{ kind: "heading", text: "Synthetic heading", pause_after_ms: 0 }, { kind: "list_item", text: "Synthetic whole list item.", pause_after_ms: 0 }];
 const active: { session: { shutdown(d: number): Promise<void>; events: AsyncIterable<Event> }; events(): Event[]; consumed?: Event[]; epoch: number; inputs: Input<"host">[]; delivered: { event: Event; replay: boolean }[] }[] = [];
@@ -65,14 +66,16 @@ afterEach(async () => {
     expect(fresh.map(e => "seq" in e && e.seq)).toEqual(fresh.map((_, i) => i + 1));
   }
 });
-test("PLAN-LAT-01: plan is enqueued before the first backend call", () => {
+test("PLAN-LAT-01: plan is enqueued before the first backend call", async () => {
   const h = harness(); h.script(); h.session.send(request);
-  expect(h.callsBeforePlan).toBe(0); expect(h.events().map(e => e.type)).toEqual(["accepted", "plan", "lifecycle"]);
+  expect(h.backend.calls).toHaveLength(0); expect(h.events().map(e => e.type)).toEqual(["accepted", "plan"]);
+  await turn(); expect(h.callsBeforePlan).toBe(0); expect(h.events().map(e => e.type)).toEqual(["accepted", "plan", "lifecycle"]);
 });
-test("planner called once: repeated admission never replans or starts work", () => {
+test("planner called once: repeated admission never replans or starts work", async () => {
   const h = harness(); h.script(); h.session.send(request); h.session.send(request);
-  expect(h.plannerCalls).toBe(1); expect(h.backend.calls).toHaveLength(1);
+  expect(h.plannerCalls).toBe(1); expect(h.backend.calls).toHaveLength(0);
   expect(h.delivered.at(-1)).toEqual({ event: h.events()[0], replay: true });
+  await turn(); expect(h.backend.calls).toHaveLength(1);
 });
 test("SESS-01: unknown session gets UNKNOWN_SESSION; terminal replay remains", async () => {
   const h = harness(); h.stop(); expect(h.events()).toMatchObject([{ type: "error", code: "UNKNOWN_SESSION" }]);
@@ -88,7 +91,8 @@ test("ORDER-01 (lease clause owed to S7): ordered prefix and no events after out
   const count = h.events().length; h.feedback("exited", 1); await h.tick(); expect(h.events()).toHaveLength(count);
 });
 test("GEN-02: sequential calls and complete delivery before commit", async () => {
-  const h = harness(); h.script(); h.session.send(request); expect(h.backend.calls).toHaveLength(1);
+  const h = harness(); h.script(); h.session.send(request); expect(h.backend.calls).toHaveLength(0);
+  await turn(); expect(h.backend.calls).toHaveLength(1);
   await h.tick(); expect(h.backend.calls.map(r => r && typeof r === "object" && !Array.isArray(r) ? r.piece_index : null)).toEqual([0, 1]);
   const committed = h.inputs.find(i => i.kind === "backend" && i.result.kind === "commit"); expect(committed).toBeDefined();
   expect(h.events().filter(e => e.type === "piece_ready").map(e => e.start_ms)).toEqual([0, 10]); // duration.final is S4.
@@ -114,19 +118,20 @@ test("ID-02: owner epochs cannot reuse session or attempt identity", async () =>
   const a = harness(1, units.slice(0, 1)), b = harness(2, units.slice(0, 1)); a.script(1, true); b.script(); a.session.send(request); b.session.send(request);
   expect(a.events()[0]).toMatchObject({ owner_epoch: 1, session_id: "session-1-1", attempt_id: "attempt-1-1" });
   expect(b.events()[0]).toMatchObject({ owner_epoch: 2, session_id: "session-2-1", attempt_id: "attempt-2-1" });
+  expect(a.backend.calls).toHaveLength(0); expect(b.backend.calls).toHaveLength(0); await turn();
   a.stop(); const count = b.events().length; await a.tick();
   expect(a.events().filter(e => e.type === "piece_ready")).toHaveLength(0); expect(b.events()).toHaveLength(count);
   await b.tick(); expect(b.events().filter(e => e.type === "piece_ready")).toHaveLength(1);
   // Foreign async results are identity-bound by closure; wire feedback has no owner field.
 });
 test("ID-03: stop fences last synthesis before its late result", async () => {
-  const h = harness(1, units.slice(0, 1)); h.script(1, true); h.session.send(request); h.stop(); await h.tick();
+  const h = harness(1, units.slice(0, 1)); h.script(1, true); h.session.send(request); expect(h.backend.calls).toHaveLength(0); await turn(); expect(h.backend.calls).toHaveLength(1); h.stop(); await h.tick();
   expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(0);
   expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
   h.backend.assertDrained();
 });
 test("late result after stop: fenced audio produces no event or publication", async () => {
-  const h = harness(1, units.slice(0, 1)); h.script(1, true); h.session.send(request); h.stop("cancel"); await h.tick();
+  const h = harness(1, units.slice(0, 1)); h.script(1, true); h.session.send(request); expect(h.backend.calls).toHaveLength(0); await turn(); expect(h.backend.calls).toHaveLength(1); h.stop("cancel"); await h.tick();
   expect(h.publicationCalls).toBe(0);
   expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(0); h.backend.assertDrained();
 });
@@ -141,9 +146,10 @@ test("single source of state: reducer input fold reproduces fresh events and rep
   const h = harness(); h.script(); h.session.send(request); h.session.send(request); h.session.send({ nope: true }); await h.tick(); h.stop();
   // The shared afterEach now checks this scenario and every other wire through shutdown.
 });
-test("send never awaits: unresolved synthesis returns accepted synchronously", () => {
+test("send: nothing of the host's runs before it returns", async () => {
   const h = harness(); h.script(1, true); expect(h.session.send(request)).toBeUndefined();
-  expect(h.events()[0]?.type).toBe("accepted"); expect(h.backend.calls).toHaveLength(1);
+  expect(h.events()[0]?.type).toBe("accepted"); expect(h.backend.calls).toHaveLength(0);
+  await turn(); expect(h.backend.calls).toHaveLength(1);
 });
 test("every event parses: rejection and planner refusal remain text-free and sequenced", () => {
   const h = harness(); h.session.send({ nope: true }); h.session.send({ ...request, input: { text: "x".repeat(1001), format: "plain" } });
@@ -378,7 +384,8 @@ test("shutdown pending synthesis: late resolve and rejection emit nothing and ne
     const errors: unknown[] = [], onError = (e: unknown) => { errors.push(e); };
     process.on("unhandledRejection", onError);
     try {
-      h.session.send(request); let done = false;
+      h.session.send(request); expect(h.backend.calls).toHaveLength(0); await turn();
+      let done = false;
       const shutdown = h.session.shutdown(h.clock.now() + 100).then(() => { done = true; });
       for (let i = 0; i < 32; i++) await Promise.resolve(); expect(done).toBe(false);
       await h.clock.advance(99); expect(done).toBe(false); await h.clock.advance(1); await shutdown;
@@ -397,7 +404,8 @@ test("PACE-02 physical: abort-ignoring predecessor settles before the waiter syn
     first = false;
     return new Promise(resolve => { settle = () => { void audio.then(resolve); }; });
   };
-  h.session.send(request); h.session.send(queued); h.stop(); await h.tick();
+  h.session.send(request); expect(h.backend.calls).toHaveLength(0); await turn();
+  h.session.send(queued); h.stop(); await h.tick();
   expect(h.indices()).toEqual([0]); expect(h.indices("session-1-2")).toEqual([]);
   settle(); await h.tick(); expect(h.indices("session-1-2")).toEqual([0]);
   expect(h.events().filter(e => e.type === "piece_ready" && e.session_id === "session-1-1")).toEqual([]); h.replay();
@@ -476,4 +484,19 @@ test("a plan with a piece of zero segments is refused at admission, not after ac
   expect(h.backend.calls).toHaveLength(0);
   expect(h.events()).toMatchObject([{ type: "error", code: "INVALID_REQUEST", phase: "admit" }]);
   expect(h.events()).toHaveLength(1);
+});
+
+test("send: narrate then stop in the same turn starts no backend", async () => {
+  const h = harness(); h.session.send(request); h.stop();
+  expect(h.backend.calls).toHaveLength(0); await turn(); expect(h.backend.calls).toHaveLength(0);
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
+});
+
+test("send: abort fires after the stop decision and after return", async () => {
+  const h = harness(); let signal: AbortSignal | undefined;
+  h.backend.synthesizeRequest = (_request, value) => { signal = value; return new Promise(() => {}); };
+  h.session.send(request); await turn(); expect(signal?.aborted).toBe(false);
+  h.stop(); expect(signal?.aborted).toBe(false);
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
+  await turn(); expect(signal?.aborted).toBe(true);
 });
