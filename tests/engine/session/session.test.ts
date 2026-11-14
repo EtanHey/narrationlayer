@@ -1,3 +1,4 @@
+import { nextSynthesisIndex } from "../../../src/engine/reducer/pacing";
 import { afterEach, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { createEngineSession, type Publication, type ReadPlanner } from "../../../src/engine/session/session";
@@ -10,8 +11,8 @@ import { ScriptedBackend, pcmAudio } from "../../../src/engine/conformance/fake-
 const request: Message<"narrate"> = { protocol: "nl.engine/1", type: "narrate", request_id: "req-one", idempotency_key: "key-one", use: "read", input: { text: "Synthetic text only.", format: "plain" }, voice: { profile: "fake", require_clone: false, fallback: "none" }, delivery: "pieces" };
 const limits = { max_chars: { read: 1000, speak: 100, ask_prompt: 100 }, lookahead: 2, aligner_reap_ms: 100 };
 const units: SynthesisSourceUnit[] = [{ kind: "heading", text: "Synthetic heading", pause_after_ms: 0 }, { kind: "list_item", text: "Synthetic whole list item.", pause_after_ms: 0 }];
-const active: { session: { shutdown(d: number): Promise<void>; events: AsyncIterable<Event> }; events(): Event[]; epoch: number; inputs: Input<"host">[]; delivered: { event: Event; replay: boolean }[] }[] = [];
-function harness(epoch = 1, source = units) {
+const active: { session: { shutdown(d: number): Promise<void>; events: AsyncIterable<Event> }; events(): Event[]; consumed?: Event[]; epoch: number; inputs: Input<"host">[]; delivered: { event: Event; replay: boolean }[] }[] = [];
+function harness(epoch = 1, source = units, lookahead = 2) {
   const clock = new FakeClock(), backend = new ScriptedBackend(clock), delivered: { event: Event; replay: boolean }[] = [], inputs: Input<"host">[] = [];
   let calls = 0, callsBeforePlan = 0, publications = 0;
   // Synthetic stand-in only: typed units plus real cutter, whitespace word table.
@@ -32,7 +33,7 @@ function harness(epoch = 1, source = units) {
     async piece(audio, context) { publications++; return { type: "piece_ready", ...context, duration_ms: audio.samples, artifact: { handle: "synthetic", lease_id: "synthetic", format: "wav", sample_rate: audio.sample_rate, sample_count: audio.samples, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "+0%", attempts: [], unavailable: [], fallback_reason: null } }; }, async commit() {},
   };
   const observe = { input(i: Input<"host">) { inputs.push(i); }, event(event: Event, replay: boolean) { delivered.push({ event, replay }); } };
-  const session = createEngineSession({ owner_epoch: epoch, limits, planner, clock, publication,
+  const session = createEngineSession({ owner_epoch: epoch, limits: { ...limits, lookahead }, planner, clock, publication,
     backend: { synthesizeRequest(r, signal) { if (!delivered.some(d => d.event.type === "plan")) callsBeforePlan++; return backend.synthesizeRequest(r, signal); } },
     observe,
   });
@@ -46,7 +47,7 @@ function harness(epoch = 1, source = units) {
 afterEach(async () => {
   for (const h of active.splice(0)) {
     await h.session.shutdown(100);
-    const wire: Event[] = [];
+    const wire: Event[] = h.consumed ?? [];
     for await (const event of h.session.events) wire.push(event);
     let state = initialState(h.epoch, "host");
     const folded: { event: Event; replay: boolean }[] = [];
@@ -205,6 +206,190 @@ test("N4: accept observer failure propagates instead of becoming a planner refus
   expect(h.events()).toEqual([]);
 });
 
+function pacing(lookahead = 1) {
+  const h = harness(1, Array.from({ length: 5 }, (_, i) => ({ kind: "heading", text: `Synthetic piece number ${i}`, pause_after_ms: 0 })), lookahead);
+  const calls: { session_id: string; index: number; inputs: number }[] = [];
+  let inFlight = 0, peak = 0;
+  const plan = h.planner.plan;
+  h.planner.plan = (...args) => {
+    const p = plan(...args);
+    p.requests = p.requests.map(r => ({ ...r, text: `${args[2].session_id}:${r.piece_index}` }));
+    return p;
+  };
+  h.backend.synthesizeRequest = async r => {
+    if (!r || typeof r !== "object" || Array.isArray(r) || typeof r.text !== "string") throw Error("fixture");
+    const [session_id, index] = r.text.split(":");
+    calls.push({ session_id, index: Number(index), inputs: h.inputs.length });
+    peak = Math.max(peak, ++inFlight);
+    await Promise.resolve(); inFlight--;
+    return pcmAudio(10);
+  };
+  return { ...h, calls, get peak() { return peak; },
+    indices(id = "session-1-1") { return calls.filter(c => c.session_id === id).map(c => c.index); },
+    replay() {
+      let state = initialState(1, "host"), pos = 0;
+      const predicted: number[] = [];
+      for (const call of calls) {
+        while (pos < call.inputs) state = reduce(state, h.inputs[pos++]).state;
+        const session = state.sessions[call.session_id];
+        const index = nextSynthesisIndex(session, session.request.lookahead ?? lookahead, state.sessions);
+        expect(index).toBeDefined(); predicted.push(index!);
+      }
+      expect(predicted).toEqual(calls.map(c => c.index));
+      while (pos < h.inputs.length) state = reduce(state, h.inputs[pos++]).state;
+      // At these quiescent checkpoints no eligible call may be missing either.
+      for (const session of Object.values(state.sessions)) {
+        expect(nextSynthesisIndex(session, session.request.lookahead ?? lookahead, state.sessions)).toBeUndefined();
+      }
+    },
+  };
+}
+const prefix = (n: number) => Array.from({ length: n }, (_, i) => i);
+test("PACE-01: never more than lookahead pieces past the playing piece, one in flight", async () => {
+  for (const lookahead of [0, 1, 2]) {
+    const h = pacing(lookahead); h.session.send(request); await h.tick();
+    expect(h.indices()).toEqual(prefix(Math.max(1, lookahead) + 1));
+    for (let i = 0; i < 5; i++) {
+      h.feedback("spawned", i); await h.tick();
+      expect(h.indices()).toEqual(prefix(Math.min(5, i + Math.max(1, lookahead) + 1)));
+    }
+    expect(h.peak).toBe(1); h.replay();
+  }
+});
+test("PACE-01 wake: a parked read resumes on the next piece's spawned feedback and on nothing else", async () => {
+  const h = pacing(); h.session.send(request); await h.tick();
+  h.feedback("spawned"); h.feedback("first_sample");
+  h.session.send({ ...request, request_id: "req-foreign", idempotency_key: "key-foreign", start: { after_session: "unknown" } });
+  h.session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: "session-1-2", player_instance_id: "other", control_epoch: 1, piece_index: 1, edge: "spawned", t_mono_ms: 0 });
+  h.session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: "missing", player_instance_id: "foreign", control_epoch: 1, piece_index: 1, edge: "spawned", t_mono_ms: 0 });
+  h.session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: "session-1-1", player_instance_id: "stale", control_epoch: 0, piece_index: 1, edge: "spawned", t_mono_ms: 0 });
+  await h.tick(); expect(h.indices()).toEqual([0, 1]);
+  h.feedback("spawned", 1); await h.tick(); expect(h.indices()).toEqual([0, 1, 2]); h.replay();
+});
+test("PACE-01 not playing: pieces 0..lookahead are prepared and no more", async () => {
+  const h = pacing(2); h.session.send(request); await h.tick(); await h.tick();
+  expect(h.indices()).toEqual([0, 1, 2]); h.replay();
+});
+test("PACE-01 request lookahead overrides the limit", async () => {
+  for (const [limit, override] of [[2, 0], [0, 2], [2, -1]]) {
+    const h = pacing(limit); h.session.send({ ...request, lookahead: override }); await h.tick();
+    expect(h.indices()).toEqual(prefix(Math.max(1, override) + 1)); h.replay();
+  }
+});
+const queued = { ...request, request_id: "req-two", idempotency_key: "key-two", start: { after_session: "session-1-1" } };
+test("PACE-02: wait for exact predecessor terminal, prefetch only zero until first_sample", async () => {
+  for (const terminal of ["committed", "failed", "cancelled"] as const) {
+    const h = pacing();
+    if (terminal === "failed") h.publication.commit = async () => { throw Error("synthetic"); };
+    h.session.send({ ...request, lookahead: 4 }); h.session.send(queued);
+    expect(h.indices("session-1-2")).toEqual([]);
+    if (terminal === "cancelled") h.stop();
+    await h.tick(); expect(h.indices("session-1-2")).toEqual([0]);
+    h.session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: "session-1-2", player_instance_id: "next-player", control_epoch: 1, piece_index: 0, edge: "spawned", t_mono_ms: 0 });
+    await h.tick(); expect(h.indices("session-1-2")).toEqual([0]);
+    h.session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: "session-1-2", player_instance_id: "next-player", control_epoch: 1, piece_index: 0, edge: "first_sample", t_mono_ms: 0 });
+    await h.tick(); expect(h.indices("session-1-2")).toEqual([0, 1]); h.replay();
+  }
+});
+test("PACE-02: finished at admission starts zero; unknown identity waits until stopped", async () => {
+  const h = pacing(); h.session.send({ ...request, lookahead: 4 }); await h.tick();
+  h.session.send(queued); await h.tick(); expect(h.indices("session-1-2")).toEqual([0]);
+  h.session.send({ ...queued, request_id: "req-three", idempotency_key: "key-three", start: { after_session: "unknown" } });
+  await h.tick(); expect(h.indices("session-1-3")).toEqual([]);
+  h.session.send({ protocol: "nl.engine/1", type: "control", command_id: "stop-three", session_id: "session-1-3", op: "stop", args: { scope: "session", reason: "stop" } });
+  await h.tick(); expect(h.indices("session-1-3")).toEqual([]);
+  expect(h.events().filter(e => e.type === "outcome" && e.session_id === "session-1-3")).toHaveLength(1); h.replay();
+});
+test("fence while parked: a stop on a parked read ends it with no further backend call", async () => {
+  const h = pacing(); h.session.send(request); await h.tick(); h.stop();
+  const count = h.events().length; h.feedback("spawned", 1); await h.tick();
+  expect(h.indices()).toEqual([0, 1]); expect(h.events()).toHaveLength(count);
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1); h.replay();
+});
+test("shutdown while parked: no unhandled rejection, no event after the outcome", async () => {
+  const h = pacing(), errors: unknown[] = [], onError = (e: unknown) => { errors.push(e); };
+  process.on("unhandledRejection", onError);
+  try {
+    h.session.send(request); h.session.send(queued); await h.tick(); await h.session.shutdown(100);
+    const count = h.events().length; h.feedback("spawned", 1); await h.tick();
+    expect(h.events()).toHaveLength(count); expect(h.indices()).toEqual([0, 1]);
+    expect(h.indices("session-1-2")).toEqual([]); expect(errors).toEqual([]); h.replay();
+  } finally { process.off("unhandledRejection", onError); }
+});
+test("pacing function table: terminal, fenced, complete, cursor, negative and queued", () => {
+  const h = pacing(); h.session.send(request);
+  let state = initialState(1, "host"); for (const i of h.inputs) state = reduce(state, i).state;
+  const base = state.sessions["session-1-1"];
+  for (const [s, limit, expected] of [
+    ...[NaN, Infinity, -Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1].map(limit => [{ ...base, delivered: [{}, {}] as typeof base.delivered }, limit, undefined] satisfies [typeof base, number, undefined]),
+    [base, 0, 0], [base, -2, 0], [{ ...base, generation: "committed" as const }, 2, undefined],
+    [{ ...base, fenced: true }, 2, undefined], [{ ...base, plan: { ...base.plan, pieces: [] } }, 2, undefined],
+    [{ ...base, delivered: [{}] as typeof base.delivered }, 0, 1],
+    [{ ...base, delivered: [{}] as typeof base.delivered }, 1, 1],
+    [{ ...base, delivered: [{}] as typeof base.delivered, current: { ...base.current, piece_index: 1 } }, 0, 1],
+  ] satisfies [typeof base, number, number | undefined][]) expect(nextSynthesisIndex(s, limit, state.sessions)).toBe(expected);
+});
+
+test("PACE-01 minimum: a lookahead of 0 behaves as 1 and the read completes", async () => {
+  for (const value of [0, -1]) for (const fromRequest of [false, true]) {
+    const h = pacing(fromRequest ? 2 : value);
+    h.session.send({ ...request, ...(fromRequest ? { lookahead: value } : {}) }); await h.tick();
+    expect(h.indices()).toEqual([0, 1]);
+    for (let i = 0; i < 5; i++) {
+      h.feedback("spawned", i); h.feedback("first_sample", i); h.feedback("exited", i); await h.tick();
+      expect(h.indices()).toEqual(prefix(Math.min(5, i + 2)));
+    }
+    expect(h.events().at(-1)).toMatchObject({ type: "outcome", generation: { status: "committed" }, playback: { reason: "completed" } }); h.replay();
+  }
+});
+test("PACE-02: stop the waiting session while its predecessor never ends, no backend call", async () => {
+  const h = pacing(); h.session.send(request); await h.tick(); h.session.send(queued);
+  h.session.send({ protocol: "nl.engine/1", type: "control", command_id: "stop-waiter", session_id: "session-1-2", op: "stop", args: { scope: "session", reason: "stop" } });
+  const count = h.events().length; await h.tick(); expect(h.events()).toHaveLength(count);
+  expect(h.indices()).toEqual([0, 1]); expect(h.indices("session-1-2")).toEqual([]);
+  expect(h.events().filter(e => e.type === "outcome")).toMatchObject([{ session_id: "session-1-2", generation: { status: "cancelled" }, playback: { reason: "stop_preparing" } }]);
+  h.feedback("spawned", 1); await h.tick(); expect(h.indices("session-1-2")).toEqual([]); h.replay();
+});
+
+test("paced wire order: eager consumer matches observer, one outcome and no event after it", async () => {
+  const h = pacing(), wire: Event[] = [];
+  const drain = (async () => { for await (const event of h.session.events) wire.push(event); })();
+  h.session.send(request); await h.tick();
+  for (let i = 0; i < 5; i++) { h.feedback("spawned", i); h.feedback("first_sample", i); h.feedback("exited", i); await h.tick(); }
+  const count = h.events().length; await h.session.shutdown(100); await drain;
+  expect(wire).toEqual(h.events()); expect(wire).toHaveLength(count);
+  expect(wire.filter(e => e.type === "outcome")).toHaveLength(1);
+  expect(wire.at(-1)?.type).toBe("outcome");
+  const original = active.find(a => a.session === h.session)!; original.consumed = wire; h.replay();
+});
+test("shutdown pending synthesis: late resolve and rejection emit nothing and never reject unhandled", async () => {
+  for (const reject of [false, true]) {
+    const h = harness(); let settle!: () => void;
+    h.backend.synthesizeRequest = () => new Promise((resolve, fail) => { settle = () => reject ? fail(Error("synthetic")) : resolve(pcmAudio(10)); });
+    const errors: unknown[] = [], onError = (e: unknown) => { errors.push(e); };
+    process.on("unhandledRejection", onError);
+    try {
+      h.session.send(request); await h.session.shutdown(100); const count = h.events().length;
+      settle(); await h.tick(); expect(h.events()).toHaveLength(count); expect(h.publicationCalls).toBe(0); expect(errors).toEqual([]);
+    } finally { process.off("unhandledRejection", onError); }
+  }
+});
+
+test("PACE-02 physical: abort-ignoring predecessor settles before the waiter synthesizes zero", async () => {
+  const h = pacing(), synthesize = h.backend.synthesizeRequest;
+  let settle!: () => void, first = true;
+  h.backend.synthesizeRequest = (r, signal) => {
+    const audio = synthesize(r, signal);
+    if (!first) return audio;
+    first = false;
+    return new Promise(resolve => { settle = () => { void audio.then(resolve); }; });
+  };
+  h.session.send(request); h.session.send(queued); h.stop(); await h.tick();
+  expect(h.indices()).toEqual([0]); expect(h.indices("session-1-2")).toEqual([]);
+  settle(); await h.tick(); expect(h.indices("session-1-2")).toEqual([0]);
+  expect(h.events().filter(e => e.type === "piece_ready" && e.session_id === "session-1-1")).toEqual([]); h.replay();
+});
+
 test("aliasing: a planner or publication that mutates what it returned cannot change the read", async () => {
   const h = harness(), plan = h.planner.plan, publish = h.publication.piece;
   let keptPlan: ReturnType<ReadPlanner["plan"]> | undefined;
@@ -251,4 +436,11 @@ test("planner clone: a changing getter emits exactly the validated snapshot", ()
   h.script(); h.session.send(request);
   expect(h.events().find(e => e.type === "plan")).toMatchObject({ engine: { profile_revision: "validated" } });
   expect(reads).toBe(1);
+});
+
+test("PACE-02 parked predecessor: stopping a parked read wakes the read queued behind it", async () => {
+  const h = pacing(); h.session.send(request); await h.tick();
+  expect(h.indices()).toEqual([0, 1]); h.session.send(queued);
+  expect(h.indices("session-1-2")).toEqual([]); h.stop(); await h.tick();
+  expect(h.indices()).toEqual([0, 1]); expect(h.indices("session-1-2")).toEqual([0]); h.replay();
 });

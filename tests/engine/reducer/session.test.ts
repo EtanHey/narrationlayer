@@ -1,3 +1,4 @@
+import { nextSynthesisIndex } from "../../../src/engine/reducer/pacing";
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { initialState, reduce as transition, type State, type Input } from "../../../src/engine/reducer/session";
@@ -270,6 +271,10 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
   for (let depth = 0; depth <= 4; depth++) {
     const next = new Map<string, { state: State; paths: number }>();
     for (const [k, { state, paths }] of frontier) {
+      for (const session of Object.values(state.sessions)) for (const lookahead of [0, 1, 2]) {
+        const index = nextSynthesisIndex(session, lookahead, state.sessions);
+        if (index !== undefined && (session.fenced || session.generation !== "running" || index !== session.delivered.length || index >= session.plan.pieces.length || index > session.current.piece_index + Math.max(1, lookahead))) throw Error("pacing");
+      }
       visits++; distinct.add(k); if (depth === 4) continue;
       for (const input of alphabet) {
         const r = reduce(state, input); check(state, input, r.state, r.effects); scripts += paths;
