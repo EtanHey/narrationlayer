@@ -5,6 +5,7 @@ import activeIds from "./active.json";
 import type { Binding, Connection, Json } from "./binding.js";
 import { FakeClock } from "./clock.js";
 import { withoutWallTime, trapState, trapsPresent } from "./wall-guard.js";
+import { planningCases } from "./planning-cases";
 import { engineCases, hello } from "./engine-cases";
 export type Row = { id: string; contract_case: string; contract_line: number; side: string; stage: string; owner_slice: string | null; active: boolean };
 export const registry: readonly Row[] = registryData;
@@ -77,6 +78,7 @@ async function probe(binding: Binding) {
 }
 export const cases: Record<string, Case> = {
   ...engineCases,
+  ...planningCases,
   "CONF-01": async c => { c.assert(await probe(c.binding) === await probe(c.binding)); },
   // CONF-03/04: no trapped network (or spawn) call during any active case,
   // and nothing arrived at the parent listener; see README platform limits.
