@@ -61,7 +61,10 @@ export function assertBackendCalls(c: CaseContext, seen: Event[], calls: readonl
   const own = requested.flatMap((r, i) => r.session_id === session_id ? [calls[i]] : []);
   c.assert(own.length === pieces.length + undelivered);
   own.forEach((call, i) => c.assert(call !== null && typeof call === "object" && !Array.isArray(call) && call.piece_index === i && typeof call.text === "string" && (i >= pieces.length || call.text === pieces[i].spoken_text)));
+  return own;
 }
+// Plain-text reads: every call (delivered or not) speaks exactly its planned piece's words.
+const planned = (plan: Extract<Event, { type: "plan" }>, i: number) => plan.words.slice(plan.pieces[i].word_start, plan.pieces[i].word_end).map(w => w.text).join(" ");
 type MessagePieces = Extract<Event, { type: "piece_ready" }>[];
 function success(c: CaseContext, seen: Event[], request_id: string, count: number, calls: readonly Json[]) {
   const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
@@ -78,7 +81,7 @@ function success(c: CaseContext, seen: Event[], request_id: string, count: numbe
   c.assert(durations.every((d, i) => own.indexOf(d) > own.indexOf(pieces[0]) && (i === 0 || d.known_ms >= durations[i - 1].known_ms) && (d.final || own.indexOf(d) < own.indexOf(finals[0]))));
   c.assert(outcomes.length === 1 && outcomes[0].generation.status === "committed");
   c.assert(!seen.some(e => e.type === "error"));
-  assertBackendCalls(c, seen, calls, session_id, pieces);
+  assertBackendCalls(c, seen, calls, session_id, pieces).forEach((call, i) => c.assert((call as { text: string }).text === planned(plans[0], i)));
   c.assert(own.at(-1)?.type === "outcome");
   return { own, plans, pieces, records, durations, outcomes };
 }
@@ -96,7 +99,7 @@ function interrupted(c: CaseContext, seen: Event[], request_id: string, delivere
   // A failed/cancelled prefix has no final: that claim requires every planned piece.
   c.assert(durations.length === delivered && durations.every(d => !d.final));
   c.assert(outcomes.length === 1 && outcomes[0].generation.status === generation);
-  assertBackendCalls(c, seen, calls, accepted[0].session_id, pieces, 1);
+  assertBackendCalls(c, seen, calls, accepted[0].session_id, pieces, 1).forEach((call, i) => c.assert((call as { text: string }).text === planned(plans[0], i)));
   c.assert(own.at(-1)?.type === "outcome");
 }
 function textFree(c: CaseContext, text: string) {
