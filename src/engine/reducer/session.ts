@@ -24,7 +24,7 @@ export type Input<A extends Authority = Authority> =
   | { kind: "admit"; request: Message<"narrate"> }
   | ({ kind: "refuse"; code: RefusalCode } & Pick<Message<"error">, "message" | "request_id">)
   | { kind: "accept"; identity: Identity; current: Current; request: Message<"narrate">; plan: Body<Message<"plan">> }
-  | { kind: "control"; command: Message<"control">; target: Current }
+  | { kind: "control"; command: Message<"control">; target: Current; seek?: { kind: "reject"; reason: "word timing unavailable" | "word index out of range" | "invalid offset" } | { kind: "accept"; clamped: boolean } | { kind: "noop"; reason: "not ready" } }
   | { kind: "synthesis_requested"; identity: Identity; piece_index: number; chars: number; t_mono_ms: number }
   | { kind: "backend"; identity: Identity; result: { kind: "piece"; piece: Body<Message<"piece_ready">>; known_ms: number; audio_ready: Pick<Extract<Message<"lifecycle">, { edge: "audio_ready" }>, "t_mono_ms" | "first_audible_offset_ms"> } | { kind: "commit" } | { kind: "failure"; error: SynthesisError } }
   | { kind: "feedback"; identity: Identity; feedback: Message<"player_feedback"> }
@@ -131,6 +131,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     if (previous) { answer = "reject"; reason = "command id reused"; }
     // ID-01 (no model backing): a stale control receives ONLY its ack with current.
     else if (stale) { answer = "reject"; reason = "STALE_EPOCH"; }
+    else if (c.op === "seek" && input.seek?.kind === "reject" && input.seek.reason === "invalid offset") { answer = "reject"; reason = input.seek.reason; }
     else if (s.outcome || s.playback !== null) answer = "noop";
     else if (c.op === "stop") { if (!c.args.except_sessions?.includes(session_id)) stop(c.args.reason); else answer = "noop"; }
     else if (c.op === "pause") {
@@ -142,9 +143,12 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
       if (s.pause_owner === undefined) answer = "noop";
       else if (s.pause_owner !== c.args.owner) { answer = "reject"; reason = "pause owner differs"; }
       else { delete s.pause_owner; anchor(input.target); }
-    } else if (c.op === "seek") anchor(input.target);
+    } else if (c.op === "seek") {
+      if (input.seek?.kind === "reject" || input.seek?.kind === "noop") { answer = input.seek.kind; reason = input.seek.reason; }
+      else anchor(input.target); // I09: seeking preserves the pause and its owner.
+    }
     else { answer = "reject"; reason = "control outside S2a"; }
-    const ack: Message<"control_ack"> = { protocol: "nl.engine/1", type: "control_ack", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, command_id: c.command_id, outcome: answer, control_epoch: s.current.control_epoch, ...(reason ? { reason } : {}), ...(stale ? { current: s.current } : {}) };
+    const ack: Message<"control_ack"> = { protocol: "nl.engine/1", type: "control_ack", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, command_id: c.command_id, outcome: answer, control_epoch: s.current.control_epoch, ...(reason ? { reason } : {}), ...(c.op === "seek" && answer === "accept" ? { offset_ms: s.current.audio_ms, clamped: input.seek?.kind === "accept" ? input.seek.clamped : false } : {}), ...(stale ? { current: s.current } : {}) };
     emit(ack); if (!previous) s.receipts = [...s.receipts, { command: structuredClone(c), ack: structuredClone(ack) }].slice(-32);
   } else if (!s.outcome) { // Domain generation terminal below fences late backend delivery (I03).
     if (input.kind === "shutdown") {

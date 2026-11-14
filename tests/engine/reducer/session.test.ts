@@ -472,3 +472,38 @@ test("S5a pause ownership table, receipts, stale and terminal precedence", () =>
     expect(control("pause", "ask").outcome).toBe("noop"); expect(control("resume", "ask").outcome).toBe("noop");
   }
 });
+test("S5b seek receipts preserve pause and reject without moving under both authorities", () => {
+  for (const authority of ["host", "engine"] as const) {
+    let s = accepted(2, authority);
+    const pause: Input = { kind: "control", command: { ...seek.command, command_id: "park-seek", expected_control_epoch: undefined, op: "pause", args: { owner: "ask" } }, target: current };
+    s = run(s, pause);
+    for (const reason of ["word timing unavailable", "word index out of range", "invalid offset"] as const) {
+      const r = reduce(s, { ...seek, command: { ...seek.command, command_id: reason, expected_control_epoch: undefined }, seek: { kind: "reject", reason } });
+      expect(view(r.state).current).toEqual(view(s).current);
+      expect(r.effects).toMatchObject([{ event: { outcome: "reject", reason } }]);
+    }
+    const notReady = reduce(s, { ...seek, command: { ...seek.command, expected_control_epoch: undefined }, seek: { kind: "noop", reason: "not ready" } });
+    expect(view(notReady.state).current).toEqual(view(s).current);
+    expect(notReady.effects).toMatchObject([{ event: { outcome: "noop", reason: "not ready" } }]);
+    for (const clamped of [false, true]) {
+      const target = { ...view(s).current, audio_ms: clamped ? 20 : 10, piece_index: 1 };
+      const r = reduce(s, { ...seek, command: { ...seek.command, command_id: `landing-${clamped}`, expected_control_epoch: undefined }, target, seek: { kind: "accept", clamped } });
+      expect(r.effects).toMatchObject([{ event: { outcome: "accept", offset_ms: target.audio_ms, clamped, control_epoch: authority === "engine" ? target.control_epoch + 1 : target.control_epoch } }]);
+      expect(view(r.state).pause_owner).toBe("ask");
+      expect(view(r.state).current.piece_index).toBe(1);
+    }
+  }
+});
+
+test("S5b negative offset precedes ended and stopping playback under both authorities", () => {
+  for (const authority of ["host", "engine"] as const) {
+    const states = [run(accepted(2, authority), stop), run(accepted(1, authority), piece(), feedback("first_sample"), feedback("exited"))];
+    for (const s of states) {
+      const negative: Input = { ...seek, command: { ...seek.command, expected_control_epoch: undefined, args: { audio_ms: -1 } }, seek: { kind: "reject", reason: "invalid offset" } };
+      const r = reduce(s, negative);
+      expect(r.effects).toMatchObject([{ kind: "emit", event: { outcome: "reject", reason: "invalid offset" } }]);
+      expect(view(r.state).current).toEqual(view(s).current);
+      expect(reduce(s, { ...negative, command: { ...seek.command, expected_control_epoch: undefined }, seek: { kind: "accept", clamped: false } }).effects).toMatchObject([{ kind: "emit", event: { outcome: "noop" } }]);
+    }
+  }
+});

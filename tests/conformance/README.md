@@ -428,3 +428,9 @@ ART-01, ART-04, CTRL-01, PACE-01, PACE-02, SESS-01, SHUT-01 and VER-02e still fa
 Those rows retain fixed-tick assumptions beyond the committed 1 ms control.
 Running the conforming engines through the packaged entry's two children,
 including reversed case order and the parent stream scan, remains owed.
+
+SEEK-01e checks delivered-word landing, unavailable timing, audio clamping,
+re-anchored lookahead and preserved pause ownership (I09, stage-A mirror only).
+ID-01e rejects old-player exits after a seek and checks continued pacing.
+SEEK-01h and ID-01h still owe real player landing and the 1.5 s wait; resync
+and stop scopes remain owed.

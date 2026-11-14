@@ -350,7 +350,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": "Host half: SEEK-01h and ID-01h player landing and 1.5 s wait; resync; stop scopes."
   },
   {
     "id": "ID-01h",
@@ -773,7 +774,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "Host half: SEEK-01h and ID-01h player landing and 1.5 s wait; resync; stop scopes."
   },
   {
     "id": "SEEK-01h",
