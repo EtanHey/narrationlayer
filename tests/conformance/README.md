@@ -436,7 +436,7 @@ SEEK-01h and ID-01h still owe real player landing and the 1.5 s wait; resync
 and stop scopes remain owed.
 
 S5c activates STOP-01e (L165/L172/L520, rulings 78-80 and 82) and
-PREEMPT-01e (L345/L522, ruling 81). Stop reaches sessions in admission order:
+PREEMPT-01e (L345/L522, ruling 81). This engine visits reached sessions in admission order (the contract permits any outcome order between sessions):
 `session` addresses one, `all_speech` reaches every nonterminal session, and
 `queue` reaches unstarted after-session reads plus the addressed read.
 Every scope honors `except_sessions`; one command has one ack, and each ended

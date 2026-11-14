@@ -53,7 +53,7 @@ export const stopCases: Record<string, Case> = {
       // Drain shutdown before checking cardinality; no fixed delivery tick assumption.
       await t.finish();
       const outcomes = t.seen.flatMap(e => e.type === "outcome" && e.playback.reason !== "shutdown" ? [e] : []);
-      c.assert(JSON.stringify(outcomes.map(e => e.session_id)) === JSON.stringify(expected)); // R78/R79: admission order, exact reach, once each.
+      c.assert(JSON.stringify(outcomes.map(e => e.session_id).sort()) === JSON.stringify([...expected].sort())); // R78/R79: exact reach, once each; no order between sessions.
       c.assert(outcomes.every(e => e.playback.reason === (scope === "queue" ? "cancel" : e.session_id === t.playing ? "stop" : "stop_preparing"))); // R79/L165: mapped reasons.
       c.assert(t.seen.filter(e => e.type === "control_ack" && e.command_id === ack.command_id).length === 1); // R79/L172: one ack.
     }
@@ -62,6 +62,28 @@ export const stopCases: Record<string, Case> = {
     c.assert(ack.outcome === "accept"); // R80: spared addressed read, other reads ended.
     await t.finish();
     c.assert(!t.seen.some(e => e.type === "outcome" && e.session_id === t.held && e.playback.reason !== "shutdown")); // R78.
+    for (const block of ["started-queued", "queue-except", "paused-and-ended", "replaced-all"] as const) {
+      const t = await fixture(c), ends: [string, string][] = [];
+      const step = async (id: string, args: Json, outcome: string, ended: [string, string][]) => {
+        const n = t.seen.length, ack = await control(c, t, id, "stop", args); c.assert(ack.outcome === outcome); ends.push(...ended);
+        await until(c, () => ended.every(([s]) => t.seen.slice(n).some(e => e.type === "outcome" && e.session_id === s)));
+      };
+      if (block === "started-queued") { // R78: queue spares a started queued read and an unqueued unstarted read.
+        await until(c, () => t.seen.some(e => e.type === "piece_ready" && e.session_id === t.queued));
+        feedback(c, t, t.queued, "spawned"); feedback(c, t, t.queued, "first_sample");
+        await step(t.playing, { scope: "queue", reason: "cancel" }, "accept", [[t.playing, "cancel"]]);
+      }
+      if (block === "queue-except") await step(t.held, { scope: "queue", reason: "cancel", except_sessions: [t.queued] }, "accept", [[t.held, "cancel"]]); // R78: every scope.
+      if (block === "paused-and-ended") { // R78: session reaches one read; all_speech reaches a paused read, also when addressed to an ended read.
+        c.assert((await control(c, t, t.queued, "pause", { owner: "user" })).outcome === "accept");
+        await step(t.playing, { scope: "session", reason: "stop" }, "accept", [[t.playing, "stop"]]);
+        await step(t.playing, { scope: "all_speech", reason: "stop", except_sessions: [t.held] }, "accept", [[t.queued, "stop_preparing"]]);
+      }
+      if (block === "replaced-all") await step(t.playing, { scope: "all_speech", reason: "replaced", except_sessions: [t.held] }, "accept", [[t.playing, "replaced"], [t.queued, "replaced"]]); // R79.
+      await t.finish();
+      const got = t.seen.flatMap(e => e.type === "outcome" && e.playback.reason !== "shutdown" ? [`${e.session_id}:${e.playback.reason}`] : []).sort();
+      c.assert(JSON.stringify(got) === JSON.stringify(ends.map(([s, r]) => `${s}:${r}`).sort())); // R79: exact reach, once each.
+    }
   },
   "PREEMPT-01e": async c => {
     const t = await fixture(c), command_id = "replace-command";

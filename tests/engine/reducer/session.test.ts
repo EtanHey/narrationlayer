@@ -508,6 +508,17 @@ test("S5b negative offset precedes ended and stopping playback under both author
   }
 });
 
+test("S5c narrowed R78: ended playback is spared while generation commits", () => {
+  for (const authority of ["host", "engine"] as const) for (const scope of ["session", "queue", "all_speech"] as const) {
+    const s = run(accepted(1, authority), piece(), feedback("spawned"), feedback("first_sample"), feedback("exited"));
+    expect(view(s).outcome).toBeNull();
+    const r = reduce(s, { kind: "control", command: { protocol: "nl.engine/1", type: "control", command_id: "ended-stop", session_id: identity.session_id, op: "stop", args: { scope, reason: "stop" } }, target: current });
+    expect(r.effects).toMatchObject([{ kind: "emit", event: { type: "control_ack", outcome: "noop" } }]);
+    expect(view(r.state).generation).toBe("running");
+    expect(view(run(r.state, commit)).outcome).toMatchObject({ playback: { reason: "completed" }, generation: { status: "committed" } });
+  }
+});
+
 for (const authority of ["host", "engine"] as const) for (const ruling of [78, 79, 80, 81, 82])
   test(`stop R${ruling}: scopes and replacement under ${authority}`, () => {
     let state = accepted(1, authority);

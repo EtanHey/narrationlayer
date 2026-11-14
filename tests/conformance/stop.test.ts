@@ -12,3 +12,12 @@ for (const [name, id] of [["stop", "STOP-01e"], ["preempt", "PREEMPT-01e"]])
     const broken = (await import(`../../src/engine/conformance/broken-${name}-01`)).default;
     expect((await runCase(id, broken, cases[id])).result).toBe("fail");
   });
+
+import { reverseOutcomes } from "./stop-conforming";
+for (const id of ["STOP-01e", "PREEMPT-01e"])
+  test(`${id}: reverse-order outcomes conform`, async () => { expect((await runCase(id, reverseOutcomes, cases[id])).result).toBe("pass"); });
+for (const mode of ["started-queued", "replaced-others", "paused", "queue-except", "successors"])
+  test(`STOP-01e: reviewer missed ${mode} is red`, async () => {
+    const broken = (await import(`../../src/engine/conformance/broken-stop-${mode}`)).default;
+    expect((await runCase("STOP-01e", broken, cases["STOP-01e"])).result).toBe("fail");
+  });

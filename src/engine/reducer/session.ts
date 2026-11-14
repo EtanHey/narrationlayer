@@ -139,7 +139,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
         const candidate = engine.sessions[admission.session_id];
         const reached = candidate.session_id === session_id || c.args.scope === "all_speech"
           || c.args.scope === "queue" && !candidate.started && typeof candidate.request.start === "object";
-        if (!reached || candidate.outcome || c.args.except_sessions?.includes(candidate.session_id)) continue;
+        if (!reached || candidate.outcome || candidate.playback !== null || c.args.except_sessions?.includes(candidate.session_id)) continue;
         stopTargets.push(candidate.session_id);
       }
       answer = stopTargets.length ? "accept" : "noop";
