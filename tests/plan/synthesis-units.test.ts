@@ -131,3 +131,11 @@ for (const [tail, lengths] of [
 ] satisfies [string, number[]][]) test(`PLAN-D4: dash control ${tail}`, () => {
   expect(plan(`${w(12)} ${tail}`, 120).map(p => p.text.length)).toEqual(lengths);
 });
+
+test("PLAN-D4: a lone hyphen at a later window start keeps the old cuts", () => {
+  expect(plan("one two three, - four five six seven eight nine ten", 14).map(p => p.text))
+    .toEqual(["one two three, -", "four five six seven eight nine ten"]);
+});
+test("PLAN-D4: a lone hyphen at a short window start keeps the old cuts", () => {
+  expect(plan("-5 z— a - bb a q–", 8).map(p => p.text)).toEqual(["-5 z— a -", "bb a q–"]);
+});

@@ -245,3 +245,7 @@ backend requests consistent and must fail PLAN-D4.
 Owed on PLAN-D4: no-valid-cut sentences sent whole over limit (engine selection,
 question 48); whitespace runs and non-breaking spaces as cut points; and the
 sentence splitter's own rules. These are not implemented by these cases.
+
+The owed sentence-splitter rules include plain text beginning with a spaced dash:
+`read()` rejects that shape before boundary comparison. PLAN-D4 now also reads
+dash fixtures in markdown and an attached hyphen at a later cut in plain text.

@@ -117,10 +117,11 @@ function boundaries(c: CaseContext, d: Awaited<ReturnType<typeof read>>) {
 }
 export const planningCases: Record<string, Case> = {
   "PLAN-D4": async c => {
-    for (const text of [...over, ...dashRows]) {
+    for (const text of [...over, ...dashRows, `${w(14)}, ${w(5)} amber- ${w(15)}.`]) {
       const d = await read(c, [unit("sentence", text)], undefined, "plain");
       c.assert(text.length > d.limit); boundaries(c, d);
     }
+    for (const text of dashRows) boundaries(c, await read(c, [unit("sentence", text)], undefined, "markdown"));
     for (const text of [`${w(15)}.`, `Lantern ${w(5)}, ${w(6)}.`]) boundaries(c, await read(c, [unit("sentence", text)], undefined, "plain"));
     boundaries(c, await read(c, surroundings(middle), undefined, "plain"));
     boundaries(c, await read(c, [heading("Harbour notes"), ...surroundings(middle), unit("item", "Carry the copper lanterns home")]));

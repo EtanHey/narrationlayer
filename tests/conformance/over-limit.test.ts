@@ -54,6 +54,8 @@ function own(fault: string): Binding {
             { ...piece, word_end: at, segments: [{ ...piece.segments[0], word_end: at, pause_after_ms: 0 }] },
             { ...piece, word_start: at, segments: [{ ...piece.segments[0], word_start: at }] });
         }
+        if (fault === "second-cut-hyphen" && request.input.format === "plain" && text.includes("amber-") && p.pieces.length === 3) move(1, p.words.findIndex(w => w.text === "amber-") + 1);
+        if (fault === "markdown-en" && request.input.format === "markdown" && text.includes("amber – tail")) move(0, p.words.length - 3);
         if (fault === "number-hyphen" && text.includes("pages 3- 4")) move(0, p.words.findIndex(w => w.text === "3-") + 1);
         if ((fault === "ignore-en" && text.includes("amber – tail")) || (fault === "ignore-bar" && text.includes("amber ― tail"))) move(0, p.words.length - 3);
         if (fault === "plain-pauses" && request.input.format === "plain") {
@@ -69,7 +71,7 @@ function own(fault: string): Binding {
   } };
 }
 
-for (const [fault, id] of [["number-hyphen", "PLAN-D4"], ["ignore-en", "PLAN-D4"], ["ignore-bar", "PLAN-D4"], ["plain-pauses", "PLAN-02"], ["plain-pauses", "PAUSE-PL-01"], ["large-limit", "PLAN-D4"], ["colon", "PLAN-D4"], ["tail", "PLAN-D5"], ["head", "PLAN-D5"], ["unspaced", "PLAN-D4"], ["limit-plus-one", "PLAN-D4"], ["whole", "PLAN-D4"], ["end-pause", "PLAN-02"], ["under-limit", "PLAN-02"]]) {
+for (const [fault, id] of [["second-cut-hyphen", "PLAN-D4"], ["markdown-en", "PLAN-D4"], ["number-hyphen", "PLAN-D4"], ["ignore-en", "PLAN-D4"], ["ignore-bar", "PLAN-D4"], ["plain-pauses", "PLAN-02"], ["plain-pauses", "PAUSE-PL-01"], ["large-limit", "PLAN-D4"], ["colon", "PLAN-D4"], ["tail", "PLAN-D5"], ["head", "PLAN-D5"], ["unspaced", "PLAN-D4"], ["limit-plus-one", "PLAN-D4"], ["whole", "PLAN-D4"], ["end-pause", "PLAN-02"], ["under-limit", "PLAN-02"]]) {
   test(`over-limit planning catches ${fault} with consistent backend requests`, async () => {
     expect((await runCase(id, own(fault), planningCases[id])).result).toBe("fail");
   });
