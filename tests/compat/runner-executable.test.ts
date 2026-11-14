@@ -77,7 +77,8 @@ test("runner removes intermediate output when breathing throws after a successfu
   const f = await fixture();
   try {
     await wrappers(f.root); await profile(f); f.failAt(3, "timeout");
-    const result = await runner(f, [...argsFor(f, "First. Second.", "compat-voice"), "--timeout-ms", "150"]);
+    // Earlier requests must finish before the intentionally unanswered request.
+    const result = await runner(f, [...argsFor(f, "First. Second.", "compat-voice"), "--timeout-ms", "2000"]);
     expect(result.code).toBe(1);
     expect(await exists(path.join(f.root, "out.wav.breath-0.wav"))).toBe(false);
     expect(await exists(path.join(f.root, "out.wav.cache.json"))).toBe(false);
@@ -105,7 +106,8 @@ for (const mode of ["http", "malformed", "timeout"] satisfies Mode[]) for (const
     const f = await fixture();
     try {
       await wrappers(f.root); await profile(f); f.failAt(call, mode);
-      const result = await runner(f, [...argsFor(f, "First. Second.", "compat-voice"), "--timeout-ms", "150"]);
+      // Successful requests must not race the failure being characterized.
+      const result = await runner(f, [...argsFor(f, "First. Second.", "compat-voice"), "--timeout-ms", "2000"]);
       expect(result.code).toBe(1);
       const message = mode === "http" ? "daemon /synthesize failed (500): synthetic failure"
         : mode === "malformed" ? "daemon response missing audio_b64" : "The operation was aborted.";
