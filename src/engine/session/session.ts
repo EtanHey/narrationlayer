@@ -3,11 +3,12 @@ import { nextSynthesisIndex } from "../reducer/pacing";
 import { hasDeliveredLease, initialState, reduce, type Input } from "../reducer/session";
 import { negotiate, parseEvent, parseRequest } from "../messages/parser";
 import type { Event, Limits, Message } from "../messages/messages";
+import { VoiceUnavailable, type Substitution } from "../selection/voice";
 type Identity = Pick<Message<"accepted">, "owner_epoch" | "session_id" | "attempt_id">;
 type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
 /** Returned plans and requests become engine-owned; the session detaches them before storage. */
 export interface ReadPlanner {
-  plan(request: Message<"narrate">, limits: Limits, identity: Identity): { plan: Plan; requests: readonly { piece_index: number; text: string }[] };
+  plan(request: Message<"narrate">, limits: Limits, identity: Identity): { plan: Plan; requests: readonly { piece_index: number; text: string }[]; selection?: Substitution };
 }
 export interface Clock {
   now(): number;
@@ -41,7 +42,7 @@ export function createEngineSession<Audio>(options: {
   observe?: { input?(input: Input<"host">): void; event?(event: Event, replay: boolean): void };
 }) {
   let state = initialState(options.owner_epoch, "host"), counter = 0;
-  const requests = new Map<string, readonly { piece_index: number; text: string }[]>();
+  const requests = new Map<string, readonly { piece_index: number; text: string }[] & { selection?: Substitution }>();
   const runs = new Set<Promise<void>>();
   let shutdownPromise: Promise<void> | undefined;
   const aborts = new Map<string, AbortController>();
@@ -125,17 +126,17 @@ export function createEngineSession<Audio>(options: {
     let prepared: ReturnType<ReadPlanner["plan"]>;
     try {
       const planned = options.planner.plan(structuredClone(request), structuredClone(options.limits), identity);
-      prepared = { plan: structuredClone(planned.plan), requests: structuredClone(planned.requests) };
+      prepared = structuredClone(planned);
       const checked = parseEvent({ ...prepared.plan, protocol: "nl.engine/1", owner_epoch: state.owner_epoch, seq: state.seq + 1 });
       if (!checked.ok || checked.value?.type !== "plan"
         || prepared.plan.session_id !== identity.session_id || prepared.plan.attempt_id !== identity.attempt_id
         || prepared.plan.pieces.some(p => p.segments.length === 0)
         || prepared.requests.length !== prepared.plan.pieces.length
         || prepared.requests.some((r, i) => r.piece_index !== prepared.plan.pieces[i].index)) throw new Error("invalid plan");
-      requests.set(identity.session_id, prepared.requests);
-    } catch {
+      requests.set(identity.session_id, Object.assign(prepared.requests, { selection: prepared.selection }));
+    } catch (error) {
       requests.delete(identity.session_id);
-      refuse("INVALID_REQUEST", request.request_id);
+      refuse(error instanceof VoiceUnavailable ? "VOICE_UNAVAILABLE" : "INVALID_REQUEST", request.request_id);
       return;
     }
     // §2 L116: accept emits the complete plan before its backend-start effect.
@@ -155,7 +156,8 @@ export function createEngineSession<Audio>(options: {
           step({ kind: "backend", identity, result: { kind: "commit" } }); break;
         }
         if (nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) break;
-        const request = requests.get(identity.session_id)?.[index];
+        const plannedRequests = requests.get(identity.session_id), selection = plannedRequests?.selection;
+        const request = plannedRequests?.[index];
         if (!request || request.piece_index !== piece.index || !piece.segments[0]) throw new Error("invalid planner requests");
         const started = options.clock.monotonic();
         step({ kind: "synthesis_requested", identity, piece_index: piece.index, chars: request.text.length, t_mono_ms: Math.round(started) });
@@ -167,7 +169,8 @@ export function createEngineSession<Audio>(options: {
           prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
           words: structuredClone(session.plan.words.slice(piece.word_start, piece.word_end)),
           // Engine selection owes the resolved profile/mode rate when the request omits it.
-          engine: { ...session.plan.engine }, segments: piece.segments.length, rate: session.request.rate ?? "+0%",
+          engine: { ...session.plan.engine }, substituted: selection?.substituted ?? false,
+          fallback_reason: selection?.fallback_reason ?? null, segments: piece.segments.length, rate: session.request.rate ?? "+0%",
           synthesis_ms: ready - started, spoken_text: request.text,
         }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.

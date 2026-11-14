@@ -404,3 +404,16 @@ S5a pause controls (stage A mirror):
 Host cursor/park/automatic resume behavior remains PAUSE-01h to PAUSE-03h.
 Seek, resync, stop scopes and command_id correlation on control errors remain owed.
 Pause ownership is reducer state only; no stage B paused/resumed/position events.
+ENG-01 now covers admission: missing or unavailable mandated clones refuse before
+acceptance or backend work, with an available-clone positive control (Q67).
+SUB-01 covers announce, Hebrew converse and missing-profile substitutions on
+all pieces, plus the 50-character and brief-mode controls (§6, rulings 64 to 68).
+The announce shortcut applies to `speak` only and counts the engine's own
+projection, trimmed and with runs of spaces collapsed.
+Until the engine owns the speak-path lexical projection, the announce shortcut's 50-character count is of the engine's own projection and can differ from the host's for amounts, decimals, paths and plain-text links (ruling 68, second amendment).
+The voices table is validated when the engine is created.
+The host can supply plain `voices` and `engines` data; the default remains the
+synthetic preset. The synthesize half of ENG-01, per-segment failure fallback,
+XTTS/F5 cascade limits, mode rates and auto-slow remain owed.
+`broken-eng-01` serves a mandated clone using Edge; `broken-sub-01` hides the
+substitution flag. Their receipts pin ENG-01 and SUB-01 respectively.

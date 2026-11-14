@@ -13,7 +13,7 @@
     "obligation": "send validates and enqueues synchronously without I/O and returns before a microtask runs.",
     "state": "proved",
     "case_ids": ["BIND-01"],
-    "evidence": "BIND-01 shared probe proves that no host port starting work, touching storage or arming a timer runs inside send or synchronous shutdown. tests/engine/session/session.test.ts: send: no host port that starts work or touches storage runs before return; send: narrate then stop in the same turn starts no backend; send: abort fires after the stop decision and after return pin this engine. chooseEngine (selection) and observe (diagnostic) are supplied through createEngine options and still run inside send; neither is reachable through a public door today. The coming ./engine door must not expose observe (owed to that slice)."
+    "evidence": "BIND-01 shared probe proves that no host port starting work, touching storage or arming a timer runs inside send or synchronous shutdown. tests/engine/session/session.test.ts: send: no host port that starts work or touches storage runs before return; send: narrate then stop in the same turn starts no backend; send: abort fires after the stop decision and after return pin this engine. The voices table is data passed once at createEngine; selection is a pure function and nothing of the host's runs for it. observe (diagnostic) is supplied through createEngine options and still runs inside send; it is not reachable through a public door today. The coming ./engine door must not expose observe (owed to that slice)."
   },
   {
     "id": "events-not-reentrant",
@@ -21,7 +21,7 @@
     "obligation": "Events are delivered asynchronously and never re-enter send.",
     "state": "proved",
     "case_ids": ["BIND-01"],
-    "evidence": "This engine's event iterator returns native promises, so no consumer callback runs inside send. BIND-01's depth counters cannot fail through the runner: it wraps every binding's events in an async generator, a hop that hides a synchronous-thenable engine from every case. This is a limit of the proof. Queued-event order and contiguous seq are also checked. chooseEngine (selection) and observe (diagnostic) are supplied through createEngine options and still run inside send; neither is reachable through a public door today. The coming ./engine door must not expose observe (owed to that slice)."
+    "evidence": "This engine's event iterator returns native promises, so no consumer callback runs inside send. BIND-01's depth counters cannot fail through the runner: it wraps every binding's events in an async generator, a hop that hides a synchronous-thenable engine from every case. This is a limit of the proof. Queued-event order and contiguous seq are also checked. The voices table is data passed once at createEngine; selection is a pure function and nothing of the host's runs for it. observe (diagnostic) is supplied through createEngine options and still runs inside send; it is not reachable through a public door today. The coming ./engine door must not expose observe (owed to that slice)."
   },
   {
     "id": "no-sync-io-engine-reach",

@@ -208,7 +208,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true,
+    "owed": "The synthesize half of ENG-01 remains owed."
   },
   {
     "id": "ENG-02",
@@ -217,7 +218,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": false,
+    "owed": "Per-segment clone synthesis failure and Edge fallback remain owed."
   },
   {
     "id": "ENG-03",
@@ -226,7 +228,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": false,
+    "owed": "The XTTS/F5 speak cascade and their max_chars remain owed."
   },
   {
     "id": "ERR-01",
@@ -1023,7 +1026,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true,
+    "owed": "Unavailable nonmandated clones still select qwen3_clone; synthesis ENGINE_UNAVAILABLE, mode rates and auto-slow remain owed. Until the engine owns the speak-path lexical projection, the announce shortcut's 50-character count is of the engine's own projection and can differ from the host's for amounts, decimals, paths and plain-text links (ruling 68, second amendment)."
   },
   {
     "id": "TIME-01",

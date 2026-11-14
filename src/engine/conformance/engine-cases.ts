@@ -1,5 +1,6 @@
 import { privacyCases } from "./privacy-cases";
 import { pauseCases } from "./pause-cases";
+import { selectionCases } from "./selection-cases";
 import { pacingCases } from "./pacing-cases";
 import { artifactCases } from "./artifact-cases";
 import { negotiationCases } from "./negotiation-cases";
@@ -52,10 +53,10 @@ export function createProbed(c: CaseContext, host: Parameters<Binding["create"]>
   };
   return connection;
 }
-export function setup(c: CaseContext, steps: BackendStep[]) {
+export function setup(c: CaseContext, steps: BackendStep[], selection: Pick<Parameters<CaseContext["binding"]["create"]>[0], "voices" | "engines"> = {}) {
   const backend = new ScriptedBackend(c.clock), spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
   backend.script(steps);
-  const connection = createProbed(c, { clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
+  const connection = createProbed(c, { ...selection, clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
   const seen: Event[] = [];
   const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })().catch(() => { c.failed = true; });
   const settle = async (ms = 0) => { await c.clock.advance(ms); for (let i = 0; i < 128; i++) await Promise.resolve(); };
@@ -219,6 +220,7 @@ export const engineCases: Record<string, Case> = {
     c.assert(called); // Hello must provide the first event; the consumer must resume.
     await bounded(c, connection.shutdown(c.clock.now()));
   },
+  ...selectionCases,
   ...negotiationCases,
   ...pacingCases,
   ...pauseCases,
