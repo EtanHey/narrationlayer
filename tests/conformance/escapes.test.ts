@@ -147,7 +147,10 @@ test("parent rejects incomplete, foreign, metadata and activation forgeries; ful
   const snapshot = JSON.parse(readFileSync(resolve(import.meta.dir,(process.platform === "darwin" ? "report.macos-sandbox.snapshot.json" : "report.snapshot.json")),"utf8"));
   for (const variant of ["one", "foreign", "metadata", "active", "schema", "full"]) {
     const fake = structuredClone(snapshot);
-    if (variant === "full") for (const row of fake.rows) if (row.active) row.result = "pass";
+    if (variant === "full") for (const row of fake.rows) {
+      if (row.active) row.result = "pass";
+      if (row.id === "CONF-01") row.diagnostic = "two-process comparison required";
+    }
     if (variant === "one") fake.rows = fake.rows.filter((r: {id:string})=>r.id === "CONF-01");
     if (variant === "foreign") fake.rows[0].id = "FOREIGN";
     if (variant === "metadata") fake.rows[0].side = "foreign";
