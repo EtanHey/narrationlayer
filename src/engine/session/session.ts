@@ -241,7 +241,9 @@ export function createEngineSession<Audio>(options: {
           if (value.op === "seek") {
             const args = value.args;
             const word = "word_index" in args ? session.delivered.flatMap(p => p.words).find(w => w.index === args.word_index) : undefined;
-            if ("word_index" in args && (args.word_index < 0 || args.word_index >= session.plan.words.length)) seek = { kind: "reject", reason: "word index out of range" };
+            if ("audio_ms" in args && args.audio_ms < 0) seek = { kind: "reject", reason: "invalid offset" };
+            else if (session.delivered.length === 0) seek = { kind: "noop", reason: "not ready" };
+            else if ("word_index" in args && (args.word_index < 0 || args.word_index >= session.plan.words.length)) seek = { kind: "reject", reason: "word index out of range" };
             else if ("word_index" in args && !word) seek = { kind: "reject", reason: "word timing unavailable" };
             else {
               const requested = "audio_ms" in args ? args.audio_ms : word!.start_ms;

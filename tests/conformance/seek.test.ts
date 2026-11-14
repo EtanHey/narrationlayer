@@ -9,3 +9,10 @@ for (const [id, broken] of [["SEEK-01e", brokenSeek], ["ID-01e", brokenId]] as c
     expect((await runCase(id, broken, cases[id])).result).toBe("fail");
   });
 }
+
+for (const name of ["broken-seek-reject-moves", "broken-seek-stale-taken", "broken-seek-ended-accepted"]) {
+  test(`${name}: SEEK-01e rejects the missed behavior`, async () => {
+    const broken = (await import(`../../src/engine/conformance/${name}`)).default;
+    expect((await runCase("SEEK-01e", broken, cases["SEEK-01e"])).result).toBe("fail");
+  });
+}

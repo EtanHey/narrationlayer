@@ -9,6 +9,9 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/broken-seek-reject-moves.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5b"},
+    "src/engine/conformance/broken-seek-stale-taken.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5b"},
+    "src/engine/conformance/broken-seek-ended-accepted.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5b"},
     "src/engine/conformance/seek-cases.ts": {"layer": 4, "area": "engine", "owner": "P2.S5b"},
     "src/engine/conformance/broken-seek-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5b"},
     "src/engine/conformance/broken-id-01e.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5b"},

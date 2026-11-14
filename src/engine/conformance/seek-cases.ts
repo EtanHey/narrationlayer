@@ -7,10 +7,10 @@ async function until(t: ReturnType<typeof setup>, predicate: () => boolean) {
   for (let i = 0; i < 256 && !predicate(); i++) await t.settle(1);
   if (!predicate()) throw Error("seek event unavailable");
 }
-async function start(c: CaseContext): Promise<Rig> {
-  const t = setup(c, Array.from({ length: 6 }, (_, index) => ({ latency_ms: index === 3 ? 50 : 2, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(100) } })));
+async function start(c: CaseContext, early = false): Promise<Rig> {
+  const t = setup(c, Array.from({ length: 6 }, (_, index) => ({ latency_ms: index === 0 && early ? 50 : index === 3 ? 50 : 2, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(100) } })));
   t.connection.send({ protocol: "nl.engine/1", type: "narrate", request_id: "seek-read", idempotency_key: "seek-read", use: "read", input: { text: "Azure lanterns glow. Copper rivers flow. Violet kites soar. Silver branches sway. Amber boats drift. Golden pebbles shine.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces", lookahead: 2 });
-  await until(t, () => t.seen.some(e => e.type === "piece_ready" && e.index === 2));
+  await until(t, () => t.seen.some(e => early ? e.type === "accepted" : e.type === "piece_ready" && e.index === 2));
   const a = t.seen.find(e => e.type === "accepted");
   if (!a || a.type !== "accepted") throw Error("seek admission unavailable");
   return { ...t, id: a.session_id };
@@ -33,22 +33,35 @@ export const seekCases: Record<string, Case> = {
     const t = await start(c);
     c.assert((await control(t, "seek", { audio_ms: 0 })).outcome === "accept"); // Ruling 77: before first_sample.
     feedback(c, t, 0, 1); feedback(c, t, 0, 1, "first_sample");
-    const p = pieces(t)[1], word = p.words[0];
+    const p = pieces(t)[1], word = p.words[1];
     const ack = await control(t, "seek", { word_index: word.index });
-    c.assert(ack.outcome === "accept" && ack.offset_ms === word.start_ms); // L164, ruling 72.
+    c.assert(ack.outcome === "accept" && ack.offset_ms === word.start_ms); // L164, ruling 73.
     const plan = t.seen.find(e => e.type === "plan");
     if (!plan || plan.type !== "plan") throw Error("seek plan unavailable");
     const unavailable = await control(t, "seek", { word_index: plan.pieces[5].word_start });
     c.assert(unavailable.outcome === "reject" && unavailable.reason === "word timing unavailable"); // Ruling 72.
+    await quiet(t);
+    c.assert(pieces(t).every(p => p.index <= 3)); // L76, ruling 72: reject preserves the accepted landing at piece 1.
+    const firstUndelivered = plan.pieces[pieces(t).length];
+    const boundary = await control(t, "seek", { word_index: firstUndelivered.word_start });
+    c.assert(boundary.outcome === "reject" && boundary.reason === "word timing unavailable"); // Ruling 72: first unavailable word too.
+    await quiet(t);
+    c.assert(pieces(t).every(p => p.index <= 3)); // L76: another reject cannot enlarge the window.
+    const stale = await control(t, "seek", { audio_ms: pieces(t).at(-1)!.start_ms }, { expected_control_epoch: ack.control_epoch + 1000 });
+    c.assert(stale.outcome === "reject" && stale.reason === "STALE_EPOCH" && stale.current?.piece_index === 1); // L158/L172: stale seek carries unchanged mirror.
+    await quiet(t);
+    c.assert(pieces(t).every(p => p.index <= 3)); // L76: stale seek cannot move pacing.
     c.assert((await control(t, "seek", { word_index: plan.words.length })).reason === "word index out of range"); // Ruling 72.
     const clamped = await control(t, "seek", { audio_ms: 999999 });
-    c.assert(clamped.outcome === "accept" && clamped.clamped === true && clamped.offset_ms !== undefined && clamped.offset_ms >= 0 && clamped.offset_ms <= pieces(t).at(-1)!.start_ms + pieces(t).at(-1)!.duration_ms); // L172, ruling 73.
+    const prefix = t.seen.slice(0, t.seen.indexOf(clamped)).filter(e => e.type === "piece_ready").at(-1)!;
+    c.assert(clamped.outcome === "accept" && clamped.clamped === true && clamped.offset_ms === prefix.start_ms + prefix.duration_ms); // L172, ruling 73.
+    await control(t, "seek", { word_index: pieces(t)[2].words[0].index });
     feedback(c, t, 2, Math.max(2, clamped.control_epoch + 1));
     await until(t, () => pieces(t).some(p => p.index === 4));
     await control(t, "seek", { word_index: word.index }); await quiet(t);
     c.assert(pieces(t).every(p => p.index <= 4) && new Set(pieces(t).map(p => p.index)).size === pieces(t).length); // L76, ruling 74: no new delivery beyond landing window, no replay synthesis.
     const negative = await control(t, "seek", { audio_ms: -1 });
-    c.assert(negative.offset_ms === 0 && negative.clamped === true); // Ruling 73.
+    c.assert(negative.outcome === "reject" && negative.reason === "invalid offset"); // Ruling 73.
     c.assert(t.backend.calls.every(call => call !== null && typeof call === "object" && !Array.isArray(call) && Number(call.piece_index) <= 4)); // L76, ruling 74: synthesis stays in the window.
     await control(t, "pause", { owner: "ask" });
     c.assert((await control(t, "seek", { word_index: word.index })).outcome === "accept"); // Ruling 75.
@@ -56,7 +69,20 @@ export const seekCases: Record<string, Case> = {
     c.assert((await control(t, "resume", { owner: "ask" })).outcome === "accept"); // I09, ruling 75.
     feedback(c, t, 2, 20); feedback(c, t, 3, 21);
     await until(t, () => pieces(t).some(p => p.index === 5));
+    await control(t, "stop", { scope: "session", reason: "stop" });
+    await until(t, () => t.seen.some(e => e.type === "outcome"));
+    c.assert((await control(t, "seek", { audio_ms: 0 })).outcome === "noop"); // Existing terminal precedence: ended seek changes nothing.
     await t.finish();
+    const early = await start(c, true);
+    c.assert(pieces(early).length === 0); // Ruling 77: fixture is still preparing.
+    const preparingArgs: Json[] = [{ audio_ms: 0 }, { audio_ms: 50 }, { word_index: 0 }];
+    for (const args of preparingArgs) {
+      const notReady = await control(early, "seek", args);
+      c.assert(notReady.outcome === "noop" && notReady.reason === "not ready"); // Amended ruling 77.
+    }
+    await until(early, () => pieces(early).some(p => p.index === 2));
+    for (let index = 0; index < 4; index++) { feedback(c, early, index, 30 + index); await until(early, () => pieces(early).some(p => p.index === Math.min(5, index + 2))); }
+    await early.finish();
   },
   "ID-01e": async c => {
     const t = await start(c); feedback(c, t, 0, 1); feedback(c, t, 0, 1, "first_sample");

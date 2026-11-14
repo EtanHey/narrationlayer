@@ -24,7 +24,7 @@ export type Input<A extends Authority = Authority> =
   | { kind: "admit"; request: Message<"narrate"> }
   | ({ kind: "refuse"; code: RefusalCode } & Pick<Message<"error">, "message" | "request_id">)
   | { kind: "accept"; identity: Identity; current: Current; request: Message<"narrate">; plan: Body<Message<"plan">> }
-  | { kind: "control"; command: Message<"control">; target: Current; seek?: { kind: "reject"; reason: "word timing unavailable" | "word index out of range" } | { kind: "accept"; clamped: boolean } }
+  | { kind: "control"; command: Message<"control">; target: Current; seek?: { kind: "reject"; reason: "word timing unavailable" | "word index out of range" | "invalid offset" } | { kind: "accept"; clamped: boolean } | { kind: "noop"; reason: "not ready" } }
   | { kind: "synthesis_requested"; identity: Identity; piece_index: number; chars: number; t_mono_ms: number }
   | { kind: "backend"; identity: Identity; result: { kind: "piece"; piece: Body<Message<"piece_ready">>; known_ms: number; audio_ready: Pick<Extract<Message<"lifecycle">, { edge: "audio_ready" }>, "t_mono_ms" | "first_audible_offset_ms"> } | { kind: "commit" } | { kind: "failure"; error: SynthesisError } }
   | { kind: "feedback"; identity: Identity; feedback: Message<"player_feedback"> }
@@ -143,7 +143,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
       else if (s.pause_owner !== c.args.owner) { answer = "reject"; reason = "pause owner differs"; }
       else { delete s.pause_owner; anchor(input.target); }
     } else if (c.op === "seek") {
-      if (input.seek?.kind === "reject") { answer = "reject"; reason = input.seek.reason; }
+      if (input.seek?.kind === "reject" || input.seek?.kind === "noop") { answer = input.seek.kind; reason = input.seek.reason; }
       else anchor(input.target); // I09: seeking preserves the pause and its owner.
     }
     else { answer = "reject"; reason = "control outside S2a"; }

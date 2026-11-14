@@ -477,11 +477,14 @@ test("S5b seek receipts preserve pause and reject without moving under both auth
     let s = accepted(2, authority);
     const pause: Input = { kind: "control", command: { ...seek.command, command_id: "park-seek", expected_control_epoch: undefined, op: "pause", args: { owner: "ask" } }, target: current };
     s = run(s, pause);
-    for (const reason of ["word timing unavailable", "word index out of range"] as const) {
+    for (const reason of ["word timing unavailable", "word index out of range", "invalid offset"] as const) {
       const r = reduce(s, { ...seek, command: { ...seek.command, command_id: reason, expected_control_epoch: undefined }, seek: { kind: "reject", reason } });
       expect(view(r.state).current).toEqual(view(s).current);
       expect(r.effects).toMatchObject([{ event: { outcome: "reject", reason } }]);
     }
+    const notReady = reduce(s, { ...seek, command: { ...seek.command, expected_control_epoch: undefined }, seek: { kind: "noop", reason: "not ready" } });
+    expect(view(notReady.state).current).toEqual(view(s).current);
+    expect(notReady.effects).toMatchObject([{ event: { outcome: "noop", reason: "not ready" } }]);
     for (const clamped of [false, true]) {
       const target = { ...view(s).current, audio_ms: clamped ? 20 : 10, piece_index: 1 };
       const r = reduce(s, { ...seek, command: { ...seek.command, command_id: `landing-${clamped}`, expected_control_epoch: undefined }, target, seek: { kind: "accept", clamped } });
