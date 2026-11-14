@@ -519,6 +519,18 @@ test("S5c narrowed R78: ended playback is spared while generation commits", () =
   }
 });
 
+test("S5c narrowed R78: every reached played session is spared before commit", () => {
+  for (const authority of ["host", "engine"] as const) {
+    let s = run(accepted(1, authority), piece(), feedback("spawned"), feedback("first_sample"), feedback("exited"));
+    const a = acceptance(); if (a.kind !== "accept") throw Error("fixture");
+    s = reduce(s, { ...a, identity: { ...identity, session_id: "other" }, current: { ...current, session_id: "other" }, plan: { ...a.plan, session_id: "other" }, request: { ...request, request_id: "other", idempotency_key: "other" } }).state;
+    const r = reduce(s, { kind: "control", command: { protocol: "nl.engine/1", type: "control", command_id: "wide-stop", session_id: "other", op: "stop", args: { scope: "all_speech", reason: "stop" } }, target: { ...current, session_id: "other" } });
+    expect(r.effects.filter(e => e.kind === "backend")).toMatchObject([{ identity: { session_id: "other" }, op: "cancel" }]);
+    expect(view(r.state)).toEqual(view(s));
+    expect(view(run(r.state, commit)).outcome).toMatchObject({ playback: { reason: "completed" }, generation: { status: "committed" } });
+  }
+});
+
 for (const authority of ["host", "engine"] as const) for (const ruling of [78, 79, 80, 81, 82])
   test(`stop R${ruling}: scopes and replacement under ${authority}`, () => {
     let state = accepted(1, authority);

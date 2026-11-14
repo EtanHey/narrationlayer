@@ -90,6 +90,9 @@ async function scenario(c: CaseContext, sequence: boolean) {
   t.connection.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: piece.artifact.lease_id });
   await command(c, t, id, "stop", { scope: "session", reason: "stop" }); // Barrier after release.
   await t.finish();
+  const snapIndex = t.seen.findIndex(e => e.type === "snapshot");
+  const replayCount = 2 + 3; // Two plans and the three pieces delivered at the snapshot.
+  c.assert(t.seen.slice(snapIndex + 1 + replayCount).every(e => e.type !== "plan" && e.type !== "timing_update"));
   c.assert(t.seen.filter(e => e.type === "snapshot").length === 1); // Ruling 87: one snapshot per fresh resync.
   const all = t.seen.filter(e => e.type === "piece_ready");
   c.assert(new Set(all.map(p => `${p.session_id}:${p.index}`)).size === all.length); // L114, ruling 83: no repeated delivery, including late duplicates.
@@ -116,7 +119,7 @@ async function inFlight(c: CaseContext) {
   await until(c, () => pieces(t, id).length === 2, 256);
   await t.finish();
   c.assert(t.seen.filter(e => e.type === "snapshot").length === 1); // R87/L158: replay never repeats the snapshot.
-  const timings = t.seen.filter((e): e is Message<"timing_update"> => e.type === "timing_update" && e.derivation_id === "resync");
+  const timings = t.seen.filter((e): e is Message<"timing_update"> => e.type === "timing_update");
   c.assert(timings.length === 1 && timings[0].piece_id === pieces(t, id)[0].piece_id && equal(timings[0].words, pieces(t, id)[0].words)); // R83: no words for undelivered pieces.
   c.assert(equal(pieces(t, id).map(p => p.index), [0, 1])); // L114/R83: late piece arrives once.
 }

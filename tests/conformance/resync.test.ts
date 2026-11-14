@@ -12,7 +12,7 @@ for (const id of ["SNAP-01", "SEQ-01", "STALE-01"]) {
 for (const [fault, id] of [["snap", "SNAP-01"], ["seq", "SEQ-01"], ["stale", "STALE-01"], ["phase", "SNAP-01"], ["count", "SNAP-01"], ["last", "SNAP-01"], ["words", "SNAP-01"], ["plan", "SNAP-01"], ["double", "SNAP-01"]] as const)
   test(`${id}: wrong ${fault} caught`, async () => { expect((await runCase(id, wrongResync(fault), cases[id])).result).toBe("fail"); });
 
-for (const fault of ["planned-count", "undelivered-timing", "paused-current", "replayed-resync"]) {
+for (const fault of ["planned-count", "undelivered-timing", "paused-current", "replayed-resync", "other-derivation", "trailing-session"]) {
   test(`round-one missed ${fault}: exact committed fail-set`, async () => {
     const broken = (await import(`../../src/engine/conformance/broken-resync-${fault}`)).default;
     const expected = (await import(`../../src/engine/conformance/broken-resync-${fault}.fail-set.json`)).default;

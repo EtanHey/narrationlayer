@@ -90,7 +90,14 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
   // Recheck at accept so interleaved admits can never start a second session.
   if (input.kind === "admit" || input.kind === "accept" && Object.hasOwn(engine.admissions, input.request.idempotency_key)) {
     const k = input.request.idempotency_key, receipt = Object.hasOwn(engine.admissions, k) ? engine.admissions[k] : undefined;
-    if (!receipt) return { state, effects: [{ kind: "plan", request: input.request }] };
+    if (!receipt) {
+      const start = input.request.start;
+      if (start && typeof start === "object" && !Object.hasOwn(engine.sessions, start.after_session)) {
+        emit({ type: "error", code: "INVALID_REQUEST", phase: "admit", retry: "never", message: "unknown predecessor", request_id: input.request.request_id });
+        return result();
+      }
+      return { state, effects: [{ kind: "plan", request: input.request }] };
+    }
     if (key(engine.sessions[receipt.session_id].request) === key(input.request)) return { state, effects: [{ kind: "replay", event: structuredClone(receipt.accepted) }] };
     emit({ type: "error", code: "IDEMPOTENCY_CONFLICT", phase: "admit", retry: "never", message: "idempotency key reused", request_id: input.request.request_id });
     return result();
