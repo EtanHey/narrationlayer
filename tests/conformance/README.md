@@ -158,3 +158,10 @@ Lifecycle is intentionally unadvertised until implemented by S4b, despite being
 required by the eventual contract. Required-capability/version negotiation and
 an unconditional session gate remain S1b work. The optional gate refuses a
 second valid hello as INVALID_REQUEST; malformed hello keeps parser refusals.
+
+Before welcome, every non-hello input (including malformed values) receives
+NOT_NEGOTIATED. A malformed hello retains the parser code. Replayed accepted
+retains its original seq; contiguity concerns new events and is checked in the
+no-replay ORDER-01 case. Lifecycle is advertised only by the slice activating
+LIFE-01e. Stage-A audible is host-owned and ignored by this binding. Shared-store
+handle collisions are refused without overwrites; full custody remains S7.

@@ -80,6 +80,7 @@ test("entry import has no effects", async () => {
 test("explicit fixture dates remain usable without a clock violation", async () => {
   const result = await run(fixture("const saved=()=>new Intl.DateTimeFormat('en-US',{timeZone:'UTC'}).format(new Date(0))"));
   expect(result.code).toBe(1);
+  expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-02").result).toBe("pass");
 });
 test("the mutable flag alone cannot spoof a preload in direct callers", async () => {
   trapState.installed = true;

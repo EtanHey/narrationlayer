@@ -96,6 +96,7 @@ test("reallyExit fake stdout cannot forge a report on the dedicated pipe", async
 test("stdout logs and stderr are forwarded without corrupting the report", async () => {
   const result = await run(`console.log('fixture stdout');console.error('fixture stderr');${binding("")}`);
   expect(result.code).toBe(1); expect(result.stderr).toContain("fixture stdout"); expect(result.stderr).toContain("fixture stderr");
+  expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01").result).toBe("pass");
 });
 test("exit calls, late rejection, and dead children name their cause", async () => {
   for (const [body, message] of [["process.exit(0)", "process.exit"], ["queueMicrotask(()=>{Promise.reject(new Error('fixture'))})", "unhandledRejection"], ["process.kill(process.pid,'SIGKILL')", "child report unavailable"]]) {
@@ -104,7 +105,7 @@ test("exit calls, late rejection, and dead children name their cause", async () 
     expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01").diagnostic).toContain(message);
   }
 });
-test("a relative binding path belongs to the caller's cwd", async () => { expect((await run(binding(""), [], undefined, true)).code).toBe(1); });
+test("a relative binding path belongs to the caller's cwd", async () => { const result = await run(binding(""), [], undefined, true); expect(result.code).toBe(1); expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01").result).toBe("pass"); });
 test("inventory rejects a removed TRAPPED row and a new runtime key", () => {
   expect(() => verifyInventory([], ["net"], { ...trapped, modules: {} }, reviewedSafe)).toThrow("modules.net");
   Object.defineProperty(Bun, "conformanceUnknown", { value() {}, configurable: true });
