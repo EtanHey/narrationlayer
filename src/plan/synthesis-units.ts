@@ -18,49 +18,69 @@ export interface SynthesisPiece {
 
 // §6.1 rule 2 (contract line 371), PLAN-D5: the minimum is three words.
 const MIN_SYNTHESIS_WORDS = 3;
-const wordCount = (text: string): number => text.split(/\s+/u).filter(token => /[\p{L}\p{N}]/u.test(token)).length;
+const wordCount = (text: string): number => {
+  let count = 0;
+  for (const token of text.matchAll(/\S+/gu)) {
+    if (/[\p{L}\p{N}]/u.test(token[0]) && ++count >= MIN_SYNTHESIS_WORDS) break;
+  }
+  return count;
+};
 
 function splitSentence(text: string, max_chars: number): string[] {
-  const parts: { start: number; end: number }[] = [];
+  const parts: { start: number; end: number; words: number }[] = [];
+  // Every candidate ends at a token boundary. Only the last three word starts
+  // are needed to decide whether the suffix still contains the minimum.
+  const lastWords: number[] = [];
+  for (const token of text.matchAll(/\S+/gu)) {
+    if (/[\p{L}\p{N}]/u.test(token[0])) {
+      lastWords.push(token.index);
+      if (lastWords.length > MIN_SYNTHESIS_WORDS) lastWords.shift();
+    }
+  }
+  const suffixLimit = lastWords.length === MIN_SYNTHESIS_WORDS ? lastWords[0] : -1;
   let start = 0;
-  let remaining = text.slice(start);
-  while (remaining.length > max_chars) {
-    // §6.1 rule 1, PLAN-D4: use the last fitting phrase mark, including a later mark after a colon.
-    const marks = [...remaining.matchAll(/[,;:—―–-](?=\s|$)/gu)]
+  while (text.length - start > max_chars) {
+    // Include one lookahead character so a mark at the cap sees real whitespace.
+    const window = text.slice(start, start + max_chars + 1);
+    const marks = [...window.matchAll(/[,;:—―–-](?=\s|$)/gu)]
       .map(mark => mark.index + 1).filter(end => end <= max_chars);
-    const spaces = [...remaining.matchAll(/ /gu)]
+    const spaces = [...window.matchAll(/ /gu)]
       .map(mark => mark.index).filter(end => end > 0 && end <= max_chars);
     let cut = marks.at(-1) ?? spaces.at(-1);
     if (cut === undefined) {
-      // §6.1 rule 1: only a punctuation-free run may use its last fitting space.
-      // An indivisible word can exceed the cap; never cut through a word.
-      cut = remaining.indexOf(" ", max_chars);
+      cut = text.indexOf(" ", start + max_chars) - start;
       if (cut < 0) break;
     }
-    // Lead's round-1 ruling: step back through marks, then spaces, to keep both sides >= 3 words.
-    const keepsMinimum = (end: number) => wordCount(remaining.slice(0, end)) >= MIN_SYNTHESIS_WORDS
-      && wordCount(remaining.slice(end)) >= MIN_SYNTHESIS_WORDS;
+    let prefixLimit = Infinity;
+    let words = 0;
+    for (const token of window.matchAll(/\S+/gu)) {
+      if (/[\p{L}\p{N}]/u.test(token[0]) && ++words >= MIN_SYNTHESIS_WORDS) {
+        prefixLimit = token.index + token[0].length;
+        break;
+      }
+    }
+    const keepsMinimum = (end: number) => end >= prefixLimit && start + end <= suffixLimit;
     if (!keepsMinimum(cut)) {
       cut = [...marks.reverse(), ...spaces.reverse()].find(keepsMinimum) ?? cut;
     }
-    parts.push({ start, end: start + cut });
+    parts.push({ start, end: start + cut, words: wordCount(text.slice(start, start + cut)) });
     start += cut;
     if (text[start] === " ") start += 1;
-    remaining = text.slice(start);
   }
-  parts.push({ start, end: text.length });
-  // §6.1 rule 2, PLAN-D5: short fragments and remainders join their neighbour, even over the cap.
-  for (let i = 0; i < parts.length && parts.length > 1;) {
-    if (wordCount(text.slice(parts[i].start, parts[i].end)) >= MIN_SYNTHESIS_WORDS) {
-      i += 1;
-    } else if (i === 0) {
-      parts.splice(0, 2, { start: parts[0].start, end: parts[1].end });
+  parts.push({ start, end: text.length, words: wordCount(text.slice(start)) });
+  // Merge short fragments without shifting the remaining array or rescanning
+  // an ever-growing first fragment. Cuts separate tokens, so counts add.
+  const merged: typeof parts = [];
+  for (const part of parts) {
+    const previous = merged.at(-1);
+    if (previous && (part.words < MIN_SYNTHESIS_WORDS || previous.words < MIN_SYNTHESIS_WORDS)) {
+      previous.end = part.end;
+      previous.words += part.words;
     } else {
-      parts.splice(i - 1, 2, { start: parts[i - 1].start, end: parts[i].end });
-      i -= 1;
+      merged.push(part);
     }
   }
-  return parts.map(part => text.slice(part.start, part.end).trim());
+  return merged.map(part => text.slice(part.start, part.end).trim());
 }
 
 /**
