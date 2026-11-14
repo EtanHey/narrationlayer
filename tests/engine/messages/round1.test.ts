@@ -50,3 +50,8 @@ test("S1b stage B needs player; optional caps and last_owner_epoch never refuse"
   expect(result).toMatchObject({ ok: false, error: { details: { missing_caps: [], unknown_cap_indices: [0, 1, 2, 3, 4, 5, 6, 7] } } });
   expect(JSON.stringify(result)).not.toContain(secret);
 });
+test("round1 NOTE-5: stop exclusions are nonempty and navigation request ids keep 3 to 128", () => {
+  expect(parseRequest({ ...fixture("control-stop"), args: { scope: "session", reason: "stop", except_sessions: [""] } })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+  expect(parseRequest({ ...fixture("control-stop"), args: { scope: "session", reason: "stop", except_sessions: ["synthetic"] } }).ok).toBe(true);
+  for (const op of ["next", "previous"]) for (const length of [0, 2, 3, 128, 129]) expect(parseRequest({ ...fixture("control-stop"), op, args: { request_id: "x".repeat(length) } }).ok).toBe(length >= 3 && length <= 128);
+});

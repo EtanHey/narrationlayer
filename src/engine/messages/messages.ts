@@ -30,9 +30,9 @@ const seekArgs = { json: { oneOf: [seekAudio.json, seekWord.json] }, read(v: unk
 export const controlSchema = u(
   control("pause", o({ owner }, { at_ms: i })), control("resume", o({ owner })),
   control("seek", seekArgs),
-  control("stop", o({ scope: e("session", "queue", "all_speech"), reason: e("stop", "cancel", "replaced") }, { at_ms: i, except_sessions: a(s), retain_read_queue: b })),
+  control("stop", o({ scope: e("session", "queue", "all_speech"), reason: e("stop", "cancel", "replaced") }, { at_ms: i, except_sessions: a(opaqueString), retain_read_queue: b })),
   control("replay", o({ of_session_id: opaqueString, from: e("start", "readback") }, { audio_ms: i })),
-  control("next", o({ request_id: s })), control("previous", o({ request_id: s })), control("resync", o({})),
+  control("next", o({ request_id: boundedString(3, 128) })), control("previous", o({ request_id: boundedString(3, 128) })), control("resync", o({})),
 );
 // Message bodies are flattened on the wire; keeping the envelope construction here avoids drift.
 function message<const T extends string, R extends Record<string, import("./schema").Schema<unknown>>, O extends Record<string, import("./schema").Schema<unknown>> = Record<never, never>>(type: T, fields: R, optional?: O) { return o({ protocol: e("nl.engine/1"), type: e(type), ...fields }, optional); }

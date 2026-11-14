@@ -109,7 +109,7 @@ test("PLAN-LAT-01 bounds a swallowed second narrate under the fake clock", async
 });
 
 for (const [id, code] of [["NEG-01", "UNSUPPORTED_VERSION"], ["NEG-02", "MISSING_CAPABILITY"], ["NEG-03", "NOT_NEGOTIATED"], ["LIM-01", "INPUT_TOO_LONG"], ["VER-02e", "INVALID_REQUEST"], ["VER-01", "welcome"]]) {
-  test(`${id}: the broken engine is red on exactly this case`, () => proof(id));
+  test(`${id}: the broken engine matches its committed fail-set`, () => proof(id));
   for (const wrong of ["omit", "duplicate", "wrong-phase", "missing-details"]) {
     if (wrong === "missing-details" && id !== "NEG-02") continue;
     test(`${id}: own wrong engine ${wrong} is caught`, async () => {
