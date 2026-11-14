@@ -437,3 +437,10 @@ test("planner clone: a changing getter emits exactly the validated snapshot", ()
   expect(h.events().find(e => e.type === "plan")).toMatchObject({ engine: { profile_revision: "validated" } });
   expect(reads).toBe(1);
 });
+
+test("PACE-02 parked predecessor: stopping a parked read wakes the read queued behind it", async () => {
+  const h = pacing(); h.session.send(request); await h.tick();
+  expect(h.indices()).toEqual([0, 1]); h.session.send(queued);
+  expect(h.indices("session-1-2")).toEqual([]); h.stop(); await h.tick();
+  expect(h.indices()).toEqual([0, 1]); expect(h.indices("session-1-2")).toEqual([0]); h.replay();
+});

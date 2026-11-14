@@ -158,7 +158,7 @@ export function createEngineSession<Audio>(options: {
       aborts.delete(identity.session_id);
       if (state.sessions[identity.session_id].generation !== "running") requests.delete(identity.session_id);
       pump(identity.session_id);
-      pumpDependents(identity.session_id);
+      if (state.sessions[identity.session_id].generation !== "running") pumpDependents(identity.session_id);
     }
   }
   return {
