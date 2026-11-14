@@ -131,3 +131,10 @@ test("entry files keep their import.meta.main block and import.meta.dir profile 
   expect(Object.entries(ledger.files).filter(([, e]) => e.entry).map(([f]) => f).sort()).toEqual(["bin/local-tts-runner.ts", "bin/narration-gate.ts", "src/cli.ts", "src/engine/conformance/entry.ts", "src/mcp-server.ts"]);
   expect(entryProblems(ledger)).toEqual([]);
 });
+
+test("product code cannot import the conformance harness at the same layer", () => {
+  const files = { "src/engine/core/engine.ts": 'import { ScriptedBackend } from "../conformance/fake-backend";', "src/engine/conformance/fake-backend.ts": "export class ScriptedBackend {}" };
+  const repo = { files: Object.keys(files), tracked: new Set(Object.keys(files)), read: (file: string) => Reflect.get(files, file) };
+  const sameLayer: Ledger = { layers: {}, files: Object.fromEntries(Object.keys(files).map(file => [file, { layer: 4, area: "engine", owner: "fixture" }])) };
+  expect(analyze(sameLayer, repo).violations).toEqual(["conformance-import src/engine/core/engine.ts -> src/engine/conformance/fake-backend.ts"]);
+});

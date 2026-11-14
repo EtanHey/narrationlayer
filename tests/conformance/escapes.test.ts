@@ -95,7 +95,8 @@ test("reallyExit fake stdout cannot forge a report on the dedicated pipe", async
 });
 test("stdout logs and stderr are forwarded without corrupting the report", async () => {
   const result = await run(`console.log('fixture stdout');console.error('fixture stderr');${binding("")}`);
-  expect(result.code).toBe(0); expect(result.stderr).toContain("fixture stdout"); expect(result.stderr).toContain("fixture stderr");
+  expect(result.code).toBe(1); expect(result.stderr).toContain("fixture stdout"); expect(result.stderr).toContain("fixture stderr");
+  expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01").result).toBe("pass");
 });
 test("exit calls, late rejection, and dead children name their cause", async () => {
   for (const [body, message] of [["process.exit(0)", "process.exit"], ["queueMicrotask(()=>{Promise.reject(new Error('fixture'))})", "unhandledRejection"], ["process.kill(process.pid,'SIGKILL')", "child report unavailable"]]) {
@@ -104,7 +105,7 @@ test("exit calls, late rejection, and dead children name their cause", async () 
     expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01").diagnostic).toContain(message);
   }
 });
-test("a relative binding path belongs to the caller's cwd", async () => { expect((await run(binding(""), [], undefined, true)).code).toBe(0); });
+test("a relative binding path belongs to the caller's cwd", async () => { const result = await run(binding(""), [], undefined, true); expect(result.code).toBe(1); expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01").result).toBe("pass"); });
 test("inventory rejects a removed TRAPPED row and a new runtime key", () => {
   expect(() => verifyInventory([], ["net"], { ...trapped, modules: {} }, reviewedSafe)).toThrow("modules.net");
   Object.defineProperty(Bun, "conformanceUnknown", { value() {}, configurable: true });
@@ -146,6 +147,7 @@ test("parent rejects incomplete, foreign, metadata and activation forgeries; ful
   const snapshot = JSON.parse(readFileSync(resolve(import.meta.dir,(process.platform === "darwin" ? "report.macos-sandbox.snapshot.json" : "report.snapshot.json")),"utf8"));
   for (const variant of ["one", "foreign", "metadata", "active", "schema", "full"]) {
     const fake = structuredClone(snapshot);
+    if (variant === "full") for (const row of fake.rows) if (row.active) row.result = "pass";
     if (variant === "one") fake.rows = fake.rows.filter((r: {id:string})=>r.id === "CONF-01");
     if (variant === "foreign") fake.rows[0].id = "FOREIGN";
     if (variant === "metadata") fake.rows[0].side = "foreign";
@@ -188,7 +190,7 @@ test("entry survives report-fd reuse at GC across eight sequential starts", asyn
     for (let i = 0; i < 8; i++) {
       const proc = Bun.spawn([process.execPath, "--preload", preload, entry, "--binding", resolve(root,"src/engine/conformance/null-binding.ts")], {stdout:"pipe",stderr:"pipe"});
       const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(),new Response(proc.stderr).text(),proc.exited]);
-      expect(stderr).toBe(""); expect(code).toBe(0);
+      expect(stderr).toBe(""); expect(code).toBe(1);
       expect(stdout).toBe(readFileSync(resolve(import.meta.dir,(process.platform === "darwin" ? "report.macos-sandbox.snapshot.json" : "report.snapshot.json")),"utf8"));
     }
     expect(performance.now()-start).toBeLessThan(3000);

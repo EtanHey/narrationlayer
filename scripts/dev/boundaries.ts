@@ -101,6 +101,7 @@ export function analyze(ledger: Ledger, repo: Repo = diskRepo()): { violations: 
     if (!src) continue; // reported by ledgerProblems
     if (to === "") unresolved.add(`unresolved import ${from} -> ${spec}`);
     if (!to) continue;
+    if (to.startsWith("src/engine/conformance/") && !from.startsWith("src/engine/conformance/") && !from.startsWith("tests/")) found.add(`conformance-import ${from} -> ${to}`);
     const dst = ledger.files[to];
     if (!dst && IN_SCOPE.test(to)) unresolved.add(`import of an unledgered file ${from} -> ${to}`);
     if (!dst) continue; // tracked targets outside src/, bin/ and scripts/ .ts (package.json, tests/, data files) are not layered
