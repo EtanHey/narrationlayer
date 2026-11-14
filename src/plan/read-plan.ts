@@ -7,7 +7,7 @@ import { planSynthesisUnits, type SynthesisSourceUnit } from "./synthesis-units"
 
 type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
 export class ReadPlanError extends Error {
-  constructor(readonly code: "EMPTY_INPUT" | "DISPLAY_UNAVAILABLE" | "TOKEN_MISMATCH") {
+  constructor(readonly code: "EMPTY_INPUT" | "DISPLAY_UNAVAILABLE" | "CHUNK_MISMATCH") {
     super(code);
     this.name = "ReadPlanError";
   }
@@ -22,8 +22,10 @@ function plainProjection(text: string): StructuredSpeech {
     ranges: [{ kind: "identity", source: { ...span }, display: { ...span }, speech: { ...span } }] };
 }
 
-function sourceUnits(projection: StructuredSpeech): SynthesisSourceUnit[] {
-  const units: SynthesisSourceUnit[] = [];
+interface LocatedUnit extends SynthesisSourceUnit { speech_start: number }
+
+function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
+  const units: LocatedUnit[] = [];
   const segmenter = new Intl.Segmenter(undefined, { granularity: "sentence" });
   // Use projection blocks, not the display builder's budget-dependent runs.
   for (const block of projection.blocks) {
@@ -31,24 +33,25 @@ function sourceUnits(projection: StructuredSpeech): SynthesisSourceUnit[] {
       && range.source.start < block.source.end && range.speech.end > range.speech.start
       && range.kind !== "insertion");
     if (!ranges.length) continue;
-    const text = projection.speechText.slice(ranges[0].speech.start, ranges.at(-1)!.speech.end);
+    const speech_start = ranges[0].speech.start;
+    const text = projection.speechText.slice(speech_start, ranges.at(-1)!.speech.end);
     const raw = projection.displayText.slice(block.source.start, block.source.end);
     if (block.kind === "heading") {
       // VL prosody.ts:202-203: h1=900, h2/h3=750, other headings=800.
       const level = raw.match(/^\s{0,3}(#{1,6})\s/)?.[1].length
         ?? (/\n\s{0,3}=+\s*$/.test(raw) ? 1 : 2);
-      units.push({ kind: "heading", text, pause_after_ms: level === 1 ? 900 : level <= 3 ? 750 : 800 });
+      units.push({ kind: "heading", text, speech_start, pause_after_ms: level === 1 ? 900 : level <= 3 ? 750 : 800 });
     } else if (block.kind === "list-item") {
       // VL prosody.ts:207-225 counts source words after the marker; >=6 is long.
       const body = raw.replace(/^\s*(?:[-+*]|\d+[.)])\s+/, "");
       const count = body.split(/\s+/u).filter(word => /[\p{L}\p{N}]/u.test(word)).length;
-      units.push({ kind: "list_item", text, pause_after_ms: count >= 6 ? 700 : 450 });
+      units.push({ kind: "list_item", text, speech_start, pause_after_ms: count >= 6 ? 700 : 450 });
     } else {
       // VL prosody.ts:229-252 treats code/table as prose. Sentence segmentation
       // flattens CR/LF without changing UTF-16 offsets (:284-288).
       const sentences = [...segmenter.segment(text.replace(/[\r\n]/g, " "))];
       sentences.forEach((sentence, index) => units.push({ kind: "sentence",
-        text: text.slice(sentence.index, sentence.index + sentence.segment.length),
+        text: text.slice(sentence.index, sentence.index + sentence.segment.length), speech_start: speech_start + sentence.index,
         pause_after_ms: index === sentences.length - 1 ? 1000 : 550 }));
     }
   }
@@ -71,14 +74,30 @@ export function planRead({ request, limits, identity, engine, first_piece_raw = 
   if (!display) throw new ReadPlanError("DISPLAY_UNAVAILABLE");
   const words: Plan["words"] = displayTokens(display.text).map((token, index) => ({ index, text: token[0],
     display: [token.index, token.index + token[0].length] }));
-  const cut = planSynthesisUnits({ units: sourceUnits(projection), max_chars: limits.max_chars[request.use], first_piece_raw });
+  const units = sourceUnits(projection);
+  const positions = units.map(unit => ({ chunks: [...unit.text.matchAll(/\S+/gu)], used: 0 }));
+  const cut = planSynthesisUnits({ units, max_chars: limits.max_chars[request.use], first_piece_raw });
   let cursor = 0;
   const pieces: Plan["pieces"] = cut.map((piece, index) => {
     const word_start = cursor;
     const segments: Plan["pieces"][number]["segments"] = piece.segments.map(segment => {
       const start = cursor;
-      for (const token of displayTokens(segment.text)) {
-        if (words[cursor]?.text !== token[0]) throw new ReadPlanError("TOKEN_MISMATCH");
+      const unitIndex = segment.source_units[0];
+      const position = positions[unitIndex];
+      if (!position) throw new ReadPlanError("CHUNK_MISMATCH");
+      const first = position.chunks[position.used];
+      for (const chunk of segment.text.matchAll(/\S+/gu)) {
+        if (position.chunks[position.used]?.[0] !== chunk[0]) throw new ReadPlanError("CHUNK_MISMATCH");
+        position.used++;
+      }
+      const last = position.chunks[position.used - 1];
+      if (!first || !last) throw new ReadPlanError("CHUNK_MISMATCH");
+      const speechStart = units[unitIndex].speech_start + first.index;
+      const speechEnd = units[unitIndex].speech_start + last.index + last[0].length;
+      // Only document tokens own word indices; segment-local tokenization loses context.
+      if (words[cursor] && words[cursor].display[0] < speechStart) throw new ReadPlanError("CHUNK_MISMATCH");
+      while (cursor < words.length && words[cursor].display[0] < speechEnd) {
+        if (words[cursor].display[1] > speechEnd) throw new ReadPlanError("CHUNK_MISMATCH");
         cursor++;
       }
       return { word_start: start, word_end: cursor, kind: segment.kind === "list_item" ? "item" : segment.kind,
@@ -87,7 +106,7 @@ export function planRead({ request, limits, identity, engine, first_piece_raw = 
     return { piece_id: `${identity.session_id}:piece:${index}`, index, word_start, word_end: cursor,
       raw: first_piece_raw && index === 0, segments };
   });
-  if (cursor !== words.length) throw new ReadPlanError("TOKEN_MISMATCH");
+  if (cursor !== words.length || positions.some(position => position.used !== position.chunks.length)) throw new ReadPlanError("CHUNK_MISMATCH");
   const blocks = display.blocks.map(block => json.read(block, "$.display_document.blocks"));
   return { plan: { type: "plan", ...identity, display_document: { ...display, blocks }, words, pieces, engine: { ...engine } },
     requests: cut.map((piece, piece_index) => ({ piece_index, text: piece.segments[0].text })) };

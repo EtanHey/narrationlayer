@@ -21,26 +21,34 @@ const fixtures = [shapes, "| Fruit | Color |\n| --- | --- |\n| Pear | Green |",
   "> Watch **bright** stars and _quiet_ clouds.", "- Parent fruit\n  - Child fruit\n  - More child fruit",
   "2. Gather ripe pears\n3. Wash ripe apples", "# שלום 😀\n\nהעץ ירוק מאוד. השמש זורחת היום.",
   "Title\n=====\n\nOther\n-----\n\nPick client/server.\nWrap   soft\nlines carefully.",
+  "`-1 aa/bb c d e f`", "`1.2 aa/bb c d e f`",
   "# One\n---\n\n## Two\n\n### Three\n\n#### Four\n\nTail sentence."];
 function partition(result: ReturnType<typeof read>) {
   const { plan, requests } = result;
-  let cursor = 0;
+  let cursor = 0, chunkIndex = 0;
+  const chunks = [...plan.display_document.text.matchAll(/\S+/gu)];
   plan.pieces.forEach((piece, index) => {
     expect(piece.index).toBe(index);
     expect(piece.word_start).toBe(cursor);
     for (const segment of piece.segments) {
       expect(segment.word_start).toBe(cursor);
-      const tokens = displayTokens(requests[index].text).map(token => token[0]);
-      expect(plan.words.slice(segment.word_start, segment.word_end).map(word => word.text)).toEqual(tokens);
+      const spoken = requests[index].text.match(/\S+/gu) ?? [];
+      const covered = chunks.slice(chunkIndex, chunkIndex + spoken.length);
+      expect(covered.map(chunk => chunk[0])).toEqual(spoken);
+      const start = covered[0].index, end = covered.at(-1)!.index + covered.at(-1)![0].length;
+      const contained = plan.words.filter(word => word.display[0] >= start && word.display[1] <= end);
+      expect(plan.words.slice(segment.word_start, segment.word_end)).toEqual(contained);
+      chunkIndex += spoken.length;
       cursor = segment.word_end;
     }
     expect(piece.word_end).toBe(cursor);
   });
   expect(cursor).toBe(plan.words.length);
+  expect(chunkIndex).toBe(chunks.length);
 }
 
 test("partition: every document word belongs to exactly one segment and piece", () => {
-  for (const text of fixtures) for (const cap of [14, 60, 400]) partition(read(text, cap));
+  for (const text of fixtures) for (const cap of [11, 14, 60, 400]) partition(read(text, cap));
 });
 test("every plan parses: the projected fixtures are wire events", () => {
   for (const text of fixtures) {
@@ -103,13 +111,23 @@ test("empty and whitespace-only input throws typed errors", () => {
   for (const text of ["", " \r\n\t", "---", "[ref]: https://example.test"]) expect(() => read(text)).toThrow(ReadPlanError);
 });
 
-test("token disagreement throws before a plan escapes", () => {
+test("chunk disagreement throws before a plan escapes", () => {
   const original = cutter.planSynthesisUnits;
   const spy = spyOn(cutter, "planSynthesisUnits").mockImplementation(args => {
     const pieces = original(args);
     pieces[0].segments[0].text = "Changed ripe apples.";
     return pieces;
   });
-  try { expect(() => read("Gather ripe apples.")).toThrow("TOKEN_MISMATCH"); }
+  try { expect(() => read("Gather ripe apples.")).toThrow("CHUNK_MISMATCH"); }
   finally { spy.mockRestore(); }
+});
+
+test("retained numeric and version spans use document words across request boundaries", () => {
+  for (const number of ["-1", "1.2"]) {
+    const result = read(`\`${number} aa/bb c d e f\``, number === "-1" ? 11 : 12);
+    expect(result.plan.words.map(word => word.text)).toEqual([`\`${number}`, "aa/bb", "c", "d", "e", "f`"]);
+    expect(result.requests.map(request => request.text)).toEqual([`\`${number} aa/bb c`, "d e f`"]);
+    expect(result.plan.pieces.map(piece => [piece.word_start, piece.word_end])).toEqual([[0, 3], [3, 6]]);
+    partition(result);
+  }
 });
