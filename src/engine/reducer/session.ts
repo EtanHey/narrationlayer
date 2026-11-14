@@ -127,13 +127,24 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     // Contract L158: replay the first answer without allocating another seq.
     if (previous && key(previous.command) === key(c)) return { state, effects: [{ kind: "replay", event: structuredClone(previous.ack) }] };
     const stale = c.op !== "stop" && ((c.expected_control_epoch !== undefined && c.expected_control_epoch !== s.current.control_epoch) || (c.player_instance_id !== undefined && c.player_instance_id !== s.current.player_instance_id) || (engine.epoch_authority === "host" && input.target.control_epoch < s.current.control_epoch));
+    const stopTargets: string[] = [];
     let answer: "accept" | "noop" | "reject" = "accept", reason: string | undefined;
     if (previous) { answer = "reject"; reason = "command id reused"; }
     // ID-01 (no model backing): a stale control receives ONLY its ack with current.
     else if (stale) { answer = "reject"; reason = "STALE_EPOCH"; }
     else if (c.op === "seek" && input.seek?.kind === "reject" && input.seek.reason === "invalid offset") { answer = "reject"; reason = input.seek.reason; }
+    else if (c.op === "stop") {
+      // Rulings 78-82: admission order, one ack, exclusions in every scope.
+      for (const admission of Object.values(engine.admissions).sort((a, b) => a.accepted.seq - b.accepted.seq)) {
+        const candidate = engine.sessions[admission.session_id];
+        const reached = candidate.session_id === session_id || c.args.scope === "all_speech"
+          || c.args.scope === "queue" && !candidate.started && typeof candidate.request.start === "object";
+        if (!reached || candidate.outcome || c.args.except_sessions?.includes(candidate.session_id)) continue;
+        stopTargets.push(candidate.session_id);
+      }
+      answer = stopTargets.length ? "accept" : "noop";
+    }
     else if (s.outcome || s.playback !== null) answer = "noop";
-    else if (c.op === "stop") { if (!c.args.except_sessions?.includes(session_id)) stop(c.args.reason); else answer = "noop"; }
     else if (c.op === "pause") {
       if (s.pause_owner === undefined || c.args.owner === "user" && s.pause_owner !== "user") {
         if (s.pause_owner !== undefined) reason = "manual pause";
@@ -150,6 +161,15 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     else { answer = "reject"; reason = "control outside S2a"; }
     const ack: Message<"control_ack"> = { protocol: "nl.engine/1", type: "control_ack", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, command_id: c.command_id, outcome: answer, control_epoch: s.current.control_epoch, ...(reason ? { reason } : {}), ...(c.op === "seek" && answer === "accept" ? { offset_ms: s.current.audio_ms, clamped: input.seek?.kind === "accept" ? input.seek.clamped : false } : {}), ...(stale ? { current: s.current } : {}) };
     emit(ack); if (!previous) s.receipts = [...s.receipts, { command: structuredClone(c), ack: structuredClone(ack) }].slice(-32);
+    if (c.op === "stop" && stopTargets.length) {
+      // Keep the existing ack-before-outcome order and its receipt before stopping.
+      let stoppedState = result().state;
+      for (const id of stopTargets) {
+        const stopped = reduce(stoppedState, { kind: "stop", session_id: id, reason: c.args.reason });
+        stoppedState = stopped.state; effects.push(...stopped.effects);
+      }
+      return { state: stoppedState, effects };
+    }
   } else if (!s.outcome) { // Domain generation terminal below fences late backend delivery (I03).
     if (input.kind === "shutdown") {
       s.generation = s.delivered.length === s.plan.pieces.length ? "committed" : "interrupted";

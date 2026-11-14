@@ -9,6 +9,10 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/broken-stop-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5c"},
+    "src/engine/conformance/broken-preempt-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5c"},
+
+    "src/engine/conformance/stop-cases.ts": {"layer": 4, "area": "engine", "owner": "P2.S5c"},
     "src/engine/conformance/broken-shut-late.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
     "src/engine/conformance/broken-life-future.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
     "src/engine/conformance/broken-shut-race.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},

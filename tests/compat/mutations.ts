@@ -13,6 +13,8 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  {"kind": "conformance-case", "name": "stop-exclusions", "file": "src/engine/reducer/session.ts", "before": " || c.args.except_sessions?.includes(candidate.session_id)", "after": "", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "STOP-01e"},
+  {"kind": "conformance-case", "name": "stop-scope-reach", "file": "src/engine/reducer/session.ts", "before": "const reached = candidate.session_id === session_id || c.args.scope === \"all_speech\"\n          || c.args.scope === \"queue\" && !candidate.started && typeof candidate.request.start === \"object\";", "after": "const reached = candidate.session_id === session_id;", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "STOP-01e"},
   {"kind": "conformance-case", "name": "seek-word-timing", "file": "src/engine/session/session.ts", "before": "else if (\"word_index\" in args && !word)", "after": "else if (false)", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SEEK-01e"},
   {"kind": "conformance-case", "name": "seek-clamp", "file": "src/engine/session/session.ts", "before": "Math.max(0, Math.min(requested, session.known_ms))", "after": "requested", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SEEK-01e"},
   {"kind": "conformance-case", "name": "I09-seek-clears-pause-owner-SEEK-01e", "file": "src/engine/reducer/session.ts", "before": "else anchor(input.target); // I09", "after": "else { delete s.pause_owner; anchor(input.target); } // I09", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SEEK-01e"},

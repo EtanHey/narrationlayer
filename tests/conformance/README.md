@@ -434,3 +434,14 @@ re-anchored lookahead and preserved pause ownership (I09, stage-A mirror only).
 ID-01e rejects old-player exits after a seek and checks continued pacing.
 SEEK-01h and ID-01h still owe real player landing and the 1.5 s wait; resync
 and stop scopes remain owed.
+
+S5c activates STOP-01e (L165/L172/L520, rulings 78-80 and 82) and
+PREEMPT-01e (L345/L522, ruling 81). Stop reaches sessions in admission order:
+`session` addresses one, `all_speech` reaches every nonterminal session, and
+`queue` reaches unstarted after-session reads plus the addressed read.
+Every scope honors `except_sessions`; one command has one ack, and each ended
+session has one mapped outcome. Replacement fences every later predecessor
+event and admits a same-turn successor. The six conforming engines run both rows.
+Owed: STOP-01h maps reasons to host archive codes and identifies the held Previous
+Read; PREEMPT-01h waits for player teardown. `retain_read_queue` is accepted and
+ignored in stage A; stage B semantics remain owed.

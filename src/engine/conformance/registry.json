@@ -718,7 +718,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true
   },
   {
     "id": "PREEMPT-01h",
@@ -1001,7 +1001,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true
   },
   {
     "id": "STOP-01h",
