@@ -1,7 +1,7 @@
 // The package's front door: package.json `exports` is "." (src/api/index.ts), "./package.json", and every legacy module
 // frozen in tests/compat/legacy-paths.manifest.generated.json (invariant I-A), listed one by one. Nothing else resolves by name.
 import { expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
+import { nodeSpawnChecked } from "../support/spawn.js";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -29,8 +29,7 @@ test("by package name, from a scratch consumer: the front door and legacy subpat
     const specifiers = [pkg.name, `${pkg.name}/package.json`, ...legacyModules().map((f) => `${pkg.name}/${f}`)];
     const probe = `const out = {};\nfor (const s of ${JSON.stringify(specifiers)}) { try { out[s] = new URL(import.meta.resolve(s)).pathname; } catch { out[s] = null; } }\nout.values = Object.keys(await import(${JSON.stringify(pkg.name)})).sort();\nconsole.log(JSON.stringify(out));\n`;
     writeFileSync(path.join(dir, "probe.ts"), probe);
-    const run = spawnSync(process.execPath, ["probe.ts"], { cwd: dir, encoding: "utf8", timeout: 20000 });
-    if (run.error) throw run.error;
+    const run = nodeSpawnChecked(process.execPath, ["probe.ts"], { cwd: dir, timeout: 20000 });
     expect(run.stderr).toBe("");
     const resolved = JSON.parse(run.stdout) as Record<string, string | null> & { values: string[] };
     const real = (f: string) => path.join(ROOT, f);

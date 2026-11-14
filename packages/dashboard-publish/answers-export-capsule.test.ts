@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {createHash} from 'node:crypto';
-import {spawnSync} from 'node:child_process';
+import {nodeSpawnChecked} from '../../tests/support/spawn.js';
 // @ts-ignore standalone publisher command
 import {main, snapshot} from './answers-export.mjs';
 const sentinel = 'SYNTHETIC_TOKEN_SENTINEL';
@@ -31,7 +31,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
  put('.lakebed/synthetic-artifact.json',JSON.stringify({artifactHash:hash,artifact:overrides.tampered?{shells:{}}:artifact}));
  const out=join(dir,'report.md'), runtime=join(dir,'scripts/publish-runtime.mjs');
  const args=['export','--dashboard','synthetic','--out',out,'--runtime',runtime];
- const cli=(extra: string[]=[])=>{const result=spawnSync('node',[resolve('packages/dashboard-publish/answers-export.mjs'),...args,...extra],{encoding:'utf8',timeout:CHILD_BUDGET_MS});if(result.error)throw result.error;return result;};
+ const cli=(extra: string[]=[])=>{return nodeSpawnChecked('node',[resolve('packages/dashboard-publish/answers-export.mjs'),...args,...extra],{timeout:CHILD_BUDGET_MS});};
  return {dir,out,runtime,args,statePath,cli,put,cleanup:()=>fs.rmSync(dir,{recursive:true,force:true})};
 }
 test('fake capsule main writes only requested rows, private atomic replacement, no sentinel', async () => {

@@ -18,13 +18,15 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { nodeSpawnChecked } from "../support/spawn.js";
 import { createJobFromPayload, renderJob } from "../../src/service.js";
 import { createDashboardDemo } from "../../src/dashboard.js";
 
 function mlStackBusy() {
   try {
-    const ps = execSync("ps aux", { encoding: "utf8" });
+    const run = nodeSpawnChecked("ps", ["aux"], { timeout: 10_000 });
+    if (run.status !== 0) return false;
+    const ps = run.stdout;
     // whisper-server and mlx_lm.server are persistent daemons that sit idle at
     // tens of MB and only balloon to GBs when a model is actually loaded. Gate on
     // RSS, not mere presence, so an idle daemon (or this guard's own ps/grep

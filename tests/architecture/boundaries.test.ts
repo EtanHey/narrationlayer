@@ -1,6 +1,6 @@
 // Invariant I-D: import rules only tighten. See scripts/dev/boundaries.ts and tests/architecture/ledger.json.
 import { expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
+import { nodeSpawnChecked } from "../support/spawn.js";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { analyze, BASELINE_PATH, diskRepo, entryProblems, importSpecifiers, LEDGER_PATH, ledgerProblems, readJson, ROOT, violations, type Ledger } from "../../scripts/dev/boundaries.js";
@@ -93,8 +93,7 @@ test("only tracked files need a ledger row: an untracked stray file does not fai
   const dir = mkdtempSync(path.join(ROOT, "dist", ".ledger-git-"));
   try {
     const git = (...args: string[]) => {
-      const run = spawnSync("git", args, { cwd: dir, timeout: 20_000 });
-      if (run.error) throw run.error;
+      const run = nodeSpawnChecked("git", args, { cwd: dir, timeout: 20_000 });
       expect(run.status).toBe(0);
     };
     git("init", "-q");
