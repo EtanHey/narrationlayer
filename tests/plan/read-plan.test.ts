@@ -5,6 +5,7 @@ import { parseEvent, parseRequest } from "../../src/engine/messages/parser";
 
 import { projectStructuredSpeech } from "../../src/text/voicelayer/structured-speech";
 import { structuredReadDisplay } from "../../src/text/voicelayer/structured-display";
+import pauseFixtures from "./fixtures/pause-parity.json";
 import * as cutter from "../../src/plan/synthesis-units";
 
 const engine = { family: "edge", profile_revision: "fixture-v1", voice: "synthetic" };
@@ -34,7 +35,11 @@ function partition(result: ReturnType<typeof read>) {
     expect(piece.word_start).toBe(cursor);
     for (const segment of piece.segments) {
       expect(segment.word_start).toBe(cursor);
-      const spoken = requests[index].text.match(/\S+/gu) ?? [];
+      const requestText = requests[index].text;
+      const originalText = plan.display_document.text.slice(plan.words[segment.word_start].display[0], plan.words[segment.word_end - 1].display[1]).replace(/\s+/gu, " ");
+      const spoken = originalText.match(/\S+/gu) ?? [];
+      const expected = segment.kind === "heading" ? (originalText.endsWith(":") ? `${originalText.slice(0, -1)}.` : /[.!?…。！？]["'”’)\]]*$/u.test(originalText) ? originalText : `${originalText}.`) : originalText;
+      expect(requestText).toBe(expected);
       const covered = chunks.slice(chunkIndex, chunkIndex + spoken.length);
       expect(covered.map(chunk => chunk[0])).toEqual(spoken);
       const start = covered[0].index, end = covered.at(-1)!.index + covered.at(-1)![0].length;
@@ -66,7 +71,7 @@ test("WORD-01 local half: words equal displayTokens with UTF-16 offsets", () => 
   }
 });
 test("PLAN-01 and PLAN-D5: small remainders join; whole small units stand", () => {
-  expect(read("# Bud\n\nOne two three four five.", 14).requests.map(r => r.text)).toEqual(["Bud", "One two three four five."]);
+  expect(read("# Bud\n\nOne two three four five.", 14).requests.map(r => r.text)).toEqual(["Bud.", "One two three four five."]);
   expect(read("One two three four five six.", 14).requests.map(r => r.text)).toEqual(["One two three", "four five six."]);
 });
 test("PLAN-02 and PLAN-D4: later fitting phrase mark wins over colon; internal cuts have no pause", () => {
@@ -77,7 +82,7 @@ test("PLAN-02 and PLAN-D4: later fitting phrase mark wins over colon; internal c
 });
 test("PLAN-03 first fixture: headings and items stay whole; only long sentence cuts", () => {
   const { plan, requests } = read(shapes);
-  expect(requests.slice(0, 8).map(r => r.text)).toEqual(["Orchard notes", "Apples.", "Gather ripe pears.",
+  expect(requests.slice(0, 8).map(r => r.text)).toEqual(["Orchard notes.", "Apples.", "Gather ripe pears.",
     "Gather six ripe pears for breakfast.", "Label: keep these ripe apples safely.", "Run fruit_check before storing apples.",
     "Visit the orchard before dawn.", "Visit link before dawn."]);
   expect(requests.length).toBeGreaterThan(9);
@@ -102,7 +107,7 @@ test("plain format: markup and URLs stay literal", () => {
   const text = "# Literal heading\n- **literal item** at https://example.test";
   const result = read(text, 400, "plain");
   expect(result.plan.display_document.text).toBe(text);
-  expect(result.requests.map(r => r.text).join(" ")).toBe(text.replace(/\n/g, " "));
+  expect(result.requests.map(r => r.text)).toEqual(["# Literal heading.", "- **literal item** at https://example.test"]);
   expect(result.plan.display_document.blocks.map(b => b && typeof b === "object" && !Array.isArray(b) ? b.kind : undefined)).toEqual(["heading", "list-item"]);
   partition(result);
 });
@@ -153,7 +158,7 @@ test("pause placement follows blank lines and directly following headings", () =
     ["# Fruit\n\nTail.", [1000, 0]], ["- Green pear\n\nTail.", [1000, 0]],
     ["Fruit grows.\n# Tree\nTail.", [600, 900, 0]], ["Fruit grows.\n- Green pear\nTail.", [550, 450, 0]],
     ["| Fruit | Color |\n|---|---|\n| Plum | Purple |\nTail.", [550, 550, 0]],
-    ["Before.\n```ts\nconst fruit = 3;\n```\nAfter.", [550, 550, 0]],
+    ["Before.\n```ts\nconst fruit = 3;\n```\nAfter.", [550, 0, 0]],
   ] satisfies [string, number[]][]) expect(read(text).plan.pieces.map(p => p.segments[0].pause_after_ms)).toEqual(expected);
 });
 test("heading levels pin 900 750 and 800 pauses", () => {
@@ -187,4 +192,102 @@ test("plan identity and engine pick only declared fields", () => {
   const widerIdentity = { ...identity, type: "alien", extra: "discard" }, widerEngine = { ...engine, extra: "discard" };
   const result = read("Green fruit grows.", 60, "markdown", false, { identity: widerIdentity, engine: widerEngine });
   expect(result.plan.type).toBe("plan"); expect(result.plan).not.toHaveProperty("extra"); expect(result.plan.engine).toEqual(engine);
+});
+
+function checkPauseFixture(fixture: typeof pauseFixtures[number]) {
+  const result = read(fixture.text, 100000, fixture.format === "plain" ? "plain" : "markdown");
+  if ("word_pauses" in fixture && fixture.word_pauses) {
+    // The oracle may include extra zero-pause budget cuts. Compare their union.
+    const expected = new Map(fixture.word_pauses.map(([at, pause]) => [at, pause]));
+    // Category 4: the contract keeps sentence units where VL packs prose.
+    if ("contract_sentence_ends" in fixture) for (const at of fixture.contract_sentence_ends ?? []) expected.set(at, 550);
+    // Category 1: structural labels remain inside contract sentence units.
+    if ("contract_label_ends" in fixture) for (const at of fixture.contract_label_ends ?? []) expected.set(at, 0);
+    const actual = new Map(result.plan.pieces.map(piece => [piece.word_end, piece.segments[0].pause_after_ms]));
+    for (const at of new Set([...expected.keys(), ...actual.keys()])) expect(actual.get(at) ?? 0).toBe(expected.get(at) ?? 0);
+  } else expect(result.plan.pieces.map(piece => piece.segments[0].pause_after_ms)).toEqual(fixture.pauses);
+  expect(result.requests.every(request => /[\p{L}\p{N}]/u.test(request.text))).toBe(true);
+  partition(result);
+}
+
+test("prose runs: wordless blocks carry forward across adjacent blocks", () => {
+  const fixtures = pauseFixtures.filter(fixture => "oracle_budget" in fixture);
+  expect(fixtures.length).toBe(32);
+  for (const fixture of fixtures) checkPauseFixture(fixture);
+});
+
+test("pause parity: VoiceLayer reference boundaries on invented documents", () => {
+  expect(pauseFixtures.length).toBeGreaterThanOrEqual(40);
+  for (const fixture of pauseFixtures) checkPauseFixture(fixture);
+  const bold = read("**Branches**\nLeaves.");
+  expect(bold.plan.pieces[0].segments[0].kind).toBe("heading");
+  expect(bold.requests[0].text).toBe("Branches.");
+  expect(bold.plan.display_document.text).toBe("Branches\nLeaves.");
+  expect(read("# Branches:\nLeaves.").requests[0].text).toBe("Branches.");
+  expect(read("# Branches!\nLeaves.").requests[0].text).toBe("Branches!");
+});
+
+test("wordless heading-only text uses the neighbourless prose fallback", () => {
+  const result = read("# :");
+  expect(result.requests.map(request => request.text)).toEqual([":"]);
+  expect(result.plan.pieces[0].segments[0].kind).toBe("sentence");
+  partition(result);
+});
+
+const wordlessShapes = {
+'bold-after-blank':'Pears fall.\n\n**Grove**\nTail.', 'bold-after-prose-line':'Pears fall\n**Grove**\nTail.',
+'bold-ending-colon':'**Grove:**\nTail.', 'bold-ending-q-bang':'**Grove!**\nTail.', 'bold-hebrew-cjk':'**森林**\nעלה.',
+'bold-in-item':'- **Grove**\nTail.', 'bold-in-quote':'> **Grove**\nTail.', 'bold-in-table':'| **Grove** | Leaf |\n| --- | --- |\n| Pear | Green |',
+'bold-indented':'  **Grove**\nTail.', 'bold-indented-continuation':'**Grove**\n\t**Branch**\nTail.',
+'bold-initial':'**Grove**\nTail.', 'bold-then-list':'**Grove**\n- Leaf\n- Fruit', 'bold-trailing-text':'**Grove** rises\nTail.',
+'bold-two-in-row':'**Grove**\n**Branch**\nTail.', 'bold-word-sentence':'**Grove.**', 'bold-wordless':'**—**\nPears fall.',
+'colon-code':'Gather:\n```\nleaf\n```\nTail.', 'colon-list-blank':'Gather:\n\n- Leaf\nTail.', 'colon-list-direct':'Gather:\n- Leaf\nTail.',
+'colon-nested-list':'Gather:\n- Leaf\n  - Fruit\nTail.', 'colon-ordered':'Gather:\n1. Leaf\n2. Fruit\nTail.',
+'colon-paragraph':'Gather:\n\nPears fall. Tail.', 'heading-ending':'# Grove!\nTail.', 'heading-hebrew-cjk':'# עץ\n月亮升起。',
+'heading-last':'Pears fall.\n# Grove', 'heading-punct-only':'# ?!\nTail.', 'italic-line':'*Grove*\nTail.',
+'paragraph-multi':'Pears fall. Leaves rise. Tail.', 'setext-ending':'Grove\n=====\nTail.', 'underscore-initial':'__Grove__\nTail.',
+'unterm-at-end':'Pears fall.\nTail', 'unterm-before-blank':'Pears fall\n\nTail.', 'unterm-before-heading':'Pears fall\n# Grove\nTail.',
+'unterm-before-list':'Pears fall\n- Leaf\nTail.', 'unterm-midpara':'Pears fall\nLeaves rise. Tail.',
+'first':'**·**\nTail.', 'last':'Pears fall.\n**·**', 'between-headings':'# Grove\n**·**\n## Branch\nTail.',
+'between-items':'- Leaf\n- -\n- Fruit', 'after-blank':'Pears fall.\n\n**·**\nTail.',
+'before-table':'**·**\n| Leaf | Fruit |\n| --- | --- |\n| Pear | Green |', 'before-code':'**·**\n```\nleaf\n```',
+'two-in-row':'Pears fall.\n**·**\n## ?!\nTail.', 'three-in-row':'Pears fall.\n**·**\n## ?!\n**—**\nTail.',
+'leading-chain':'**·**\n## ?!\nTail.', 'trailing-chain':'Pears fall.\n**·**\n## ?!', 'only-content':'**·**\n## ?!',
+'wordless-indented':'  **·**\n\t**Grove**\nTail.', 'hebrew-cjk-neighbours':'# עץ\n**·**\n月亮升起。',
+'after-colon':'Gather:\n**·**\n- Leaf', 'after-prose':'Pears fall\n**·**\nTail.',
+'after-bold':'**Grove**\n!!\nTail.', 'after-blank-bold':'Pears fall.\n\n**Grove**\n—\n\nTail.',
+'rule':'Pears fall.\n\n---\n\nTail.', 'table':'| Leaf | Fruit |\n| --- | --- |\n| Pear | Green |',
+'backtick':'Pears fall.\n`\nTail.', 'wordless-item':'Pears fall.\n- -\nTail.', 'after-terminal':'Pears fall.\n!!',
+
+'emoji-only':'😀\nTail.', 'digits-only':'12345\n!!\nTail.', 'wordless-quote':'> —\nTail.',
+'wordless-code':'**Grove**\n```\n—\n```\nTail.', 'underscore-rule':'Pears fall.\n\n___\n\nTail.',
+'paired-backticks':'Pears fall.\n``\nTail.', 'five-chain':'**Grove**\n—\n!!\n`\n> …\n| · |\nTail.',
+'item-star':'Pears fall.\n* —\nTail.', 'item-plus':'Pears fall.\n+ —\nTail.',
+'item-number-dot':'Pears fall.\n1. —\nTail.', 'item-number-paren':'Pears fall.\n2) —\nTail.',
+'item-unchecked':'Pears fall.\n- [ ] —\nTail.', 'item-checked':'Pears fall.\n- [x] —\nTail.',
+'before-paragraph':'Pears fall.\n\n> —\nTail.', 'before-heading':'Pears fall.\n\n—\n# Grove\nTail.',
+'before-bold':'Pears fall.\n\n—\n**Grove**\nTail.', 'before-label':'Pears fall.\n\n—\n**Tree:** leaf grows.',
+'before-list':'Pears fall.\n\n—\n- Leaf', 'before-quote':'Pears fall.\n\n—\n> Leaf.',
+'before-code-after-blank':'Pears fall.\n\n—\n```\nleaf\n```',
+'before-table-row':'**Grove**\n| — |\nTail.',
+'code-to-code':'Pears fall.\n\n```\n—\n```\n```\nleaf\n```',
+'wordless-last-block':'**Grove**\n```\n—\n```', 'wordless-only-blocks':'> —\n```\n…\n```\n| · |',
+'prose-with-blank':'**Grove**\n—\n\nTail.', 'prose-without-blank':'**Grove**\n—\nTail.',
+'nested-wordless-item':'- Leaf\n  - —\n  - Fruit', 'table-header-rows':'| — |\n| --- |\n| Leaf |',
+};
+
+test("no engine request without a word: seeded prose, headings, lists, rules and tables", () => {
+  let seed = 6503, failures = 0, documents = 0;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed; };
+  for (const base of Object.values(wordlessShapes)) for (let i = 0; i < 60; i++) {
+    const text = base.replaceAll("!!", ["`", "***", "—", "…", "!!", "?!", "·", "- -"][i % 8]).replaceAll("Grove", ["Grove", "עץ", "森林"][random() % 3])
+      .replaceAll("**·**", ["**·**", "**—**", "**!!**", "**…**"][random() % 4]);
+    const result = read(text, [8, 14, 40, 100000][i % 4], i % 2 ? "plain" : "markdown");
+    if (/[\p{L}\p{N}]/u.test(result.plan.display_document.text)) {
+      documents++;
+      failures += result.requests.filter(request => !/[\p{L}\p{N}]/u.test(request.text)).length;
+    }
+  }
+  expect(documents).toBeGreaterThanOrEqual(3000);
+  expect(failures).toBe(0);
 });
