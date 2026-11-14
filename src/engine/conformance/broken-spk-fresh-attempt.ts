@@ -22,7 +22,7 @@ export default { name: "broken-spk-fresh-attempt", create(host) {
     for await (const event of inner.events) {
       if (event.type === "piece_ready") piece = event;
       if (event.type === "accepted") pending = event;
-      seq = event.seq;
+      if ("seq" in event) seq = event.seq;
       yield event;
     }
     if (stopped && late && piece && pending)
