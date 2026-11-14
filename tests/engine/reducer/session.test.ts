@@ -572,3 +572,12 @@ test("resync R86: word holder comes from delivered timing, with zero in a gap", 
     expect(r.effects).toContainEqual(expect.objectContaining({ event: expect.objectContaining({ type: "snapshot", sessions: [expect.objectContaining({ audio_ms, word_index })] }) }));
   }
 });
+
+test("resync R89: mismatched epoch and player never refuse a known session", () => {
+  const s = accepted(1, "host");
+  for (const mismatch of [{ expected_control_epoch: 99 }, { player_instance_id: "unmatched-player" }, { expected_control_epoch: 99, player_instance_id: "unmatched-player" }]) {
+    const r = reduce(s, { kind: "control", command: { protocol: "nl.engine/1", type: "control", command_id: "stale-sync", session_id: identity.session_id, op: "resync", args: {}, ...mismatch }, target: current });
+    expect(r.effects).toMatchObject([{ event: { type: "control_ack", outcome: "accept" } }, { event: { type: "snapshot" } }, { event: { type: "plan" } }]);
+    expect(view(r.state)).toEqual({ ...view(s), receipts: expect.any(Array) });
+  }
+});

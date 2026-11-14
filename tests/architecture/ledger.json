@@ -9,6 +9,12 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/resync-review-variants.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+    "src/engine/conformance/broken-resync-planned-count.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+    "src/engine/conformance/broken-resync-undelivered-timing.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+    "src/engine/conformance/broken-resync-paused-current.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+    "src/engine/conformance/broken-resync-replayed-resync.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
+
     "src/engine/conformance/resync-variants.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
     "src/engine/conformance/broken-snap-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},
     "src/engine/conformance/broken-seq-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5d"},

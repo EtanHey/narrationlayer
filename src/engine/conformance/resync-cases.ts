@@ -67,7 +67,8 @@ async function snapshot(c: CaseContext, t: Rig, id: string, queued: string) {
   }
   await until(c, () => t.seen.length >= t.seen.indexOf(snap) + 1 + expected.length);
   const replayed = t.seen.slice(t.seen.indexOf(snap) + 1, t.seen.indexOf(snap) + 1 + expected.length);
-  c.assert(equal(replayed.map(e => e.type === "welcome" ? e : body(e)), expected.map(e => e.type === "welcome" ? e : body(e)))); // L190, ruling 83: plans and delivered words, no piece or lease redelivery.
+  const bySession = (events: Event[]) => [id, queued].map(session => events.filter(e => "session_id" in e && e.session_id === session).map(e => e.type === "welcome" ? e : body(e)));
+  c.assert(replayed.length === expected.length && equal(bySession(replayed), bySession(expected))); // L190, amended ruling 83: per-session order only.
 }
 async function scenario(c: CaseContext, sequence: boolean) {
   const { t, id, queued } = await fixture(c);
@@ -100,16 +101,38 @@ async function scenario(c: CaseContext, sequence: boolean) {
     }
   }
 }
+async function inFlight(c: CaseContext) {
+  const t = setup(c, [2, 100].map(latency_ms => ({ latency_ms, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(100) } })));
+  const id = await read(c, t, "resync-inflight");
+  await until(c, () => pieces(t, id).length === 1);
+  const sync = await command(c, t, id, "resync", {}, { expected_control_epoch: 99, player_instance_id: "unmatched-player" });
+  c.assert(sync.ack.outcome === "accept"); // R89: neither mismatched epoch nor player refuses resync.
+  await until(c, () => t.seen.some(e => e.type === "snapshot"));
+  const snap = t.seen.find(e => e.type === "snapshot");
+  c.assert(snap?.type === "snapshot" && snap.sessions.length === 1 && snap.sessions[0].pieces_ready === 1); // R86: delivered, not planned.
+  t.connection.send(sync.message);
+  await until(c, () => t.seen.filter(e => e.type === "control_ack" && e.command_id === sync.ack.command_id).length === 2);
+  c.assert(equal(t.seen.filter(e => e.type === "control_ack" && e.command_id === sync.ack.command_id).at(-1), sync.ack)); // L158, R84: replay ack unchanged.
+  await until(c, () => pieces(t, id).length === 2, 256);
+  await t.finish();
+  c.assert(t.seen.filter(e => e.type === "snapshot").length === 1); // R87/L158: replay never repeats the snapshot.
+  const timings = t.seen.filter((e): e is Message<"timing_update"> => e.type === "timing_update" && e.derivation_id === "resync");
+  c.assert(timings.length === 1 && timings[0].piece_id === pieces(t, id)[0].piece_id && equal(timings[0].words, pieces(t, id)[0].words)); // R83: no words for undelivered pieces.
+  c.assert(equal(pieces(t, id).map(p => p.index), [0, 1])); // L114/R83: late piece arrives once.
+}
 export const resyncCases: Record<string, Case> = {
-  "SNAP-01": c => scenario(c, false),
+  "SNAP-01": async c => { await scenario(c, false); await inFlight(c); },
   "SEQ-01": c => scenario(c, true),
   "STALE-01": async c => {
     const { t, id } = await fixture(c);
-    for (const [op, args] of [["pause", { owner: "user" }], ["resume", { owner: "user" }], ["seek", { audio_ms: 0 }]] as const) {
-      const { ack } = await command(c, t, id, op, args, { expected_control_epoch: 6 });
-      c.assert(ack.outcome === "reject" && ack.reason === "STALE_EPOCH"); // L172, ruling 88.
-      c.assert(equal(ack.current, { session_id: id, player_instance_id: "resync-player-0", control_epoch: 7,
-        audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 0, duration_ms: pieces(t, id).at(-1)!.start_ms + pieces(t, id).at(-1)!.duration_ms })); // L172, ruling 88: every field of the mirror position.
+    for (const paused of [false, true]) {
+      if (paused) c.assert((await command(c, t, id, "pause", { owner: "user" })).ack.outcome === "accept"); // R61/R88: stale controls also tested under a held pause.
+      for (const [op, args] of [["pause", { owner: "user" }], ["resume", { owner: "user" }], ["seek", { audio_ms: 0 }]] as const) {
+        const { ack } = await command(c, t, id, op, args, { expected_control_epoch: 6 });
+        c.assert(ack.outcome === "reject" && ack.reason === "STALE_EPOCH"); // L172, ruling 88.
+        c.assert(equal(ack.current, { session_id: id, player_instance_id: "resync-player-0", control_epoch: 7,
+          audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 0, duration_ms: pieces(t, id).at(-1)!.start_ms + pieces(t, id).at(-1)!.duration_ms })); // L172, ruling 88: every field of the mirror position.
+      }
     }
     await t.finish();
   },

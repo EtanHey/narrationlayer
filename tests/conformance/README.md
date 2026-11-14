@@ -456,3 +456,10 @@ variants and both delayed-seek variants pass the new rows. Three committed wrong
 engines and six additional deliberate faults measure case sensitivity.
 Owed: the host reconstructs its display and detects sequence gaps to request
 resync. Stage-A position remains a mirror, not player-position authority.
+
+Round-one resync controls allow either session order in the re-emitted block,
+while retaining plan-before-timings and piece order within each session. The
+reverse-session conforming control passes all three rows. SNAP-01 also checks
+an in-flight piece, replayed resync, and mismatched epoch/player resync (ruling
+89: never stale); STALE-01 repeats controls under a held pause. Four committed
+review variants pin the previously missed faults and their exact fail-sets.
