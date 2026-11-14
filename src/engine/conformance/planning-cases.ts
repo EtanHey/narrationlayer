@@ -17,7 +17,7 @@ async function bounded(c: CaseContext, promise: Promise<unknown>) {
   for (let i = 0; i < 8 && !done; i++) { await c.clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve(); }
   c.assert(done); if (error) throw error;
 }
-async function read(c: CaseContext, units: Unit[], expected = units) {
+async function read(c: CaseContext, units: Unit[], expected = units, format: "plain" | "markdown" = "markdown") {
   const backend = new ScriptedBackend(c.clock), spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
   const synthesize = backend.synthesizeRequest.bind(backend);
   backend.synthesizeRequest = (request, signal) => {
@@ -29,7 +29,7 @@ async function read(c: CaseContext, units: Unit[], expected = units) {
   const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })().catch(() => { c.failed = true; });
   const text = units.map(u => u.kind === "heading" ? `# ${u.text}` : u.kind === "item" ? `- ${u.text}` : u.text).join("\n");
   connection.send(hello);
-  connection.send({ protocol: "nl.engine/1", type: "narrate", request_id: "planning-read", idempotency_key: "planning-key", use: "read", input: { text, format: "markdown" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces", lookahead: 2 });
+  connection.send({ protocol: "nl.engine/1", type: "narrate", request_id: "planning-read", idempotency_key: "planning-key", use: "read", input: { text, format }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces", lookahead: 2 });
   let delivered = 0;
   for (let tick = 0; tick < 128 && !seen.some(e => e.type === "outcome"); tick++) {
     await c.clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve();
@@ -66,7 +66,10 @@ async function read(c: CaseContext, units: Unit[], expected = units) {
   c.assert(plan.pieces.at(-1)?.word_end === cursor);
   assertBackendCalls(c, seen, backend.calls, accepted[0].session_id, pieces);
   c.assert(own.at(-1)?.type === "outcome");
-  return { plan, pieces, ranges };
+  const welcome = seen.find(e => e.type === "welcome");
+  const limit = welcome?.engines.find(e => e.family === plan.engine.family)?.max_chars;
+  c.assert(typeof limit === "number" && limit > 0);
+  return { plan, pieces, ranges, limit: limit ?? 0 };
 }
 const heading = (text: string) => unit("heading", text);
 function minimum(c: CaseContext, data: Awaited<ReturnType<typeof read>>, floor: number) {
@@ -77,8 +80,70 @@ function minimum(c: CaseContext, data: Awaited<ReturnType<typeof read>>, floor: 
   }
 }
 const minimumUnits = (name: string) => [heading(name), unit("item", "Acorns"), unit("item", "Gather all the ripe pears"), unit("sentence", "Gentle orchard keepers carry green baskets home."), unit("sentence", "Golden boats return before dusk."), unit("sentence", "Birds settle.")];
+// Independent document scan: fit whitespace boundaries, then prefer the last valid mark.
+function cuts(text: string, limit: number): string[] {
+  const result: string[] = [];
+  while (text.length > limit) {
+    const valid = [...text.matchAll(/\s+/gu)].filter(m => m.index <= limit && count(text.slice(0, m.index)) >= 3 && count(text.slice(m.index + m[0].length)) >= 3);
+    const marked = valid.filter(m => /[,;:]$|\s[—–-]$/u.test(text.slice(0, m.index)));
+    const cut = (marked.length ? marked : valid).at(-1);
+    if (!cut) throw new Error("fixture has no valid cut");
+    result.push(text.slice(0, cut.index)); text = text.slice(cut.index + cut[0].length);
+  }
+  return [...result, text];
+}
+const w = (n: number) => Array(n).fill("lantern").join(" ");
+const over = [
+  `${w(13)} amber — tail words.`, `${w(5)}, ${w(8)} amber — tail words.`,
+  `${w(6)}: ${w(6)}, ${w(6)} and ${w(4)}.`, `${w(22)}.`,
+  `${w(12)} well-made lamp—${w(6)}.`, `Lantern, ${w(20)}.`,
+  `${w(5)}, ${w(7)}; ${w(6)}: ${w(9)}, ${w(8)} — ${w(7)}, ${w(6)}.`,
+];
+const middle = `Lantern ${w(5)}, ${w(6)}, ${w(6)} and ${w(4)}.`;
+const surroundings = (text: string) => [unit("sentence", "Copper boats drift slowly."), unit("sentence", text), unit("sentence", "Violet cranes glide home.")];
+function boundaries(c: CaseContext, d: Awaited<ReturnType<typeof read>>) {
+  for (const u of d.ranges) {
+    const actual = d.pieces.filter(p => d.plan.pieces[p.index].word_start >= u.start && d.plan.pieces[p.index].word_end <= u.end).map(p => p.spoken_text);
+    const expected = u.kind === "sentence" ? cuts(u.text, d.limit) : [u.text];
+    c.assert(JSON.stringify(actual.map(equivalent)) === JSON.stringify(expected.map(equivalent)));
+    if (u.kind === "sentence") for (const text of actual) c.assert(text.length <= d.limit);
+    // Exact source slices prove that no boundary is inside a word.
+    c.assert(equivalent(actual.join(" ")) === equivalent(u.text));
+  }
+}
 export const planningCases: Record<string, Case> = {
-  "PLAN-D5": async c => { const d = await read(c, minimumUnits("Lantern")); minimum(c, d, 3); },
+  "PLAN-D4": async c => {
+    for (const text of [...over, `${w(15)}.`, `Lantern ${w(5)}, ${w(6)}.`]) boundaries(c, await read(c, [unit("sentence", text)], undefined, "plain"));
+    boundaries(c, await read(c, surroundings(middle), undefined, "plain"));
+    boundaries(c, await read(c, [heading("Harbour notes"), ...surroundings(middle), unit("item", "Carry the copper lanterns home")]));
+  },
+  "PLAN-02": async c => {
+    for (const text of over) {
+      const d = await read(c, [unit("sentence", text)], undefined, "plain");
+      const control = await read(c, [unit("sentence", "Copper boats drift.")], undefined, "plain");
+      const expected = cuts(text, d.limit);
+      for (const [i, p] of d.plan.pieces.entries()) {
+        c.assert(p.segments[0].pause_after_ms === (i === d.plan.pieces.length - 1 ? control.plan.pieces[0].segments[0].pause_after_ms : 0));
+        if (d.pieces[i].spoken_text.endsWith(":")) c.assert(d.pieces[i].spoken_text === expected[i]);
+      }
+    }
+    for (const format of ["plain", "markdown"] as const) {
+      const d = await read(c, surroundings(middle), undefined, format);
+      const control = await read(c, surroundings(`Lantern ${w(5)}, ${w(6)}.`), undefined, format);
+      const u = d.ranges[1], inside = d.plan.pieces.filter(p => p.word_start >= u.start && p.word_end <= u.end);
+      c.assert(inside.length > 1);
+      for (const p of inside.slice(0, -1)) c.assert(p.segments[0].pause_after_ms === 0);
+      c.assert(inside.at(-1)?.segments[0].pause_after_ms === control.plan.pieces[1].segments[0].pause_after_ms);
+    }
+    const d = await read(c, [unit("sentence", over[2])], undefined, "plain");
+    const expected = cuts(over[2], d.limit);
+    c.assert(expected[0].endsWith(","));
+    c.assert(d.pieces[0].spoken_text === expected[0]);
+  },
+  "PLAN-D5": async c => {
+    minimum(c, await read(c, minimumUnits("Lantern")), 3);
+    for (const text of [over[0], over[1], over[5]]) minimum(c, await read(c, [unit("sentence", text)], undefined, "plain"), 3);
+  },
   "PLAN-01": async c => { const d = await read(c, minimumUnits("Maple")); minimum(c, d, 2);
     for (const u of d.ranges.slice(0, 2)) c.assert(d.plan.pieces.filter(p => p.word_start === u.start && p.word_end === u.end).length === 1);
   },
@@ -90,11 +155,13 @@ export const planningCases: Record<string, Case> = {
     for (const [i, units] of fixtures.entries()) {
       // Explicit projection spellings keep markup/URL normalization separate from boundary assertions.
       const projected = units.map(u => ({ ...u, text: u.text.replace(/`/g, "").replace(/\[planting guide\]\(https:\/\/example.invalid\/guide\)/g, "planting guide").replace("https://example.invalid/garden", "link") }));
+      if (i === 0) { units.push(unit("sentence", middle)); projected.push(unit("sentence", middle)); }
       const d = await read(c, units, projected);
       for (const u of d.ranges) {
-        c.assert(d.plan.pieces.filter(p => p.word_start === u.start && p.word_end === u.end).length === 1);
+        if (u.kind !== "sentence" || u.text.length <= d.limit) c.assert(d.plan.pieces.filter(p => p.word_start === u.start && p.word_end === u.end).length === 1);
       }
-      if (i === 0) c.assert(d.pieces.length === 5);
+      boundaries(c, d);
+      if (i === 0) c.assert(d.pieces.length === 7);
     }
   },
   "PAUSE-PL-01": async c => {

@@ -643,7 +643,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "PLAN-03",
@@ -654,7 +654,6 @@
     "owner_slice": "S3b",
     "active": true,
     "owed": [
-      "Over-limit sentence clause: second planning PR after the serving-engine sentence-cap fix (S3p4).",
       "Recorded cuts under the legacy budget rule: tests/plan characterization golden, not the engine binding."
     ]
   },
@@ -665,7 +664,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "PLAN-D5",
@@ -674,10 +673,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": true,
-    "owed": [
-      "Short remainder after over-limit cutting: second planning PR after S3p4; this slice checks minimum words on admitted whole source units."
-    ]
+    "active": true
   },
   {
     "id": "PLAN-LAT-01",
