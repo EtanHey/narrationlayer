@@ -3,7 +3,7 @@ import type { Message } from "../messages/messages";
 import engine from "./engine-binding";
 
 /** Consistent synthetic faults at a two-request boundary, including backend text. */
-export function brokenOverLimit(rule: "space" | "pause"): Binding {
+export function brokenOverLimit(rule: "space" | "pause" | "hyphen"): Binding {
   return { name: `broken-over-limit-${rule}`, create(host) {
     let texts: string[] | undefined, plan: Message<"plan"> | undefined;
     const backend = host.ports?.backend, synthesize = backend?.synthesizeRequest.bind(backend);
@@ -19,6 +19,16 @@ export function brokenOverLimit(rule: "space" | "pause"): Binding {
           const tokens = input.text.split(/\s+/u);
           const at = tokens.map((_, i) => i).filter(i => tokens.slice(0, i).join(" ").length <= 120 && tokens.slice(i).filter(w => /[\p{L}\p{N}]/u.test(w)).length >= 3).at(-1) ?? 0;
           texts = [tokens.slice(0, at).join(" "), tokens.slice(at).join(" ")];
+        }
+      }
+      if (rule === "hyphen" && message && typeof message === "object" && !Array.isArray(message) && message.type === "narrate") {
+        const input = message.input;
+        if (input && typeof input === "object" && !Array.isArray(input) && typeof input.text === "string" && /\S-\s/u.test(input.text)) {
+          // Reproduce the old phrase rule, with the same three-word minimum.
+          const text = input.text, candidates = [...text.matchAll(/[,;:—―–-](?=\s|$)/gu)]
+            .map(m => m.index + 1).filter(at => at <= 120 && text.slice(0, at).split(/\s+/u).filter(w => /[\p{L}\p{N}]/u.test(w)).length >= 3 && text.slice(at).trim().split(/\s+/u).filter(w => /[\p{L}\p{N}]/u.test(w)).length >= 3);
+          const at = candidates.at(-1);
+          if (at !== undefined) texts = [text.slice(0, at), text.slice(at).trim()];
         }
       }
       c.send(message);
@@ -47,3 +57,5 @@ export function brokenOverLimit(rule: "space" | "pause"): Binding {
     })() };
   } };
 }
+
+export default brokenOverLimit("hyphen");

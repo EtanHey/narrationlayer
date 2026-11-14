@@ -660,6 +660,11 @@
   {
     "id": "PLAN-D4",
     "contract_case": "PLAN-D4",
+    "owed": [
+      "No-valid-cut sentence sent whole over limit: engine selection, question 48.",
+      "Whitespace runs and non-breaking spaces as cut points.",
+      "Sentence splitter rules."
+    ],
     "contract_line": 509,
     "side": "engine",
     "stage": "A",

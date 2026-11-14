@@ -235,3 +235,13 @@ name fixed capabilities and at most eight unknown required_caps array positions.
 The six new broken engines each fail exactly their named case. Broader new checks
 also catch the existing ID-03 engine in VER-02e and ORDER-01 engine in LIM-01,
 NEG-03 and VER-01. With both slices merged, null fails twenty-two of twenty-six active rows.
+
+PLAN-D4 follows the lead's revised phrase rule (question 49 remains open): comma,
+semicolon, colon, em dash, horizontal bar and en dash need following whitespace;
+ASCII hyphens need whitespace on both sides. Attached hyphens fall back to a valid
+space. The old-rule binding in `broken-over-limit.ts` keeps its plan, pieces and
+backend requests consistent and must fail PLAN-D4.
+
+Owed on PLAN-D4: no-valid-cut sentences sent whole over limit (engine selection,
+question 48); whitespace runs and non-breaking spaces as cut points; and the
+sentence splitter's own rules. These are not implemented by these cases.

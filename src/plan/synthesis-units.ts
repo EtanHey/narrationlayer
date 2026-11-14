@@ -42,7 +42,7 @@ function splitSentence(text: string, max_chars: number): string[] {
   while (text.length - start > max_chars) {
     // Include one lookahead character so a mark at the cap sees real whitespace.
     const window = text.slice(start, start + max_chars + 1);
-    const marks = [...window.matchAll(/[,;:—―–-](?=\s|$)/gu)]
+    const marks = [...window.matchAll(/(?:[,;:—―–]|(?<=\s)-)(?=\s|$)/gu)]
       .map(mark => mark.index + 1).filter(end => end <= max_chars);
     const spaces = [...window.matchAll(/ /gu)]
       .map(mark => mark.index).filter(end => end > 0 && end <= max_chars);

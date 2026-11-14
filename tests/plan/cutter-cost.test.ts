@@ -69,7 +69,7 @@ test("cutter cost: planning time grows linearly with one long sentence", () => {
   expect(counts[1] / counts[0]).toBeLessThan(6);
 });
 
-// SHA256 of JSON.stringify(base 8dd07dc planner output), in seed order; Bun 1.3.11.
+// SHA256 of planner output in seed order; attached-hyphen rule revised with a side-by-side differential.
 test("cutter cost: the cuts are unchanged", () => {
   let i = 0;
   for (const row of cases(fixture.length)) {
