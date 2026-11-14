@@ -392,6 +392,18 @@ to that slice). The planner also runs synchronously as a pure request decision.
 Clock reads (`now` and `monotonic`) are not wrapped: a read is not I/O under line
 425. The bounded synthesis timeout remains owed. BIND-01 does not catch deferring
 the whole `send`; other conformance rows cover that fault.
+S5a pause controls (stage A mirror):
+
+| Row | Proof |
+|---|---|
+| PAUSE-01e | Host epoch retained, synthesis/delivery bounded by playing plus lookahead; stale epoch/player rejected with current (L76, L162, L172, L515). |
+| PAUSE-02e | Manual takeover, owner-only resume, noop ownership preservation; rejection emits no terminal; host stop yields one outcome (L162-163, L516; rulings 58-60). |
+| PAUSE-03e | Every owner can park before audio; piece zero still synthesized; bounded window and owner resume to shared success receipt (L517; ruling 62). |
+| PACE-01 | Includes a parked stretch and resumes within the same synthesis window (L76, L492). |
+
+Host cursor/park/automatic resume behavior remains PAUSE-01h to PAUSE-03h.
+Seek, resync, stop scopes and command_id correlation on control errors remain owed.
+Pause ownership is reducer state only; no stage B paused/resumed/position events.
 ENG-01 now covers admission: missing or unavailable mandated clones refuse before
 acceptance or backend work, with an available-clone positive control (Q67).
 SUB-01 covers announce, Hebrew converse and missing-profile substitutions on
