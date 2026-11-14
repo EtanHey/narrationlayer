@@ -30,7 +30,7 @@ function plainProjection(text: string): StructuredSpeech {
       display: { ...block.source }, speech: { ...block.source } })) };
 }
 
-interface LocatedUnit extends SynthesisSourceUnit { speech_start: number; wordless_bold?: boolean }
+interface LocatedUnit extends SynthesisSourceUnit { speech_start: number }
 
 function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
   const units: LocatedUnit[] = [];
@@ -73,10 +73,14 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
         // Whitespace boundaries preserve words; unspaced CJK stays one possibly over-cap unit.
         const starts = [...segmenter.segment(flat)].map(sentence => sentence.index)
           .filter(at => at === 0 || /\s/u.test(flat[at - 1]));
+        // VL merges wordless text before sentence sizing (:255-273). Leading
+        // punctuation belongs to this prose run, not a preceding heading.
+        const firstWord = starts.findIndex((at, index) => WORD.test(text.slice(at, starts[index + 1] ?? text.length)));
+        if (firstWord > 0) starts.splice(1, firstWord);
         starts.forEach((at, index) => {
           const slice = text.slice(at, starts[index + 1] ?? text.length);
           if (slice.trim()) units.push({ kind: "sentence", text: slice, speech_start: start + at,
-            pause_after_ms: TERMINAL.test(slice.trim()) ? 550 : 0 });
+            pause_after_ms: 0 });
         });
       };
       let cursor = speech_start, mappingIndex = rangeIndex, structuralLine = true;
@@ -99,11 +103,6 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
         const start = speechAt(block.source.start + line.index), stop = speechAt(block.source.start + line.index + lineText.length);
         const heading = projection.speechText.slice(start, stop);
         prose(cursor, start);
-        if (!WORD.test(heading)) {
-          // A carrier, not a heading request: merge its text and authored pause (:240,261-273).
-          units.push({ kind: "sentence", text: heading, speech_start: start, pause_after_ms: 800, wordless_bold: true });
-          cursor = stop; continue;
-        }
         pause(600);
         if (heading.trim()) units.push({ kind: "heading", text: heading, speech_start: start, pause_after_ms: 800 });
         cursor = stop;
@@ -115,12 +114,12 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
       if (/:\s*$/.test(raw) && projection.blocks[next]?.kind === "list-item") pause(600);
     }
   }
-  // VL prosody.ts:261-273: a wordless heading joins the previous unit (max pause),
+  // VL prosody.ts:261-273: every wordless unit joins the previous unit (max pause),
   // or carries its leading text into the next unit. Keep source speech coordinates.
   const merged: LocatedUnit[] = [];
   let leading: number | undefined;
   for (const unit of units) {
-    if ((unit.kind === "heading" || unit.wordless_bold) && !WORD.test(unit.text)) {
+    if (!WORD.test(unit.text)) {
       const previous = merged.at(-1);
       if (previous) {
         previous.text = projection.speechText.slice(previous.speech_start, unit.speech_start + unit.text.length);
@@ -136,6 +135,11 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
   }
   // Entirely wordless input has no neighbour; preserve VL's prose fallback (:271).
   if (leading !== undefined) merged.push({ kind: "sentence", text: projection.speechText.slice(leading), speech_start: leading, pause_after_ms: 0 });
+  // VL :391-392 adds terminal pauses after wordless merging. A sentence that
+  // absorbed punctuation may no longer end in a terminal mark.
+  for (const unit of merged) {
+    if (unit.kind === "sentence" && TERMINAL.test(unit.text.trim())) unit.pause_after_ms = Math.max(unit.pause_after_ms, 550);
+  }
   if (merged.length) merged[merged.length - 1].pause_after_ms = 0; // VL :398
   return merged;
 }

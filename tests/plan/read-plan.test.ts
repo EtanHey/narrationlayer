@@ -198,7 +198,14 @@ test("pause parity: VoiceLayer reference boundaries on invented documents", () =
   expect(pauseFixtures.length).toBeGreaterThanOrEqual(40);
   for (const fixture of pauseFixtures) {
     const result = read(fixture.text, 100000, fixture.format === "plain" ? "plain" : "markdown");
-    expect(result.plan.pieces.map(piece => piece.segments[0].pause_after_ms)).toEqual(fixture.pauses);
+    if ("word_pauses" in fixture && fixture.word_pauses) {
+      // The oracle may include extra zero-pause budget cuts. Compare their union.
+      const expected = new Map(fixture.word_pauses.map(([at, pause]) => [at, pause]));
+      // Category 4: the contract keeps sentence units where VL packs prose.
+      if ("contract_sentence_ends" in fixture) for (const at of fixture.contract_sentence_ends ?? []) expected.set(at, 550);
+      const actual = new Map(result.plan.pieces.map(piece => [piece.word_end, piece.segments[0].pause_after_ms]));
+      for (const at of new Set([...expected.keys(), ...actual.keys()])) expect(actual.get(at) ?? 0).toBe(expected.get(at) ?? 0);
+    } else expect(result.plan.pieces.map(piece => piece.segments[0].pause_after_ms)).toEqual(fixture.pauses);
     expect(result.requests.every(request => /[\p{L}\p{N}]/u.test(request.text))).toBe(true);
     partition(result);
   }
@@ -215,4 +222,46 @@ test("wordless heading-only text uses the neighbourless prose fallback", () => {
   expect(result.requests.map(request => request.text)).toEqual([":"]);
   expect(result.plan.pieces[0].segments[0].kind).toBe("sentence");
   partition(result);
+});
+
+const wordlessShapes = {
+'bold-after-blank':'Pears fall.\n\n**Grove**\nTail.', 'bold-after-prose-line':'Pears fall\n**Grove**\nTail.',
+'bold-ending-colon':'**Grove:**\nTail.', 'bold-ending-q-bang':'**Grove!**\nTail.', 'bold-hebrew-cjk':'**森林**\nעלה.',
+'bold-in-item':'- **Grove**\nTail.', 'bold-in-quote':'> **Grove**\nTail.', 'bold-in-table':'| **Grove** | Leaf |\n| --- | --- |\n| Pear | Green |',
+'bold-indented':'  **Grove**\nTail.', 'bold-indented-continuation':'**Grove**\n\t**Branch**\nTail.',
+'bold-initial':'**Grove**\nTail.', 'bold-then-list':'**Grove**\n- Leaf\n- Fruit', 'bold-trailing-text':'**Grove** rises\nTail.',
+'bold-two-in-row':'**Grove**\n**Branch**\nTail.', 'bold-word-sentence':'**Grove.**', 'bold-wordless':'**—**\nPears fall.',
+'colon-code':'Gather:\n```\nleaf\n```\nTail.', 'colon-list-blank':'Gather:\n\n- Leaf\nTail.', 'colon-list-direct':'Gather:\n- Leaf\nTail.',
+'colon-nested-list':'Gather:\n- Leaf\n  - Fruit\nTail.', 'colon-ordered':'Gather:\n1. Leaf\n2. Fruit\nTail.',
+'colon-paragraph':'Gather:\n\nPears fall. Tail.', 'heading-ending':'# Grove!\nTail.', 'heading-hebrew-cjk':'# עץ\n月亮升起。',
+'heading-last':'Pears fall.\n# Grove', 'heading-punct-only':'# ?!\nTail.', 'italic-line':'*Grove*\nTail.',
+'paragraph-multi':'Pears fall. Leaves rise. Tail.', 'setext-ending':'Grove\n=====\nTail.', 'underscore-initial':'__Grove__\nTail.',
+'unterm-at-end':'Pears fall.\nTail', 'unterm-before-blank':'Pears fall\n\nTail.', 'unterm-before-heading':'Pears fall\n# Grove\nTail.',
+'unterm-before-list':'Pears fall\n- Leaf\nTail.', 'unterm-midpara':'Pears fall\nLeaves rise. Tail.',
+'first':'**·**\nTail.', 'last':'Pears fall.\n**·**', 'between-headings':'# Grove\n**·**\n## Branch\nTail.',
+'between-items':'- Leaf\n- -\n- Fruit', 'after-blank':'Pears fall.\n\n**·**\nTail.',
+'before-table':'**·**\n| Leaf | Fruit |\n| --- | --- |\n| Pear | Green |', 'before-code':'**·**\n```\nleaf\n```',
+'two-in-row':'Pears fall.\n**·**\n## ?!\nTail.', 'three-in-row':'Pears fall.\n**·**\n## ?!\n**—**\nTail.',
+'leading-chain':'**·**\n## ?!\nTail.', 'trailing-chain':'Pears fall.\n**·**\n## ?!', 'only-content':'**·**\n## ?!',
+'wordless-indented':'  **·**\n\t**Grove**\nTail.', 'hebrew-cjk-neighbours':'# עץ\n**·**\n月亮升起。',
+'after-colon':'Gather:\n**·**\n- Leaf', 'after-prose':'Pears fall\n**·**\nTail.',
+'after-bold':'**Grove**\n!!\nTail.', 'after-blank-bold':'Pears fall.\n\n**Grove**\n—\n\nTail.',
+'rule':'Pears fall.\n\n---\n\nTail.', 'table':'| Leaf | Fruit |\n| --- | --- |\n| Pear | Green |',
+'backtick':'Pears fall.\n`\nTail.', 'wordless-item':'Pears fall.\n- -\nTail.', 'after-terminal':'Pears fall.\n!!',
+};
+
+test("no engine request without a word: seeded prose, headings, lists, rules and tables", () => {
+  let seed = 6503, failures = 0, documents = 0;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed; };
+  for (const base of Object.values(wordlessShapes)) for (let i = 0; i < 60; i++) {
+    const text = base.replaceAll("!!", ["`", "***", "—", "…", "!!", "?!", "·", "- -"][i % 8]).replaceAll("Grove", ["Grove", "עץ", "森林"][random() % 3])
+      .replaceAll("**·**", ["**·**", "**—**", "**!!**", "**…**"][random() % 4]);
+    const result = read(text, [8, 14, 40, 100000][i % 4], i % 2 ? "plain" : "markdown");
+    if (/[\p{L}\p{N}]/u.test(result.plan.display_document.text)) {
+      documents++;
+      failures += result.requests.filter(request => !/[\p{L}\p{N}]/u.test(request.text)).length;
+    }
+  }
+  expect(documents).toBeGreaterThanOrEqual(3000);
+  expect(failures).toBe(0);
 });

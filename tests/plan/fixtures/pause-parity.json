@@ -1008,5 +1008,304 @@
       800,
       0
     ]
+  },
+  {
+    "shape": "wordless-prose-after-heading",
+    "text": "**Oak**\n…",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        2,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-prose-after-heading",
+    "text": "**Oak**\n…",
+    "format": "plain",
+    "word_pauses": [
+      [
+        2,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-prose-before-paragraph",
+    "text": "**Grove**\n—\n\nTail.",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        2,
+        1000
+      ],
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-prose-before-paragraph",
+    "text": "**Grove**\n—\n\nTail.",
+    "format": "plain",
+    "word_pauses": [
+      [
+        2,
+        1000
+      ],
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "leading-prose-punctuation",
+    "text": "__Grove__\n!!\nTail.",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        1,
+        800
+      ],
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "leading-prose-punctuation",
+    "text": "__Grove__\n!!\nTail.",
+    "format": "plain",
+    "word_pauses": [
+      [
+        1,
+        800
+      ],
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-chain-after-prose",
+    "text": "Pears fall.\n**·**\n\n## ?!\nTail.",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        4,
+        1000
+      ],
+      [
+        5,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-chain-after-prose",
+    "text": "Pears fall.\n**·**\n\n## ?!\nTail.",
+    "format": "plain",
+    "word_pauses": [
+      [
+        5,
+        1000
+      ],
+      [
+        6,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "plain-rule",
+    "text": "Pears fall.\n\n---\n\nTail.",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        2,
+        1000
+      ],
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "plain-rule",
+    "text": "Pears fall.\n\n---\n\nTail.",
+    "format": "plain",
+    "word_pauses": [
+      [
+        3,
+        1000
+      ],
+      [
+        4,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "plain-table-separator",
+    "text": "| Fruit | Color |\n| --- | --- |\n| Pear | Green |",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        4,
+        0
+      ]
+    ],
+    "contract_sentence_ends": [
+      2
+    ]
+  },
+  {
+    "shape": "plain-table-separator",
+    "text": "| Fruit | Color |\n| --- | --- |\n| Pear | Green |",
+    "format": "plain",
+    "word_pauses": [
+      [
+        15,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "isolated-backtick",
+    "text": "Pears fall.\n`\nTail.",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        4,
+        0
+      ]
+    ],
+    "contract_sentence_ends": [
+      2
+    ]
+  },
+  {
+    "shape": "isolated-backtick",
+    "text": "Pears fall.\n`\nTail.",
+    "format": "plain",
+    "word_pauses": [
+      [
+        4,
+        0
+      ]
+    ],
+    "contract_sentence_ends": [
+      2
+    ]
+  },
+  {
+    "shape": "wordless-list-item",
+    "text": "Pears fall.\n- -\nTail.",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        3,
+        550
+      ],
+      [
+        4,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-list-item",
+    "text": "Pears fall.\n- -\nTail.",
+    "format": "plain",
+    "word_pauses": [
+      [
+        4,
+        450
+      ],
+      [
+        5,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-after-terminal",
+    "text": "Pears fall.\n!!",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-after-terminal",
+    "text": "Pears fall.\n!!",
+    "format": "plain",
+    "word_pauses": [
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "leading-wordless-chain",
+    "text": "**·**\n## ?!\nTail.",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "leading-wordless-chain",
+    "text": "**·**\n## ?!\nTail.",
+    "format": "plain",
+    "word_pauses": [
+      [
+        4,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-hebrew-cjk",
+    "text": "# עץ\n**·**\n月亮升起。",
+    "format": "markdown",
+    "word_pauses": [
+      [
+        2,
+        900
+      ],
+      [
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "shape": "wordless-hebrew-cjk",
+    "text": "# עץ\n**·**\n月亮升起。",
+    "format": "plain",
+    "word_pauses": [
+      [
+        3,
+        900
+      ],
+      [
+        4,
+        0
+      ]
+    ]
   }
 ]
