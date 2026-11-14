@@ -267,7 +267,7 @@ export const engineCases: Record<string, Case> = {
       await until(c, () => calls === 1 && seen.some(e => e.type === "accepted"));
       const prior = seen.find(e => e.type === "accepted"); if (prior?.type !== "accepted") throw Error("missing prior");
       connection.send({ ...read("bind-waiter"), start: { after_session: prior.session_id } });
-      for (let i = 0; i <= bound; i++) await c.clock.advance(1);
+      for (let i = 0; i <= 2 * bound; i++) await c.clock.advance(1);
       await until(c, () => seen.filter(e => e.type === "outcome").length === 2);
       const waiter = seen.find(e => e.type === "accepted" && e.request_id === "bind-waiter");
       const outcomes = seen.filter(e => e.type === "outcome").filter(e => waiter?.type === "accepted" && e.session_id === waiter.session_id);

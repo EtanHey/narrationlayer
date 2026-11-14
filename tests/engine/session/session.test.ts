@@ -596,6 +596,10 @@ test("synthesis timeout: waiting read is bounded behind an abort-ignoring predec
   await turn(); await h.clock.advance(9999); await turn();
   expect(h.events().filter(e => e.type === "outcome")).toHaveLength(0);
   await h.clock.advance(1); await turn();
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
+  await h.clock.advance(9999); await turn();
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
+  await h.clock.advance(1); await turn();
   const outcomes = h.events().filter(e => e.type === "outcome");
   expect(calls).toBe(1); expect(outcomes).toHaveLength(2);
   expect(outcomes.find(e => e.session_id === "session-1-2")).toMatchObject({ generation: { status: "failed", reason: "synth_timeout" }, playback: { reason: "synth_failed" } });
@@ -629,4 +633,34 @@ test("synthesis timeout: abort cancels the timer and timeout abort is deferred",
     if (stop) { h.stop(); await turn(); await h.clock.advance(1); expect(pending.size).toBe(0); }
     else { await h.clock.advance(10000); await turn(); expect(abortInsideCallback).toBe(false); expect(pending.size).toBe(0); }
   }
+});
+
+// Corrected ruling 92(c): normal generation and playback pacing do not bound a queued read.
+test("synthesis timeout: ten healthy 900 ms calls do not expire a queued read", async () => {
+  const source: SynthesisSourceUnit[] = Array.from({ length: 10 }, (_, i) => ({ kind: "heading", text: `Invented lantern chapter ${i}`, pause_after_ms: 0 }));
+  const h = harness(1, source, 10, 2000);
+  h.backend.script(Array.from({ length: 20 }, () => ({ latency_ms: 900, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(10) } })));
+  h.session.send(request); await turn();
+  h.session.send({ ...request, request_id: "healthy-waiter", idempotency_key: "healthy-key", start: { after_session: "session-1-1" } });
+  for (let i = 0; i < 10; i++) {
+    await h.clock.advance(900); await turn(); await turn();
+    expect(h.events().filter(e => e.type === "outcome" && e.session_id === "session-1-2")).toHaveLength(0);
+    expect(h.events().some(e => e.type === "error")).toBe(false);
+  }
+  expect(h.events().filter(e => e.type === "piece_ready" && e.session_id === "session-1-1")).toHaveLength(10);
+  expect(h.backend.calls).toHaveLength(11);
+  await h.clock.advance(900); await turn(); await turn();
+  expect(h.events().filter(e => e.type === "piece_ready" && e.session_id === "session-1-2")).toHaveLength(1);
+});
+test("synthesis timeout: a queued read waits through the predecessor lookahead limit", async () => {
+  const h = pacing(2); h.session.send(request); await h.tick();
+  expect(h.indices()).toEqual([0, 1, 2]);
+  h.session.send(queued); await h.tick();
+  await h.clock.advance(30000); await turn();
+  expect(h.indices("session-1-2")).toEqual([]);
+  expect(h.events().filter(e => e.type === "outcome" && e.session_id === "session-1-2")).toHaveLength(0);
+  expect(h.events().some(e => e.type === "error")).toBe(false);
+  for (let i = 0; i < 5; i++) { h.feedback("spawned", i); h.feedback("first_sample", i); h.feedback("exited", i); await h.tick(); }
+  expect(h.indices("session-1-2")).toEqual([0]);
+  expect(h.events().some(e => e.type === "error")).toBe(false); h.replay();
 });

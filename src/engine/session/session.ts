@@ -121,9 +121,10 @@ export function createEngineSession<Audio>(options: {
     }
     const start = session.request.start;
     // The pure rule releases logical generation; this handle gates physical settlement.
-    if (start && typeof start === "object" && aborts.has(start.after_session)) { boundWaiting(session); return; }
-    if (session.delivered.length === 0 && start && typeof start === "object"
-      && (!state.sessions[start.after_session] || state.sessions[start.after_session].generation === "running")) { boundWaiting(session); return; }
+    if (start && typeof start === "object" && aborts.has(start.after_session)) {
+      if (state.sessions[start.after_session]?.generation !== "running") boundWaiting(session);
+      return;
+    }
     if (session.delivered.length !== session.plan.pieces.length
       && nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) return;
     clearWaiting(id);
