@@ -110,7 +110,8 @@
               "maxLength": 128
             },
             "idempotency_key": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             },
             "use": {
               "enum": [
@@ -197,7 +198,8 @@
                   "type": "object",
                   "properties": {
                     "after_session": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -208,7 +210,8 @@
               ]
             },
             "lookahead": {
-              "type": "integer"
+              "type": "integer",
+              "minimum": 1
             },
             "selection_identity": {
               "type": "string"
@@ -293,10 +296,12 @@
               "type": "object",
               "properties": {
                 "command_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "session_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "op": {
                   "enum": [
@@ -326,7 +331,8 @@
                   "type": "integer"
                 },
                 "player_instance_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
@@ -341,10 +347,12 @@
               "type": "object",
               "properties": {
                 "command_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "session_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "op": {
                   "enum": [
@@ -371,7 +379,8 @@
                   "type": "integer"
                 },
                 "player_instance_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
@@ -386,10 +395,12 @@
               "type": "object",
               "properties": {
                 "command_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "session_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "op": {
                   "enum": [
@@ -428,7 +439,8 @@
                   "type": "integer"
                 },
                 "player_instance_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
@@ -443,10 +455,12 @@
               "type": "object",
               "properties": {
                 "command_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "session_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "op": {
                   "enum": [
@@ -476,7 +490,8 @@
                     "except_sessions": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                       }
                     },
                     "retain_read_queue": {
@@ -493,7 +508,8 @@
                   "type": "integer"
                 },
                 "player_instance_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
@@ -508,10 +524,12 @@
               "type": "object",
               "properties": {
                 "command_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "session_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "op": {
                   "enum": [
@@ -522,7 +540,8 @@
                   "type": "object",
                   "properties": {
                     "of_session_id": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "from": {
                       "enum": [
@@ -544,7 +563,8 @@
                   "type": "integer"
                 },
                 "player_instance_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
@@ -559,10 +579,12 @@
               "type": "object",
               "properties": {
                 "command_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "session_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "op": {
                   "enum": [
@@ -573,7 +595,9 @@
                   "type": "object",
                   "properties": {
                     "request_id": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 128
                     }
                   },
                   "required": [
@@ -585,7 +609,8 @@
                   "type": "integer"
                 },
                 "player_instance_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
@@ -600,10 +625,12 @@
               "type": "object",
               "properties": {
                 "command_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "session_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "op": {
                   "enum": [
@@ -614,7 +641,9 @@
                   "type": "object",
                   "properties": {
                     "request_id": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 128
                     }
                   },
                   "required": [
@@ -626,7 +655,8 @@
                   "type": "integer"
                 },
                 "player_instance_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
@@ -641,10 +671,12 @@
               "type": "object",
               "properties": {
                 "command_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "session_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "op": {
                   "enum": [
@@ -661,7 +693,8 @@
                   "type": "integer"
                 },
                 "player_instance_id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [
@@ -690,7 +723,8 @@
           ]
         },
         "command_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "speed": {
           "enum": [
@@ -724,13 +758,15 @@
           ]
         },
         "session_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "control_epoch": {
           "type": "integer"
         },
         "player_instance_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "piece_index": {
           "type": "integer"
@@ -809,7 +845,8 @@
           "type": "integer"
         },
         "session_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "scope": {
           "type": "string"
@@ -839,7 +876,8 @@
           ]
         },
         "session_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "reason": {
           "enum": [
@@ -908,7 +946,8 @@
           "type": "string"
         },
         "session_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [

@@ -33,7 +33,7 @@ test("NEG-01/02/03 pure negotiation and explicit session gate", () => {
   if (!welcome.ok || welcome.value?.type !== "welcome") throw Error("fixture");
   expect(negotiate(fixture("hello"), welcome.value)).toEqual({ ok: true, value: welcome.value });
   expect(negotiate({ ...fixture("hello"), protocol: "nl.engine/2" }, welcome.value)).toMatchObject({ ok: false, error: { code: "UNSUPPORTED_VERSION" } });
-  expect(negotiate({ ...fixture("hello"), required_caps: ["absent"] }, welcome.value)).toMatchObject({ ok: false, error: { code: "MISSING_CAPABILITY", path: "$.required_caps[absent]" } });
+  expect(negotiate({ ...fixture("hello"), required_caps: ["absent"] }, welcome.value)).toMatchObject({ ok: false, error: { code: "MISSING_CAPABILITY", path: "$.required_caps", details: { missing_caps: [], unknown_cap_indices: [0] } } });
   expect(negotiate(fixture("narrate"), welcome.value)).toMatchObject({ ok: false, error: { code: "NOT_NEGOTIATED" } });
   expect(requireNegotiated(false)).toMatchObject({ ok: false, error: { code: "NOT_NEGOTIATED" } }); expect(requireNegotiated(true)).toEqual({ ok: true, value: true });
 });

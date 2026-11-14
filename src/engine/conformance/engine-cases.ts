@@ -1,3 +1,4 @@
+import { negotiationCases } from "./negotiation-cases";
 import type { Case, CaseContext } from "./runner";
 import type { BackendStep, Json } from "./binding";
 import { pcmAudio, ScriptedBackend } from "./fake-backend";
@@ -107,6 +108,7 @@ function textFree(c: CaseContext, text: string) {
   for (let i = 0; i <= text.length - 8; i++) c.assert(!raw.includes(text.slice(i, i + 8)));
 }
 export const engineCases: Record<string, Case> = {
+  ...negotiationCases,
   "GEN-02": async c => {
     const t = setup(c, [...steps(100), ...steps(100)]);
     for (const request_id of ["request-gen-1", "request-gen-2"]) {

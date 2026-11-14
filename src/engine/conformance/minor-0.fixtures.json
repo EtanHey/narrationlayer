@@ -1,0 +1,132 @@
+[
+  {
+    "minor": 0,
+    "wire": {
+      "protocol": "nl.engine/1",
+      "type": "hello",
+      "client": {
+        "name": "synthetic",
+        "version": "0.1"
+      },
+      "binding": "in-process",
+      "stage": "A",
+      "required_caps": [
+        "lifecycle"
+      ]
+    },
+    "expected": {
+      "protocol": "nl.engine/1",
+      "type": "hello",
+      "client": {
+        "name": "synthetic",
+        "version": "0.1"
+      },
+      "binding": "in-process",
+      "stage": "A",
+      "required_caps": [
+        "lifecycle"
+      ]
+    }
+  },
+  {
+    "minor": 0,
+    "wire": {
+      "protocol": "nl.engine/1",
+      "type": "narrate",
+      "request_id": "req-1",
+      "idempotency_key": "send-1",
+      "use": "read",
+      "input": {
+        "text": "Synthetic sentence.",
+        "format": "plain"
+      },
+      "voice": {
+        "profile": "synthetic",
+        "require_clone": false,
+        "fallback": "none"
+      },
+      "delivery": "pieces",
+      "start": {
+        "after_session": "prior-1"
+      }
+    },
+    "expected": {
+      "protocol": "nl.engine/1",
+      "type": "narrate",
+      "request_id": "req-1",
+      "idempotency_key": "send-1",
+      "use": "read",
+      "input": {
+        "text": "Synthetic sentence.",
+        "format": "plain"
+      },
+      "voice": {
+        "profile": "synthetic",
+        "require_clone": false,
+        "fallback": "none"
+      },
+      "delivery": "pieces",
+      "start": {
+        "after_session": "prior-1"
+      }
+    }
+  },
+  {
+    "minor": 0,
+    "wire": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "stop",
+      "args": {
+        "scope": "session",
+        "reason": "stop"
+      }
+    },
+    "expected": {
+      "protocol": "nl.engine/1",
+      "type": "control",
+      "command_id": "cmd-1",
+      "session_id": "session-1",
+      "op": "stop",
+      "args": {
+        "scope": "session",
+        "reason": "stop"
+      }
+    }
+  },
+  {
+    "minor": 0,
+    "wire": {
+      "protocol": "nl.engine/1",
+      "type": "player_feedback",
+      "session_id": "session-1",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "piece_index": 0,
+      "edge": "first_sample",
+      "t_mono_ms": 10,
+      "exit": {
+        "status": "completed",
+        "stopped_at_ms": 100,
+        "code": 0
+      }
+    },
+    "expected": {
+      "protocol": "nl.engine/1",
+      "type": "player_feedback",
+      "session_id": "session-1",
+      "control_epoch": 1,
+      "player_instance_id": "player-1",
+      "piece_index": 0,
+      "edge": "first_sample",
+      "t_mono_ms": 10,
+      "exit": {
+        "status": "completed",
+        "stopped_at_ms": 100,
+        "code": 0
+      }
+    }
+  }
+]

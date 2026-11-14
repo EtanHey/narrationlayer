@@ -31,7 +31,7 @@ for (let i = 0; i < ids.length; i += 4) {
     if (errors.length) throw new Error(errors.join("\n"));
   });
 }
-test("optional negotiation emits one unnumbered welcome; malformed and repeated hello are refused", async () => {
+test("unconditional negotiation emits one unnumbered welcome; malformed and repeated hello are refused", async () => {
   const clock = new FakeClock(), c = engine.create({ clock, store: new Map(), hash_key: new Uint8Array(32), audible: false });
   const stream = c.events[Symbol.asyncIterator]();
   c.send({ protocol: "nl.engine/1", type: "control", op: "resync", args: {}, command_id: "command", session_id: "session" });
@@ -53,14 +53,17 @@ test("before negotiation garbage is NOT_NEGOTIATED; malformed hello retains pars
   for (const [protocol, code] of [["nl.engine/1", "INVALID_REQUEST"], ["nl.engine/2", "UNSUPPORTED_VERSION"]]) {
     c.send({ type: "hello", protocol }); expect((await stream.next()).value).toMatchObject({ type: "error", code });
   }
+  expect((await stream.next()).done).toBe(true);
+  c.send(hello); expect((await stream.next()).done).toBe(true);
   await c.shutdown(0);
 });
 
-test("without welcome the existing session keeps parser refusals before hello", async () => {
-  const c = createEngineSession({ owner_epoch: 1, clock: new FakeClock(), limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 2, aligner_reap_ms: 50 },
+test("after negotiation the session keeps parser refusals for malformed requests", async () => {
+  const c = createEngineSession({ welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, clock: new FakeClock(), limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 2, aligner_reap_ms: 50 },
     planner: { plan() { throw new Error("unused"); } }, backend: { async synthesizeRequest() { throw new Error("unused"); } },
     publication: { async piece() { throw new Error("unused"); }, async commit() {} } });
   const stream = c.events[Symbol.asyncIterator]();
+  c.send(hello); expect((await stream.next()).value).toMatchObject({ type: "welcome" });
   for (const message of [null, {}, { type: "narrate" }, { type: "hello", protocol: "nl.engine/1" }]) {
     c.send(message); expect((await stream.next()).value).toMatchObject({ type: "error", code: "INVALID_REQUEST" });
   }
@@ -116,3 +119,27 @@ test("a successful read checks backend text even when plan and pieces report who
   } };
   expect((await runCase("GEN-02", wrong, engineCases["GEN-02"])).result).toBe("fail");
 });
+for (const [id, code] of [["NEG-01", "UNSUPPORTED_VERSION"], ["NEG-02", "MISSING_CAPABILITY"], ["NEG-03", "NOT_NEGOTIATED"], ["LIM-01", "INPUT_TOO_LONG"], ["VER-02e", "INVALID_REQUEST"], ["VER-01", "welcome"]]) {
+  test(`${id}: the broken engine matches its committed fail-set`, () => proof(id));
+  for (const wrong of ["omit", "duplicate", "wrong-phase", "missing-details"]) {
+    if (wrong === "missing-details" && id !== "NEG-02") continue;
+    test(`${id}: own wrong engine ${wrong} is caught`, async () => {
+      const binding = { name: `own-${id}-${wrong}`, create: (host: Parameters<typeof engine.create>[0]) => {
+        const c = engine.create(host);
+        return { ...c, events: (async function* () { for await (const e of c.events) {
+          if (code === "welcome" && e.type === "welcome") {
+            if (wrong === "omit") continue;
+            if (wrong === "duplicate") { yield e; yield e; continue; }
+            yield { ...e, protocol_minor: -1 }; continue;
+          }
+          if (e.type !== "error" || e.code !== code) { yield e; continue; }
+          if (wrong === "omit") continue;
+          if (wrong === "wrong-phase") { yield { ...e, phase: e.phase === "admit" ? "negotiate" : "admit" }; continue; }
+          if (wrong === "missing-details") { yield { ...e, details: {} }; continue; }
+          yield e; yield e;
+        } })() };
+      } };
+      expect((await runCase(id, binding, engineCases[id])).result).toBe("fail");
+    });
+  }
+}

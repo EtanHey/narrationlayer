@@ -29,7 +29,7 @@ test("report schema and complete denominator pinned; reversed order identical", 
   // The supported entry owns the green snapshot; direct imports fail closed.
   expect(canonical(await runConformance(binding, { reverse: true }))).toBe(canonical(report));
   expect(report.rows.filter(r => r.result === "pass").map(r => r.id)).toEqual(["CONF-02"]);
-  expect(report.inactive_engine).toBe(42);
+  expect(report.inactive_engine).toBe(36);
 });
 test("missing case, early stream end and zero assertions are red", async () => {
   expect((await runCase("probe", binding)).result).toBe("fail");

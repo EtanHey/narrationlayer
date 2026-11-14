@@ -1,7 +1,7 @@
 import type { ArtifactPort, PublicationContext, PublishedPiece } from "../publication/publication";
 import { nextSynthesisIndex } from "../reducer/pacing";
 import { initialState, reduce, type Input } from "../reducer/session";
-import { parseEvent, parseRequest } from "../messages/parser";
+import { negotiate, parseEvent, parseRequest } from "../messages/parser";
 import type { Event, Limits, Message } from "../messages/messages";
 type Identity = Pick<Message<"accepted">, "owner_epoch" | "session_id" | "attempt_id">;
 type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
@@ -30,7 +30,7 @@ export type Publication<Audio> = {
  * outgoing queue (transport), including its closed flag and pending iterator readers. */
 export function createEngineSession<Audio>(options: {
   owner_epoch: number;
-  welcome?: Pick<Message<"welcome">, "package_version" | "protocol_minor" | "caps" | "engines">;
+  welcome: Pick<Message<"welcome">, "package_version" | "protocol_minor" | "caps" | "engines">;
   limits: Limits;
   planner: ReadPlanner;
   clock: Clock;
@@ -42,7 +42,7 @@ export function createEngineSession<Audio>(options: {
   const requests = new Map<string, readonly { piece_index: number; text: string }[]>();
   const aborts = new Map<string, AbortController>();
   const queue: Event[] = [], readers: ((result: IteratorResult<Event>) => void)[] = [];
-  let closed = false, negotiated = !options.welcome;
+  let closed = false, negotiated = false;
   const events: AsyncIterable<Event> = { [Symbol.asyncIterator]() { return { next(): Promise<IteratorResult<Event>> {
     const value = queue.shift();
     if (value) return Promise.resolve({ done: false, value });
@@ -54,14 +54,14 @@ export function createEngineSession<Audio>(options: {
     if (reader) reader({ done: false, value: copy }); else queue.push(copy);
     options.observe?.event?.(structuredClone(event), replay);
   }
-  function step(input: Input<"host">) {
+  function step(input: Input<"host">, details?: Message<"error">["details"]) {
     options.observe?.input?.(structuredClone(input));
     const id = "identity" in input ? input.identity.session_id : "session_id" in input ? input.session_id : input.kind === "control" ? input.command.session_id : undefined;
     const wasRunning = id !== undefined && state.sessions[id]?.generation === "running";
     const result = reduce(state, input);
     state = result.state;
     for (const effect of result.effects) {
-      if (effect.kind === "emit" || effect.kind === "replay") emit(effect.event, effect.kind === "replay");
+      if (effect.kind === "emit" || effect.kind === "replay") emit(effect.event.type === "error" && details ? { ...effect.event, details } : effect.event, effect.kind === "replay");
       else if (effect.kind === "plan") plan(effect.request);
       else if (effect.kind === "backend") {
         if (effect.op === "cancel") aborts.get(effect.identity.session_id)?.abort();
@@ -183,9 +183,18 @@ export function createEngineSession<Audio>(options: {
     events,
     send(message: unknown): void {
       if (closed) return;
-      if (!negotiated && !(message !== null && typeof message === "object" && "type" in message && message.type === "hello")) {
-        const request_id = message !== null && typeof message === "object" && "type" in message && message.type === "narrate" && "request_id" in message && typeof message.request_id === "string" && message.request_id.length >= 3 && message.request_id.length <= 128 ? message.request_id : undefined;
-        refuse("NOT_NEGOTIATED", request_id); return;
+      if (!negotiated) {
+        const result = negotiate(message, { ...structuredClone(options.welcome), protocol: "nl.engine/1", type: "welcome", owner_epoch: options.owner_epoch, limits: structuredClone(options.limits) });
+        if (result.ok) { negotiated = true; emit(result.value, false); }
+        else {
+          const request_id = message !== null && typeof message === "object" && "type" in message && message.type === "narrate" && "request_id" in message && typeof message.request_id === "string" && message.request_id.length >= 3 && message.request_id.length <= 128 ? message.request_id : undefined;
+          step({ kind: "refuse", code: result.error.code, message: result.error.code, ...(request_id ? { request_id } : {}) }, result.error.details);
+          if (result.error.code === "UNSUPPORTED_VERSION" || result.error.code === "MISSING_CAPABILITY") {
+            closed = true;
+            for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
+          }
+        }
+        return;
       }
       const parsed = parseRequest(message, options.limits);
       if (!parsed.ok) {
@@ -193,12 +202,6 @@ export function createEngineSession<Audio>(options: {
         refuse(parsed.error.code, request_id); return;
       }
       const value = parsed.value;
-      if (options.welcome && value.type === "hello") {
-        if (negotiated) { refuse("INVALID_REQUEST"); return; }
-        emit({ ...structuredClone(options.welcome), protocol: "nl.engine/1", type: "welcome", owner_epoch: options.owner_epoch, limits: structuredClone(options.limits) }, false);
-        negotiated = true; return;
-      }
-      if (!negotiated) { refuse("NOT_NEGOTIATED", value.type === "narrate" ? value.request_id : undefined); return; }
       if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
       else if (value.type === "control" && value.op === "stop") {
         const current = state.sessions[value.session_id]?.current;

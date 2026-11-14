@@ -146,7 +146,7 @@ uses invented in-memory PCM and an in-memory artifact port, a fixed synthetic
 Edge engine choice, and package version `0.0.0-conformance`. An absent ports
 object gets an empty scripted backend, sufficient for the hello-only probe.
 The probe now sends a schema-valid hello (client, binding and stage; no version
-object). Null and harness-only bindings fail all twelve engine cases, so their
+object). Null and harness-only bindings fail all eighteen engine cases, so their
 entry exit is 1; their CONF verdicts retain their original meaning.
 
 ORDER-01 covers stage-A natural completion via host feedback and the terminal
@@ -155,7 +155,7 @@ selection, durable artifacts and live leases remain owed to S7. TIME-02 covers
 piece and word times and any duration/audio_ready events present; S4b supplies
 those additional events. Stage-A player feedback is synthetic; no player runs.
 Lifecycle is advertised with LIFE-01e active. Required-capability/version negotiation and
-an unconditional session gate remain S1b work. The optional gate refuses a
+the unconditional session gate are covered by S1b. The gate refuses a
 second valid hello as INVALID_REQUEST; malformed hello keeps parser refusals.
 
 Before welcome, every non-hello input (including malformed values) receives
@@ -218,3 +218,14 @@ and cancelled fixtures require their delivered prefix plus exactly one attempted
 call without a piece; delivered text must still match. Each session ends at its
 outcome. One unit per request and one request per piece describe this binding
 today; the contract permits grouping, which remains a later design decision.
+
+S1b makes hello mandatory and routes it through the messages module's negotiate.
+UNSUPPORTED_VERSION and MISSING_CAPABILITY end the binding; NOT_NEGOTIATED permits
+recovery. Six cases add fatal negotiation, required capabilities, pre-welcome
+refusals, minor-0 fixture meanings, unknown fields and advertised character limits.
+Lookahead is a default, overridden by any positive integer (question 39); pacing
+belongs to PACE-01. Unknown capability contents are never echoed: diagnostics
+name fixed capabilities and at most eight unknown required_caps array positions.
+The six new broken engines each fail exactly their named case. Broader new checks
+also catch the existing ID-03 engine in VER-02e and ORDER-01 engine in LIM-01,
+NEG-03 and VER-01. With both slices merged, null fails twenty-two of twenty-six active rows.

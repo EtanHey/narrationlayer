@@ -456,7 +456,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S1",
-    "active": false
+    "active": true
   },
   {
     "id": "LOAN-01",
@@ -483,7 +483,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S1",
-    "active": false
+    "active": true
   },
   {
     "id": "NEG-02",
@@ -492,7 +492,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S1",
-    "active": false
+    "active": true
   },
   {
     "id": "NEG-03",
@@ -501,7 +501,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S1",
-    "active": false
+    "active": true
   },
   {
     "id": "ORDER-01",
@@ -1073,7 +1073,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S1",
-    "active": false
+    "active": true
   },
   {
     "id": "VER-02e",
@@ -1082,7 +1082,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S1",
-    "active": false
+    "active": true
   },
   {
     "id": "VER-02h",

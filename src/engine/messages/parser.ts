@@ -1,6 +1,6 @@
 import { events, requests, type Event, type Limits, type Message, type Request } from "./messages";
 import { InvalidField, type Schema } from "./schema";
-export type ParseError = { code: "INVALID_REQUEST" | "UNSUPPORTED_VERSION" | "INPUT_TOO_LONG" | "NOT_NEGOTIATED" | "MISSING_CAPABILITY"; path: string; phase: "admit" | "negotiate"; retry: "never" | "after_resync"; message: string };
+export type ParseError = { code: "INVALID_REQUEST" | "UNSUPPORTED_VERSION" | "INPUT_TOO_LONG" | "NOT_NEGOTIATED" | "MISSING_CAPABILITY"; path: string; phase: "admit" | "negotiate"; retry: "never" | "after_resync"; message: string; details?: Message<"error">["details"] };
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ParseError };
 const fail = (code: ParseError["code"], path: string): Result<never> => ({ ok: false, error: { code, path, phase: ["UNSUPPORTED_VERSION", "NOT_NEGOTIATED", "MISSING_CAPABILITY"].includes(code) ? "negotiate" : "admit", retry: code === "NOT_NEGOTIATED" ? "after_resync" : "never", message: code } });
 function parse<T>(input: unknown, registry: Record<string, Schema<T>>, ignoreUnknown: boolean): Result<T | null> {
@@ -35,6 +35,15 @@ export function negotiate(input: unknown, welcome: Message<"welcome">): Result<M
   const parsed = parseRequest(input);
   if (!parsed.ok) return parsed;
   if (parsed.value.type !== "hello") return fail("NOT_NEGOTIATED", "$.type");
-  for (const cap of ["lifecycle", ...parsed.value.required_caps]) if (!welcome.caps.includes(cap)) return fail("MISSING_CAPABILITY", `$.required_caps[${cap}]`);
+  const missing = [...new Set(["lifecycle", ...(parsed.value.stage === "B" ? ["player"] : []), ...parsed.value.required_caps])].filter(cap => !welcome.caps.includes(cap));
+  if (missing.length) {
+    // Unknown names can carry text. Report at most eight wire positions, never
+    // their contents, even truncated. Known capability names are fixed literals.
+    const known = new Set(["read", "speak", "ask_prompt", "display_document", "word_timing", "alignment", "seek", "speed", "artifacts", "amplitude", "lifecycle", "seed", "player", "speaker_permits", "read_queue", "previous_read", "replay"]);
+    return { ok: false, error: { code: "MISSING_CAPABILITY", path: "$.required_caps", phase: "negotiate", retry: "never", message: "MISSING_CAPABILITY", details: {
+      missing_caps: missing.filter(cap => known.has(cap)),
+      unknown_cap_indices: parsed.value.required_caps.flatMap((cap, index) => !known.has(cap) && missing.includes(cap) ? [index] : []).slice(0, 8),
+    } } };
+  }
   return { ok: true, value: welcome };
 }

@@ -1,3 +1,4 @@
+import { hello } from "../../../src/engine/conformance/engine-cases";
 import { expect, test } from "bun:test";
 import { createArtifactStore } from "../../../src/engine/artifacts/store";
 import { createPublication } from "../../../src/engine/publication/publication";
@@ -49,9 +50,10 @@ test(name, async () => {
       };
       backend.script(Array.from({ length: count }, (_, index) => ({ latency_ms: 1, late_after_cancel: false,
         result: mode === "failure" && index === target ? { kind: "error", code: "synthetic" } : { kind: "audio", ...pcmAudio(24) } })));
-      const session = createEngineSession({ owner_epoch: 1, clock, backend, planner, publication,
+      const session = createEngineSession({ welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, clock, backend, planner, publication,
         limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 4, aligner_reap_ms: 50 },
         observe: { event(event) { events.push(event); } } });
+      session.send(hello); void session.events[Symbol.asyncIterator]().next(); expect(events.pop()?.type).toBe("welcome");
       session.send({ protocol: "nl.engine/1", type: "narrate", request_id: "custody-request", idempotency_key: "custody-key", use: "read",
         input: { text: "Moss", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
       for (let tick = 0; tick < 40; tick++) await clock.advance(1);

@@ -14,6 +14,9 @@ export function brokenEngine(rule: string): Binding {
         let plan: Message<"plan"> | undefined;
         for await (const event of connection.events) {
           if (event.type === "plan") plan = event;
+          if (rule === "VER-01" && event.type === "welcome") { yield { ...event, protocol_minor: -1 }; continue; }
+          if (event.type === "error" && ((rule === "LIM-01" && event.code === "INPUT_TOO_LONG") || (rule === "VER-02e" && event.code === "INVALID_REQUEST" && !event.request_id))) { yield { ...event, retry: "after_resync" }; continue; }
+          if (event.type === "error" && ((rule === "NEG-01" && event.code === "UNSUPPORTED_VERSION") || (rule === "NEG-02" && event.code === "MISSING_CAPABILITY") || (rule === "NEG-03" && event.code === "NOT_NEGOTIATED"))) { yield { ...event, retry: "new_request" }; continue; }
           if (rule === "PLAN-LAT-01" && event.type === "plan") { held.push(event); continue; }
           if (held.length && event.type === "lifecycle") { held.push(event); continue; }
           if (held.length && !(event.type === "outcome" && event.playback.reason === "cancel")) { yield* held; held = []; }
