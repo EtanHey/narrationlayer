@@ -472,20 +472,25 @@ export const engineCases: Record<string, Case> = {
   "SPK-05e": async c => {
     for (const latency_ms of [0, 7]) {
       const t = setup(c, [audio(), { ...audio(true), latency_ms }]);
-      t.connection.send(read("stop-prefix", "stop-prefix", "Copper boats drift. Silver kites rise."));
-      // L532 / PLAN-v4 L46: unlike ID-03, stop after a delivered prefix.
-      await until(c, () => t.backend.calls.length === 2 && t.seen.some(e => e.type === "piece_ready"));
+      t.connection.send(read("stop-delivered", "stop-delivered", "Copper boats drift."));
+      await until(c, () => t.seen.some(e => e.type === "piece_ready"));
       const first = t.seen.find(e => e.type === "piece_ready");
       c.assert(first?.type === "piece_ready"); if (first?.type !== "piece_ready") return;
-      stop(t.connection, first.session_id);
+      t.connection.send(read("stop-pending", "stop-pending", "Silver kites rise."));
+      await until(c, () => t.backend.calls.length === 2 && t.seen.some(e => e.type === "accepted" && e.request_id === "stop-pending"));
+      const pending = t.seen.find(e => e.type === "accepted" && e.request_id === "stop-pending");
+      c.assert(pending?.type === "accepted"); if (pending?.type !== "accepted") return;
+      // L532 / PLAN-v4 L46: unlike ID-03, stop via a delivered read, reaching another in-flight read.
+      const boundary = t.seen.length;
+      t.connection.send({ protocol: "nl.engine/1", type: "control", command_id: "stop-command", session_id: first.session_id, op: "stop", args: { scope: "all_speech", reason: "stop" } });
       await until(c, () => t.seen.some(e => e.type === "control_ack" && e.command_id === "stop-command"));
       // L282/L532: drain the actual abort-ignoring result, including a zero-delay timer.
       await until(c, () => t.backend.pending === 0);
       await t.finish();
       const ack = t.seen.findIndex(e => e.type === "control_ack" && e.command_id === "stop-command");
-      c.assert(ack >= 0 && t.seen.indexOf(first) < ack); // L532: nonempty prefix before stop.
-      c.assert(!t.seen.slice(ack + 1).some(e => e.type === "piece_ready" && e.attempt_id === first.attempt_id)); // L282/L532: fenced attempt cannot revive.
-      c.assert(t.seen.filter(e => e.type === "piece_ready" && e.attempt_id === first.attempt_id).length === 1); // L282/L532: pending piece never delivered, even before ack.
+      c.assert(ack >= 0 && t.seen.indexOf(first) < ack); // L532: audio delivered before stop.
+      c.assert(!t.seen.slice(boundary).some(e => e.type === "piece_ready" && [first.attempt_id, pending.attempt_id].includes(e.attempt_id))); // L282/L532: neither reached attempt revives.
+      c.assert(!t.seen.some(e => e.type === "piece_ready" && e.attempt_id === pending.attempt_id)); // L282/L532: late attempt stays fenced, even before ack.
     }
   },
   "ID-04": async c => {
