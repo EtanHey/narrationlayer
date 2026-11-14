@@ -1,13 +1,16 @@
-import { writeFile, mkdir, stat, rename, copyFile } from "node:fs/promises";
+import { writeFile, mkdir, stat, rename, copyFile, mkdtemp, rm, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { pitchRunaway } from "../../quality/take-checks.js";
+import type { TakeCheckReceipt } from "./take-cache.js";
 import type { SpeechChannels, TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
 import { RunnerFailure } from "./failure.js";
 import { applyBreathingInPlace } from "./breathing.js";
 import { loudnessNormalizeInPlace } from "./loudness.js";
-import { computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
+import { clearTakeCacheReceipt, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
 import { assertKeepPiecesDir, keepPieces } from "./keep-pieces.js";
 
 export interface ResolvedLocalTtsVoice extends CacheKeyParams {
@@ -20,6 +23,7 @@ export interface ResolvedLocalTtsVoice extends CacheKeyParams {
 }
 
 export interface LocalTtsRenderOptions {
+  takeChecks?: { pitchCeilingHz: number; retries: number };
   text: string;
   output: string;
   sampleRate: number;
@@ -42,7 +46,7 @@ export type LocalTtsRenderResult =
 const PIECES_ON_HIT = "cache hit: no pieces were rendered";
 
 /** Render one resolved voice configuration without owning the caller's process. */
-export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<LocalTtsRenderResult> {
+async function renderUnchecked(args: LocalTtsRenderOptions, store = true): Promise<LocalTtsRenderResult> {
   const { output, resolved, authToken, cacheDir, prepareSpeechChannels, keepPiecesDir } = args;
   if (args.refreshCache && !args.cache) throw new RunnerFailure("--refresh-cache cannot be combined with --no-cache");
   if (keepPiecesDir !== undefined) await assertKeepPiecesDir(keepPiecesDir);
@@ -66,6 +70,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
     atempo: resolved.atempo,
     sentencePauseSeconds: resolved.sentencePauseSeconds,
     commaPauseSeconds: resolved.commaPauseSeconds,
+    takeChecks: args.takeChecks,
   };
   const cacheKey = computeContentHashKey({
     spokenText,
@@ -214,7 +219,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
   // old entry in place. On a MISS the store is best-effort: a failure must never fail an
   // otherwise-good synth. On a REFRESH replacing the entry is the point, so a failure fails.
   let cacheNote = "";
-  if (args.cache) {
+  if (args.cache && store) {
     try {
       await mkdir(cacheDir, { recursive: true });
       const cacheTmp = `${cachePath}.tmp-${process.pid}`;
@@ -232,4 +237,69 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
   const piecesNote = keptPieces ? ` pieces=${keptPieces.count} kept in ${keptPieces.dir}` : "";
 
   return { kind: "rendered", cacheKey, bytes: info.size, atempoNote, breathingNote, loudnessNote, cacheNote, piecesNote };
+}
+
+/** Opt-in checks stage each complete take; only an accepted take may be published or frozen. */
+export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<LocalTtsRenderResult> {
+  const checks = args.takeChecks;
+  if (!checks) return renderUnchecked(args);
+  if (!Number.isFinite(checks.pitchCeilingHz) || checks.pitchCeilingHz <= 0
+    || !Number.isSafeInteger(checks.retries) || checks.retries < 0 || checks.retries > 10)
+    throw new RunnerFailure("take checks require a positive pitch ceiling and 0..10 retries");
+  if (args.refreshCache && !args.cache) throw new RunnerFailure("--refresh-cache cannot be combined with --no-cache");
+  if (args.keepPiecesDir !== undefined) await assertKeepPiecesDir(args.keepPiecesDir);
+  await clearTakeCacheReceipt(args.output);
+  const evidence: TakeCheckReceipt = { attempts: 0, failures: [], gaveUp: false };
+  const stage = await mkdtemp(`${args.output}.checks-`);
+  const output = path.join(stage, "take.wav");
+  const pieces = args.keepPiecesDir === undefined ? undefined : path.join(stage, "pieces");
+  let refresh = args.refreshCache;
+  let key = "";
+  try {
+    for (;;) {
+      // The existing synthesis path sends a fresh request; the backend supplies variance (no seed API).
+      const result = await renderUnchecked({ ...args, output, keepPiecesDir: pieces,
+        cache: args.cache && !refresh && evidence.attempts === 0 && evidence.failures.length === 0, refreshCache: false }, false);
+      key = result.cacheKey;
+      const source = result.kind === "cache-hit" ? "cache" : "render";
+      if (source === "render") evidence.attempts++;
+      const decoded = spawnSync("ffmpeg", ["-v", "error", "-nostdin", "-i", output,
+        "-ar", "8000", "-ac", "1", "-f", "f32le", "pipe:1"], { maxBuffer: 256 * 1024 * 1024 });
+      if (decoded.error || decoded.status !== 0 || !decoded.stdout.length) throw new RunnerFailure("take check audio decode failed");
+      const samples = new Float32Array(decoded.stdout.length / 4);
+      for (let i = 0; i < samples.length; i++) samples[i] = decoded.stdout.readFloatLE(i * 4);
+      const pitch = pitchRunaway(samples, 8000, checks.pitchCeilingHz);
+      const reason = pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
+      if (!reason) {
+        const cachePath = path.join(args.cacheDir, `${key}.wav`);
+        if (args.cache && source === "render") {
+          await mkdir(args.cacheDir, { recursive: true });
+          const tmp = `${cachePath}.tmp-${process.pid}`;
+          await copyFile(output, tmp);
+          await rename(tmp, cachePath);
+        }
+        await rename(output, args.output);
+        await writeFile(`${args.output}.spoken.txt`, await readFile(`${output}.spoken.txt`));
+        if (pieces && args.keepPiecesDir && existsSync(pieces)) await rename(pieces, args.keepPiecesDir);
+        const keptPieces = args.keepPiecesDir === undefined ? undefined : source === "cache"
+          ? { dir: args.keepPiecesDir, count: 0, skipped: PIECES_ON_HIT }
+          : { dir: args.keepPiecesDir, count: JSON.parse(await readFile(path.join(args.keepPiecesDir, "pieces.json"), "utf8")).pieces.length };
+        await writeTakeCacheReceipt(args.output, key, { cacheEnabled: args.cache,
+          refreshed: args.refreshCache, keptPieces, takeChecks: evidence });
+        return result.kind === "cache-hit" ? { ...result, cachePath }
+          : { ...result, cacheNote: args.cache ? ` cache checked->frozen key=${key}` : "",
+            piecesNote: keptPieces ? ` pieces=${keptPieces.count} kept in ${args.keepPiecesDir}` : "" };
+      }
+      evidence.failures.push({ source, attempt: evidence.attempts, reason });
+      if (pieces) await rm(pieces, { recursive: true, force: true });
+      if (evidence.attempts >= checks.retries + 1) {
+        evidence.gaveUp = true;
+        await writeTakeCacheReceipt(args.output, key, { cacheEnabled: args.cache, takeChecks: evidence });
+        throw new RunnerFailure("take checks gave up after bounded retries");
+      }
+      refresh = false;
+    }
+  } finally {
+    await rm(stage, { recursive: true, force: true });
+  }
 }

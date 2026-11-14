@@ -207,3 +207,13 @@ are documented in `docs/mcp-tools.json` and drift-tested against
 ### Take checks for narration builds
 
 Run `narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz>` after synthesis and recognition (ffmpeg required). It prints a JSON verdict and exits 0 on pass, 1 on failure. Supply the spoken text and an array of `{word, start, end}` recognition records; the first-word screen tests exact-token presence anywhere after lowercasing and removing non-ASCII letters/digits, rather than proving an acoustic omission. The build supplies each voice's ceiling from that voice's measured controls; there is no global default. Pitch uses a dependency-free YIN difference estimator at 8 kHz, 64 ms frames, 10 ms hop, 65–450 Hz, and nonoverlapping one-second voiced medians (including a final partial window); the JSON reports every window and those above the ceiling. No voiced frames fails the combined verdict. This is a narrow empirical screen, with octave and recognition errors possible; it neither changes rendering nor regenerates takes. The build owns regeneration.
+
+The standalone runner accepts `--take-checks --pitch-ceiling <hz>` to screen every
+final take, including cache hits, for pitch runaway. `--take-retries <count>` allows
+zero through ten retries after the first render (default two). Rejected takes are
+never frozen or published; exhaustion exits nonzero and records give-up in the
+output's cache receipt. Successful receipts record render attempts and each failure
+reason. Checks use their own cache key; leaving the switch off preserves existing
+keys and bytes. The runner has no recognition pass, so first-word omission remains
+the build's `check-take` responsibility. Each retry sends a fresh request; the daemon
+supplies variance because this backend request has no seed field.
