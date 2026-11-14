@@ -15,7 +15,13 @@ export function createEngine(options: {
     // Artifact capability awaits S7 live leases; stage-A player edges belong to the host.
     welcome: { package_version: options.package_version, protocol_minor: 0,
       caps: ["read", "speak", "ask_prompt", "display_document", "word_timing", "lifecycle"], engines: options.engines },
-    planner: { plan: (request, limits, identity) => planRead({ request, limits, identity, engine: options.chooseEngine(request) }) },
+    planner: { plan: (request, _limits, identity) => {
+      const engine = options.chooseEngine(request);
+      const capability = options.engines.find(capability => capability.family === engine.family);
+      if (!capability) throw new Error("selected engine family is not declared");
+      // No declared cap means whole sentences; the cutter requires a positive safe integer.
+      return planRead({ request, identity, engine, max_chars: capability.max_chars ?? Number.MAX_SAFE_INTEGER });
+    } },
     publication: createPublication(options.artifacts),
   });
 }
