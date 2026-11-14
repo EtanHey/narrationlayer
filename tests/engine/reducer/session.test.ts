@@ -507,3 +507,36 @@ test("S5b negative offset precedes ended and stopping playback under both author
     }
   }
 });
+
+test("S5c narrowed R78: ended playback is spared while generation commits", () => {
+  for (const authority of ["host", "engine"] as const) for (const scope of ["session", "queue", "all_speech"] as const) {
+    const s = run(accepted(1, authority), piece(), feedback("spawned"), feedback("first_sample"), feedback("exited"));
+    expect(view(s).outcome).toBeNull();
+    const r = reduce(s, { kind: "control", command: { protocol: "nl.engine/1", type: "control", command_id: "ended-stop", session_id: identity.session_id, op: "stop", args: { scope, reason: "stop" } }, target: current });
+    expect(r.effects).toMatchObject([{ kind: "emit", event: { type: "control_ack", outcome: "noop" } }]);
+    expect(view(r.state).generation).toBe("running");
+    expect(view(run(r.state, commit)).outcome).toMatchObject({ playback: { reason: "completed" }, generation: { status: "committed" } });
+  }
+});
+
+for (const authority of ["host", "engine"] as const) for (const ruling of [78, 79, 80, 81, 82])
+  test(`stop R${ruling}: scopes and replacement under ${authority}`, () => {
+    let state = accepted(1, authority);
+    for (const id of ["queued", "held"]) {
+      const a = acceptance(); if (a.kind !== "accept") throw Error("fixture");
+      state = reduce(state, { ...a, identity: { ...identity, session_id: id }, current: { ...current, session_id: id }, plan: { ...a.plan, session_id: id }, request: { ...request, request_id: id, idempotency_key: id === "queued" ? "1" : "0", ...(id === "queued" ? { start: { after_session: identity.session_id } } : {}) } }).state;
+    }
+    state = run(state, piece(), feedback("first_sample"));
+    const command = { protocol: "nl.engine/1", type: "control", command_id: "scoped-stop", session_id: "held", op: "stop", args: { scope: ruling === 78 ? "queue" : ruling === 81 ? "session" : "all_speech", reason: ruling === 81 ? "replaced" : "stop", except_sessions: ruling === 81 ? [] : ["held"], retain_read_queue: ruling === 82 } } satisfies Message<"control">;
+    const r = reduce(state, { kind: "control", command, target: { ...current, session_id: "held" } });
+    const emitted = r.effects.flatMap(e => e.kind === "emit" ? [e.event] : []);
+    expect(emitted.filter(e => e.type === "control_ack")).toMatchObject([{ outcome: "accept" }]); // R79/R80: addressed may be spared.
+    const ended = ruling === 78 ? ["queued"] : ruling === 81 ? ["held"] : [identity.session_id, "queued"];
+    expect(emitted.filter(e => e.type === "outcome").map(e => e.session_id)).toEqual(ended); // R78: admission order, exclusions.
+    expect(emitted.filter(e => e.type === "outcome").map(e => e.playback.reason)).toEqual(ended.map(id => ruling === 81 ? "replaced" : id === identity.session_id ? "stop" : "stop_preparing")); // R79/R81.
+    expect(reduce(r.state, { kind: "control", command, target: current }).effects.map(e => e.kind)).toEqual(["replay"]); // L158: no second terminal.
+    if (ruling !== 81) {
+      const noop = reduce(r.state, { kind: "control", command: { ...command, command_id: "noop", args: { scope: "session", reason: "cancel", except_sessions: ["held"] } }, target: current });
+      expect(noop.effects).toMatchObject([{ kind: "emit", event: { type: "control_ack", outcome: "noop" } }]); // R80.
+    }
+  });

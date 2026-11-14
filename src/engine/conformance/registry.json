@@ -718,7 +718,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "PREEMPT-01h: the host waits for predecessor player teardown before starting the successor player."
   },
   {
     "id": "PREEMPT-01h",
@@ -1001,7 +1002,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "STOP-01h: host archive-code mapping and naming the held Previous Read; retain_read_queue is accepted and ignored in stage A, with semantics owed to stage B (ruling 82)."
   },
   {
     "id": "STOP-01h",

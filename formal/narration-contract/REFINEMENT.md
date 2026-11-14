@@ -26,7 +26,7 @@ come from `src/engine/messages/messages.ts`; the reducer imports only those type
 | `EndGeneration`, `Cancel`, `SynthesisFailure`, `PublishFailure` | Stop or backend failure; logical fence, generation terminal and independent playback terminal |
 | `Spawn` | Spawned feedback installs a delivered current/next live job; first-sample feedback witnesses actual start; no process spawn or permit implementation |
 | `Feedback(j,o,a)` | Feedback identity gate followed by control/player pair gate and EOF coverage gate |
-| `Stop`, `PlayerReaped` | Logical stop only; outcome always says physical unknown, not reaped |
+| `Stop`, `PlayerReaped` | Logical stop only; scoped control applies this transition in admission order to each reached, unexcluded session (rulings 78-82); one ack, outcome always says physical unknown, not reaped |
 | `Pause`, `Resume` | S5a records pause_owner, manual takeover and owner-matched resume; accepted controls reanchor; no I09 restart proof yet |
 | `Seek`, `ReapOld` | Seek preserves pause_owner, resolves delivered-word/audio targets and acknowledges offset/clamping; I09 binds the stage-A mirror only; no physical restart or ReapOld proof |
 | `Successor` | A new entry under `sessions` with explicit identities; scheduling/physical retirement not implemented |
