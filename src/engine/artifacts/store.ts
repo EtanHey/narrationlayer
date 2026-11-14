@@ -9,7 +9,8 @@ export interface BytePort {
 export class ArtifactStoreError extends Error {
   constructor(readonly code: "collision" | "sealed" | "shutdown" | "storage" | "aborted" | "owner") { super(`artifact ${code}`); }
 }
-/** Synchronous byte port; hosts resolve player paths outside this module. */
+/** Synchronous byte port; hosts resolve player paths outside this module.
+ * Host must enforce one live store per byte port and owner epoch; restart/reconnect uses a new epoch. */
 export function createArtifactStore(port: BytePort, owner_epoch: number) {
   let next = 0, closed = false;
   const live = new Map<string, ArtifactIdentity & { handle: string; lease_id: string }>();
@@ -44,13 +45,14 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
       live.delete(lease_id);
       return { kind: "released" };
     },
-    resolve(handle: string, lease_id: string): { kind: "resolved"; bytes: Uint8Array } | { kind: "expired" } {
+    resolve(handle: string, lease_id: string): { kind: "resolved"; bytes: Uint8Array } | { kind: "expired" | "failed" } {
       const entry = live.get(lease_id);
       if (!entry || entry.handle !== handle) return { kind: "expired" };
       let bytes: Uint8Array | undefined;
-      try { bytes = port.get(handle); } catch { throw new ArtifactStoreError("storage"); }
+      try { bytes = port.get(handle); } catch { return { kind: "failed" }; }
       return bytes ? { kind: "resolved", bytes: bytes.slice() } : { kind: "expired" };
     },
+    /** Live leases in put order, including interleaved attempts. */
     leases(session_id: string) {
       return [...live.values()].filter(entry => entry.session_id === session_id).map(entry => ({ ...entry }));
     },

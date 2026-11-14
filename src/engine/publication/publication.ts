@@ -35,6 +35,7 @@ export function createPublication(artifacts: ArtifactPort) {
           synthesis: { rate: context.rate, attempts: [], unavailable: [], fallback_reason: null } };
       } catch (error) { artifacts.release(stored.lease_id); throw error; }
     },
+    release: artifacts.release.bind(artifacts),
     commit: artifacts.commit.bind(artifacts),
   };
 }
