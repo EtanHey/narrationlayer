@@ -1,4 +1,4 @@
-import type { PublicationContext, PublishedPiece } from "../publication/publication";
+import type { ArtifactPort, PublicationContext, PublishedPiece } from "../publication/publication";
 import { nextSynthesisIndex } from "../reducer/pacing";
 import { initialState, reduce, type Input } from "../reducer/session";
 import { parseEvent, parseRequest } from "../messages/parser";
@@ -18,10 +18,13 @@ export interface Backend<Audio> {
 }
 /** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio.
  * Returned receipts become engine-owned; the session detaches them before storage. */
-export interface Publication<Audio> {
+export type Publication<Audio> = {
   piece(audio: Audio, context: PublicationContext, signal: AbortSignal): Promise<PublishedPiece>;
   commit(identity: Identity, signal: AbortSignal): Promise<void>;
-}
+} & ({ release: ArtifactPort["release"] } | {
+  // Throw-only fixtures own no receipts; every publication that returns one must release it.
+  piece(audio: Audio, context: PublicationContext, signal: AbortSignal): Promise<never>;
+});
 /** Only reducer state owns terminals/cursors/order. Other state: synthesis requests (text
  * absent from reducer), id counter (epoch-local minting), abort handles (physical work),
  * outgoing queue (transport), including its closed flag and pending iterator readers. */
@@ -154,9 +157,15 @@ export function createEngineSession<Audio>(options: {
           synthesis_ms: ready - started, spoken_text: request.text,
         }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.
-        const { known_ms, first_audible_offset_ms, ...receipt } = structuredClone(delivered);
-        step({ kind: "backend", identity, result: { kind: "piece", piece: receipt, known_ms,
-          audio_ready: { t_mono_ms: Math.round(ready), first_audible_offset_ms } } });
+        try {
+          const { known_ms, first_audible_offset_ms, ...receipt } = structuredClone(delivered);
+          step({ kind: "backend", identity, result: { kind: "piece", piece: receipt, known_ms,
+            audio_ready: { t_mono_ms: Math.round(ready), first_audible_offset_ms } } });
+        } finally {
+          if (!state.sessions[identity.session_id].delivered.some(p => p.artifact.lease_id === delivered.artifact.lease_id)
+            && "release" in options.publication)
+            options.publication.release(delivered.artifact.lease_id);
+        }
         const updated = state.sessions[identity.session_id];
         if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
       }
