@@ -1,3 +1,4 @@
+import type { HostLog } from "../host-callbacks";
 import type { SynthesisRequest } from "../session/session";
 import type { Voices } from "../selection/voice";
 import type { Message } from "../messages/messages";
@@ -42,5 +43,5 @@ export interface Binding {
   name: string;
   // Host-selected bound (positive safe integer <= 2147483647); a supplied value must be honoured.
   // S0a2 supplies the optional ports; S0a's harness-only bindings need only the clock.
-  create(host: { synthesis_timeout_ms?: number; voices?: Voices; engines?: Message<"welcome">["engines"]; clock: Clock; ports?: FakePorts; hash_key: Uint8Array; store: Map<string, Uint8Array>; audible: boolean }): Connection;
+  create(host: { log?: HostLog; observe?: { event?(event: unknown, replay: boolean): void }; synthesis_timeout_ms?: number; voices?: Voices; engines?: Message<"welcome">["engines"]; clock: Clock; ports?: FakePorts; hash_key: Uint8Array; store: Map<string, Uint8Array>; audible: boolean }): Connection;
 }

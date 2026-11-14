@@ -1,3 +1,4 @@
+import { hostCallbacks, type HostLog } from "../host-callbacks";
 import type { ArtifactPort } from "../publication/publication";
 export type ArtifactIdentity = Parameters<ArtifactPort["put"]>[1];
 export interface BytePort {
@@ -11,7 +12,8 @@ export class ArtifactStoreError extends Error {
 }
 /** Synchronous byte port; hosts resolve player paths outside this module.
  * Host must enforce one live store per byte port and owner epoch; restart/reconnect uses a new epoch. */
-export function createArtifactStore(port: BytePort, owner_epoch: number) {
+export function createArtifactStore(port: BytePort, owner_epoch: number, log?: HostLog) {
+  const host = hostCallbacks(log);
   let next = 0, closed = false;
   const live = new Map<string, ArtifactIdentity & { handle: string; lease_id: string }>();
   const sealed = new Set<string>(), pending = new Set<string>();
@@ -26,15 +28,15 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
       const handle = `memory:${owner_epoch}:${++next}`, lease_id = `lease:${owner_epoch}:${next}`;
       let writing = false;
       try {
-        if (port.has(handle)) throw new ArtifactStoreError("collision");
+        if (host.call("store.has", () => port.has(handle))) throw new ArtifactStoreError("collision");
         check(signal);
         writing = true;
-        port.set(handle, bytes.slice());
+        host.call("store.set", () => port.set(handle, bytes.slice()));
         check(signal);
         live.set(lease_id, { owner_epoch, session_id: identity.session_id, attempt_id: identity.attempt_id, piece_id: identity.piece_id, handle, lease_id });
         return { handle, lease_id, format: "wav" as const };
       } catch (error) {
-        if (writing) { try { port.delete(handle); } catch { throw new ArtifactStoreError("storage"); } }
+        if (writing) { try { host.call("store.delete", () => port.delete(handle)); } catch { throw new ArtifactStoreError("storage"); } }
         throw error instanceof ArtifactStoreError ? error : new ArtifactStoreError("storage");
       }
     },
@@ -48,13 +50,13 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
       const entry = live.get(lease_id);
       if (!entry) return { kind: "expired" };
       live.delete(lease_id);
-      queueMicrotask(() => { try { port.delete(entry.handle); } catch { pending.add(entry.handle); } });
+      queueMicrotask(() => { try { host.call("store.delete", () => port.delete(entry.handle)); } catch { pending.add(entry.handle); } });
       return { kind: "released" };
     },
     release(lease_id: string): ReturnType<ArtifactPort["release"]> {
       const entry = live.get(lease_id);
       if (!entry) return { kind: "expired" };
-      try { port.delete(entry.handle); } catch { return { kind: "failed" }; }
+      try { host.call("store.delete", () => port.delete(entry.handle)); } catch { return { kind: "failed" }; }
       live.delete(lease_id);
       return { kind: "released" };
     },
@@ -62,7 +64,7 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
       const entry = live.get(lease_id);
       if (!entry || entry.handle !== handle) return { kind: "expired" };
       let bytes: Uint8Array | undefined;
-      try { bytes = port.get(handle); } catch { return { kind: "failed" }; }
+      try { bytes = host.call("store.get", () => port.get(handle)); } catch { return { kind: "failed" }; }
       return bytes ? { kind: "resolved", bytes: bytes.slice() } : { kind: "expired" };
     },
     /** Live leases in put order, including interleaved attempts. */
@@ -77,7 +79,7 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
       if (closed) return;
       closed = true;
       queueMicrotask(() => { for (const handle of pending) {
-        try { port.delete(handle); pending.delete(handle); } catch { /* Retain for the host drain. */ }
+        try { host.call("store.delete", () => port.delete(handle)); pending.delete(handle); } catch { /* Retain for the host drain. */ }
       } });
     },
   } satisfies ArtifactPort & Record<string, unknown>;

@@ -1,3 +1,4 @@
+import { hostCallbacks, HostFault, type HostLog } from "../host-callbacks";
 import type { ArtifactPort, PublicationContext, PublishedPiece } from "../publication/publication";
 import { nextSynthesisIndex } from "../reducer/pacing";
 import { hasDeliveredLease, initialState, reduce, type Input } from "../reducer/session";
@@ -45,11 +46,13 @@ export function createEngineSession<Audio>(options: {
   backend: Backend<Audio>;
   publication: Publication<Audio>;
   artifacts?: { releaseFromHost(lease_id: string): { kind: "released" | "expired" }; minted(lease_id: string): boolean };
+  log?: HostLog;
   observe?: { input?(input: Input<"host">): void; event?(event: Event, replay: boolean): void };
 }) {
   // Amended ruling 90: the host chooses a positive safe integer within timer range.
   if (!Number.isSafeInteger(options.synthesis_timeout_ms) || !(options.synthesis_timeout_ms > 0) || options.synthesis_timeout_ms > 2147483647)
     throw new Error("invalid synthesis_timeout_ms");
+  const host = hostCallbacks(options.log);
   let state = initialState(options.owner_epoch, "host"), counter = 0;
   const requests = new Map<string, readonly { piece_index: number; text: string }[] & { selection?: Substitution }>();
   const waiting = new Map<string, { cancel?: () => void }>();
@@ -68,10 +71,10 @@ export function createEngineSession<Audio>(options: {
     if (closed) return;
     const copy = structuredClone(event), reader = readers.shift();
     if (reader) reader({ done: false, value: copy }); else queue.push(copy);
-    options.observe?.event?.(structuredClone(event), replay);
+    host.ignore("observe.event", () => options.observe?.event?.(structuredClone(event), replay));
   }
   function step(input: Input<"host">, details?: Message<"error">["details"]) {
-    options.observe?.input?.(structuredClone(input));
+    host.ignore("observe.input", () => options.observe?.input?.(structuredClone(input)));
     const id = "identity" in input ? input.identity.session_id : "session_id" in input ? input.session_id : input.kind === "control" ? input.command.session_id : undefined;
     const wasRunning = id !== undefined && state.sessions[id]?.generation === "running";
     const result = reduce(state, input);
@@ -101,21 +104,27 @@ export function createEngineSession<Audio>(options: {
   }
   function clearWaiting(id: string) {
     const wait = waiting.get(id);
-    if (wait) { waiting.delete(id); queueMicrotask(() => wait.cancel?.()); }
+    if (wait) { waiting.delete(id); queueMicrotask(() => host.ignore("clock.cancel", () => wait.cancel?.())); }
   }
   // Amended ruling 92: even an abort-ignoring predecessor cannot hold a read forever.
   function boundWaiting(identity: Identity) {
     const id = identity.session_id;
     if (waiting.has(id)) return;
-    const wait: { cancel?: () => void } = {}, started = options.clock.monotonic();
+    const wait: { cancel?: () => void } = {};
+    let started: number;
+    try { started = host.call("clock.monotonic", () => options.clock.monotonic()); }
+    catch { failHost(identity); return; }
     waiting.set(id, wait);
     queueMicrotask(() => {
       if (waiting.get(id) !== wait || shuttingDown || state.sessions[id].generation !== "running") return;
-      wait.cancel = options.clock.schedule(Math.max(0, options.synthesis_timeout_ms - (options.clock.monotonic() - started)), () => {
+      try { wait.cancel = host.cancel(host.call("clock.schedule", () => options.clock.schedule(Math.max(0, options.synthesis_timeout_ms - (host.call("clock.monotonic", () => options.clock.monotonic()) - started)), () => {
         waiting.delete(id);
         step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis wait timed out" } } });
-      });
+      }))); } catch { waiting.delete(id); failHost(identity); }
     });
+  }
+  function failHost(identity: Identity) {
+    queueMicrotask(() => step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_FAILED", message: "host callback failed" } } }));
   }
   function pump(id: string) {
     const session = Object.hasOwn(state.sessions, id) ? state.sessions[id] : undefined;
@@ -178,20 +187,22 @@ export function createEngineSession<Audio>(options: {
     } });
   }
   async function run(identity: Identity, abort: AbortController) {
+    let callback = "";
     try {
       // §2 L114: strict prefix, one synthesis in flight; parked reads hold no timer.
       while (state.sessions[identity.session_id].generation === "running") {
         const session = state.sessions[identity.session_id], index = session.delivered.length;
         const piece = session.plan.pieces[index];
         if (!piece) {
-          await options.publication.commit(identity, abort.signal);
+          callback = "publication.commit";
+          await options.publication.commit(identity, abort.signal); callback = "";
           step({ kind: "backend", identity, result: { kind: "commit" } }); break;
         }
         if (nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) break;
         const plannedRequests = requests.get(identity.session_id), selection = plannedRequests?.selection;
         const request = plannedRequests?.[index];
         if (!request || request.piece_index !== piece.index || !piece.segments[0]) throw new Error("invalid planner requests");
-        const started = options.clock.monotonic();
+        const started = host.call("clock.monotonic", () => options.clock.monotonic());
         step({ kind: "synthesis_requested", identity, piece_index: piece.index, chars: request.text.length, t_mono_ms: Math.round(started) });
         let audio: Audio;
         let engine = { ...session.plan.engine }, rate = session.request.rate ?? "+0%";
@@ -203,30 +214,32 @@ export function createEngineSession<Audio>(options: {
           const capability = options.welcome.engines.find(e => e.family === engine.family);
           if (selection !== undefined && !capability?.available) throw new SynthesisFailure("ENGINE_UNAVAILABLE");
           // Rulings 90-93: each call starts its own host-clock bound, after send.
-          cancelTimeout = options.clock.schedule(options.synthesis_timeout_ms, () => {
+          cancelTimeout = host.cancel(host.call("clock.schedule", () => options.clock.schedule(options.synthesis_timeout_ms, () => {
             if (shuttingDown || state.sessions[identity.session_id].generation !== "running") return;
             step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis timed out" } } });
             queueMicrotask(() => abort.abort());
-          });
+          })));
           abort.signal.addEventListener("abort", cancelTimeout, { once: true });
-          return options.backend.synthesizeRequest({ ...request, family: engine.family, voice: engine.voice, rate }, abort.signal);
+          return host.call("backend.synthesizeRequest", () => options.backend.synthesizeRequest({ ...request, family: engine.family, voice: engine.voice, rate }, abort.signal));
         };
         try {
           try { audio = await callBackend(); }
           catch (error) {
+            if (!(error instanceof HostFault)) host.report("backend.synthesizeRequest", error);
             if (abort.signal.aborted || state.sessions[identity.session_id].generation !== "running") throw error;
-            if (engine.family !== "qwen3_clone") throw error;
+            if (error instanceof HostFault && error.callback !== "backend.synthesizeRequest" || engine.family !== "qwen3_clone") throw error;
             if (session.request.voice.require_clone) throw new SynthesisFailure("VOICE_UNAVAILABLE"); // Q95
             if (session.request.voice.fallback !== "declared") throw error;
             const edge = options.welcome.engines.find(e => e.family === "edge");
             if (edge?.max_chars !== undefined && request.text.length > edge.max_chars) throw new SynthesisFailure("ENGINE_UNAVAILABLE"); // Q97 amended: no allowed family can serve.
             engine = { family: "edge", voice: options.default_voice ?? "", profile_revision: "default" };
             rate = "+0%"; substituted = true; fallback_reason = "clone_synthesis_failed"; // Q95: default rate, this piece only.
-            audio = await callBackend();
+            try { audio = await callBackend(); } catch (error) { if (!(error instanceof HostFault)) host.report("backend.synthesizeRequest", error); throw error; }
           }
         } finally { cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout); }
-        const ready = options.clock.monotonic();
+        const ready = host.call("clock.monotonic", () => options.clock.monotonic());
         abort.signal.throwIfAborted();
+        callback = "publication.piece";
         const delivered = await options.publication.piece(audio, {
           ...identity, index: piece.index, piece_id: piece.piece_id,
           prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
@@ -234,7 +247,7 @@ export function createEngineSession<Audio>(options: {
           // Engine selection owes the resolved profile/mode rate when the request omits it.
           engine, substituted, fallback_reason, timing: substituted ? options.welcome.engines.find(e => e.family === engine.family)?.timing : undefined, segments: piece.segments.length, rate,
           synthesis_ms: ready - started, spoken_text: request.text,
-        }, abort.signal);
+        }, abort.signal); callback = "";
         // §3 L282: stop during publication still goes through the attempt fence.
         try {
           const { known_ms, first_audible_offset_ms, ...receipt } = structuredClone(delivered);
@@ -243,12 +256,13 @@ export function createEngineSession<Audio>(options: {
         } finally {
           if (!state.sessions[identity.session_id].delivered.some(p => p.artifact.lease_id === delivered.artifact.lease_id)
             && "release" in options.publication)
-            options.publication.release(delivered.artifact.lease_id);
+            host.ignore("publication.release", () => "release" in options.publication && options.publication.release(delivered.artifact.lease_id));
         }
         const updated = state.sessions[identity.session_id];
         if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
       }
     } catch (error) {
+      if (callback && !(error instanceof HostFault)) host.report(callback, error);
       // §2.5 L220: reducer emits a text-free error and the one terminal outcome.
       step({ kind: "backend", identity, result: { kind: "failure", error: { code: error instanceof SynthesisFailure ? error.code : "SYNTH_FAILED", message: "synthesis or publication failed" } } });
     } finally {
@@ -263,8 +277,10 @@ export function createEngineSession<Audio>(options: {
     send(message: unknown): void {
       if (closed) {
         const parsed = parseRequest(message, options.limits);
-        if (parsed.ok && parsed.value.type === "artifact_release" && hasDeliveredLease(state, parsed.value.lease_id))
-          options.artifacts?.releaseFromHost(parsed.value.lease_id);
+        if (parsed.ok && parsed.value.type === "artifact_release" && hasDeliveredLease(state, parsed.value.lease_id)) {
+          const lease = parsed.value.lease_id;
+          host.ignore("artifacts.releaseFromHost", () => options.artifacts?.releaseFromHost(lease));
+        }
         return;
       }
       if (!negotiated) {
@@ -289,10 +305,14 @@ export function createEngineSession<Audio>(options: {
       if (value.type === "artifact_release") {
         if (!options.artifacts) { refuse("INVALID_REQUEST"); return; }
         // Decide in host request order; only the store's byte-port delete is deferred.
-        const result = hasDeliveredLease(state, value.lease_id) ? options.artifacts.releaseFromHost(value.lease_id) : { kind: "expired" };
+        let result: { kind: "released" | "expired" } = { kind: "expired" };
+        host.ignore("artifacts.releaseFromHost", () => { if (hasDeliveredLease(state, value.lease_id)) result = options.artifacts!.releaseFromHost(value.lease_id); });
         if (result.kind === "released") step({ kind: "artifact_release", lease_id: value.lease_id });
-        else if (result.kind === "expired") step({ kind: "refuse", code: "ARTIFACT_EXPIRED", message: "ARTIFACT_EXPIRED" },
-          options.artifacts.minted(value.lease_id) ? { lease_id: value.lease_id } : undefined);
+        else if (result.kind === "expired") {
+          try { step({ kind: "refuse", code: "ARTIFACT_EXPIRED", message: "ARTIFACT_EXPIRED" },
+            host.call("artifacts.minted", () => options.artifacts!.minted(value.lease_id)) ? { lease_id: value.lease_id } : undefined); }
+          catch { const owner = Object.values(state.sessions).find(s => s.delivered.some(p => p.artifact.lease_id === value.lease_id)); if (owner) failHost(owner); }
+        }
       } else if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
       else if (value.type === "control" && (value.op === "stop" || value.op === "pause" || value.op === "resume" || value.op === "seek" || value.op === "resync")) {
         const current = state.sessions[value.session_id]?.current;
@@ -338,10 +358,12 @@ export function createEngineSession<Audio>(options: {
       for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
       shutdownPromise = new Promise<void>(resolve => {
         queueMicrotask(() => {
-          const remaining = deadline - options.clock.now();
+          try {
+          const remaining = deadline - host.call("clock.now", () => options.clock.now());
           if (!(remaining > 0)) { resolve(); return; }
-          const cancel = Number.isFinite(remaining) ? options.clock.schedule(remaining, resolve) : () => {};
+          const cancel = Number.isFinite(remaining) ? host.cancel(host.call("clock.schedule", () => options.clock.schedule(remaining, resolve))) : () => {};
           void Promise.allSettled(active).then(() => { cancel(); resolve(); });
+          } catch { resolve(); }
         });
       });
       return shutdownPromise;

@@ -36,13 +36,14 @@ function harness(epoch = 1, source = units, lookahead = 2, synthesis_timeout_ms 
     release() { return { kind: "released" }; },
     async piece(audio, context) { publications++; return { known_ms: startMs([...context.prefix, { sample_count: audio.samples, sample_rate: audio.sample_rate }]), first_audible_offset_ms: 0, type: "piece_ready", owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, index: context.index, piece_id: context.piece_id, spoken_text: context.spoken_text, synthesis_ms: context.synthesis_ms, start_ms: startMs(context.prefix), duration_ms: audio.samples, artifact: { handle: "synthetic", lease_id: "synthetic", format: "wav", sample_rate: audio.sample_rate, sample_count: audio.samples, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "+0%", attempts: [], unavailable: [], fallback_reason: null } }; }, async commit() {},
   };
+  const logs: { callback: string; error_name: string }[] = [];
   const observe = { input(i: Input<"host">) { inputs.push(i); }, event(event: Event, replay: boolean) { delivered.push({ event, replay }); } };
   const session = createEngineSession({ synthesis_timeout_ms, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: epoch, limits: { ...limits, lookahead }, planner, clock, publication,
     backend: { synthesizeRequest(r, signal) { if (!delivered.some(d => d.event.type === "plan")) callsBeforePlan++; return backend.synthesizeRequest(r, signal); } },
-    observe,
+    observe, log: entry => { logs.push(entry); },
   });
   session.send(hello); void session.events[Symbol.asyncIterator]().next(); expect(delivered.pop()?.event.type).toBe("welcome");
-  const h = { session, clock, backend, publication, planner, delivered, inputs, epoch, observe, get publicationCalls() { return publications; }, get plannerCalls() { return calls; }, get callsBeforePlan() { return callsBeforePlan; }, events: () => delivered.map(d => d.event),
+  const h = { logs, session, clock, backend, publication, planner, delivered, inputs, epoch, observe, get publicationCalls() { return publications; }, get plannerCalls() { return calls; }, get callsBeforePlan() { return callsBeforePlan; }, events: () => delivered.map(d => d.event),
     script(n = source.length, late = false) { backend.script(Array.from({ length: n }, () => ({ latency_ms: 1, late_after_cancel: late, result: { kind: "audio", ...pcmAudio(10) } }))); },
     async tick() { for (let i = 0; i < 12; i++) await clock.advance(1); },
     stop(reason: "stop" | "cancel" = "stop") { session.send({ protocol: "nl.engine/1", type: "control", command_id: "stop-one", session_id: `session-${epoch}-1`, op: "stop", args: { scope: "session", reason } }); },
@@ -209,11 +210,12 @@ test("N1: parser refusal preserves a raw string request_id", () => {
   const h = harness(); h.session.send({ ...request, voice: 7 });
   expect(h.events()).toMatchObject([{ type: "error", code: "INVALID_REQUEST", request_id: request.request_id }]);
 });
-test("N4: accept observer failure propagates instead of becoming a planner refusal", () => {
+test("N4: accept observer failure is logged without becoming a planner refusal", () => {
   const h = harness(), record = h.observe.input;
-  h.observe.input = i => { if (i.kind === "accept") throw new Error("observer failed"); record(i); };
-  expect(() => h.session.send(request)).toThrow("observer failed");
-  expect(h.events()).toEqual([]);
+  h.observe.input = i => { record(i); if (i.kind === "accept") throw new Error("observer failed"); };
+  expect(() => h.session.send(request)).not.toThrow();
+  expect(h.logs).toEqual([{ callback: "observe.input", error_name: "Error" }]); // R100/102(a),103
+  expect(h.events().map(e => e.type)).toEqual(["accepted", "plan"]); // The fault adds no event.
 });
 
 function pacing(lookahead = 1) {
@@ -668,4 +670,33 @@ test("synthesis timeout: a queued read waits through the predecessor lookahead l
   for (let i = 0; i < 5; i++) { h.feedback("spawned", i); h.feedback("first_sample", i); h.feedback("exited", i); await h.tick(); }
   expect(h.indices("session-1-2")).toEqual([0]);
   expect(h.events().some(e => e.type === "error")).toBe(false); h.replay();
+});
+
+// R100/101/102/103: observable faults, per-session containment, and private log shape.
+test("BIND-03: observer outcome throws once; logging never carries fault text", async () => {
+  const h = harness(1, units.slice(0, 1)); h.script(2);
+  const record = h.observe.event;
+  h.observe.event = (event, replay) => { record(event, replay); if (event.type === "outcome") throw new TypeError(request.input.text); };
+  h.session.send(request); await h.tick(); h.feedback("spawned"); h.feedback("first_sample"); h.feedback("exited"); await h.tick();
+  h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
+  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(2);
+  expect(h.logs).toEqual([{ callback: "observe.event", error_name: "TypeError" }]);
+  expect(JSON.stringify(h.logs)).not.toContain(request.input.text);
+});
+for (const method of ["monotonic", "schedule"] as const) test(`BIND-03: throwing ${method} ends only its session`, async () => {
+  const h = harness(1, units.slice(0, 1)), original = h.clock[method]; h.script(1);
+  h.clock[method] = () => { throw new Error(request.input.text); };
+  expect(() => h.session.send(request)).not.toThrow(); await turn();
+  Reflect.set(h.clock, method, original); await h.tick();
+  expect(h.events()).toContainEqual(expect.objectContaining({ type: "error", code: "SYNTH_FAILED", phase: "synthesize" }));
+  h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
+  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(1);
+});
+
+for (const method of ["now", "schedule"] as const) test(`BIND-03: shutdown ${method} throw is its deadline path`, async () => {
+  const h = harness();
+  Reflect.set(h.clock, method, () => { throw new RangeError("synthetic private fault"); });
+  await h.session.shutdown(100);
+  expect(h.logs).toEqual([{ callback: `clock.${method}`, error_name: "RangeError" }]); // R102(c),103
 });

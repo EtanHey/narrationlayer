@@ -13,6 +13,9 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  { kind: "conformance-case", name: "host-emit-guard-removed", file: "src/engine/session/session.ts", before: 'host.ignore("observe.event",', after: 'host.call("observe.event",', binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-03" },
+  { kind: "named-test", name: "host-log-message-leak", file: "src/engine/host-callbacks.ts", before: 'log?.({ callback, error_name })', after: 'log?.({ callback, error_name, message: error instanceof Error ? error.message : String(error) })', testFile: "tests/engine/session/session.test.ts", testName: "N4: accept observer failure is logged without becoming a planner refusal" },
+
   {"kind": "named-test", "name": "timeout-paused-ignored", "file": "src/engine/session/session.ts", "before": "if (shuttingDown || state.sessions[identity.session_id].generation !== \"running\") return;", "after": "if (shuttingDown || state.sessions[identity.session_id].pause_owner !== undefined || state.sessions[identity.session_id].generation !== \"running\") return;", "testFile": "tests/engine/session/session.test.ts", "testName": "synthesis timeout: pause and player feedback do not move the call bound"},
   {"kind": "named-test", "name": "timeout-abort-cancel-listener-removed", "file": "src/engine/session/session.ts", "before": "abort.signal.addEventListener(\"abort\", cancelTimeout, { once: true });", "after": "", "testFile": "tests/engine/session/session.test.ts", "testName": "synthesis timeout: abort cancels the timer and timeout abort is deferred"},
   {"kind": "named-test", "name": "timeout-inline-abort", "file": "src/engine/session/session.ts", "before": "queueMicrotask(() => abort.abort());", "after": "abort.abort();", "testFile": "tests/engine/session/session.test.ts", "testName": "synthesis timeout: abort cancels the timer and timeout abort is deferred"},

@@ -29,7 +29,7 @@
     "obligation": "The engine and every module in its static import reach contain no synchronous spawn or filesystem call.",
     "state": "proved",
     "case_ids": [],
-    "evidence": "tests/architecture/engine-reach.test.ts: engine reach: nothing the engine imports can block checks every static dependency, including type-only imports, refuses unapproved externals and loaders, and pins 22 files; independent backend or player modules outside that reach are not covered."
+    "evidence": "tests/architecture/engine-reach.test.ts: engine reach: nothing the engine imports can block checks every static dependency, including type-only imports, refuses unapproved externals and loaders, and pins 23 files; independent backend or player modules outside that reach are not covered."
   },
   {
     "id": "no-sync-io-host-modules",
@@ -51,9 +51,9 @@
     "id": "host-throws",
     "contract_line": 429,
     "obligation": "Throwing host callbacks are caught and logged without crashing the engine.",
-    "state": "owed",
+    "state": "proved",
     "case_ids": ["BIND-03"],
-    "evidence": "BIND-03 is inactive; tests/engine/artifacts/store.test.ts: D5: aborts and storage failures leave no bytes or lease covers byte-port set failures, and port failures: release retains custody and resolve sanitizes diagnostics covers get/delete failures; tests/engine/artifacts/custody.test.ts: release: failed deferred delete keeps bytes pending but the lease expired covers deferred delete failure without logging; tests/engine/session/session.test.ts: N4: accept observer failure propagates instead of becoming a planner refusal explicitly permits an observer throw to escape."
+    "evidence": "BIND-03 checks one-shot emission, backend, clock, byte-store, cancellation and log faults with later requests on the same engine; rulings 99-103. Session tests cover the observer, session isolation, and text-free logs. Host adoption of the optional log port remains owed to VoiceLayer."
   },
   {
     "id": "shutdown-deadline",

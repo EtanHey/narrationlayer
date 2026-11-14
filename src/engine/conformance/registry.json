@@ -99,7 +99,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true
   },
   {
     "id": "CAD-01",
