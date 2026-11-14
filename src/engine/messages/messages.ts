@@ -1,7 +1,7 @@
 /** Wire choices: blocks/attempts/unavailable are JSON-only; lifecycle uses a flattened edge.
  * Speaker scope is a string; fallback_reason is string/null. Welcome has owner_epoch, no seq.
  * Amplitude carries VoiceLayer's envelope; its inner shape is not fixed by this contract yet. */
-import { InvalidField, array as a, boolean as b, boundedString, integer as i, json, literal as e, number as n, offsetRange, profileRate, object as o, string as s, union as u, type Value } from "./schema";
+import { opaqueString, positiveInteger, InvalidField, array as a, boolean as b, boundedString, integer as i, json, literal as e, number as n, offsetRange, profileRate, object as o, string as s, union as u, type Value } from "./schema";
 const owner = e("user", "f5", "ask"), use = e("read", "speak", "ask_prompt"), mode = e("announce", "brief", "consult", "converse", "think");
 const status = e("completed", "interrupted", "failed"), physical = e("exited", "unknown"), source = e("player_reported", "derived");
 const engine = o({ family: e("qwen3_clone", "edge", "xtts", "f5"), legacy: b, clone: b, timing: e("engine", "alignment", "none"), cancel: e("abort_only", "acknowledged"), available: b }, { max_chars: i, reason: s });
@@ -17,8 +17,8 @@ export const lifecycleSchema = u(
   record("first_sample", { player_instance_id: s, source }), record("first_audible", { player_instance_id: s, source }),
   record("last_sample", { player_instance_id: s, source }), record("player_exited", { player_instance_id: s, status, exit_code: i }),
 );
-const controlBase = { command_id: s, session_id: s };
-const controlOptional = { expected_control_epoch: i, player_instance_id: s };
+const controlBase = { command_id: opaqueString, session_id: opaqueString };
+const controlOptional = { expected_control_epoch: i, player_instance_id: opaqueString };
 const control = <const P extends string, T>(op: P, args: import("./schema").Schema<T>) => o({ ...controlBase, op: e(op), args }, controlOptional);
 const seekAudio = o({ audio_ms: i }), seekWord = o({ word_index: i });
 const seekArgs = { json: { oneOf: [seekAudio.json, seekWord.json] }, read(v: unknown, p: string) {
@@ -31,14 +31,14 @@ export const controlSchema = u(
   control("pause", o({ owner }, { at_ms: i })), control("resume", o({ owner })),
   control("seek", seekArgs),
   control("stop", o({ scope: e("session", "queue", "all_speech"), reason: e("stop", "cancel", "replaced") }, { at_ms: i, except_sessions: a(s), retain_read_queue: b })),
-  control("replay", o({ of_session_id: s, from: e("start", "readback") }, { audio_ms: i })),
+  control("replay", o({ of_session_id: opaqueString, from: e("start", "readback") }, { audio_ms: i })),
   control("next", o({ request_id: s })), control("previous", o({ request_id: s })), control("resync", o({})),
 );
 // Message bodies are flattened on the wire; keeping the envelope construction here avoids drift.
 function message<const T extends string, R extends Record<string, import("./schema").Schema<unknown>>, O extends Record<string, import("./schema").Schema<unknown>> = Record<never, never>>(type: T, fields: R, optional?: O) { return o({ protocol: e("nl.engine/1"), type: e(type), ...fields }, optional); }
 const event = <const T extends string, R extends Record<string, import("./schema").Schema<unknown>>, O extends Record<string, import("./schema").Schema<unknown>> = Record<never, never>>(type: T, fields: R, optional?: O) => message(type, { owner_epoch: i, seq: i, ...fields }, optional);
 const tagged = <const T extends string, S>(type: T, schema: import("./schema").Schema<S>) => ({ json: { allOf: [message(type, {}).json, schema.json] }, read(v: unknown, p: string) { return { ...message(type, {}).read(v, p), ...schema.read(v, p) }; } });
-const narrationBase = message("narrate", { request_id: boundedString(3, 128), idempotency_key: s, use, input: o({ text: s, format: e("plain", "markdown") }, { source: s, text_hash: s }), voice: o({ profile: s, require_clone: b, fallback: e("none", "declared") }), delivery: e("pieces", "play") }, { mode, rate: profileRate, start: u(e("now"), o({ after_session: s })), lookahead: i, selection_identity: s, queue: e("replace", "append"), retain_artifact: b });
+const narrationBase = message("narrate", { request_id: boundedString(3, 128), idempotency_key: opaqueString, use, input: o({ text: s, format: e("plain", "markdown") }, { source: s, text_hash: s }), voice: o({ profile: s, require_clone: b, fallback: e("none", "declared") }), delivery: e("pieces", "play") }, { mode, rate: profileRate, start: u(e("now"), o({ after_session: opaqueString })), lookahead: positiveInteger, selection_identity: s, queue: e("replace", "append"), retain_artifact: b });
 const narration = { json: { allOf: [narrationBase.json, { if: { properties: { use: { const: "speak" } } }, then: { required: ["mode"] } }, { if: { properties: { use: { const: "ask_prompt" } } }, then: { required: ["retain_artifact"] } }] }, read(v: unknown, p: string) {
   const value = narrationBase.read(v, p);
   if (value.use === "speak") { if (value.mode === undefined) throw new InvalidField(`${p}.mode`); return { ...value, use: value.use, mode: value.mode }; }
@@ -54,12 +54,12 @@ const hello = { json: { allOf: [helloBase.json, { if: { required: ["audible"] },
 export const requests = {
   hello,
   narrate: narration,
-  control: tagged("control", controlSchema), set_speed: message("set_speed", { command_id: s, speed: e(0.75, 1, 1.25, 1.5, 2) }),
-  player_feedback: message("player_feedback", { session_id: s, control_epoch: i, player_instance_id: s, piece_index: i, edge: e("spawned", "first_sample", "first_audible", "last_sample", "exited"), t_mono_ms: i }, { source, exit: o({ status, stopped_at_ms: i }, { code: i }) }),
-  speaker_grant: message("speaker_grant", { permit_id: s, admission_epoch: i, session_id: s, scope: s }),
-  speaker_deny: message("speaker_deny", { session_id: s, reason: e("capture", "f5", "ask", "history", "disabled", "shutdown") }),
+  control: tagged("control", controlSchema), set_speed: message("set_speed", { command_id: opaqueString, speed: e(0.75, 1, 1.25, 1.5, 2) }),
+  player_feedback: message("player_feedback", { session_id: opaqueString, control_epoch: i, player_instance_id: opaqueString, piece_index: i, edge: e("spawned", "first_sample", "first_audible", "last_sample", "exited"), t_mono_ms: i }, { source, exit: o({ status, stopped_at_ms: i }, { code: i }) }),
+  speaker_grant: message("speaker_grant", { permit_id: s, admission_epoch: i, session_id: opaqueString, scope: s }),
+  speaker_deny: message("speaker_deny", { session_id: opaqueString, reason: e("capture", "f5", "ask", "history", "disabled", "shutdown") }),
   speaker_revoke: message("speaker_revoke", { admission_epoch: i, reason: s }, { loan_id: s }),
-  loan_restore: message("loan_restore", { loan_id: s, session_id: s }), capture_state: message("capture_state", { admission_epoch: i, capture: e("idle", "requested", "active", "processing") }),
+  loan_restore: message("loan_restore", { loan_id: s, session_id: opaqueString }), capture_state: message("capture_state", { admission_epoch: i, capture: e("idle", "requested", "active", "processing") }),
 };
 export const events = {
   welcome: message("welcome", { owner_epoch: i, package_version: s, protocol_minor: i, caps: a(s), engines: a(engine), limits: limitsSchema }),

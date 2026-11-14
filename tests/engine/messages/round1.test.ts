@@ -32,3 +32,21 @@ test("round1 hostile reviewer probes remain total", () => {
   expect(parseRequest({ ...fixture("narrate"), input: { text: "😀", format: "plain" } }, limits).ok).toBe(true);
   expect(parseRequest({ ...fixture("narrate"), input: { text: "😀x", format: "plain" } }, limits)).toMatchObject({ ok: false, error: { code: "INPUT_TOO_LONG" } });
 });
+test("S1b opaque ids and positive integer overrides are checked at the boundary", () => {
+  for (const [name, field] of [["narrate", "idempotency_key"], ["control-seek", "command_id"], ["control-seek", "session_id"], ["player_feedback", "session_id"], ["player_feedback", "player_instance_id"]]) {
+    expect(parseRequest({ ...fixture(name), [field]: "" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+  }
+  for (const lookahead of [0, -1, 1.5]) expect(parseRequest({ ...fixture("narrate"), lookahead })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST", path: "$.lookahead" } });
+  for (const lookahead of [1, 5, 1000]) expect(parseRequest({ ...fixture("narrate"), lookahead }).ok).toBe(true);
+});
+test("S1b stage B needs player; optional caps and last_owner_epoch never refuse", () => {
+  const w = parseEvent(fixture("welcome")); if (!w.ok || w.value?.type !== "welcome") throw Error("fixture");
+  const welcome = { ...w.value, caps: ["lifecycle"] };
+  expect(negotiate({ ...fixture("hello"), required_caps: [], stage: "B" }, welcome)).toMatchObject({ ok: false, error: { code: "MISSING_CAPABILITY", details: { missing_caps: ["player"] } } });
+  expect(negotiate({ ...fixture("hello"), required_caps: [], optional_caps: ["unavailable"], last_owner_epoch: 999 }, welcome)).toEqual({ ok: true, value: welcome });
+  expect(negotiate({ ...fixture("hello"), required_caps: [] }, { ...welcome, caps: [] })).toMatchObject({ ok: false, error: { details: { missing_caps: ["lifecycle"] } } });
+  const secret = "Synthetic violet observatory message";
+  const result = negotiate({ ...fixture("hello"), required_caps: Array.from({ length: 12 }, (_, i) => secret + i) }, welcome);
+  expect(result).toMatchObject({ ok: false, error: { details: { missing_caps: [], unknown_cap_indices: [0, 1, 2, 3, 4, 5, 6, 7] } } });
+  expect(JSON.stringify(result)).not.toContain(secret);
+});
