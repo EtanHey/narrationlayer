@@ -190,7 +190,7 @@ export const artifactCases: Record<string, Case> = {
     const expired = async (lease_id: string, known: boolean) => {
       const start = t.seen.filter(e => e.type === "error").length;
       t.connection.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id }); await until(c, () => t.seen.filter(e => e.type === "error").length > start);
-      c.assert(t.seen.filter(e => e.type === "error").length === start + 1); // L353: unrelated session events may interleave.
+      c.assert(t.seen.filter(e => e.type === "error").length === start + 1); // L114: unrelated session events may interleave.
       const e = t.seen.filter(e => e.type === "error").at(-1); c.assert(e?.type === "error");
       if (e?.type !== "error") return;
       c.assert(e.code === "ARTIFACT_EXPIRED" && e.phase === "retain" && e.retry === "never" && e.session_id === undefined && e.request_id === undefined);

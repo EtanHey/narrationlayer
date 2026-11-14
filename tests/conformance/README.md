@@ -385,7 +385,7 @@ a zero-delay timer armed after the turn; this engine's exact microtask counts
 belong to its unit suite. Backend calls and abort listeners run after the turn;
 the reducer fences a stop before the deferred abort fires.
 
-the voices table (selection) and `observe` (diagnostic) are supplied through
+The voices table (selection) and `observe` (diagnostic) are supplied through
 `createEngine` options and still run inside `send`; neither is reachable through
 a public door today. The coming `./engine` door must not expose `observe` (owed
 to that slice). The planner also runs synchronously as a pure request decision.
