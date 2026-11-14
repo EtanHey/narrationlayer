@@ -169,8 +169,8 @@ No eviction, per-session last seq or retry input is introduced.
 
 ## S4b duration and engine lifecycle records
 
-The reducer sequences a new `synthesis_requested` input and an `audio_ready`
-record immediately before each accepted `piece_ready`, followed by `duration`.
+The reducer sequences `synthesis_requested` at the backend call, and sequences
+`audio_ready` immediately before each accepted `piece_ready`, followed by `duration`.
 The request input contains identity, index, UTF-16 length and monotonic time;
 kind comes from the plan's first segment, never request text. It changes only
 `seq`, and is dropped for unknown, foreign, non-running or terminal sessions.
