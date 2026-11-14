@@ -61,32 +61,40 @@ export const pauseCases: Record<string, Case> = {
       const stale = await control(c, t, "resume", "user", extra);
       c.assert(stale.outcome === "reject" && stale.reason === "STALE_EPOCH" && stale.current?.control_epoch === 3 && stale.current.piece_index === 0 && stale.current.player_instance_id === "park-player-0"); // L172.
     }
-    c.assert((await control(c, t, "resume", "user")).outcome === "accept"); // L163: both stale resumes preserved the park.
+    const nonowner = await control(c, t, "resume", "ask", { expected_control_epoch: 1 });
+    c.assert(nonowner.outcome === "reject" && nonowner.reason === "STALE_EPOCH"); // L172: stale wins even for a non-owner.
+    c.assert((await control(c, t, "resume", "user")).outcome === "accept"); // L172: stale resumes preserved the park.
     await complete(c, t);
   },
   "PAUSE-02e": async c => {
-    const t = await start(c, false, 4);
-    const first = await control(c, t, "pause", "f5");
-    c.assert(first.outcome === "accept" && first.reason === undefined); // L162: first pause, no takeover reason.
-    const takeover = await control(c, t, "pause", "user");
-    c.assert(takeover.outcome === "accept" && takeover.reason === "manual pause"); // L162.
-    const rejected = await control(c, t, "resume", "f5");
-    c.assert(rejected.outcome === "reject" && rejected.reason === "pause owner differs"); // Ruling 60.
-    await tick(t, 100);
-    c.assert(!t.seen.some(e => (e.type === "error" || e.type === "outcome") && e.session_id === t.id)); // Ruling 60: rejection alone.
-    t.connection.send({ protocol: "nl.engine/1", type: "control", session_id: t.id, command_id: "park-stop", op: "stop", args: { scope: "session", reason: "stop" } }); await tick(t);
-    const end = t.seen.findIndex(e => e.type === "outcome" && e.session_id === t.id);
-    c.assert(end >= 0 && !t.seen.slice(end + 1).some(e => "session_id" in e && e.session_id === t.id)); // L516: single final outcome.
-    c.assert((await control(c, t, "pause", "f5")).outcome === "noop"); // Existing terminal precedence: ended sessions cannot park.
-    await tick(t);
-    c.assert(!t.seen.slice(end + 1).some(e => "session_id" in e && e.session_id === t.id)); // L516: no post-outcome session event.
-    t.connection.send({ protocol: "nl.engine/1", type: "narrate", request_id: "next-read", idempotency_key: "next-read", use: "read", input: { text: "Opal lanterns sway.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
-    await tick(t);
-    const next = t.seen.find(e => e.type === "accepted" && e.request_id === "next-read");
-    c.assert(next?.type === "accepted"); // L137: a distinct admission.
-    if (next?.type !== "accepted") throw Error("missing second admission");
-    c.assert((await control(c, { ...t, id: next.session_id }, "resume", "user")).outcome === "noop"); // Ruling 58: a new read inherits no park.
-    await t.finish();
+    for (const parkedBy of ["user", "f5", "ask"] as const) {
+      const t = await start(c, false, 4);
+      const first = await control(c, t, "pause", parkedBy === "user" ? "f5" : parkedBy);
+      c.assert(first.outcome === "accept" && first.reason === undefined); // L162: first pause, no takeover reason.
+      if (parkedBy === "user") {
+        const takeover = await control(c, t, "pause", "user");
+        c.assert(takeover.outcome === "accept" && takeover.reason === "manual pause"); // L162.
+      }
+      const rejected = await control(c, t, "resume", parkedBy === "user" ? "f5" : "user");
+      c.assert(rejected.outcome === "reject" && rejected.reason === "pause owner differs"); // Ruling 60.
+      await tick(t, 100);
+      c.assert(!t.seen.some(e => (e.type === "error" || e.type === "outcome") && e.session_id === t.id)); // Ruling 60: rejection alone.
+      t.connection.send({ protocol: "nl.engine/1", type: "control", session_id: t.id, command_id: "park-stop", op: "stop", args: { scope: "session", reason: "stop" } }); await tick(t);
+      const end = t.seen.findIndex(e => e.type === "outcome" && e.session_id === t.id);
+      c.assert(end >= 0 && !t.seen.slice(end + 1).some(e => "session_id" in e && e.session_id === t.id)); // L114: single final outcome.
+      c.assert((await control(c, t, "pause", "f5")).outcome === "noop"); // Existing terminal precedence: ended sessions cannot park.
+      await tick(t);
+      c.assert(!t.seen.slice(end + 1).some(e => "session_id" in e && e.session_id === t.id)); // L114: no post-outcome session event.
+      t.connection.send({ protocol: "nl.engine/1", type: "narrate", request_id: "next-read", idempotency_key: "next-read", use: "read", input: { text: "Opal lanterns sway.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+      await tick(t);
+      const next = t.seen.find(e => e.type === "accepted" && e.request_id === "next-read");
+      c.assert(next?.type === "accepted"); // L137: a distinct admission.
+      if (next?.type !== "accepted") throw Error("missing second admission");
+      c.assert((await control(c, { ...t, id: next.session_id }, "resume", parkedBy)).outcome === "noop"); // Ruling 58: a new read inherits no park.
+      t.connection.send({ protocol: "nl.engine/1", type: "control", session_id: next.session_id, command_id: "next-stop", op: "stop", args: { scope: "session", reason: "stop" } }); await tick(t);
+      c.assert((await control(c, { ...t, id: next.session_id }, "pause", "ask")).outcome === "noop"); // L114: ended, never parked read.
+      await t.finish();
+    }
     for (const owner of ["f5", "ask", "user"] as const) {
       const u = await start(c);
       c.assert((await control(c, u, "resume", owner)).outcome === "noop"); // Ruling 58.

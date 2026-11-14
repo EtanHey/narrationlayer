@@ -58,7 +58,7 @@ async function scenario(c: CaseContext, mode: string) {
       const a = events("accepted").find(e => e.request_id === id); c.assert(Boolean(a));
       for (const p of events("piece_ready").filter(e => e.session_id === a?.session_id)) for (const edge of ["spawned", "first_sample", "exited"])
         connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: p.session_id, player_instance_id: `privacy-player-${p.index}`, control_epoch: Number(p.index) + 1, piece_index: p.index, edge, t_mono_ms: c.clock.now(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: Number(p.start_ms) + Number(p.duration_ms) } } : {}) });
-      await tick();
+      await wait(() => events("outcome").some(e => e.session_id === a?.session_id));
       c.assert(events("outcome").some(e => e.session_id === a?.session_id && obj(e.playback).reason === "completed"));
     };
     if (mode !== "pre-hello") connection.send(hello);
@@ -77,7 +77,7 @@ async function scenario(c: CaseContext, mode: string) {
     if (mode === "protocol") Object.assign(request, { protocol: "nl.engine/2" });
     connection.send(request);
     if (mode === "replay") connection.send(request);
-    await tick();
+    await wait(() => events("plan").length > 0 || events("error").length > 0); // L114: wait for admission result.
     if (mode === "replay") c.assert(events("accepted").length === 2 && events("accepted")[0].session_id === events("accepted")[1].session_id);
     const refused = ["limit", "invalid", "pre-hello", "protocol"].includes(mode);
     if (refused) c.assert(events("error").some(e => e.code === (mode === "limit" ? "INPUT_TOO_LONG" : mode === "pre-hello" ? "NOT_NEGOTIATED" : mode === "protocol" ? "UNSUPPORTED_VERSION" : "INVALID_REQUEST")));
@@ -94,7 +94,7 @@ async function scenario(c: CaseContext, mode: string) {
       const session = events("accepted")[0].session_id;
       if (mode === "queued") { connection.send(read(privacyText, { request_id: hostId + "-queued", idempotency_key: hostId + "-queued", start: { after_session: session } })); await tick(); }
       if (mode === "stop" || mode === "shutdown") {
-        await wait(() => events("piece_ready").length === 1);
+        await wait(() => events("piece_ready").length >= 1);
         for (const edge of ["spawned", "first_sample"]) connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: session, player_instance_id: "privacy-midway", control_epoch: 1, piece_index: 0, edge, t_mono_ms: c.clock.now() });
         if (mode === "stop") connection.send({ protocol: "nl.engine/1", type: "control", command_id: hostId, session_id: session, op: "stop", args: { scope: "session", reason: "stop" } });
         else void connection.shutdown(c.clock.now());
@@ -107,11 +107,11 @@ async function scenario(c: CaseContext, mode: string) {
         if (mode === "release") {
           const lease_id = obj(events("piece_ready")[0].artifact).lease_id;
           for (let i = 0; i < 2; i++) { connection.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id }); await tick(); }
-          c.assert(events("error").some(e => e.code === "ARTIFACT_EXPIRED"));
+          await wait(() => events("error").some(e => e.code === "ARTIFACT_EXPIRED"));
         }
         if (mode === "stale") {
           for (const control_epoch of [1, 0]) connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: session, player_instance_id: "privacy-player-0", control_epoch, piece_index: 0, edge: "spawned", t_mono_ms: c.clock.now() });
-          await tick(); c.assert(events("error").some(e => e.code === "STALE_EPOCH"));
+          await wait(() => events("error").some(e => e.code === "STALE_EPOCH"));
         }
         await complete(String(request.request_id));
         if (mode === "queued" || mode === "second-read") {
