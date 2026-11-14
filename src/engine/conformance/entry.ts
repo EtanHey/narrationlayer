@@ -71,7 +71,7 @@ if (import.meta.main) {
           const command = [process.execPath, "--preload", resolve(import.meta.dir, "preload.ts"), import.meta.path,
             "--child", "--binding", absoluteBinding, ...(reversed ? ["--reverse"] : [])];
           const timeout = Number(process.env.NL_CONFORMANCE_WATCHDOG_MS ?? 1500);
-          if (!Number.isInteger(timeout) || timeout < 1 || timeout > 1500) throw new Error("invalid watchdog");
+          if (!Number.isInteger(timeout) || timeout < 1 || timeout > 3000) throw new Error("invalid watchdog");
           const proc = Bun.spawn(containment === "macos-sandbox" ? sandboxCommand(command, listener.port) : command, { cwd: root, env, stdio: ["ignore", "pipe", "pipe", "pipe"] });
           let deadline: ReturnType<typeof setTimeout> | undefined;
           const expired = new Promise<null>(resolve => {

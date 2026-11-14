@@ -32,7 +32,7 @@ import os from "node:os";
 import { findProfile, qwenConfigFromProfile, warnIfNonAcceptedProfile } from "../src/profiles.js";
 import { prepareSpeechChannels as prepareDefaultChannels, type TermRule, type SpeechChannels } from "../src/text-normalize.js";
 import { clearTakeCacheReceipt } from "../src/pipelines/local-tts/take-cache.js";
-import { RunnerFailure } from "../src/pipelines/local-tts/failure.js";
+import { RunnerFailure, TakeCheckError } from "../src/pipelines/local-tts/failure.js";
 import { renderLocalTts, type LocalTtsRenderResult } from "../src/pipelines/local-tts/index.js";
 
 export {
@@ -80,9 +80,9 @@ function expandHome(value: string): string {
   return value;
 }
 
-function fail(message: string): never {
+function fail(message: string, exitCode = 1): never {
   process.stderr.write(`local-tts-runner: ${message}\n`);
-  process.exit(1);
+  process.exit(exitCode);
 }
 
 function parseArgs(argv: string[]): Args {
@@ -366,6 +366,7 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
       prepareSpeechChannels,
     });
   } catch (err) {
+    if (err instanceof TakeCheckError) fail(err.message, 2);
     if (err instanceof RunnerFailure) fail(err.message);
     throw err;
   }

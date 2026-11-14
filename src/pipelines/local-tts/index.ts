@@ -7,7 +7,7 @@ import type { TakeCheckReceipt } from "./take-cache.js";
 import type { SpeechChannels, TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
-import { RunnerFailure } from "./failure.js";
+import { RunnerFailure, TakeCheckError } from "./failure.js";
 import { applyBreathingInPlace } from "./breathing.js";
 import { loudnessNormalizeInPlace } from "./loudness.js";
 import { clearTakeCacheReceipt, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
@@ -245,7 +245,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
   if (!checks) return renderUnchecked(args);
   if (!Number.isFinite(checks.pitchCeilingHz) || checks.pitchCeilingHz <= 0
     || !Number.isSafeInteger(checks.retries) || checks.retries < 0 || checks.retries > 10)
-    throw new RunnerFailure("take checks require a positive pitch ceiling and 0..10 retries");
+    throw new TakeCheckError("take checks require a positive pitch ceiling and 0..10 retries");
   if (args.refreshCache && !args.cache) throw new RunnerFailure("--refresh-cache cannot be combined with --no-cache");
   if (args.keepPiecesDir !== undefined) await assertKeepPiecesDir(args.keepPiecesDir);
   await clearTakeCacheReceipt(args.output);
@@ -263,12 +263,18 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       key = result.cacheKey;
       const source = result.kind === "cache-hit" ? "cache" : "render";
       if (source === "render") evidence.attempts++;
+      const pitch = (() => {
+        try {
       const decoded = spawnSync("ffmpeg", ["-v", "error", "-nostdin", "-i", output,
         "-ar", "8000", "-ac", "1", "-f", "f32le", "pipe:1"], { maxBuffer: 256 * 1024 * 1024 });
       if (decoded.error || decoded.status !== 0 || !decoded.stdout.length) throw new RunnerFailure("take check audio decode failed");
       const samples = new Float32Array(decoded.stdout.length / 4);
       for (let i = 0; i < samples.length; i++) samples[i] = decoded.stdout.readFloatLE(i * 4);
-      const pitch = pitchRunaway(samples, 8000, checks.pitchCeilingHz);
+      return pitchRunaway(samples, 8000, checks.pitchCeilingHz);
+        } catch {
+          throw new TakeCheckError("take check execution failed; no retry performed");
+        }
+      })();
       const reason = pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
       if (!reason) {
         const cachePath = path.join(args.cacheDir, `${key}.wav`);

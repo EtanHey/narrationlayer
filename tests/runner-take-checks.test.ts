@@ -106,3 +106,30 @@ test("checks off retains the warm frozen bytes, receipt and key", async () => {
     expect(f.calls()).toBe(1);
   } finally { await f.close(); }
 });
+
+
+test("check execution error exits 2 without a fresh request or publication", async () => {
+  const f = await fixture(0);
+  try {
+    const reference = path.join(f.dir, "reference.wav"), auth = path.join(f.dir, "auth");
+    await writeFile(reference, tone(180));
+    await writeFile(auth, "synthetic");
+    const key = computeContentHashKey({ spokenText: normalizeForSpeech(f.args.text),
+      referenceClip: reference, referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
+    const cached = path.join(f.args.cacheDir, `${key}.wav`);
+    await writeFile(cached, "not audio");
+    await writeFile(f.args.output, "previous accepted output");
+    const child = Bun.spawn([process.execPath, "bin/local-tts-runner.ts", "--text", f.args.text,
+      "--output", f.args.output, "--reference", reference, "--reference-text", "Synthetic reference.",
+      "--auth-token-file", auth, "--daemon-url", f.args.resolved.daemonUrl, "--cache-dir", f.args.cacheDir,
+      "--take-checks", "--pitch-ceiling", "300"], { stdout: "pipe", stderr: "pipe" });
+    const stderr = await new Response(child.stderr).text();
+    expect(await child.exited).toBe(2);
+    expect(stderr).toContain("no retry performed");
+    expect(f.calls()).toBe(0);
+    expect(await readFile(f.args.output, "utf8")).toBe("previous accepted output");
+    expect(await readFile(cached, "utf8")).toBe("not audio");
+    expect(await Bun.file(`${f.args.output}.cache.json`).exists()).toBe(false);
+    expect((await readdir(f.dir)).some(n => n.includes(".checks-"))).toBe(false);
+  } finally { await f.close(); }
+});

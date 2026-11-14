@@ -470,3 +470,5 @@ and late-result fencing. It also checks a waiting read's timeout. The bound is a
 positive safe integer at most 2147483647 ms (amended rulings 90/92). Every-call
 fresh bounds, exact ticks, pause/feedback independence and timer cancellation
 are engine unit proofs. Publication and byte-port bounds remain owed.
+
+Narrowed ruling 78 spares every reached session whose playback ended, even while generation is still committing. Unknown after_session identities are refused at admission with INVALID_REQUEST and no session or backend work.

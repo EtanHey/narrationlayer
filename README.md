@@ -67,6 +67,10 @@ Use `--json` with `doctor`, `create-job`, `render`, `bakeoff-create`,
 `qwen3-lora-prepare`, and `qwen3-lora-preflight` for machine-readable stdout.
 `status`, `result`, `dashboard`, and `list-jobs` always emit JSON.
 
+### Take checks for narration builds
+
+Run `narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz>` after synthesis and recognition (ffmpeg required). It prints a JSON verdict and exits 0 on pass, 1 for a failing take, or 2 for usage, input or decode errors. Supply spoken text and an array of `{word, start, end}` recognition records. The first-word screen lowercases and removes everything except ASCII letters and digits, skips leading symbol-only tokens, searches only the first three recognised tokens, accepts a word split across consecutive tokens, and matches English number words to digits in either direction (up to three tokens). This screens recognition rather than proving an acoustic omission. The build supplies each voice's pitch ceiling from that voice's controls; there is no global default. Pitch uses a dependency-free YIN difference estimator at 8 kHz, 64 ms frames, 10 ms hop, 65–450 Hz and threshold 0.2. Only full nonoverlapping one-second windows with at least ten voiced frames are judged; skipped windows have a null median. JSON reports all full windows and those above the ceiling. No judged windows fails the combined verdict. Octave and recognition errors remain possible; the build owns regeneration.
+
 ## MCP
 
 Starts a stdio MCP server in `src/mcp-server.ts` exposing:
@@ -203,11 +207,6 @@ are documented in `docs/mcp-tools.json` and drift-tested against
 - `src/schema.ts` — schema and validation helpers
 - `src/contract.ts` — shared MCP tool contract
 - `src/service.ts` — shared CLI/MCP job lifecycle
-
-### Take checks for narration builds
-
-Run `narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz>` after synthesis and recognition (ffmpeg required). It prints a JSON verdict and exits 0 on pass, 1 on failure. Supply the spoken text and an array of `{word, start, end}` recognition records; the first-word screen tests exact-token presence anywhere after lowercasing and removing non-ASCII letters/digits, rather than proving an acoustic omission. The build supplies each voice's ceiling from that voice's measured controls; there is no global default. Pitch uses a dependency-free YIN difference estimator at 8 kHz, 64 ms frames, 10 ms hop, 65–450 Hz, and nonoverlapping one-second voiced medians (including a final partial window); the JSON reports every window and those above the ceiling. No voiced frames fails the combined verdict. This is a narrow empirical screen, with octave and recognition errors possible; it neither changes rendering nor regenerates takes. The build owns regeneration.
-
 The standalone runner accepts `--take-checks --pitch-ceiling <hz>` to screen every
 final take, including cache hits, for pitch runaway. `--take-retries <count>` allows
 zero through ten retries after the first render (default two). Rejected takes are
@@ -217,3 +216,6 @@ reason. Checks use their own cache key; leaving the switch off preserves existin
 keys and bytes. The runner has no recognition pass, so first-word omission remains
 the build's `check-take` responsibility. Each retry sends a fresh request; the daemon
 supplies variance because this backend request has no seed field.
+
+
+Check execution errors stop immediately without retrying or publishing audio; the runner exits 2. A failing take uses the bounded retry path and exits 1 on give-up.
