@@ -32,6 +32,7 @@ export type Publication<Audio> = {
  * outgoing queue (transport), including its closed flag and pending iterator readers. */
 export function createEngineSession<Audio>(options: {
   owner_epoch: number;
+  synthesis_timeout_ms: number;
   welcome: Pick<Message<"welcome">, "package_version" | "protocol_minor" | "caps" | "engines">;
   limits: Limits;
   planner: ReadPlanner;
@@ -41,6 +42,9 @@ export function createEngineSession<Audio>(options: {
   artifacts?: { releaseFromHost(lease_id: string): { kind: "released" | "expired" }; minted(lease_id: string): boolean };
   observe?: { input?(input: Input<"host">): void; event?(event: Event, replay: boolean): void };
 }) {
+  // Ruling 90: the host chooses a finite, positive bound.
+  if (!Number.isFinite(options.synthesis_timeout_ms) || !(options.synthesis_timeout_ms > 0))
+    throw new Error("invalid synthesis_timeout_ms");
   let state = initialState(options.owner_epoch, "host"), counter = 0;
   const requests = new Map<string, readonly { piece_index: number; text: string }[] & { selection?: Substitution }>();
   const runs = new Set<Promise<void>>();
@@ -161,7 +165,16 @@ export function createEngineSession<Audio>(options: {
         if (!request || request.piece_index !== piece.index || !piece.segments[0]) throw new Error("invalid planner requests");
         const started = options.clock.monotonic();
         step({ kind: "synthesis_requested", identity, piece_index: piece.index, chars: request.text.length, t_mono_ms: Math.round(started) });
-        const audio = await options.backend.synthesizeRequest(request, abort.signal);
+        // Rulings 90-93: each call starts its own host-clock bound, after send.
+        const cancelTimeout = options.clock.schedule(options.synthesis_timeout_ms, () => {
+          if (shuttingDown || state.sessions[identity.session_id].generation !== "running") return;
+          step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis timed out" } } });
+          queueMicrotask(() => abort.abort());
+        });
+        abort.signal.addEventListener("abort", cancelTimeout, { once: true });
+        let audio: Audio;
+        try { audio = await options.backend.synthesizeRequest(request, abort.signal); }
+        finally { cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout); }
         const ready = options.clock.monotonic();
         abort.signal.throwIfAborted();
         const delivered = await options.publication.piece(audio, {

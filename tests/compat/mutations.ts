@@ -13,6 +13,8 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  { kind: "conformance-case", name: "synthesis-timeout-removed", file: "src/engine/session/session.ts", before: "options.clock.schedule(options.synthesis_timeout_ms,", after: "options.clock.schedule(1e9,", binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-01" },
+  { kind: "named-test", name: "synthesis-timeout-cancel-removed", file: "src/engine/session/session.ts", before: "finally { cancelTimeout(); abort.signal.removeEventListener", after: "finally { abort.signal.removeEventListener", testFile: "tests/engine/session/session.test.ts", testName: "synthesis timeout: settled call cancels its timer" },
   {"kind": "conformance-case", "name": "resync-live-filter", "file": "src/engine/reducer/session.ts", "before": ".filter(read => !read.outcome)", "after": "", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SNAP-01"},
   {"kind": "conformance-case", "name": "resync-delivered-words", "file": "src/engine/reducer/session.ts", "before": "derivation_id: \"resync\", words: piece.words", "after": "derivation_id: \"resync\", words: read.plan.words.slice(read.plan.pieces[piece.index].word_start, read.plan.pieces[piece.index].word_end)", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SNAP-01"},
 

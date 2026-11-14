@@ -221,6 +221,41 @@ export const engineCases: Record<string, Case> = {
       const seq = seen.filter(e => "seq" in e).map(e => "seq" in e ? e.seq : 0);
       c.assert(seq.every((n, i) => n === i + 1)); // Line 114: fresh events add one seq.
     }
+    // L428 / rulings 90-93: stuck synthesis terminates once; late audio owns no lease.
+    {
+      const backend = new ScriptedBackend(c.clock);
+      let late!: (audio: ReturnType<typeof pcmAudio>) => void, aborted = false;
+      backend.synthesizeRequest = (_request, signal) => {
+        signal.addEventListener("abort", () => { aborted = true; }, { once: true });
+        return new Promise(resolve => { late = resolve; });
+      };
+      const spawn = new ScriptedSpawn(c.clock), store = new Map<string, Uint8Array>();
+      const connection = createProbed(c, { clock: c.clock, ports: { backend, spawn, player: new ScriptedPlayer(c.clock, spawn), host: new ScriptedHost(c.clock) }, store, hash_key: new Uint8Array(32), audible: false });
+      const seen: Event[] = [];
+      const collect = (async () => { for await (const raw of connection.events) { const parsed = parseEvent(raw); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })();
+      connection.send(hello); connection.send(read("bind-timeout"));
+      await until(c, () => typeof late === "function");
+      // The binding chooses 2000 ms. Cross that bound using only fake-clock steps.
+      for (let i = 0; i < 2001; i++) await c.clock.advance(1);
+      const observeSeparately = async (ready: () => boolean) => {
+        // No relative ordering is required: each observation gets its own window,
+        // including clock-task abort relays and delayed event delivery.
+        for (let i = 0; i < 16; i++) { await c.clock.advance(1); for (let j = 0; j < 64; j++) await Promise.resolve(); }
+        await until(c, ready, 64);
+      };
+      await observeSeparately(() => seen.some(e => e.type === "error" && e.code === "SYNTH_TIMEOUT"));
+      await observeSeparately(() => seen.filter(e => e.type === "outcome").length === 1);
+      await observeSeparately(() => aborted);
+      const errors = seen.filter(e => e.type === "error"), outcomes = seen.filter(e => e.type === "outcome");
+      c.assert(errors.length === 1 && errors[0].code === "SYNTH_TIMEOUT" && errors[0].phase === "synthesize" && errors[0].retry === "new_request");
+      c.assert(outcomes.length === 1 && outcomes[0].generation.status === "failed" && outcomes[0].generation.reason === "synth_timeout" && outcomes[0].playback.reason === "synth_failed" && outcomes[0].artifacts.length === 0);
+      c.assert(errors[0]?.session_id === outcomes[0]?.session_id);
+      late?.(pcmAudio(100));
+      for (let i = 0; i < 16; i++) { await c.clock.advance(1); for (let j = 0; j < 64; j++) await Promise.resolve(); }
+      c.assert(!seen.some(e => e.type === "piece_ready") && store.size === 0);
+      c.assert(seen.filter(e => e.type === "outcome").length === 1);
+      await bounded(c, connection.shutdown(c.clock.now())); await collect;
+    }
     // Line 426 applies to a raw then callback as well as a for-await consumer.
     const connection = createProbed(c, { clock: c.clock, store: new Map(), hash_key: new Uint8Array(32), audible: false });
     let depth = 0, called = false;

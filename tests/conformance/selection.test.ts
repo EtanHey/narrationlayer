@@ -18,7 +18,7 @@ const delayed: Binding = { name: "conforming-delayed", create(host) {
 const grouped: Binding = { name: "conforming-grouped", create(host) {
   if (!host.voices || !host.engines || !host.ports) throw new Error("selection fixtures supply host data");
   const voices = parseVoices(host.voices), engines = host.engines;
-  return createEngineSession({ clock: host.clock, backend: host.ports.backend, owner_epoch: 1,
+  return createEngineSession({ synthesis_timeout_ms: 10000, clock: host.clock, backend: host.ports.backend, owner_epoch: 1,
     welcome: { package_version: "synthetic", protocol_minor: 0, caps: ["read", "speak", "word_timing", "lifecycle"], engines },
     limits: { max_chars: { read: 1000, speak: 900, ask_prompt: 800 }, lookahead: 2, aligner_reap_ms: 50 },
     publication: createPublication(createArtifactStore(host.store, 1)), planner: { plan(request, _limits, identity) {

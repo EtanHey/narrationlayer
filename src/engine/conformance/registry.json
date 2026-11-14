@@ -7,7 +7,7 @@
     "stage": "A",
     "owner_slice": "S7",
     "active": true,
-    "owed": "Later: BACKEND_DRAIN_UNKNOWN at deadline, outcome.physical other than unknown, SYNTH_TIMEOUT/BIND-01, throwing host callbacks/BIND-03, reconnect/BIND-02; retain_artifact, timing_update; host ART-02/03 and CUST-01; HASH-01 privacy"
+    "owed": "Later: BACKEND_DRAIN_UNKNOWN at deadline, outcome.physical other than unknown, throwing host callbacks/BIND-03, reconnect/BIND-02; retain_artifact, timing_update; host ART-02/03 and CUST-01; HASH-01 privacy"
   },
   {
     "id": "ART-02",
@@ -35,7 +35,7 @@
     "stage": "A",
     "owner_slice": "S7",
     "active": true,
-    "owed": "Later: BACKEND_DRAIN_UNKNOWN at deadline, outcome.physical other than unknown, SYNTH_TIMEOUT/BIND-01, throwing host callbacks/BIND-03, reconnect/BIND-02; retain_artifact, timing_update; host ART-02/03 and CUST-01; HASH-01 privacy"
+    "owed": "Later: BACKEND_DRAIN_UNKNOWN at deadline, outcome.physical other than unknown, throwing host callbacks/BIND-03, reconnect/BIND-02; retain_artifact, timing_update; host ART-02/03 and CUST-01; HASH-01 privacy"
   },
   {
     "id": "ASK-01",
@@ -81,7 +81,7 @@
     "stage": "A",
     "owner_slice": "S7",
     "active": true,
-    "owed": "Bounded synthesis timeout and SYNTH_TIMEOUT (third clause). Controls cover ordered event delays of 1 ms; longer-delay progress remains owed: 3 ms fails ART-01, CTRL-01, PACE-01, SESS-01, SHUT-01; 7 ms fails ART-01, ART-04, CTRL-01, PACE-01, PACE-02, SESS-01, SHUT-01, VER-02e."
+    "owed": "Controls cover ordered event delays of 1 ms; longer-delay progress remains owed: 3 ms fails ART-01, CTRL-01, PACE-01, SESS-01, SHUT-01; 7 ms fails ART-01, ART-04, CTRL-01, PACE-01, PACE-02, SESS-01, SHUT-01, VER-02e."
   },
   {
     "id": "BIND-02",

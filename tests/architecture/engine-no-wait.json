@@ -45,7 +45,7 @@
     "obligation": "Every exposed await has a bounded timeout ending in SYNTH_TIMEOUT or an interrupted generation.",
     "state": "owed",
     "case_ids": ["BIND-01"],
-    "evidence": "BIND-01 proves its first two clauses; its bounded synthesis timeout and SYNTH_TIMEOUT clause remains owed."
+    "evidence": "BIND-01 proves backend calls are bounded on the host clock and terminate with SYNTH_TIMEOUT (rulings 90-93). Publication and the byte port remain owed to their own slices."
   },
   {
     "id": "host-throws",

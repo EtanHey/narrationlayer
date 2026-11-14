@@ -12,6 +12,7 @@ export function createEngine(options: {
   clock: Clock; backend: Backend<{ bytes: Uint8Array; timings: unknown }>;
   artifacts: ArtifactPort & Pick<ReturnType<typeof createArtifactStore>, "resolve" | "minted" | "releaseFromHost" | "shutdown" | "custody">; owner_epoch: number; limits: Limits;
   package_version: string;
+  synthesis_timeout_ms: number;
   observe?: Parameters<typeof createEngineSession>[0]["observe"];
   engines: Message<"welcome">["engines"];
   voices: Voices;

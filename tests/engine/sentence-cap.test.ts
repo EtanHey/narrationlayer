@@ -16,7 +16,7 @@ async function run(text: string, mode: "binding" | "uncapped" | "unknown" = "bin
     () => ({ latency_ms: 0, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(1) } })));
   const c = mode === "binding"
     ? binding.create({ clock, store: new Map(), hash_key: new Uint8Array(32), audible: false, ports: { backend, spawn: new ScriptedSpawn(clock), player: new ScriptedPlayer(clock, new ScriptedSpawn(clock)), host: new ScriptedHost(clock) } })
-    : createEngine({ clock, backend, owner_epoch: 1, package_version: "synthetic",
+    : createEngine({ synthesis_timeout_ms: 10000, clock, backend, owner_epoch: 1, package_version: "synthetic",
       limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 10, aligner_reap_ms: 50 },
       engines: [...(mode === "unknown" ? [] : [{ family: "edge" as const, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true } as const]),
         { family: "xtts", max_chars: 1, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }],
