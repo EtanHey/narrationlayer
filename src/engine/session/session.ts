@@ -117,10 +117,10 @@ export function createEngineSession<Audio>(options: {
     waiting.set(id, wait);
     queueMicrotask(() => {
       if (waiting.get(id) !== wait || shuttingDown || state.sessions[id].generation !== "running") return;
-      try { wait.cancel = host.cancel(host.call("clock.schedule", () => options.clock.schedule(Math.max(0, options.synthesis_timeout_ms - (host.call("clock.monotonic", () => options.clock.monotonic()) - started)), () => {
+      try { wait.cancel = host.schedule(options.clock, Math.max(0, options.synthesis_timeout_ms - (host.call("clock.monotonic", () => options.clock.monotonic()) - started)), () => {
         waiting.delete(id);
         step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis wait timed out" } } });
-      }))); } catch { waiting.delete(id); failHost(identity); }
+      }); } catch { waiting.delete(id); failHost(identity); }
     });
   }
   function failHost(identity: Identity) {
@@ -214,11 +214,11 @@ export function createEngineSession<Audio>(options: {
           const capability = options.welcome.engines.find(e => e.family === engine.family);
           if (selection !== undefined && !capability?.available) throw new SynthesisFailure("ENGINE_UNAVAILABLE");
           // Rulings 90-93: each call starts its own host-clock bound, after send.
-          cancelTimeout = host.cancel(host.call("clock.schedule", () => options.clock.schedule(options.synthesis_timeout_ms, () => {
+          cancelTimeout = host.schedule(options.clock, options.synthesis_timeout_ms, () => {
             if (shuttingDown || state.sessions[identity.session_id].generation !== "running") return;
             step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis timed out" } } });
             queueMicrotask(() => abort.abort());
-          })));
+          });
           abort.signal.addEventListener("abort", cancelTimeout, { once: true });
           return host.call("backend.synthesizeRequest", () => options.backend.synthesizeRequest({ ...request, family: engine.family, voice: engine.voice, rate }, abort.signal));
         };
@@ -361,7 +361,7 @@ export function createEngineSession<Audio>(options: {
           try {
           const remaining = deadline - host.call("clock.now", () => options.clock.now());
           if (!(remaining > 0)) { resolve(); return; }
-          const cancel = Number.isFinite(remaining) ? host.cancel(host.call("clock.schedule", () => options.clock.schedule(remaining, resolve))) : () => {};
+          const cancel = Number.isFinite(remaining) ? host.schedule(options.clock, remaining, resolve) : () => {};
           void Promise.allSettled(active).then(() => { cancel(); resolve(); });
           } catch { resolve(); }
         });

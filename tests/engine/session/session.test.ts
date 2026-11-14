@@ -710,3 +710,13 @@ for (const callback of ["piece", "commit"] as const) test(`BIND-03: rejected pub
   h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
   expect(h.events().filter(e => e.type === "accepted")).toHaveLength(2);
 });
+
+test("BIND-03: throwing cancel cannot leave an earlier piece timeout armed", async () => {
+  const h = harness(1, units, 2, 10), schedule = h.clock.schedule.bind(h.clock);
+  h.clock.schedule = (ms, callback) => { schedule(ms, callback); return () => { throw Error("synthetic cancel"); }; };
+  h.backend.script([1, 9].map(latency_ms => ({ latency_ms, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(10) } })));
+  h.session.send(request); await h.tick();
+  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(2);
+  expect(h.events().filter(e => e.type === "error")).toEqual([]); // R102(a): cancel is treated as completed.
+  expect(h.logs).toContainEqual({ callback: "clock.cancel", error_name: "Error" });
+});
