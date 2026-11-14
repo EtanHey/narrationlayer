@@ -231,7 +231,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "FALL-01",
@@ -366,7 +366,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "ID-04",
@@ -375,7 +375,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "ID-05e",
@@ -510,7 +510,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "PACE-01",
@@ -672,7 +672,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "PREEMPT-01e",
@@ -1005,7 +1005,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S4",
-    "active": false
+    "active": true
   },
   {
     "id": "TIME-03",

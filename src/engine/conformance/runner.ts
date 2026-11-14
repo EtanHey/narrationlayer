@@ -5,6 +5,7 @@ import activeIds from "./active.json";
 import type { Binding, Connection, Json } from "./binding.js";
 import { FakeClock } from "./clock.js";
 import { withoutWallTime, trapState, trapsPresent } from "./wall-guard.js";
+import { engineCases, hello } from "./engine-cases";
 export type Row = { id: string; contract_case: string; contract_line: number; side: string; stage: string; owner_slice: string | null; active: boolean };
 export const registry: readonly Row[] = registryData;
 export const slices = ["S0a", "S0b", "S1", "S2", "S3a", "S3b", "S4", "S5", "S6", "S6h", "S5h", "S4h", "S7", "S7h", "S8", "S9", "S10a", "S10b"];
@@ -58,13 +59,14 @@ async function probe(binding: Binding) {
   const connection: Connection = binding.create({ clock, hash_key: new Uint8Array(32).fill(1), audible: false, store: new Map<string, Uint8Array>() });
   const events: Json[] = [];
   const collect = (async () => { for await (const event of connection.events) events.push(event); })();
-  connection.send({ protocol: "nl.engine/1", type: "hello", version: { major: 1, minor: 0 }, required_caps: [] });
+  connection.send(hello);
   await clock.advance(0);
   await connection.shutdown(clock.now());
   await collect;
   return canonical({ binding: binding.name, events });
 }
 export const cases: Record<string, Case> = {
+  ...engineCases,
   "CONF-01": async c => { c.assert(await probe(c.binding) === await probe(c.binding)); },
   // CONF-03/04: no trapped network (or spawn) call during any active case,
   // and nothing arrived at the parent listener; see README platform limits.

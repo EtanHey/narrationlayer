@@ -47,7 +47,7 @@ for (const [api, caseId, source] of probes) test(`${api} captured at import is R
 });
 test("null report is stable across processes, order, locale, TZ and cwd; snapshot pins it", async () => {
   const a = await run(), b = await run(undefined, { ...process.env, LANG: "tr_TR.UTF-8", LC_ALL: "tr_TR.UTF-8", TZ: "Pacific/Kiritimati" }, scratch, ["--reverse"]);
-  expect(a.code).toBe(0); expect(b.code).toBe(0); expect(b.stdout).toBe(a.stdout);
+  expect(a.code).toBe(1); expect(b.code).toBe(1); expect(b.stdout).toBe(a.stdout);
   expect(a.stdout).toBe(readFileSync(resolve(import.meta.dir, (process.platform === "darwin" ? "report.macos-sandbox.snapshot.json" : "report.snapshot.json")), "utf8"));
 });
 test("import stamp is detected by the entry's own two-process comparison", async () => {
@@ -66,7 +66,7 @@ test("network and spawn have committed fail-sets, even when caught", async () =>
 });
 test("in-process callers without preload fail closed, including determinism", async () => {
   const report = await runConformance(binding);
-  expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["CONF-01", "CONF-03", "CONF-04"]);
+  expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["CONF-01", "CONF-03", "CONF-04", "ERR-01", "ID-03", "ID-04", "ORDER-01", "PLAN-LAT-01", "TIME-02"]);
   for (const id of ["CONF-03", "CONF-04"]) expect(report.rows.find(r => r.id === id)).toMatchObject({ diagnostic: "traps absent: use the packaged entry" });
 });
 test("late exit after shutdown cannot overwrite the red exit status", async () => {
@@ -79,10 +79,11 @@ test("entry import has no effects", async () => {
 });
 test("explicit fixture dates remain usable without a clock violation", async () => {
   const result = await run(fixture("const saved=()=>new Intl.DateTimeFormat('en-US',{timeZone:'UTC'}).format(new Date(0))"));
-  expect(result.code).toBe(0);
+  expect(result.code).toBe(1);
+  expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-02").result).toBe("pass");
 });
 test("the mutable flag alone cannot spoof a preload in direct callers", async () => {
   trapState.installed = true;
-  try { const report = await runConformance(binding); expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["CONF-01", "CONF-03", "CONF-04"]); }
+  try { const report = await runConformance(binding); expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual(["CONF-01", "CONF-03", "CONF-04", "ERR-01", "ID-03", "ID-04", "ORDER-01", "PLAN-LAT-01", "TIME-02"]); }
   finally { trapState.installed = false; }
 });
