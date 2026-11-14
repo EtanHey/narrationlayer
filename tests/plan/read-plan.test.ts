@@ -15,8 +15,7 @@ function read(text: string, max_chars = 60, format: "plain" | "markdown" = "mark
     idempotency_key: "fixture", use: "read", input: { text, format },
     voice: { profile: "fixture", require_clone: false, fallback: "none" }, delivery: "pieces" });
   if (!request.ok || request.value.type !== "narrate") throw new Error("fixture request");
-  return planRead({ request: request.value, limits: { max_chars: { read: max_chars, speak: 80, ask_prompt: 90 },
-    lookahead: 1, aligner_reap_ms: 100 }, identity, engine, first_piece_raw, ...overrides });
+  return planRead({ request: request.value, max_chars, identity, engine, first_piece_raw, ...overrides });
 }
 const shapes = "# Orchard notes\n\n- Apples\n- Gather ripe pears\n- Gather six ripe pears for breakfast\n- Label: keep these ripe apples safely.\n- Run `fruit_check` before storing apples.\n- Visit [the orchard](https://example.test) before dawn.\n- Visit https://example.test before dawn.\n\nThese green apples grow beside the wall, these golden pears grow beside the gate, and those plums grow near the river.";
 const fixtures = [shapes, "| Fruit | Color |\n| --- | --- |\n| Pear | Green |",
