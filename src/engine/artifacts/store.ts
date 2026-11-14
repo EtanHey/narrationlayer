@@ -14,7 +14,7 @@ export class ArtifactStoreError extends Error {
 export function createArtifactStore(port: BytePort, owner_epoch: number) {
   let next = 0, closed = false;
   const live = new Map<string, ArtifactIdentity & { handle: string; lease_id: string }>();
-  const sealed = new Set<string>();
+  const sealed = new Set<string>(), pending = new Set<string>();
   const attempt = (id: Omit<ArtifactIdentity, "piece_id">) => JSON.stringify([id.owner_epoch, id.session_id, id.attempt_id]);
   const check = (signal: AbortSignal) => { if (signal.aborted) throw new ArtifactStoreError("aborted"); };
   return {
@@ -41,6 +41,14 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
     minted(lease_id: string): boolean {
       const prefix = `lease:${owner_epoch}:`, suffix = lease_id.slice(prefix.length), n = Number(suffix);
       return lease_id.startsWith(prefix) && Number.isSafeInteger(n) && n > 0 && n <= next && String(n) === suffix;
+    },
+    pendingDeletes() { return [...pending]; },
+    releaseFromHost(lease_id: string): { kind: "released" | "expired" } {
+      const entry = live.get(lease_id);
+      if (!entry) return { kind: "expired" };
+      live.delete(lease_id);
+      queueMicrotask(() => { try { port.delete(entry.handle); } catch { pending.add(entry.handle); } });
+      return { kind: "released" };
     },
     release(lease_id: string): ReturnType<ArtifactPort["release"]> {
       const entry = live.get(lease_id);

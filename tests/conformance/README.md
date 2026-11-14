@@ -240,3 +240,12 @@ Owed to S7b-2: shutdown reason/deadline, in-flight publication, release after
 shutdown, failed-delete diagnostics/pending deletes, SHUT-01. Later: retain_artifact
 and assembled prompt, live-lease timing_update (ORDER-01), host ART-02/03 and
 CUST-01. HASH-01 belongs to the privacy slice. No device or real audio is used.
+
+Round 1: release decisions and reducer bookkeeping happen inside send; only the
+byte-port delete is deferred. A failed host delete leaves an expired lease and a
+pending handle, without retry or diagnostic. Deferred deletes after stream close
+and requests sent after shutdown remain owed to S7b-2. ART-01 exercises each of
+completed, stopped, failed synthesis and shutdown with earlier-turn and same-turn
+release; each read uses independent sample counts. The committed ART-01 byte-delete
+variant remains red on both artifact rows through their shared live-byte receipt.
+The stop-only re-add variant is red on ART-01 alone.

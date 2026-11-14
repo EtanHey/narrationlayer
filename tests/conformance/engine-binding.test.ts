@@ -128,7 +128,7 @@ for (const [id, code] of [["NEG-01", "UNSUPPORTED_VERSION"], ["NEG-02", "MISSING
   }
 }
 
-for (const id of ["ART-01", "ART-04"]) test(`${id}: the broken engine is red on exactly its committed fail-set`, () => proof(id));
+for (const id of ["ART-01", "ART-04", "ART-STOP"]) test(`${id}: the broken engine is red on exactly its committed fail-set`, () => proof(id));
 for (const wrong of ["other-lease", "noop", "ignore-handle", "echo", "stale-outcome", "shared-buffer"]) {
   test(`artifacts: own wrong engine ${wrong} is caught`, async () => {
     const binding = { name: `own-artifact-${wrong}`, create(host: Parameters<typeof engine.create>[0]) {

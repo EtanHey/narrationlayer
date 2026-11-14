@@ -10,6 +10,7 @@ export function brokenPlanning(rule: string): Binding {
     let original: Plan | undefined, changed: Plan | undefined;
     let split = -1, active = false;
     return {
+      resolve: connection.resolve,
       send(message) {
         if (split >= 0 && message && typeof message === "object" && !Array.isArray(message) && message.type === "player_feedback" && typeof message.piece_index === "number") {
           // A subdivided source piece completes only when its final subdivision exits.

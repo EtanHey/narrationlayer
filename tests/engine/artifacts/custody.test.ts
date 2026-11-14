@@ -75,7 +75,7 @@ test(name, async () => {
 });
 
 test("custody: release offsets preserve exactly the remaining delivered leases", async () => {
-  for (let offset = 0; offset < 12; offset++) {
+  for (const end of ["completed", "stop", "shutdown"]) for (let offset = 0; offset < 12; offset++) {
     const clock = new FakeClock(), backend = new ScriptedBackend(clock), port = new Map<string, Uint8Array>();
     const store = createArtifactStore(port, 1), events: Event[] = [], released = new Set<string>();
     const { createEngine } = await import("../../../src/engine/core/engine");
@@ -94,32 +94,72 @@ test("custody: release offsets preserve exactly the remaining delivered leases",
       if (tick === offset && pieces.length) { await give(pieces[0].artifact.lease_id); await give(pieces[0].artifact.lease_id); }
     }
     const pieces = events.filter(e => e.type === "piece_ready"); expect(pieces).toHaveLength(6);
-    for (const p of pieces) for (const edge of ["spawned", "first_sample", "exited"] as const) session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: p.session_id, player_instance_id: `custody-${p.index}`, control_epoch: p.index + 1, piece_index: p.index, edge, t_mono_ms: clock.monotonic(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: p.start_ms + p.duration_ms } } : {}) });
+    for (const p of pieces) for (const edge of ["spawned", "first_sample", ...(p.index < 2 ? ["exited"] : [])]) session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: p.session_id, player_instance_id: `custody-${p.index}`, control_epoch: p.index + 1, piece_index: p.index, edge, t_mono_ms: clock.monotonic(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: p.start_ms + p.duration_ms } } : {}) });
+    for (let i = 0; i < 32; i++) await Promise.resolve();
+    for (const last of pieces.filter(p => p.index === 2)) {
+      const lease = pieces.find(p => p.session_id === last.session_id && p.index === 1)!.artifact.lease_id;
+      session.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: lease }); released.add(lease);
+      if (end === "stop") session.send({ protocol: "nl.engine/1", type: "control", command_id: "same-turn-stop", session_id: last.session_id, op: "stop", args: { scope: "session", reason: "stop" } });
+      if (end === "completed") session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: last.session_id, player_instance_id: `custody-${last.index}`, control_epoch: last.index + 1, piece_index: last.index, edge: "exited", t_mono_ms: clock.monotonic(), exit: { status: "completed", stopped_at_ms: last.start_ms + last.duration_ms } });
+    }
+    if (end === "shutdown") void session.shutdown(0);
     for (let i = 0; i < 32; i++) await Promise.resolve();
     const outcomes = events.filter(e => e.type === "outcome"); expect(outcomes).toHaveLength(2);
     for (const o of outcomes) expect(o.artifacts.map(a => a.lease_id)).toEqual(pieces.filter(p => p.session_id === o.session_id && !released.has(p.artifact.lease_id)).map(p => p.artifact.lease_id));
-    const after = pieces[4]; await give(after.artifact.lease_id); await give(after.artifact.lease_id);
-    for (const o of outcomes) expect(store.leases(o.session_id).map(l => l.lease_id)).toEqual(o.artifacts.filter(a => a.lease_id !== after.artifact.lease_id).map(a => a.lease_id));
+    const after = pieces[3]; if (end !== "shutdown") { await give(after.artifact.lease_id); await give(after.artifact.lease_id); }
+    for (const o of outcomes) expect(store.leases(o.session_id).map(l => l.lease_id)).toEqual(o.artifacts.filter(a => end === "shutdown" || a.lease_id !== after.artifact.lease_id).map(a => a.lease_id));
     expect([...port.keys()].sort()).toEqual(pieces.filter(p => !released.has(p.artifact.lease_id)).map(p => p.artifact.handle).sort());
     await session.shutdown(0); await collect; backend.assertDrained();
   }
 });
 
-test("release: a throwing delete retains the lease and emits nothing inside send", async () => {
+async function releaseFixture(failDelete = false, guess = false) {
   const clock = new FakeClock(), backend = new ScriptedBackend(clock), bytes = new Map<string, Uint8Array>();
-  let fail = true, deletes = 0;
-  const store = createArtifactStore({ has: h => bytes.has(h), get: h => bytes.get(h), set: (h, b) => bytes.set(h, b), delete(h) { deletes++; if (fail) throw Error("invented"); return bytes.delete(h); } }, 1);
-  const { createEngine } = await import("../../../src/engine/core/engine");
-  const c = createEngine({ clock, backend, artifacts: store, owner_epoch: 1, package_version: "0.0.0-test", limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 1, aligner_reap_ms: 50 }, engines: [], chooseEngine() { throw Error("unused"); } });
-  const stored = await store.put(new Uint8Array([1, 2]), { owner_epoch: 1, session_id: "synthetic", attempt_id: "attempt", piece_id: "p" }, new AbortController().signal);
-  const events: Event[] = [], collect = (async () => { for await (const e of c.events) events.push(e); })();
-  c.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: stored.lease_id });
-  c.send(hello); for (let i = 0; i < 16; i++) await Promise.resolve();
-  expect(events.map(e => e.type)).toEqual(["error", "welcome"]); expect(events[0]).toMatchObject({ code: "NOT_NEGOTIATED" });
-  c.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: stored.lease_id }); expect(deletes).toBe(0);
-  for (let i = 0; i < 16; i++) await Promise.resolve();
-  expect(events).toHaveLength(2); expect(c.resolve(stored.handle, stored.lease_id)).toEqual({ kind: "resolved", bytes: new Uint8Array([1, 2]) });
-  fail = false; c.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: stored.lease_id });
-  for (let i = 0; i < 16; i++) await Promise.resolve();
-  expect(c.resolve(stored.handle, stored.lease_id)).toEqual({ kind: "expired" }); await c.shutdown(0); await collect;
+  let deletes = 0;
+  const store = createArtifactStore({ has: h => bytes.has(h), get: h => bytes.get(h), set: (h, b) => bytes.set(h, b), delete(h) { deletes++; if (failDelete) throw Error("invented"); return bytes.delete(h); } }, 1);
+  const publication = createPublication({ ...store, async put(...args) {
+    const stored = await store.put(...args);
+    if (guess) session.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: stored.lease_id });
+    return stored;
+  } });
+  const planner: ReadPlanner = { plan(_request, _limits, identity) {
+    const words = ["Amber.", "Violet.", "Golden."].map((text, index) => ({ text, index, display: [0, 1] satisfies [number, number] }));
+    return { plan: { ...identity, type: "plan", display_document: { version: 1, text: "Synthetic.", speech_start: 0, blocks: [] }, words, engine: { family: "edge", voice: "synthetic", profile_revision: "1" }, pieces: words.map((_, index) => ({ piece_id: `p-${index}`, index, word_start: index, word_end: index + 1, raw: false, segments: [{ word_start: index, word_end: index + 1, kind: "sentence", pause_after_ms: 0, pause_in: "this_piece_end" }] })) }, requests: words.map(w => ({ piece_index: w.index, text: w.text })) };
+  } };
+  backend.script(Array.from({ length: 3 }, () => ({ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(24) } })));
+  const session = createEngineSession({ owner_epoch: 1, clock, backend, planner, publication, artifacts: store, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 3, aligner_reap_ms: 50 } });
+  const events: Event[] = [], collect = (async () => { for await (const e of session.events) events.push(e); })();
+  session.send(hello); session.send({ protocol: "nl.engine/1", type: "narrate", request_id: "release-test", idempotency_key: "release-test", use: "read", input: { text: "Synthetic.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+  for (let i = 0; i < 12; i++) { await clock.advance(1); for (let j = 0; j < 32; j++) await Promise.resolve(); }
+  const pieces = events.filter(e => e.type === "piece_ready"); expect(pieces).toHaveLength(3);
+  return { session, store, bytes, events, pieces, deletes: () => deletes, async finish() { await session.shutdown(0); await collect; backend.assertDrained(); } };
+}
+test("release: same-turn release then stop excludes the lease with zero synchronous deletes", async () => {
+  const t = await releaseFixture();
+  for (const p of t.pieces) for (const edge of ["spawned", "first_sample", ...(p.index < 2 ? ["exited"] : [])]) t.session.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: p.session_id, player_instance_id: `release-${p.index}`, control_epoch: p.index + 1, piece_index: p.index, edge, t_mono_ms: 0, ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: 24 } } : {}) });
+  t.session.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: t.pieces[0].artifact.lease_id });
+  expect(t.deletes()).toBe(0); expect(t.store.resolve(t.pieces[0].artifact.handle, t.pieces[0].artifact.lease_id).kind).toBe("expired");
+  t.session.send({ protocol: "nl.engine/1", type: "control", command_id: "release-stop", session_id: t.pieces[0].session_id, op: "stop", args: { scope: "session", reason: "stop" } });
+  for (let i = 0; i < 32; i++) await Promise.resolve();
+  expect(t.deletes()).toBe(1); expect(t.events.filter(e => e.type === "outcome")[0].artifacts.map(a => a.lease_id)).toEqual(t.pieces.slice(1).map(p => p.artifact.lease_id)); await t.finish();
+});
+test("release: failed deferred delete keeps bytes pending but the lease expired", async () => {
+  const t = await releaseFixture(true), p = t.pieces[0];
+  t.session.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: p.artifact.lease_id });
+  expect(t.deletes()).toBe(0); expect(t.store.resolve(p.artifact.handle, p.artifact.lease_id).kind).toBe("expired");
+  for (let i = 0; i < 32; i++) await Promise.resolve();
+  expect(t.deletes()).toBe(1); expect(t.bytes.has(p.artifact.handle)).toBe(true); expect(t.store.pendingDeletes()).toEqual([p.artifact.handle]);
+  expect(t.events.filter(e => e.type === "error")).toEqual([]); await t.finish();
+});
+test("release: guessed minted lease at put offset zero is refused without deletion", async () => {
+  const t = await releaseFixture(false, true);
+  expect(t.deletes()).toBe(0); expect(t.bytes.size).toBe(3);
+  expect(t.events.filter(e => e.type === "error").map(e => [e.code, e.phase, e.retry, e.details])).toEqual(t.pieces.map(p => ["ARTIFACT_EXPIRED", "retain", "never", { lease_id: p.artifact.lease_id }]));
+  for (const p of t.pieces) expect(t.store.resolve(p.artifact.handle, p.artifact.lease_id).kind).toBe("resolved"); await t.finish();
+});
+test("release: a session without an artifact store refuses INVALID_REQUEST", async () => {
+  // A throw-only session has no artifact store.
+  const c = createEngineSession({ owner_epoch: 1, clock: new FakeClock(), backend: { async synthesizeRequest() { throw Error("unused"); } }, planner: { plan() { throw Error("unused"); } }, publication: { async piece() { throw Error("unused"); }, async commit() {} }, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 1, aligner_reap_ms: 50 } });
+  const stream = c.events[Symbol.asyncIterator](); c.send(hello); await stream.next(); c.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: "lease:1:1" });
+  expect((await stream.next()).value).toMatchObject({ type: "error", code: "INVALID_REQUEST" }); await c.shutdown(0);
 });

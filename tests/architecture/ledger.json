@@ -33,6 +33,7 @@
     "src/engine/conformance/broken-lim-01.ts": { "layer": 4, "area": "engine", "owner": "P2.S1b" },
     "src/engine/conformance/broken-ver-02e.ts": { "layer": 4, "area": "engine", "owner": "P2.S1b" },
     "src/engine/conformance/broken-ver-01.ts": { "layer": 4, "area": "engine", "owner": "P2.S1b" },
+    "src/engine/conformance/broken-art-stop.ts": { "layer": 4, "area": "engine", "owner": "P2.S7b1" },
     "src/engine/conformance/artifact-cases.ts": { "layer": 4, "area": "engine", "owner": "P2.S7b1" },
     "src/engine/conformance/broken-art-01.ts": { "layer": 4, "area": "engine", "owner": "P2.S7b1" },
     "src/engine/conformance/broken-art-04.ts": { "layer": 4, "area": "engine", "owner": "P2.S7b1" },

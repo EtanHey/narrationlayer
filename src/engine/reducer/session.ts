@@ -35,6 +35,9 @@ function key(value: unknown): string {
   if (value && typeof value === "object") return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${key(v)}`).join(",")}}`;
   return JSON.stringify(value) ?? "null";
 }
+export function hasDeliveredLease(state: State, lease_id: string): boolean {
+  return Object.values(state.sessions).some(s => s.delivered.some(p => p.artifact.lease_id === lease_id));
+}
 /** One serialisable value owns the binding counter and every session. */
 export function initialState<A extends Authority>(owner_epoch: number, epoch_authority: A): State<A> { return { owner_epoch, epoch_authority, seq: 0, sessions: {}, admissions: {} }; }
 /** Pure S2a transition; targets are pre-resolved cursors, not clock reads.

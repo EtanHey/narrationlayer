@@ -7,13 +7,12 @@ import { planRead } from "../../plan/read-plan";
 /** Host owns backend selection, byte custody and time; this factory owns their composition. */
 export function createEngine(options: {
   clock: Clock; backend: Backend<{ bytes: Uint8Array; timings: unknown }>;
-  artifacts: ArtifactPort & Pick<ReturnType<typeof createArtifactStore>, "resolve" | "minted">; owner_epoch: number; limits: Limits;
+  artifacts: ArtifactPort & Pick<ReturnType<typeof createArtifactStore>, "resolve" | "minted" | "releaseFromHost">; owner_epoch: number; limits: Limits;
   package_version: string;
   engines: Message<"welcome">["engines"];
   chooseEngine(request: Message<"narrate">): Message<"plan">["engine"];
 }) {
   return { ...createEngineSession({ ...options,
-    artifacts: options.artifacts,
     // Stage-A player edges belong to the host.
     welcome: { package_version: options.package_version, protocol_minor: 0,
       caps: ["read", "speak", "ask_prompt", "display_document", "word_timing", "artifacts", "lifecycle"], engines: options.engines },
