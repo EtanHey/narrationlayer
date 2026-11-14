@@ -54,10 +54,10 @@ function receipt(c: CaseContext, t: ReturnType<typeof setup>, text: string) {
   const outcomes = own.filter(e => e.type === "outcome"); c.assert(outcomes.length === 1 && outcomes[0].generation.status === "committed" && own.at(-1)?.type === "outcome"); // Live-lease timing_update exception is owed to alignment (S7).
   c.assert(!t.seen.some(e => e.type === "error"));
 }
-async function completed(c: CaseContext, t: ReturnType<typeof setup>, text = "Copper boats drift.") {
+async function completed(c: CaseContext, t: ReturnType<typeof setup>, text = "Copper boats drift.", count = 1) {
   await t.settle();
   const a = t.seen.filter(e => e.type === "accepted"); c.assert(a.length === 1 && a[0].request_id === "request-neg");
-  const pieces = t.seen.filter(e => e.type === "piece_ready").filter(e => e.session_id === a[0].session_id); c.assert(pieces.length > 0);
+  const pieces = t.seen.filter(e => e.type === "piece_ready").filter(e => e.session_id === a[0].session_id); c.assert(pieces.length === count);
   for (const p of pieces) for (const edge of ["spawned", "first_sample", "last_sample", "exited"]) t.connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: a[0].session_id, player_instance_id: `synthetic-player-${p.index}`, control_epoch: p.index + 1, piece_index: p.index, edge, t_mono_ms: t.clock.now(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: p.start_ms + p.duration_ms } } : {}) });
   await t.finish(); receipt(c, t, text);
   c.assert(t.seen.some(e => e.type === "outcome" && e.session_id === a[0].session_id && e.playback.reason === "completed"));
@@ -76,8 +76,8 @@ export const negotiationCases: Record<string, Case> = {
       const probe = setup(c); probe.connection.send(hello); await probe.settle();
       const w = probe.seen[0]; c.assert(w?.type === "welcome"); if (w?.type !== "welcome") return;
       const limit = w.limits.max_chars[use]; c.assert(Number.isInteger(limit) && limit > 0); await probe.finish();
-      // The limit counts raw UTF-16 units, before trimming or NFKC (lead ruling 43).
-      for (const [ending, excess] of [["x", false], ["x", true], ["😀", false], ["😀", true], ["x ", true], ["ﬁ", false], ["ｶﾞ", true]] as const) {
+      // The limit counts raw UTF-16 units, before trimming or Unicode normalization (lead ruling 43).
+      for (const [ending, excess] of [["x", false], ["x", true], ["😀", false], ["😀", true], ["x ", true], ["ﬁ", false], ["ｶﾞ", true], ["e\u0301", true], ["\u00e9", false]] as const) {
         const t = setup(c, !excess); t.connection.send(hello);
         const text = "x".repeat(limit + Number(excess) - ending.length) + ending;
         t.connection.send({ ...read(text), use, mode: "brief", retain_artifact: true }); await t.settle();
@@ -120,16 +120,16 @@ export const negotiationCases: Record<string, Case> = {
     }
     c.assert(JSON.stringify(traces[0]) === JSON.stringify(traces[1]));
     const streams: Event[][] = [], text = "# Copper boats.\n\nAmber rafts float.";
-    for (const extension of ["none", "top-level", "input-sibling"]) {
+    for (const extension of ["none", "top-level", "input-sibling", "voice"]) {
       const t = setup(c, true, new FakeClock()), request = read(text);
       t.connection.send(hello);
-      t.connection.send({ ...request, ...(extension === "top-level" ? { format: "markdown" } : {}), input: { ...request.input, ...(extension === "input-sibling" ? { format2: "markdown" } : {}) } });
-      await completed(c, t, text); streams.push(t.seen);
+      t.connection.send({ ...request, ...(extension === "top-level" ? { format: "markdown" } : {}), input: { ...request.input, ...(extension === "input-sibling" ? { format2: "markdown" } : {}) }, voice: { ...request.voice, ...(extension === "voice" ? { format: "markdown" } : {}) } });
+      await completed(c, t, text, 2); streams.push(t.seen);
     }
     for (const stream of streams.slice(1)) c.assert(JSON.stringify(stream) === JSON.stringify(streams[0]));
   },
   "NEG-01": async c => {
-    for (const major of ["0", "2", "3", "10", "01"]) {
+    for (const major of ["0", "2", "3", "10", "01", "001"]) {
       const t = setup(c); t.connection.send({ ...hello, protocol: `nl.engine/${major}` }); await t.settle();
       refusal(c, t.seen, "UNSUPPORTED_VERSION", "never"); c.assert(t.ended());
       t.connection.send(read()); t.connection.send(hello); await t.settle();
@@ -162,8 +162,8 @@ export const negotiationCases: Record<string, Case> = {
       } else c.assert(t.seen.length === 1 && t.seen[0].type === "welcome" && !t.ended());
       await t.finish();
     }
-    for (const optional_caps of [absent, [welcome.caps[0]]]) {
-      const t = setup(c); t.connection.send({ ...hello, optional_caps }); await t.settle();
+    for (const message of [{ optional_caps: absent }, { optional_caps: [welcome.caps[0]] }, { required_caps: [welcome.caps[0]], optional_caps: absent }]) {
+      const t = setup(c); t.connection.send({ ...hello, ...message }); await t.settle();
       const w = t.seen[0]; c.assert(t.seen.length === 1 && w.type === "welcome" && JSON.stringify(w.caps) === JSON.stringify(welcome.caps) && !t.ended());
       await t.finish();
     }
@@ -187,7 +187,7 @@ export const negotiationCases: Record<string, Case> = {
     let seq = 0; for (const raw of c.trace) if (raw && typeof raw === "object" && !Array.isArray(raw) && raw.type !== "welcome") c.assert(raw.seq === ++seq);
     textFree(c, "Copper boats drift.");
     // Malformed hello protocols fail parsing; the same binding can still negotiate.
-    for (const protocol of ["nl.engine/1x", "nl.engine/1.0", "nl.engine/one"]) {
+    for (const protocol of ["nl.engine/1x", "nl.engine/1.0", "nl.engine/one", "nl.engine/1 ", " nl.engine/1", ""]) {
       const start = c.trace.length, t = setup(c); t.connection.send({ ...hello, protocol }); await t.settle();
       const e = t.seen[0]; c.assert(t.seen.length === 1 && e.type === "error" && e.code === "INVALID_REQUEST" && e.phase === "admit" && e.retry === "never" && !t.ended());
       c.assert(!c.trace.slice(start).some(raw => raw !== null && typeof raw === "object" && !Array.isArray(raw) && raw.type === "welcome"));
