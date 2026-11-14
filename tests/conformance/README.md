@@ -492,3 +492,14 @@ The throwing observer is `observe.event`, the existing diagnostic callback,
 not a second event transport. Planner faults remain admission refusals.
 Owed: VoiceLayer adoption and shape confirmation of the optional `log` port,
 and its decision whether host synthesis faults need a distinct error code.
+
+SPK-05e (L282/L532, PLAN-v4 L46) stops via a read that has delivered audio,
+with all_speech reaching another read whose synthesis is in flight. The
+abort-ignoring result arrives on a zero-delay or a 7 ms fake-clock timer;
+after draining it and the connection, neither stopped attempt delivers a
+piece. ID-03 stops one read before any piece; this row also checks stop's
+reach from a delivered read. No grouping of sentences into pieces is assumed.
+SPK-05h still owes the host's no-audio fence. GEN-03e stays inactive under
+ruling 104: a publication-fault seam is designed with ART-02/ART-03 (S7h).
+ID-02 stays inactive under ruling 105: it moves to reconnect binding BIND-02,
+stage B; unit tests and reducer-I02 cover the reducer predicate today.
