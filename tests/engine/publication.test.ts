@@ -164,6 +164,36 @@ test("first audible: all encodings, extensible, stereo second channel, silence a
   v.setFloat64(header, 10 ** (-42 / 20), true); expect(firstAudibleOffsetMs(b)).toBe(4);
   v.setFloat64(header + 48 * 8, -(10 ** (-42 / 20)) * 1.001, true); expect(firstAudibleOffsetMs(b)).toBe(2);
 });
+// The dBFS threshold lies between integers: floor is quiet, floor + 1 is audible.
+for (const bits of [8, 16, 24, 32]) test(`first audible: integer ${bits}-bit threshold on both signs`, () => {
+  const scale = 2 ** (bits - 1), quiet = Math.floor(10 ** (-42 / 20) * scale);
+  for (const sign of [-1, 1]) {
+    const { b, v, header } = audibleWav(bits, 1);
+    const put = (frame: number, sample: number) => {
+      const at = header + frame * bits / 8;
+      if (bits === 8) v.setUint8(at, 128 + sample);
+      else if (bits === 16) v.setInt16(at, sample, true);
+      else if (bits === 24) { v.setUint8(at, sample & 255); v.setInt16(at + 1, sample >> 8, true); }
+      else v.setInt32(at, sample, true);
+    };
+    put(0, sign * quiet); expect(firstAudibleOffsetMs(b)).toBe(4);
+    put(48, sign * (quiet + 1)); expect(firstAudibleOffsetMs(b)).toBe(2);
+  }
+});
+test("first audible: quiet negative 24-bit samples preserve their sign", () => {
+  const { b, v, header } = audibleWav(24, 1);
+  v.setUint8(header, 255); v.setInt16(header + 1, -1, true); // -1 is quiet.
+  const sample = -Math.floor(10 ** (-42 / 20) * 8388608) - 1, at = header + 48 * 3;
+  v.setUint8(at, sample & 255); v.setInt16(at + 1, sample >> 8, true);
+  expect(firstAudibleOffsetMs(b)).toBe(2);
+});
+for (const bits of [32, 64]) test(`first audible: float ${bits}-bit NaN and infinities`, () => {
+  for (const sample of [NaN, Infinity, -Infinity]) {
+    const { b, v, header } = audibleWav(bits, 3);
+    if (bits === 32) v.setFloat32(header, sample, true); else v.setFloat64(header, sample, true);
+    expect(firstAudibleOffsetMs(b)).toBe(Number.isNaN(sample) ? 4 : 0);
+  }
+});
 const canary = "Zirconium lanterns orbit velvet asteroids";
 async function lifecycleRead(failSecond = false, stopFirst = false, decrease = false, failStore = false) {
   let now = 0, calls = 0;

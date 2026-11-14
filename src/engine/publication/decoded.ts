@@ -40,6 +40,7 @@ export function decodePcm(bytes: Uint8Array): Decoded {
 /** Full scale: unsigned 8-bit is centered at 128 and divided by 128; signed
  * integers by 2^(bits-1); IEEE float by 1. Scan frames, stopping at the first
  * channel strictly above -42 dBFS. Silence returns the rounded full duration. */
+// Float NaN counts as silence; positive and negative infinity count as audible.
 export function firstAudibleOffsetMs(bytes: Uint8Array): number {
   const f = layout(bytes), v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const width = f.bits / 8, threshold = 10 ** (-42 / 20);
