@@ -18,7 +18,7 @@ export function createEngine(options: {
   voices: Voices;
 }) {
   const voices = parseVoices(structuredClone(options.voices)), engines = structuredClone(options.engines);
-  const session = createEngineSession({ ...options,
+  const session = createEngineSession({ ...options, default_voice: voices.default_voice,
     // Stage-A player edges belong to the host.
     welcome: { package_version: options.package_version, protocol_minor: 0,
       caps: ["read", "speak", "ask_prompt", "display_document", "word_timing", "artifacts", "lifecycle"], engines },
@@ -26,7 +26,7 @@ export function createEngine(options: {
       const projection = request.input.format === "markdown" ? projectStructuredSpeech(request.input.text) : { displayText: request.input.text, speechText: request.input.text };
       const selection = selectVoice(request, projection.displayText, projection.speechText.replace(/ {2,}/g, " ").trim().length, voices, engines);
       const { engine } = selection;
-      const capability = engines.find(capability => capability.family === engine.family) ?? (engine.family === "qwen3_clone" ? { max_chars: undefined } : undefined);
+      const capability = engines.find(capability => capability.family === engine.family);
       if (!capability) throw new Error("selected engine family is not declared");
       // No declared cap means whole sentences; the cutter requires a positive safe integer.
       return { ...planRead({ request, identity, engine, max_chars: capability.max_chars ?? Number.MAX_SAFE_INTEGER }), selection };

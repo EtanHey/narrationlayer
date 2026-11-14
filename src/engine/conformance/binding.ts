@@ -1,3 +1,4 @@
+import type { SynthesisRequest } from "../session/session";
 import type { Voices } from "../selection/voice";
 import type { Message } from "../messages/messages";
 // S1 owns wire schemas. These ports accept structured-clone-safe JSON without importing that slice.
@@ -8,10 +9,10 @@ export interface Clock {
   schedule(delayMs: number, callback: () => void): () => void;
 }
 export type BackendAudio = { bytes: Uint8Array; samples: number; sample_rate: number; duration_ms: number; timings: Json };
-export type BackendStep = { latency_ms: number; result: ({ kind: "audio" } & BackendAudio) | { kind: "error"; code: string }; late_after_cancel: boolean };
+export type BackendStep = { family?: SynthesisRequest["family"]; latency_ms: number; result: ({ kind: "audio" } & BackendAudio) | { kind: "error"; code: string }; late_after_cancel: boolean };
 export interface FakeBackend {
   script(steps: readonly BackendStep[]): void;
-  synthesizeRequest(request: Json, signal: AbortSignal): Promise<BackendAudio>;
+  synthesizeRequest(request: SynthesisRequest, signal: AbortSignal): Promise<BackendAudio>;
   readonly calls: readonly Json[];
 }
 export interface FakePlayer {

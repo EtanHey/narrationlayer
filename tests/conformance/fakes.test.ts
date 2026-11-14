@@ -8,6 +8,7 @@ import { ScriptedPlayer, ScriptedSpawn } from "../../src/engine/conformance/fake
 import { ScriptedHost } from "../../src/engine/conformance/host-stub.js";
 import { withoutWallTime } from "../../src/engine/conformance/wall-guard.js";
 
+const backendRequest = { piece_index: 0, text: "synthetic", family: "edge", voice: "synthetic", rate: "+0%" } as const;
 const audioStep = (audio = pcmAudio(100), latency_ms = 10, late_after_cancel = false): BackendStep => ({ latency_ms, late_after_cancel, result: { kind: "audio", ...audio } });
 const setup = () => { const clock = new FakeClock(); return { clock, backend: new ScriptedBackend(clock), abort: new AbortController() }; };
 const decoded = (audio: BackendAudio) => {
@@ -21,19 +22,19 @@ const decoded = (audio: BackendAudio) => {
 test("backend (a) per-request latency", async () => {
   const { clock, backend, abort } = setup(); backend.script([audioStep()]);
   let result: BackendAudio | undefined;
-  const pending = backend.synthesizeRequest({ text: "synthetic" }, abort.signal).then(a => { result = a; });
+  const pending = backend.synthesizeRequest({ ...backendRequest, text: "synthetic" }, abort.signal).then(a => { result = a; });
   await clock.advance(9); expect(result).toBeUndefined();
   await clock.advance(1); await pending; expect(result?.samples).toBe(100);
 });
 test("backend (b) scripted failure", async () => {
   const { clock, backend, abort } = setup(); backend.script([{ latency_ms: 4, late_after_cancel: false, result: { kind: "error", code: "SYNTH_FAILED" } }]);
-  const pending = backend.synthesizeRequest({}, abort.signal).catch(e => e.message);
+  const pending = backend.synthesizeRequest(backendRequest, abort.signal).catch(e => e.message);
   await clock.advance(4); expect(await pending).toBe("SYNTH_FAILED");
 });
 test("backend (c) result arrives after cancel", async () => {
   const { clock, backend, abort } = setup(); backend.script([audioStep(pcmAudio(21), 10, true)]);
   const events: Json[] = [];
-  const pending = backend.synthesizeRequest({}, abort.signal).then(a => events.push({ samples: a.samples, at: clock.now() }), () => events.push("rejected"));
+  const pending = backend.synthesizeRequest(backendRequest, abort.signal).then(a => events.push({ samples: a.samples, at: clock.now() }), () => events.push("rejected"));
   clock.schedule(15, () => { abort.abort(); events.push({ cancel: clock.now() }); });
   await clock.advance(14); expect(events).toEqual([]);
   await clock.advance(10); expect(events).toEqual([{ cancel: 15 }]);
@@ -43,24 +44,24 @@ test("backend ordinary cancellation and pre-aborted request reject without late 
   for (const before of [true, false]) {
     const { clock, backend, abort } = setup(); backend.script([audioStep()]);
     if (before) abort.abort();
-    const pending = backend.synthesizeRequest({}, abort.signal).catch(e => e.message);
+    const pending = backend.synthesizeRequest(backendRequest, abort.signal).catch(e => e.message);
     abort.abort(); await clock.advance(20); expect(await pending).toBe("cancelled");
   }
 });
 test("backend (d) claimed duration differs from decoded PCM", async () => {
   const { clock, backend, abort } = setup(); backend.script([audioStep(pcmAudio(125, 1000, 900))]);
-  const pending = backend.synthesizeRequest({}, abort.signal); await clock.advance(10); const audio = await pending;
+  const pending = backend.synthesizeRequest(backendRequest, abort.signal); await clock.advance(10); const audio = await pending;
   expect(decoded(audio)).toEqual({ samples: 125, duration: 125 }); expect(audio.duration_ms).toBe(900);
 });
 test("backend (e) identical requests return different decoded lengths", async () => {
   const { clock, backend, abort } = setup(); backend.script([audioStep(pcmAudio(20)), audioStep(pcmAudio(40))]);
-  const first = backend.synthesizeRequest({ text: "same" }, abort.signal), second = backend.synthesizeRequest({ text: "same" }, abort.signal);
+  const first = backend.synthesizeRequest({ ...backendRequest, text: "same" }, abort.signal), second = backend.synthesizeRequest({ ...backendRequest, text: "same" }, abort.signal);
   await clock.advance(10); expect(decoded(await first).samples).toBe(20); expect(decoded(await second).samples).toBe(40);
-  expect(backend.calls).toEqual([{ text: "same" }, { text: "same" }]);
+  expect(backend.calls).toEqual([{ ...backendRequest, text: "same" }, { ...backendRequest, text: "same" }]);
 });
 test("backend (f) no timings remains absent", async () => {
   const { clock, backend, abort } = setup(); backend.script([audioStep(), audioStep(pcmAudio(100, 1000, 100, [{ start_ms: 0, end_ms: 100 }]))]);
-  const absent = backend.synthesizeRequest({}, abort.signal), present = backend.synthesizeRequest({}, abort.signal);
+  const absent = backend.synthesizeRequest(backendRequest, abort.signal), present = backend.synthesizeRequest(backendRequest, abort.signal);
   await clock.advance(10); expect((await absent).timings).toBeNull(); expect((await present).timings).toEqual([{ start_ms: 0, end_ms: 100 }]);
 });
 const identity = { session_id: "s1", piece_index: 0, control_epoch: 1, text: "must not enter edges" };
@@ -99,16 +100,16 @@ test("spawn records argv, scripted exit code and idempotent kill", async () => {
 });
 test("late-after-cancel without abort stays pending and drain reports why", async () => {
   const { clock, backend, abort } = setup(); backend.script([audioStep(pcmAudio(50), 10, true)]);
-  let delivered = false; void backend.synthesizeRequest({}, abort.signal).then(() => { delivered = true; });
+  let delivered = false; void backend.synthesizeRequest(backendRequest, abort.signal).then(() => { delivered = true; });
   await clock.advance(25); expect(delivered).toBe(false); expect(backend.pending).toBe(1);
   expect(() => backend.assertDrained()).toThrow("late_after_cancel step was never cancelled");
   abort.abort(); await clock.advance(10); expect(delivered).toBe(true); backend.assertDrained();
 });
 test("backend drain rejects an unconsumed failure step", async () => {
   const { clock, backend, abort } = setup(); backend.script([audioStep(), { latency_ms: 0, late_after_cancel: false, result: { kind: "error", code: "UNUSED" } }]);
-  const first = backend.synthesizeRequest({}, abort.signal); await clock.advance(10); await first;
+  const first = backend.synthesizeRequest(backendRequest, abort.signal); await clock.advance(10); await first;
   expect(backend.pending).toBe(1); expect(() => backend.assertDrained()).toThrow("1 unused steps");
-  const failure = backend.synthesizeRequest({}, abort.signal).catch(e => e.message); await clock.advance(0);
+  const failure = backend.synthesizeRequest(backendRequest, abort.signal).catch(e => e.message); await clock.advance(0);
   expect(await failure).toBe("UNUSED"); expect(backend.pending).toBe(0); backend.assertDrained();
 });
 test("spawn drain rejects an unconsumed failure step", async () => {
@@ -168,7 +169,7 @@ test("same scripts give byte-identical request, audio, host and edge digests wit
   const run = async () => {
     const { clock, backend, abort } = setup(), player = new ScriptedPlayer(clock), host = new ScriptedHost(clock);
     backend.script([audioStep()]); player.script([playerStep]); host.capture("idle"); player.play(identity);
-    const request = { text: "synthetic" }, pending = backend.synthesizeRequest(request, abort.signal); request.text = "mutated";
+    const request = { ...backendRequest, text: "synthetic" }, pending = backend.synthesizeRequest(request, abort.signal); request.text = "mutated";
     await clock.advance(10); const audio = await pending;
     return createHash("sha256").update(JSON.stringify({ calls: backend.calls, audio: { ...audio, bytes: [...audio.bytes] }, edges: player.edges, argv: player.spawn.calls, host: host.records })).digest("hex");
   };

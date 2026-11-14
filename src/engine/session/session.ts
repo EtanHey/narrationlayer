@@ -15,8 +15,12 @@ export interface Clock {
   monotonic(): number;
   schedule(ms: number, callback: () => void): () => void;
 }
+export type SynthesisRequest = { piece_index: number; text: string; family: Message<"plan">["engine"]["family"]; voice: string; rate: string };
+class SynthesisFailure extends Error {
+  constructor(readonly code: "VOICE_UNAVAILABLE" | "ENGINE_UNAVAILABLE" | "SYNTH_FAILED") { super(code); }
+}
 export interface Backend<Audio> {
-  synthesizeRequest(request: { piece_index: number; text: string }, signal: AbortSignal): Promise<Audio>;
+  synthesizeRequest(request: SynthesisRequest, signal: AbortSignal): Promise<Audio>;
 }
 /** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio.
  * Returned receipts become engine-owned; the session detaches them before storage. */
@@ -32,6 +36,7 @@ export type Publication<Audio> = {
  * outgoing queue (transport), including its closed flag and pending iterator readers. */
 export function createEngineSession<Audio>(options: {
   owner_epoch: number;
+  default_voice?: string;
   synthesis_timeout_ms: number;
   welcome: Pick<Message<"welcome">, "package_version" | "protocol_minor" | "caps" | "engines">;
   limits: Limits;
@@ -188,16 +193,38 @@ export function createEngineSession<Audio>(options: {
         if (!request || request.piece_index !== piece.index || !piece.segments[0]) throw new Error("invalid planner requests");
         const started = options.clock.monotonic();
         step({ kind: "synthesis_requested", identity, piece_index: piece.index, chars: request.text.length, t_mono_ms: Math.round(started) });
-        // Rulings 90-93: each call starts its own host-clock bound, after send.
-        const cancelTimeout = options.clock.schedule(options.synthesis_timeout_ms, () => {
-          if (shuttingDown || state.sessions[identity.session_id].generation !== "running") return;
-          step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis timed out" } } });
-          queueMicrotask(() => abort.abort());
-        });
-        abort.signal.addEventListener("abort", cancelTimeout, { once: true });
         let audio: Audio;
-        try { audio = await options.backend.synthesizeRequest(request, abort.signal); }
-        finally { cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout); }
+        let engine = { ...session.plan.engine }, rate = session.request.rate ?? "+0%";
+        let substituted = selection?.substituted ?? false, fallback_reason = selection?.fallback_reason ?? null;
+        let cancelTimeout = () => {};
+        const callBackend = () => {
+          cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout);
+          // Q96: the composed engine checks declared availability before a call.
+          const capability = options.welcome.engines.find(e => e.family === engine.family);
+          if (selection !== undefined && !capability?.available) throw new SynthesisFailure("ENGINE_UNAVAILABLE");
+          // Rulings 90-93: each call starts its own host-clock bound, after send.
+          cancelTimeout = options.clock.schedule(options.synthesis_timeout_ms, () => {
+            if (shuttingDown || state.sessions[identity.session_id].generation !== "running") return;
+            step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis timed out" } } });
+            queueMicrotask(() => abort.abort());
+          });
+          abort.signal.addEventListener("abort", cancelTimeout, { once: true });
+          return options.backend.synthesizeRequest({ ...request, family: engine.family, voice: engine.voice, rate }, abort.signal);
+        };
+        try {
+          try { audio = await callBackend(); }
+          catch (error) {
+            if (abort.signal.aborted || state.sessions[identity.session_id].generation !== "running") throw error;
+            if (engine.family !== "qwen3_clone") throw error;
+            if (session.request.voice.require_clone) throw new SynthesisFailure("VOICE_UNAVAILABLE"); // Q95
+            if (session.request.voice.fallback !== "declared") throw error;
+            const edge = options.welcome.engines.find(e => e.family === "edge");
+            if (edge?.max_chars !== undefined && request.text.length > edge.max_chars) throw new SynthesisFailure("ENGINE_UNAVAILABLE"); // Q97 amended: no allowed family can serve.
+            engine = { family: "edge", voice: options.default_voice ?? "", profile_revision: "default" };
+            rate = "+0%"; substituted = true; fallback_reason = "clone_synthesis_failed"; // Q95: default rate, this piece only.
+            audio = await callBackend();
+          }
+        } finally { cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout); }
         const ready = options.clock.monotonic();
         abort.signal.throwIfAborted();
         const delivered = await options.publication.piece(audio, {
@@ -205,8 +232,7 @@ export function createEngineSession<Audio>(options: {
           prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
           words: structuredClone(session.plan.words.slice(piece.word_start, piece.word_end)),
           // Engine selection owes the resolved profile/mode rate when the request omits it.
-          engine: { ...session.plan.engine }, substituted: selection?.substituted ?? false,
-          fallback_reason: selection?.fallback_reason ?? null, segments: piece.segments.length, rate: session.request.rate ?? "+0%",
+          engine, substituted, fallback_reason, timing: substituted ? options.welcome.engines.find(e => e.family === engine.family)?.timing : undefined, segments: piece.segments.length, rate,
           synthesis_ms: ready - started, spoken_text: request.text,
         }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.
@@ -222,9 +248,9 @@ export function createEngineSession<Audio>(options: {
         const updated = state.sessions[identity.session_id];
         if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
       }
-    } catch {
+    } catch (error) {
       // §2.5 L220: reducer emits a text-free error and the one terminal outcome.
-      step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_FAILED", message: "synthesis or publication failed" } } });
+      step({ kind: "backend", identity, result: { kind: "failure", error: { code: error instanceof SynthesisFailure ? error.code : "SYNTH_FAILED", message: "synthesis or publication failed" } } });
     } finally {
       aborts.delete(identity.session_id);
       if (state.sessions[identity.session_id].generation !== "running") requests.delete(identity.session_id);

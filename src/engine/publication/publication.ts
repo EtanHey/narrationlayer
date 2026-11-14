@@ -5,7 +5,7 @@ import { startMs, wordTimes, type Samples } from "./time";
 type Plan = Message<"plan">;
 export type PublicationContext = Pick<Plan, "session_id" | "attempt_id" | "owner_epoch" | "engine"> & {
   index: number; piece_id: string; prefix: readonly Samples[]; synthesis_ms: number; spoken_text: string;
-  words: Plan["words"]; segments: number; rate: string; substituted?: boolean; fallback_reason?: string | null;
+  timing?: Message<"welcome">["engines"][number]["timing"]; words: Plan["words"]; segments: number; rate: string; substituted?: boolean; fallback_reason?: string | null;
 };
 export type PublishedPiece = Omit<Message<"piece_ready">, "protocol" | "owner_epoch" | "seq"> & {
   known_ms: number; first_audible_offset_ms: number;
@@ -23,7 +23,7 @@ export function createPublication(artifacts: ArtifactPort) {
       const bytes = audio.bytes.slice(), decoded = decodePcm(bytes);
       const duration_ms = startMs([decoded]), start_ms = startMs(context.prefix);
       const known_ms = startMs([...context.prefix, decoded]), first_audible_offset_ms = firstAudibleOffsetMs(bytes);
-      const words = wordTimes(context.words, start_ms, duration_ms, audio.timings);
+      const words = wordTimes(context.words, start_ms, duration_ms, context.timing === "none" ? null : audio.timings);
       const sha256 = createHash("sha256").update(bytes).digest("hex");
       const stored = await artifacts.put(bytes, { owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, piece_id: context.piece_id }, signal);
       try {
