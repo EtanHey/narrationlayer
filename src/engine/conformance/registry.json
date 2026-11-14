@@ -532,8 +532,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": true,
-    "owed": "Pause clause owed to the controls slice."
+    "active": true
   },
   {
     "id": "PACE-02",
@@ -560,7 +559,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "Host park/cursor and automatic-resume behavior: PAUSE-01h to PAUSE-03h. Seek, resync, stop scopes and command_id on control errors remain later slices."
   },
   {
     "id": "PAUSE-01h",
@@ -578,7 +578,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "Host park/cursor and automatic-resume behavior: PAUSE-01h to PAUSE-03h. Seek, resync, stop scopes and command_id on control errors remain later slices."
   },
   {
     "id": "PAUSE-02h",
@@ -605,7 +606,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S5",
-    "active": false
+    "active": true,
+    "owed": "Host park/cursor and automatic-resume behavior: PAUSE-01h to PAUSE-03h. Seek, resync, stop scopes and command_id on control errors remain later slices."
   },
   {
     "id": "PAUSE-03h",

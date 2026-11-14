@@ -13,6 +13,10 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  {"kind": "conformance-case", "name": "pause-owner", "file": "src/engine/reducer/session.ts", "before": "s.pause_owner !== c.args.owner", "after": "false", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "PAUSE-02e"},
+  {"kind": "conformance-case", "name": "pause-takeover", "file": "src/engine/reducer/session.ts", "before": "c.args.owner === \"user\" && s.pause_owner !== \"user\"", "after": "s.pause_owner !== c.args.owner", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "PAUSE-02e"},
+  {"kind": "conformance-case", "name": "pause-routing", "file": "src/engine/session/session.ts", "before": " || value.op === \"pause\"", "after": "", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "PAUSE-03e"},
+
   { kind: "named-test", name: "shutdown-reason", file: "src/engine/reducer/session.ts", before: 's.playback = "shutdown"', after: 's.playback = "cancel"', testFile: "tests/conformance/engine-binding.test.ts", testName: "engine binding: the packaged entry passes the active cases under containment" },
   { kind: "named-test", name: "shutdown-release", file: "src/engine/session/session.ts", before: 'options.artifacts?.releaseFromHost(parsed.value.lease_id);', after: ';', testFile: "tests/conformance/engine-binding.test.ts", testName: "engine binding: the packaged entry passes the active cases under containment" },
   { kind: "named-test", name: "engine-reach-blocking-call", file: "src/plan/synthesis-units.ts", before: "const MIN_SYNTHESIS_WORDS = 3;", after: "const MIN_SYNTHESIS_WORDS = 3;\nconst blocked = () => existsSync(\"synthetic\");", testFile: "tests/architecture/engine-reach.test.ts", testName: "engine reach: nothing the engine imports can block" },

@@ -27,7 +27,8 @@ come from `src/engine/messages/messages.ts`; the reducer imports only those type
 | `Spawn` | Spawned feedback installs a delivered current/next live job; first-sample feedback witnesses actual start; no process spawn or permit implementation |
 | `Feedback(j,o,a)` | Feedback identity gate followed by control/player pair gate and EOF coverage gate |
 | `Stop`, `PlayerReaped` | Logical stop only; outcome always says physical unknown, not reaped |
-| `Pause`, `Resume`, `Seek`, `ReapOld` | Control/reanchor inputs update epoch/cursor mirror; no I09 pause/restart proof |
+| `Pause`, `Resume` | S5a records pause_owner, manual takeover and owner-matched resume; accepted controls reanchor; no I09 restart proof yet |
+| `Seek`, `ReapOld` | Seek preserves pause_owner; no I09 restart proof yet |
 | `Successor` | A new entry under `sessions` with explicit identities; scheduling/physical retirement not implemented |
 | `Step` | Single pure transition, separate immutable domain terminals, one deferred session outcome |
 

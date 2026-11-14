@@ -6,6 +6,7 @@ type Generation = Message<"outcome">["generation"]["status"] | "running";
 type Playback = Message<"outcome">["playback"]["reason"];
 type Receipt = { command: Message<"control">; ack: Message<"control_ack"> };
 export type SessionState = Identity & {
+  pause_owner?: "user" | "f5" | "ask";
   released_leases?: string[];
   request: Message<"narrate">; plan: Body<Message<"plan">>;
   generation: Generation; playback: Playback | null; outcome: Message<"outcome"> | null;
@@ -132,7 +133,16 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     else if (stale) { answer = "reject"; reason = "STALE_EPOCH"; }
     else if (s.outcome || s.playback !== null) answer = "noop";
     else if (c.op === "stop") { if (!c.args.except_sessions?.includes(session_id)) stop(c.args.reason); else answer = "noop"; }
-    else if (["pause", "resume", "seek"].includes(c.op)) anchor(input.target);
+    else if (c.op === "pause") {
+      if (s.pause_owner === undefined || c.args.owner === "user" && s.pause_owner !== "user") {
+        if (s.pause_owner !== undefined) reason = "manual pause";
+        s.pause_owner = c.args.owner; anchor(input.target);
+      } else answer = "noop";
+    } else if (c.op === "resume") {
+      if (s.pause_owner === undefined) answer = "noop";
+      else if (s.pause_owner !== c.args.owner) { answer = "reject"; reason = "pause owner differs"; }
+      else { delete s.pause_owner; anchor(input.target); }
+    } else if (c.op === "seek") anchor(input.target);
     else { answer = "reject"; reason = "control outside S2a"; }
     const ack: Message<"control_ack"> = { protocol: "nl.engine/1", type: "control_ack", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, command_id: c.command_id, outcome: answer, control_epoch: s.current.control_epoch, ...(reason ? { reason } : {}), ...(stale ? { current: s.current } : {}) };
     emit(ack); if (!previous) s.receipts = [...s.receipts, { command: structuredClone(c), ack: structuredClone(ack) }].slice(-32);

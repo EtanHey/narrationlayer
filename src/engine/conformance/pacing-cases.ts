@@ -47,6 +47,14 @@ export const pacingCases: Record<string, Case> = {
         c.assert(pieces(t, id).some(p => p.index === i));
         playing = i; feedback(c, t, id, i, ["spawned"]); await tick(t, 1);
         feedback(c, t, id, i, ["first_sample"]); await tick(t); check();
+        if (i === 2) {
+          for (const op of ["pause", "resume"]) {
+            const command_id = `pace-${op}`;
+            t.connection.send({ protocol: "nl.engine/1", type: "control", session_id: id, command_id, op, args: { owner: "user" } });
+            await tick(t, op === "pause" ? 100 : 1); check(); // L76, L492: parked synthesis stays inside the window.
+            c.assert(t.seen.some(e => e.type === "control_ack" && e.command_id === command_id && e.outcome === "accept")); // L162-163.
+          }
+        }
         if (i > 0 && before < count) c.assert(pieces(t, id).length > before);
         feedback(c, t, id, i, ["last_sample", "exited"]); await tick(t, 1); check();
       }
