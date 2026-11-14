@@ -9,6 +9,7 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/broken-spk-fresh-attempt.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU3"},
     "src/engine/conformance/broken-spk-05e.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S3bc"},
     "src/engine/conformance/throwing-variants.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S7f"},
     "src/engine/conformance/broken-throw-escape.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S7f"},
