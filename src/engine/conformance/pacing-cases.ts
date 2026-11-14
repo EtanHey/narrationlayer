@@ -52,6 +52,7 @@ export const pacingCases: Record<string, Case> = {
             const command_id = `pace-${op}`;
             t.connection.send({ protocol: "nl.engine/1", type: "control", session_id: id, command_id, op, args: { owner: "user" } });
             await tick(t, op === "pause" ? 100 : 1); check(); // L76, L492: parked synthesis stays inside the window.
+            for (let wait = 0; wait < 8 && !t.seen.some(e => e.type === "control_ack" && e.command_id === command_id); wait++) await tick(t, 1);
             c.assert(t.seen.some(e => e.type === "control_ack" && e.command_id === command_id && e.outcome === "accept")); // L162-163.
           }
         }

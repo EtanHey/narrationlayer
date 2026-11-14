@@ -445,7 +445,7 @@ test("S5a pause ownership table, receipts, stale and terminal precedence", () =>
       return ack.event;
     };
     expect(control("resume", "user").outcome).toBe("noop");
-    expect(control("pause", "f5").outcome).toBe("accept");
+    const first = control("pause", "f5"); expect(first.outcome).toBe("accept"); expect(first.reason).toBeUndefined();
     expect(control("pause", "f5").outcome).toBe("noop");
     expect(control("pause", "ask").outcome).toBe("noop"); expect(view(state).pause_owner).toBe("f5");
     expect(control("pause", "user")).toMatchObject({ outcome: "accept", reason: "manual pause" });
@@ -456,7 +456,19 @@ test("S5a pause ownership table, receipts, stale and terminal precedence", () =>
     expect(control("resume", "user").outcome).toBe("accept"); expect(view(state).pause_owner).toBeUndefined();
     expect(control("pause", "ask").outcome).toBe("accept");
     expect(control("pause", "f5").outcome).toBe("noop"); expect(view(state).pause_owner).toBe("ask");
+    for (const owner of ["user", "f5", "ask"] as const) {
+      state = accepted(2, authority);
+      const first = control("pause", owner); expect(first.outcome).toBe("accept"); expect(first.reason).toBeUndefined();
+      expect(control("resume", owner, 999)).toMatchObject({ outcome: "reject", reason: "STALE_EPOCH", current: view(state).current });
+      expect(view(state).pause_owner).toBe(owner);
+      for (const other of ["user", "f5", "ask"] as const) if (other !== owner) {
+        expect(control("resume", other)).toMatchObject({ outcome: "reject", reason: "pause owner differs" });
+        expect(view(state).pause_owner).toBe(owner);
+      }
+      expect(control("resume", owner).outcome).toBe("accept");
+    }
     state = run(state, stop);
+    expect(control("pause", "user").outcome).toBe("noop");
     expect(control("pause", "ask").outcome).toBe("noop"); expect(control("resume", "ask").outcome).toBe("noop");
   }
 });
