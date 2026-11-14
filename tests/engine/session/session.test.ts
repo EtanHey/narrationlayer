@@ -389,3 +389,51 @@ test("PACE-02 physical: abort-ignoring predecessor settles before the waiter syn
   settle(); await h.tick(); expect(h.indices("session-1-2")).toEqual([0]);
   expect(h.events().filter(e => e.type === "piece_ready" && e.session_id === "session-1-1")).toEqual([]); h.replay();
 });
+
+test("aliasing: a planner or publication that mutates what it returned cannot change the read", async () => {
+  const h = harness(), plan = h.planner.plan, publish = h.publication.piece;
+  let keptPlan: ReturnType<ReadPlanner["plan"]> | undefined;
+  let keptPiece: Awaited<ReturnType<typeof publish>> | undefined;
+  h.planner.plan = (...args) => { keptPlan = plan(...args); return keptPlan; };
+  h.publication.piece = async (...args) => {
+    if (keptPlan) keptPlan.plan.pieces.length = 1;
+    const receipt = await publish(...args); keptPiece ??= receipt; return receipt;
+  };
+  h.script(); h.session.send(request); await h.tick();
+  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(2);
+  if (!keptPiece) throw Error("missing publication");
+  keptPiece.artifact.handle = "mutated";
+  h.stop();
+  expect(h.events().at(-1)).toMatchObject({ type: "outcome", generation: { status: "committed" }, artifacts: [{ piece_id: "piece-session-1-1-0", handle: "synthetic", lease_id: "synthetic" }, { piece_id: "piece-session-1-1-1", handle: "synthetic", lease_id: "synthetic" }] });
+});
+test("parser refusal: raw correlation requires a narrate request_id within schema bounds", () => {
+  const h = harness();
+  for (const message of [{ ...request, request_id: "x".repeat(5000) }, { ...request, request_id: "ab" }, { protocol: "nl.engine/1", type: "unsupported", request_id: "req-other" }]) {
+    h.session.send(message);
+    expect(h.events().at(-1)).toMatchObject({ type: "error", code: "INVALID_REQUEST" });
+    expect(h.events().at(-1)).not.toHaveProperty("request_id");
+  }
+  for (const request_id of ["abc", "x".repeat(128)]) {
+    h.session.send({ ...request, request_id, voice: 7 });
+    expect(h.events().at(-1)).toMatchObject({ type: "error", request_id });
+  }
+});
+
+test("planner clone: uncloneable extras refuse once without throwing", () => {
+  const h = harness(), plan = h.planner.plan;
+  h.planner.plan = (...args) => { const result = plan(...args); Reflect.set(result.plan, "extra", () => {}); return result; };
+  expect(() => h.session.send(request)).not.toThrow();
+  expect(h.events()).toEqual([{ type: "error", code: "INVALID_REQUEST", message: "INVALID_REQUEST", phase: "admit", retry: "never", request_id: request.request_id, protocol: "nl.engine/1", owner_epoch: 1, seq: 1 }]);
+  expect(h.backend.calls).toHaveLength(0);
+});
+test("planner clone: a changing getter emits exactly the validated snapshot", () => {
+  const h = harness(), plan = h.planner.plan; let reads = 0;
+  h.planner.plan = (...args) => {
+    const result = plan(...args), engine = result.plan.engine;
+    Object.defineProperty(result.plan, "engine", { enumerable: true, get: () => ({ ...engine, profile_revision: ++reads === 1 ? "validated" : "changed" }) });
+    return result;
+  };
+  h.script(); h.session.send(request);
+  expect(h.events().find(e => e.type === "plan")).toMatchObject({ engine: { profile_revision: "validated" } });
+  expect(reads).toBe(1);
+});

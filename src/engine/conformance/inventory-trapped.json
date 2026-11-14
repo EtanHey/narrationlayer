@@ -105,5 +105,8 @@
     "vm": "clock",
     "wasi": "spawn",
     "worker_threads": "worker"
+  },
+  "process": {
+    "dlopen": "spawn"
   }
 }

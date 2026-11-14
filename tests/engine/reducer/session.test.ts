@@ -374,3 +374,15 @@ test("immutability: reduce never writes to its state or its input", () => {
   expect(reduce(two, stop).state.sessions.second).toBe(two.sessions.second);
   expect(reduce(two, { kind: "refuse", code: "INVALID_REQUEST", message: "synthetic" }).state.sessions).toBe(two.sessions);
 });
+
+test("aliasing: mutating a replay cannot change later accepted or control replays", () => {
+  const s = structuredClone(run(accepted(), seek)), original = structuredClone(view(s).receipts[0].ack);
+  const replay = transition(s, seek).effects[0];
+  if (replay.kind !== "replay" || replay.event.type !== "control_ack") throw Error("missing ack replay");
+  replay.event.outcome = "reject";
+  expect(transition(s, seek).effects).toEqual([{ kind: "replay", event: original }]);
+  const admitted = transition(s, { kind: "admit", request }).effects[0];
+  if (admitted.kind !== "replay" || admitted.event.type !== "accepted") throw Error("missing accepted replay");
+  admitted.event.request_id = "mutated";
+  expect(reduce(s, { kind: "admit", request }).effects).toEqual([{ kind: "replay", event: { ...s.admissions.key.accepted, request_id: request.request_id } }]);
+});

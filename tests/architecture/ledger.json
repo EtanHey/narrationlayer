@@ -9,6 +9,12 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/text/voicelayer/display-tokens.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
+    "src/text/voicelayer/inline-code-spans.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
+    "src/text/voicelayer/markdown-to-speech.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
+    "src/text/voicelayer/structured-speech.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
+    "src/text/voicelayer/sections.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
+    "src/text/voicelayer/structured-display.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
     "src/engine/session/session.ts": { "layer": 4, "area": "engine", "owner": "P2.S3b1" },
     "src/engine/reducer/pacing.ts": { "layer": 1, "area": "plan", "owner": "P2.S3b2" },
     "src/engine/reducer/session.ts": { "layer": 1, "area": "plan", "owner": "P2.S2a" },
@@ -18,6 +24,7 @@
     "src/engine/conformance/host-stub.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a2"},
     "src/engine/conformance/binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
     "src/engine/conformance/broken-binding.ts": {"layer": 4, "area": "engine", "owner": "P2.S0a"},
+    "src/engine/conformance/sandbox.ts": {"layer": 4, "area": "engine", "owner": "P2.S0c"},
     "src/engine/conformance/entry.ts": {"layer": 4, "area": "engine", "owner": "P2.S0b", "entry": ["if (import.meta.main)"]},
     "src/engine/conformance/inventory.ts": {"layer": 4, "area": "engine", "owner": "P2.S0b"},
     "src/engine/conformance/preload.ts": {"layer": 4, "area": "engine", "owner": "P2.S0b"},
