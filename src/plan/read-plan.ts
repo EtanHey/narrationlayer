@@ -32,7 +32,7 @@ function plainProjection(text: string): StructuredSpeech {
 
 interface LocatedUnit extends SynthesisSourceUnit { speech_start: number; prose_run?: number }
 
-function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
+function sourceUnits(projection: StructuredSpeech, markdown = true): LocatedUnit[] {
   const units: LocatedUnit[] = [];
   const segmenter = new Intl.Segmenter(undefined, { granularity: "sentence" });
   let rangeIndex = 0, proseRun = 0;
@@ -97,7 +97,7 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
           structuralLine = !!label && (label[2].endsWith(":") || label[3] === ":");
           // VL :174-183 accepts a label only if its stripped spelling is
           // actually present in speech; plain literal ** markers do not match.
-          if (structuralLine && label) {
+          if (structuralLine && label && markdown) {
             const at = speechAt(block.source.start + line.index);
             structuralLine = projection.speechText.slice(at).trimStart().startsWith(label[2].replace(/[*_`]/g, "") + label[3]);
           }
@@ -174,7 +174,7 @@ export function planRead({ request, limits, identity, engine, first_piece_raw = 
   if (!display) throw new ReadPlanError("DISPLAY_UNAVAILABLE");
   const words: Plan["words"] = displayTokens(display.text).map((token, index) => ({ index, text: token[0],
     display: [token.index, token.index + token[0].length] }));
-  const units = sourceUnits(projection);
+  const units = sourceUnits(projection, request.input.format === "markdown");
   const positions = units.map(unit => ({ chunks: [...unit.text.matchAll(/\S+/gu)], used: 0 }));
   let cut: ReturnType<typeof planSynthesisUnits>;
   try { cut = planSynthesisUnits({ units, max_chars: limits.max_chars[request.use], first_piece_raw }); }

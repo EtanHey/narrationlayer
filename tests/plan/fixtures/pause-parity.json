@@ -1790,13 +1790,20 @@
     "oracle_budget": "unlimited",
     "word_pauses": [
       [
-        2,
+        5,
         900
+      ],
+      [
+        6,
+        320
       ],
       [
         8,
         0
       ]
+    ],
+    "contract_label_ends": [
+      6
     ]
   },
   {
@@ -1834,9 +1841,51 @@
     "oracle_budget": "unlimited",
     "word_pauses": [
       [
+        1,
+        320
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        320
+      ],
+      [
         7,
         0
       ]
+    ],
+    "contract_label_ends": [
+      1,
+      3
+    ]
+  },
+  {
+    "shape": "plain-label-bold-continuation",
+    "text": "**Tree:** leaf grows.\n**Grove**\nTail.",
+    "format": "plain",
+    "word_pauses": [
+      [
+        1,
+        320
+      ],
+      [
+        3,
+        600
+      ],
+      [
+        4,
+        800
+      ],
+      [
+        5,
+        0
+      ]
+    ],
+    "contract_label_ends": [
+      1
     ]
   }
 ]
