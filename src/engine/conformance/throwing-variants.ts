@@ -8,7 +8,7 @@ export function wrongThrow(mode: "escape" | "halt"): Binding {
     const pending: [unknown, boolean][] = [];
     const connection = engine.create({ ...host, observe: { event(event, replay) {
       if (mode === "escape") { pending.push([event, replay]); return; }
-      try { callback?.(event, replay); } catch (error) { halted = true; if (mode === "escape") throw error; }
+      try { callback?.(event, replay); } catch { halted = true; }
     } } });
     return { ...connection, send(message) {
       if (mode === "halt" && halted) return;
