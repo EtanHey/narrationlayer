@@ -18,6 +18,12 @@ export function brokenEngine(rule: string): Binding {
           if (rule === "ERR-01" && event.type === "error" && event.code === "SYNTH_FAILED") continue;
           if (rule === "ID-04" && event.type === "accepted") { firstSession ??= event.session_id; yield { ...event, session_id: firstSession }; continue; }
           if (rule === "TIME-02" && event.type === "piece_ready") { yield { ...event, duration_ms: event.duration_ms * 3 }; continue; }
+          if (rule === "GEN-02" && event.type === "duration" && event.final && plan && plan.pieces.length >= 3) yield event;
+          if (rule === "LIFE-01e" && event.type === "lifecycle" && event.edge === "audio_ready") { yield { ...event, sample_count: event.sample_count + 1 }; continue; }
+          if (rule === "TIME-01" && event.type === "piece_ready" && event.index > 0 && event.duration_ms === 0) { yield { ...event, start_ms: event.start_ms + 1, words: event.words.map(w => ({ ...w, start_ms: w.start_ms + 1, end_ms: w.end_ms + 1 })) }; continue; }
+          if (rule === "GEN-01e" && event.type === "outcome" && event.playback.reason === "speech_failed") { yield { ...event, missing_piece_indices: [] }; continue; }
+          if (rule === "WORD-02" && event.type === "piece_ready") { yield { ...event, words: event.words.map(w => ({ ...w, timing: "measured" })) }; continue; }
+          if (rule === "DET-01" && event.type === "duration" && event.known_ms > 10 && event.known_ms < 100) { yield { ...event, known_ms: 10 }; continue; }
           yield event;
           if (held.length && event.type === "outcome") { yield* held; held = []; }
           if (rule === "ORDER-01" && event.type === "outcome" && event.playback.reason === "completed") yield event;

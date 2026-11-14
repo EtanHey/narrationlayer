@@ -7,11 +7,12 @@ import { ScriptedPlayer, ScriptedSpawn } from "../../src/engine/conformance/fake
 import { ScriptedHost } from "../../src/engine/conformance/host-stub";
 import engine from "../../src/engine/conformance/engine-binding";
 import { FakeClock } from "../../src/engine/conformance/clock";
-import { hello } from "../../src/engine/conformance/engine-cases";
+import { runCase } from "../../src/engine/conformance/runner";
+import { engineCases, hello } from "../../src/engine/conformance/engine-cases";
 const root = resolve(import.meta.dir, "../..");
 const runtime = process.env.CONFORMANCE_BUN ?? process.execPath;
-const ids = ["PLAN-LAT-01", "ORDER-01", "ERR-01", "ID-03", "ID-04", "TIME-02"];
-for (const id of ["engine", ...ids]) test(id === "engine" ? "engine binding: the packaged entry passes the active cases under containment" : `${id}: the broken engine is red on exactly this case`, async () => {
+const ids = ["PLAN-LAT-01", "ORDER-01", "ERR-01", "ID-03", "ID-04", "TIME-02", "GEN-02", "LIFE-01e", "TIME-01", "GEN-01e", "WORD-02", "DET-01"];
+for (const id of ["engine", ...ids]) test(id === "engine" ? "engine binding: the packaged entry passes the active cases under containment" : (["ERR-01", "TIME-02"].includes(id) ? `${id}: the broken engine matches its fail-set` : `${id}: the broken engine is red on exactly this case`), async () => {
   const name = id === "engine" ? "engine-binding" : `broken-${id.toLowerCase()}`;
   const proc = Bun.spawn([runtime, resolve(root, "src/engine/conformance/entry.ts"), "--binding", resolve(root, `src/engine/conformance/${name}.ts`), ...(process.platform === "darwin" ? ["--require-containment"] : [])], { stdout: "pipe", stderr: "pipe" });
   const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
@@ -70,4 +71,27 @@ test("two engines sharing a store refuse a colliding epoch handle without overwr
   const first = store.get("memory:1:1")?.slice();
   expect(await run(200)).toContainEqual(expect.objectContaining({ type: "error", code: "SYNTH_FAILED" }));
   expect(store.size).toBe(1); expect(store.get("memory:1:1")).toEqual(first);
+});
+
+test("pre-hello narrate refusal preserves only a bounded request id", async () => {
+  const c = engine.create({ clock: new FakeClock(), store: new Map(), hash_key: new Uint8Array(32), audible: false });
+  const stream = c.events[Symbol.asyncIterator]();
+  for (const id of ["request-pre", "x", "x".repeat(129)]) {
+    c.send({ protocol: "nl.engine/1", type: "narrate", request_id: id, idempotency_key: "pre-key", use: "read", input: { text: "Amber rafts float.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+    const error = (await stream.next()).value;
+    expect(error).toMatchObject({ type: "error", code: "NOT_NEGOTIATED", phase: "negotiate", retry: "after_resync" });
+    expect(error?.request_id).toBe(id.length >= 3 && id.length <= 128 ? id : undefined);
+  }
+  await c.shutdown(0);
+});
+
+test("PLAN-LAT-01 bounds a swallowed second narrate under the fake clock", async () => {
+  const broken = { name: "drops-second", create: (host: Parameters<typeof engine.create>[0]) => {
+    const c = engine.create(host); let calls = 0;
+    return { ...c, send: (message: Parameters<typeof c.send>[0]) => {
+      if (message && typeof message === "object" && !Array.isArray(message) && "type" in message && message.type === "narrate" && ++calls > 1) return;
+      c.send(message);
+    } };
+  } };
+  expect((await runCase("PLAN-LAT-01", broken, engineCases["PLAN-LAT-01"])).result).toBe("fail");
 });

@@ -186,7 +186,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S4",
-    "active": false
+    "active": true
   },
   {
     "id": "DISP-01",
@@ -276,7 +276,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "GEN-01h",
@@ -294,7 +294,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "GEN-03e",
@@ -429,7 +429,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S4",
-    "active": false
+    "active": true
   },
   {
     "id": "LIFE-01p",
@@ -996,7 +996,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S4",
-    "active": false
+    "active": true
   },
   {
     "id": "TIME-02",
@@ -1113,6 +1113,6 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S4",
-    "active": false
+    "active": true
   }
 ]
