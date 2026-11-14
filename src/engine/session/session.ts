@@ -232,7 +232,7 @@ export function createEngineSession<Audio>(options: {
         else if (result.kind === "expired") step({ kind: "refuse", code: "ARTIFACT_EXPIRED", message: "ARTIFACT_EXPIRED" },
           options.artifacts.minted(value.lease_id) ? { lease_id: value.lease_id } : undefined);
       } else if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
-      else if (value.type === "control" && (value.op === "stop" || value.op === "pause" || value.op === "resume" || value.op === "seek")) {
+      else if (value.type === "control" && (value.op === "stop" || value.op === "pause" || value.op === "resume" || value.op === "seek" || value.op === "resync")) {
         const current = state.sessions[value.session_id]?.current;
         if (current) {
           const session = state.sessions[value.session_id];
@@ -261,7 +261,7 @@ export function createEngineSession<Audio>(options: {
         const session = state.sessions[value.session_id];
         if (session) step({ kind: "feedback", identity: { owner_epoch: session.owner_epoch, session_id: session.session_id, attempt_id: session.attempt_id }, feedback: value }); // §2.3 L174: host owns player.
       } else {
-        // Owed to later controls: resync routing and control error correlation; refuse cannot carry command_id/session_id yet.
+        // Owed to later controls: control error correlation; refuse cannot carry command_id/session_id yet.
         refuse("INVALID_REQUEST");
       }
     },

@@ -16,7 +16,7 @@ export type SessionState = Identity & {
 type RefusalCode = Extract<Message<"error">["code"], "INVALID_REQUEST" | "INPUT_TOO_LONG" | "VOICE_UNAVAILABLE" | "NOT_NEGOTIATED" | "UNSUPPORTED_VERSION" | "MISSING_CAPABILITY" | "ARTIFACT_EXPIRED">;
 type SynthesisError = Pick<Message<"error">, "message"> & { code: "SYNTH_FAILED" | "SYNTH_TIMEOUT" | "ENGINE_UNAVAILABLE" | "VOICE_UNAVAILABLE" };
 type Authority = "host" | "engine";
-export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; sessions: Record<string, SessionState>; admissions: Record<string, { session_id: string; accepted: Message<"accepted"> }> };
+export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; session_seqs: Record<string, number>; sessions: Record<string, SessionState>; admissions: Record<string, { session_id: string; accepted: Message<"accepted"> }> };
 export type Input<A extends Authority = Authority> =
   | (A extends "engine" ? { kind: "reanchor"; session_id: string; reason: "restart" | "speed"; target: Current } : never)
   | { kind: "shutdown"; session_id: string }
@@ -41,7 +41,7 @@ export function hasDeliveredLease(state: State, lease_id: string): boolean {
   return Object.values(state.sessions).some(s => s.delivered.some(p => p.artifact.lease_id === lease_id));
 }
 /** One serialisable value owns the binding counter and every session. */
-export function initialState<A extends Authority>(owner_epoch: number, epoch_authority: A): State<A> { return { owner_epoch, epoch_authority, seq: 0, sessions: {}, admissions: {} }; }
+export function initialState<A extends Authority>(owner_epoch: number, epoch_authority: A): State<A> { return { owner_epoch, epoch_authority, seq: 0, session_seqs: {}, sessions: {}, admissions: {} }; }
 /** Pure S2a transition; targets are pre-resolved cursors, not clock reads.
  * Callers must treat passed/returned states, inputs and effects as immutable.
  * Unchanged data is shared across snapshots; mutating it changes both snapshots.
@@ -60,9 +60,12 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     }
     return { state: engine.seq === state.seq && engine.sessions === state.sessions && engine.admissions === state.admissions ? state : engine, effects };
   }
-  function emit(body: Body<Exclude<Event, Message<"welcome">>>): Event {
+  function emit(body: Body<Exclude<Event, Message<"welcome">>>, addressed?: string): Event {
     // Contract L114: ONE sequence across every session and rejection in this owner epoch.
     const event: Event = { ...body, protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: ++engine.seq };
+    const id = "session_id" in body ? body.session_id : addressed;
+    if (id !== undefined && Object.hasOwn(engine.sessions, id))
+      engine.session_seqs = { ...engine.session_seqs, [id]: event.seq };
     effects.push({ kind: "emit", event }); return event;
   }
   if (input.kind === "artifact_release") {
@@ -126,7 +129,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     const c = input.command, previous = s.receipts.find(r => r.command.command_id === c.command_id);
     // Contract L158: replay the first answer without allocating another seq.
     if (previous && key(previous.command) === key(c)) return { state, effects: [{ kind: "replay", event: structuredClone(previous.ack) }] };
-    const stale = c.op !== "stop" && ((c.expected_control_epoch !== undefined && c.expected_control_epoch !== s.current.control_epoch) || (c.player_instance_id !== undefined && c.player_instance_id !== s.current.player_instance_id) || (engine.epoch_authority === "host" && input.target.control_epoch < s.current.control_epoch));
+    const stale = c.op !== "stop" && c.op !== "resync" && ((c.expected_control_epoch !== undefined && c.expected_control_epoch !== s.current.control_epoch) || (c.player_instance_id !== undefined && c.player_instance_id !== s.current.player_instance_id) || (engine.epoch_authority === "host" && input.target.control_epoch < s.current.control_epoch));
     const stopTargets: string[] = [];
     let answer: "accept" | "noop" | "reject" = "accept", reason: string | undefined;
     if (previous) { answer = "reject"; reason = "command id reused"; }
@@ -144,6 +147,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
       }
       answer = stopTargets.length ? "accept" : "noop";
     }
+    else if (c.op === "resync") { /* Ruling 87: resync accepts for the connection, including an ended addressee. */ }
     else if (s.outcome || s.playback !== null) answer = "noop";
     else if (c.op === "pause") {
       if (s.pause_owner === undefined || c.args.owner === "user" && s.pause_owner !== "user") {
@@ -160,7 +164,25 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     }
     else { answer = "reject"; reason = "control outside S2a"; }
     const ack: Message<"control_ack"> = { protocol: "nl.engine/1", type: "control_ack", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, command_id: c.command_id, outcome: answer, control_epoch: s.current.control_epoch, ...(reason ? { reason } : {}), ...(c.op === "seek" && answer === "accept" ? { offset_ms: s.current.audio_ms, clamped: input.seek?.kind === "accept" ? input.seek.clamped : false } : {}), ...(stale ? { current: s.current } : {}) };
-    emit(ack); if (!previous) s.receipts = [...s.receipts, { command: structuredClone(c), ack: structuredClone(ack) }].slice(-32);
+    emit(ack, session_id); if (!previous) s.receipts = [...s.receipts, { command: structuredClone(c), ack: structuredClone(ack) }].slice(-32);
+    if (c.op === "resync" && answer === "accept") {
+      // Rulings 83-87: one atomic display snapshot, with fresh seqs and no new leases.
+      const live = Object.values(engine.admissions).sort((a, b) => a.accepted.seq - b.accepted.seq)
+        .map(a => engine.sessions[a.session_id]).filter(read => !read.outcome);
+      emit({ type: "snapshot", sessions: live.map(read => ({
+        session_id: read.session_id, request_id: read.request.request_id,
+        phase: !read.started ? "preparing" : read.pause_owner !== undefined ? "paused" : "playing",
+        control_epoch: read.current.control_epoch, player_instance_id: read.current.player_instance_id,
+        audio_ms: read.current.audio_ms,
+        word_index: read.delivered.flatMap(p => p.words).find(w => w.start_ms <= read.current.audio_ms && read.current.audio_ms < w.end_ms)?.index ?? 0,
+        pieces_ready: read.delivered.length, last_seq: engine.session_seqs[read.session_id],
+      })) });
+      for (const read of live) {
+        emit(read.plan);
+        for (const piece of read.delivered) emit({ type: "timing_update", session_id: read.session_id,
+          attempt_id: read.attempt_id, piece_id: piece.piece_id, derivation_id: "resync", words: piece.words });
+      }
+    }
     if (c.op === "stop" && stopTargets.length) {
       // Keep the existing ack-before-outcome order and its receipt before stopping.
       let stoppedState = result().state;

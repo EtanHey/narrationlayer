@@ -13,6 +13,9 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  {"kind": "conformance-case", "name": "resync-live-filter", "file": "src/engine/reducer/session.ts", "before": ".filter(read => !read.outcome)", "after": "", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SNAP-01"},
+  {"kind": "conformance-case", "name": "resync-delivered-words", "file": "src/engine/reducer/session.ts", "before": "derivation_id: \"resync\", words: piece.words", "after": "derivation_id: \"resync\", words: read.plan.words.slice(read.plan.pieces[piece.index].word_start, read.plan.pieces[piece.index].word_end)", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SNAP-01"},
+
   {"kind": "conformance-case", "name": "stop-exclusions", "file": "src/engine/reducer/session.ts", "before": " || c.args.except_sessions?.includes(candidate.session_id)", "after": "", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "STOP-01e"},
   {"kind": "conformance-case", "name": "stop-scope-reach", "file": "src/engine/reducer/session.ts", "before": "const reached = candidate.session_id === session_id || c.args.scope === \"all_speech\"\n          || c.args.scope === \"queue\" && !candidate.started && typeof candidate.request.start === \"object\";", "after": "const reached = candidate.session_id === session_id;", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "STOP-01e"},
   {"kind": "conformance-case", "name": "seek-word-timing", "file": "src/engine/session/session.ts", "before": "else if (\"word_index\" in args && !word)", "after": "else if (false)", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SEEK-01e"},

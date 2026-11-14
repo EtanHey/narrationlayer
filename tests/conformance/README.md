@@ -445,3 +445,21 @@ event and admits a same-turn successor. The six conforming engines run both rows
 Owed: STOP-01h maps reasons to host archive codes and identifies the held Previous
 Read; PREEMPT-01h waits for player teardown. `retain_read_queue` is accepted and
 ignored in stage A; stage B semantics remain owed.
+
+S5d activates SNAP-01 (L168/L190/L540, rulings 83-87), SEQ-01
+(L114/L158, rulings 84/88), and STALE-01 (L172, ruling 88). Snapshot
+re-emission uses fresh sequence numbers, plans and current delivered-piece words;
+it never re-delivers a piece or lease. The cases compare against observed
+admissions, plans, pieces and mirror feedback, continue both live reads to their
+outcomes, replay a control and release an artifact. All six conforming scheduling
+variants and both delayed-seek variants pass the new rows. Three committed wrong
+engines and six additional deliberate faults measure case sensitivity.
+Owed: the host reconstructs its display and detects sequence gaps to request
+resync. Stage-A position remains a mirror, not player-position authority.
+
+Round-one resync controls allow either session order in the re-emitted block,
+while retaining plan-before-timings and piece order within each session. The
+reverse-session conforming control passes all three rows. SNAP-01 also checks
+an in-flight piece, replayed resync, and mismatched epoch/player resync (ruling
+89: never stale); STALE-01 repeats controls under a held pause. Four committed
+review variants pin the previously missed faults and their exact fail-sets.
