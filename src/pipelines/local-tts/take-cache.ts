@@ -8,6 +8,7 @@ import { writeFile, rename, unlink } from "node:fs/promises";
  * identical request reuses the frozen accepted take. Exported for tests.
  */
 export interface CacheKeyParams {
+  takeChecks?: { pitchCeilingHz: number; retries: number };
   eqHighshelfHz?: number;
   eqHighshelfGainDb?: number;
   loudnessTargetDb?: number;
@@ -68,6 +69,7 @@ export function computeContentHashKey(input: {
     atempo: p.atempo,
     sentencePauseSeconds: p.sentencePauseSeconds,
     commaPauseSeconds: p.commaPauseSeconds,
+    ...(p.takeChecks ? { takeChecks: { pitchCeilingHz: p.takeChecks.pitchCeilingHz, retries: p.takeChecks.retries } } : {}),
   };
   // JSON.stringify drops undefined values, so absent params don't perturb the key.
   const payload = JSON.stringify({
@@ -93,6 +95,7 @@ export async function writeTakeCacheReceipt(
   cacheKey: string,
   options: {
     cacheEnabled: boolean;
+    takeChecks?: TakeCheckReceipt;
     /** The take was rendered fresh under --refresh-cache and replaced the cached entry. */
     refreshed?: boolean;
     /** --keep-pieces: where the pieces went and how many; `skipped` says why none were written. */
@@ -111,6 +114,7 @@ export async function writeTakeCacheReceipt(
       version: 1,
       cacheKey,
       cacheEnabled: options.cacheEnabled,
+      ...(options.takeChecks ? { takeChecks: options.takeChecks } : {}),
       ...(options.refreshed ? { cacheRefreshed: true } : {}),
       ...(options.keptPieces ? { keptPieces: options.keptPieces } : {}),
     })}\n`,
@@ -127,4 +131,11 @@ export async function clearTakeCacheReceipt(output: string): Promise<void> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
+}
+
+export interface TakeCheckReceipt {
+  pitchNote?: "not judged: shorter than one window";
+  attempts: number;
+  failures: { source: "cache" | "render"; attempt: number; reason: string }[];
+  gaveUp: boolean;
 }

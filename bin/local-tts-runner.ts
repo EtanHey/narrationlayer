@@ -32,7 +32,7 @@ import os from "node:os";
 import { findProfile, qwenConfigFromProfile, warnIfNonAcceptedProfile } from "../src/profiles.js";
 import { prepareSpeechChannels as prepareDefaultChannels, type TermRule, type SpeechChannels } from "../src/text-normalize.js";
 import { clearTakeCacheReceipt } from "../src/pipelines/local-tts/take-cache.js";
-import { RunnerFailure } from "../src/pipelines/local-tts/failure.js";
+import { RunnerFailure, TakeCheckError } from "../src/pipelines/local-tts/failure.js";
 import { renderLocalTts, type LocalTtsRenderResult } from "../src/pipelines/local-tts/index.js";
 
 export {
@@ -52,6 +52,9 @@ export {
 } from "../src/pipelines/local-tts/take-cache.js";
 
 interface Args {
+  takeChecks?: boolean;
+  pitchCeilingHz?: number;
+  takeRetries?: number;
   text?: string;
   output?: string;
   reference?: string;
@@ -77,9 +80,9 @@ function expandHome(value: string): string {
   return value;
 }
 
-function fail(message: string): never {
+function fail(message: string, exitCode = 1): never {
   process.stderr.write(`local-tts-runner: ${message}\n`);
-  process.exit(1);
+  process.exit(exitCode);
 }
 
 function parseArgs(argv: string[]): Args {
@@ -96,6 +99,15 @@ function parseArgs(argv: string[]): Args {
     };
     const name = arg.includes("=") ? arg.slice(0, arg.indexOf("=")) : arg;
     switch (name) {
+      case "--take-checks":
+        args.takeChecks = true;
+        break;
+      case "--pitch-ceiling":
+        args.pitchCeilingHz = Number(takeValue());
+        break;
+      case "--take-retries":
+        args.takeRetries = Number(takeValue());
+        break;
       case "--text":
         args.text = takeValue();
         break;
@@ -149,6 +161,12 @@ function parseArgs(argv: string[]): Args {
   }
   if (args.refreshCache && !args.cache)
     fail("--refresh-cache cannot be combined with --no-cache (a refresh stores the new take in the cache)");
+  if (args.takeChecks && (!Number.isFinite(args.pitchCeilingHz) || args.pitchCeilingHz! <= 0))
+    fail("--take-checks requires a positive --pitch-ceiling");
+  if (args.takeRetries !== undefined && (!Number.isSafeInteger(args.takeRetries) || args.takeRetries < 0 || args.takeRetries > 10))
+    fail("--take-retries must be an integer from 0 to 10");
+  if (!args.takeChecks && (args.pitchCeilingHz !== undefined || args.takeRetries !== undefined))
+    fail("--pitch-ceiling and --take-retries require --take-checks");
   return args;
 }
 
@@ -165,6 +183,9 @@ Required:
                            OR a direct path to a reference .wav clip.
 
 Options:
+  --take-checks              Check pitch on cached and fresh takes; retry failures.
+  --pitch-ceiling <hz>        Required voice ceiling with --take-checks.
+  --take-retries <count>      Retries after the first render (default 2; range 0..10).
   --reference-text <string>  Reference transcript (overrides profile ref text)
   --role <host|expert>       Informational; passed by AfterCode. No engine effect.
   --sample-rate <hz>         Output sample rate (default 24000)
@@ -318,7 +339,7 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
 
   const output = path.resolve(expandHome(args.output));
   await mkdir(path.dirname(output), { recursive: true });
-  await clearTakeCacheReceipt(output);
+  if (!args.takeChecks) await clearTakeCacheReceipt(output);
 
   const resolved = await resolveReference(args);
 
@@ -338,12 +359,14 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
       authToken,
       cacheDir: path.resolve(expandHome(args.cacheDir ?? "~/.narrationlayer/tts-cache")),
       cache: args.cache,
+      takeChecks: args.takeChecks ? { pitchCeilingHz: args.pitchCeilingHz!, retries: args.takeRetries ?? 2 } : undefined,
       refreshCache: args.refreshCache,
       keepPiecesDir: args.keepPieces === undefined ? undefined : path.resolve(expandHome(args.keepPieces)),
       timeoutMs: args.timeoutMs,
       prepareSpeechChannels,
     });
   } catch (err) {
+    if (err instanceof TakeCheckError) fail(err.message, 2);
     if (err instanceof RunnerFailure) fail(err.message);
     throw err;
   }

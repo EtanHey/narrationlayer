@@ -4,6 +4,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+import { checkTake } from "./quality/check-take.js";
+
 import { getDataDir, getStatus } from "./job-store.js";
 import { createBakeoffJobsFromFile } from "./bakeoff.js";
 import { createDashboardDemo } from "./dashboard.js";
@@ -25,6 +27,7 @@ const HELP =
 
 Usage:
   narrationlayer doctor
+  narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz>
   narrationlayer create-job <job.json> [--json]
   narrationlayer render <job-id> [--json]
   narrationlayer status <job-id>
@@ -260,6 +263,17 @@ export async function main() {
   const json = hasFlag(args, "--json");
   const open = hasFlag(args, "--open");
   switch (command) {
+    case "check-take": {
+      const sent = flagValue(args, "--sent");
+      const words = flagValue(args, "--words");
+      const voice = flagValue(args, "--voice");
+      const ceiling = Number(flagValue(args, "--pitch-ceiling"));
+      if (!payload || !sent || !words || !voice) throw new Error("check-take requires wav, sent, words, voice and pitch-ceiling");
+      const verdict = await checkTake(payload, sent, words, voice, ceiling);
+      printJson(verdict);
+      if (!verdict.pass) process.exitCode = 1;
+      break;
+    }
     case "doctor":
       await cmdDoctor(json);
       break;
@@ -306,6 +320,6 @@ export async function main() {
 if (import.meta.main) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
+    process.exitCode = process.argv[2] === "check-take" ? 2 : 1;
   });
 }
