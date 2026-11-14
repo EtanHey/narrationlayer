@@ -1,3 +1,4 @@
+import { hello } from "../../../src/engine/conformance/engine-cases";
 import { startMs } from "../../../src/engine/publication/time";
 import { nextSynthesisIndex } from "../../../src/engine/reducer/pacing";
 import { afterEach, expect, test } from "bun:test";
@@ -35,10 +36,11 @@ function harness(epoch = 1, source = units, lookahead = 2) {
     async piece(audio, context) { publications++; return { known_ms: startMs([...context.prefix, { sample_count: audio.samples, sample_rate: audio.sample_rate }]), first_audible_offset_ms: 0, type: "piece_ready", owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, index: context.index, piece_id: context.piece_id, spoken_text: context.spoken_text, synthesis_ms: context.synthesis_ms, start_ms: startMs(context.prefix), duration_ms: audio.samples, artifact: { handle: "synthetic", lease_id: "synthetic", format: "wav", sample_rate: audio.sample_rate, sample_count: audio.samples, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "+0%", attempts: [], unavailable: [], fallback_reason: null } }; }, async commit() {},
   };
   const observe = { input(i: Input<"host">) { inputs.push(i); }, event(event: Event, replay: boolean) { delivered.push({ event, replay }); } };
-  const session = createEngineSession({ owner_epoch: epoch, limits: { ...limits, lookahead }, planner, clock, publication,
+  const session = createEngineSession({ welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: epoch, limits: { ...limits, lookahead }, planner, clock, publication,
     backend: { synthesizeRequest(r, signal) { if (!delivered.some(d => d.event.type === "plan")) callsBeforePlan++; return backend.synthesizeRequest(r, signal); } },
     observe,
   });
+  session.send(hello); void session.events[Symbol.asyncIterator]().next(); expect(delivered.pop()?.event.type).toBe("welcome");
   const h = { session, clock, backend, publication, planner, delivered, inputs, epoch, observe, get publicationCalls() { return publications; }, get plannerCalls() { return calls; }, get callsBeforePlan() { return callsBeforePlan; }, events: () => delivered.map(d => d.event),
     script(n = source.length, late = false) { backend.script(Array.from({ length: n }, () => ({ latency_ms: 1, late_after_cancel: late, result: { kind: "audio", ...pcmAudio(10) } }))); },
     async tick() { for (let i = 0; i < 12; i++) await clock.advance(1); },
@@ -273,7 +275,7 @@ test("PACE-01 not playing: pieces 0..lookahead are prepared and no more", async 
   expect(h.indices()).toEqual([0, 1, 2]); h.replay();
 });
 test("PACE-01 request lookahead overrides the limit", async () => {
-  for (const [limit, override] of [[2, 0], [0, 2], [2, -1]]) {
+  for (const [limit, override] of [[2, 1], [1, 2], [2, 3]]) {
     const h = pacing(limit); h.session.send({ ...request, lookahead: override }); await h.tick();
     expect(h.indices()).toEqual(prefix(Math.max(1, override) + 1)); h.replay();
   }
@@ -332,10 +334,15 @@ test("pacing function table: terminal, fenced, complete, cursor, negative and qu
   ] satisfies [typeof base, number, number | undefined][]) expect(nextSynthesisIndex(s, limit, state.sessions)).toBe(expected);
 });
 
-test("PACE-01 minimum: a lookahead of 0 behaves as 1 and the read completes", async () => {
+test("PACE-01 minimum: engine defaults below 1 behave as 1; invalid request overrides are refused", async () => {
   for (const value of [0, -1]) for (const fromRequest of [false, true]) {
     const h = pacing(fromRequest ? 2 : value);
     h.session.send({ ...request, ...(fromRequest ? { lookahead: value } : {}) }); await h.tick();
+    if (fromRequest) {
+      expect(h.indices()).toEqual([]);
+      expect(h.events()).toMatchObject([{ type: "error", code: "INVALID_REQUEST", phase: "admit", retry: "never", request_id: request.request_id }]);
+      expect(h.events().some(e => e.type === "accepted")).toBe(false); h.replay(); continue;
+    }
     expect(h.indices()).toEqual([0, 1]);
     for (let i = 0; i < 5; i++) {
       h.feedback("spawned", i); h.feedback("first_sample", i); h.feedback("exited", i); await h.tick();

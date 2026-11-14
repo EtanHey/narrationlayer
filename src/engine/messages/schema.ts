@@ -36,3 +36,6 @@ export const json: Schema<Json> = { json: {}, read(v, p) {
 export const offsetRange: Schema<[number, number]> = { json: { type: "array", prefixItems: [integer.json, integer.json], minItems: 2, maxItems: 2 }, read(v, p) { if (!Array.isArray(v) || v.length !== 2) throw new InvalidField(p); return [integer.read(v[0], `${p}[0]`), integer.read(v[1], `${p}[1]`)]; } };
 export function boundedString(minLength: number, maxLength: number): Schema<string> { return { json: { type: "string", minLength, maxLength }, read(v, p) { const text = string.read(v, p); if (text.length < minLength || text.length > maxLength) throw new InvalidField(p); return text; } }; }
 export const profileRate: Schema<string> = { json: { type: "string", pattern: "^[+-][0-9]+%$" }, read(v, p) { const text = string.read(v, p); if (!/^[+-][0-9]+%$/.test(text)) throw new InvalidField(p); return text; } };
+
+export const opaqueString: Schema<string> = { json: { type: "string", minLength: 1 }, read(v, p) { const text = string.read(v, p); if (!text.length) throw new InvalidField(p); return text; } };
+export const positiveInteger: Schema<number> = { json: { type: "integer", minimum: 1 }, read(v, p) { const value = integer.read(v, p); if (value < 1) throw new InvalidField(p); return value; } };
