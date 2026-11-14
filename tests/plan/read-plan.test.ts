@@ -3,17 +3,19 @@ import { planRead, ReadPlanError } from "../../src/plan/read-plan";
 import { displayTokens } from "../../src/text/voicelayer/display-tokens";
 import { parseEvent, parseRequest } from "../../src/engine/messages/parser";
 
+import { projectStructuredSpeech } from "../../src/text/voicelayer/structured-speech";
+import { structuredReadDisplay } from "../../src/text/voicelayer/structured-display";
 import * as cutter from "../../src/plan/synthesis-units";
 
 const engine = { family: "edge", profile_revision: "fixture-v1", voice: "synthetic" };
 const identity = { session_id: "session-fixture", attempt_id: "attempt-fixture" };
-function read(text: string, max_chars = 60, format: "plain" | "markdown" = "markdown", first_piece_raw = false) {
+function read(text: string, max_chars = 60, format: "plain" | "markdown" = "markdown", first_piece_raw = false, overrides: Partial<Parameters<typeof planRead>[0]> = {}) {
   const request = parseRequest({ protocol: "nl.engine/1", type: "narrate", request_id: "req-fixture",
     idempotency_key: "fixture", use: "read", input: { text, format },
     voice: { profile: "fixture", require_clone: false, fallback: "none" }, delivery: "pieces" });
   if (!request.ok || request.value.type !== "narrate") throw new Error("fixture request");
   return planRead({ request: request.value, limits: { max_chars: { read: max_chars, speak: 80, ask_prompt: 90 },
-    lookahead: 1, aligner_reap_ms: 100 }, identity, engine, first_piece_raw });
+    lookahead: 1, aligner_reap_ms: 100 }, identity, engine, first_piece_raw, ...overrides });
 }
 const shapes = "# Orchard notes\n\n- Apples\n- Gather ripe pears\n- Gather six ripe pears for breakfast\n- Label: keep these ripe apples safely.\n- Run `fruit_check` before storing apples.\n- Visit [the orchard](https://example.test) before dawn.\n- Visit https://example.test before dawn.\n\nThese green apples grow beside the wall, these golden pears grow beside the gate, and those plums grow near the river.";
 const fixtures = [shapes, "| Fruit | Color |\n| --- | --- |\n| Pear | Green |",
@@ -85,7 +87,7 @@ test("PLAN-03 first fixture: headings and items stay whole; only long sentence c
 test("PAUSE-PL-01: authored pauses have one owner; raw piece zero moves its pause", () => {
   for (const raw of [false, true]) {
     const { plan } = read("# Orchard\n\n- Pick ripe pears\n- Pick six ripe pears for breakfast\n\nFirst sentence grows. Next sentence flowers.\n\nTail grows here.", 400, "markdown", raw);
-    expect(plan.pieces.flatMap(p => p.segments.map(s => s.pause_after_ms))).toEqual([900, 450, 700, 550, 1000, 0]);
+    expect(plan.pieces.flatMap(p => p.segments.map(s => s.pause_after_ms))).toEqual([1000, 450, 1000, 550, 1000, 0]);
     expect(plan.pieces.filter(p => p.raw).length).toBe(raw ? 1 : 0);
     expect(plan.pieces.flatMap(p => p.segments).filter(s => s.pause_in === "next_piece_start").length).toBe(raw ? 1 : 0);
     expect(plan.pieces[0].segments[0].pause_in).toBe(raw ? "next_piece_start" : "this_piece_end");
@@ -101,7 +103,7 @@ test("plain format: markup and URLs stay literal", () => {
   const result = read(text, 400, "plain");
   expect(result.plan.display_document.text).toBe(text);
   expect(result.requests.map(r => r.text).join(" ")).toBe(text.replace(/\n/g, " "));
-  expect(result.plan.display_document.blocks.map(b => b && typeof b === "object" && !Array.isArray(b) ? b.kind : undefined)).toEqual(["paragraph"]);
+  expect(result.plan.display_document.blocks.map(b => b && typeof b === "object" && !Array.isArray(b) ? b.kind : undefined)).toEqual(["heading", "list-item"]);
   partition(result);
 });
 test("determinism: two calls give byte-identical results", () => {
@@ -130,4 +132,59 @@ test("retained numeric and version spans use document words across request bound
     expect(result.plan.pieces.map(piece => [piece.word_start, piece.word_end])).toEqual([[0, 3], [3, 6]]);
     partition(result);
   }
+});
+
+test("sentence boundaries preserve whitespace chunks in valid reads", () => {
+  for (const text of ["?z", "See https://example.test/fruit?q=plums for details.",
+    "Run `curl example.test/c?d=e` once.", "Wash green apples!Then dry them.", "Ask “Set?”Then start.",
+    "Fruit ripens._\n\nLeaves fall.", "猫は寝ます。犬は走ります。", "`\n \nleaf`", "Use `fresh\n \nfruit` here."]) {
+    for (const format of ["plain", "markdown"] satisfies ("plain" | "markdown")[]) partition(read(text, 11, format));
+  }
+  expect(read("猫は寝ます。犬は走ります。", 1).requests).toHaveLength(1);
+});
+test("cutter errors are typed and retain their cause", () => {
+  try { read("Green apples grow.", 0); throw new Error("expected refusal"); }
+  catch (error) { expect(error).toBeInstanceOf(ReadPlanError); if (error instanceof ReadPlanError) {
+    expect(error.code).toBe("CUTTER_REJECTED"); expect(error.cause).toBeInstanceOf(RangeError);
+  } }
+});
+test("pause placement follows blank lines and directly following headings", () => {
+  for (const [text, expected] of [
+    ["# Fruit\n\nTail.", [1000, 0]], ["- Green pear\n\nTail.", [1000, 0]],
+    ["Fruit grows.\n# Tree\nTail.", [600, 900, 0]], ["Fruit grows.\n- Green pear\nTail.", [550, 450, 0]],
+    ["| Fruit | Color |\n|---|---|\n| Plum | Purple |\nTail.", [550, 550, 0]],
+    ["Before.\n```ts\nconst fruit = 3;\n```\nAfter.", [550, 550, 0]],
+  ] satisfies [string, number[]][]) expect(read(text).plan.pieces.map(p => p.segments[0].pause_after_ms)).toEqual(expected);
+});
+test("heading levels pin 900 750 and 800 pauses", () => {
+  expect(read("# One\n## Two\n### Three\n#### Four\n##### Five\n###### Six\nTail.").plan.pieces
+    .map(p => p.segments[0].pause_after_ms)).toEqual([900, 750, 750, 800, 800, 800, 0]);
+});
+test("task marker is excluded from the item length threshold", () => {
+  expect(read("- [x] wash four green apples today\nTail.").plan.pieces[0].segments[0].pause_after_ms).toBe(450);
+});
+test("plain structure maps exactly onto identity speech", () => {
+  const text = "# Literal tree\n\n- Green pear\nTail.";
+  const result = read(text, 400, "plain"); partition(result);
+  expect(result.plan.display_document.text).toBe(text);
+  expect(result.plan.pieces.map(p => p.segments[0].kind)).toEqual(["heading", "item", "sentence"]);
+  expect(result.plan.pieces.map(p => p.segments[0].pause_after_ms)).toEqual([1000, 450, 0]);
+});
+test("whole read display uses VoiceLayer's 400 character budget", () => {
+  const text = Array.from({ length: 30 }, (_, i) => `Paragraph ${i} grows green apples.\n`).join("\n");
+  const projection = projectStructuredSpeech(text);
+  expect(JSON.stringify(read(text).plan.display_document)).toBe(JSON.stringify(structuredReadDisplay(projection, [projection.speechText], 400)[0]));
+});
+for (const side of ["start", "end"]) test(`coverage check refuses a missing ${side} unit`, () => {
+  const original = cutter.planSynthesisUnits;
+  const spy = spyOn(cutter, "planSynthesisUnits").mockImplementation(args => {
+    const pieces = original(args); return side === "start" ? pieces.slice(1) : pieces.slice(0, -1);
+  });
+  try { expect(() => read("Green fruit grows. Bright flowers bloom.")).toThrow("CHUNK_MISMATCH"); }
+  finally { spy.mockRestore(); }
+});
+test("plan identity and engine pick only declared fields", () => {
+  const widerIdentity = { ...identity, type: "alien", extra: "discard" }, widerEngine = { ...engine, extra: "discard" };
+  const result = read("Green fruit grows.", 60, "markdown", false, { identity: widerIdentity, engine: widerEngine });
+  expect(result.plan.type).toBe("plan"); expect(result.plan).not.toHaveProperty("extra"); expect(result.plan.engine).toEqual(engine);
 });
