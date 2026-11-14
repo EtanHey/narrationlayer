@@ -275,3 +275,17 @@ major, including 01, fatally as UNSUPPORTED_VERSION; NEG-03 refuses malformed
 protocol strings as INVALID_REQUEST, keeps the binding open and proves recovery.
 This is the engine's two-step rule and the lead's amended ruling 50; the first
 version of the follow-up brief's exact-string rule was wrong.
+
+PLAN-D4 follows the lead's revised phrase rule (question 49 remains open): comma,
+semicolon, colon, em dash, horizontal bar and en dash need following whitespace;
+ASCII hyphens need whitespace on both sides. Attached hyphens fall back to a valid
+space. The old-rule binding in `broken-over-limit.ts` keeps its plan, pieces and
+backend requests consistent and must fail PLAN-D4.
+
+Owed on PLAN-D4: no-valid-cut sentences sent whole over limit (engine selection,
+question 48); whitespace runs and non-breaking spaces as cut points; and the
+sentence splitter's own rules. These are not implemented by these cases.
+
+The owed sentence-splitter rules include plain text beginning with a spaced dash:
+`read()` rejects that shape before boundary comparison. PLAN-D4 now also reads
+dash fixtures in markdown and an attached hyphen at a later cut in plain text.
