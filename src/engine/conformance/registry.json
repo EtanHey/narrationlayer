@@ -1021,7 +1021,7 @@
     "stage": "A",
     "owner_slice": "S7",
     "active": true,
-    "owed": "Unavailable nonmandated clones still select qwen3_clone; synthesis ENGINE_UNAVAILABLE, mode rates and auto-slow remain owed."
+    "owed": "Unavailable nonmandated clones still select qwen3_clone; synthesis ENGINE_UNAVAILABLE, mode rates and auto-slow remain owed. Until the engine owns the speak-path lexical projection, the announce shortcut's 50-character count is of the engine's own projection and can differ from the host's for amounts, decimals, paths and plain-text links (ruling 68, second amendment)."
   },
   {
     "id": "TIME-01",
