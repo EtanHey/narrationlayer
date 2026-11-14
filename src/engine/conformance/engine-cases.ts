@@ -489,8 +489,8 @@ export const engineCases: Record<string, Case> = {
       await t.finish();
       const ack = t.seen.findIndex(e => e.type === "control_ack" && e.command_id === "stop-command");
       c.assert(ack >= 0 && t.seen.indexOf(first) < ack); // L532: audio delivered before stop.
-      c.assert(!t.seen.slice(boundary).some(e => e.type === "piece_ready" && [first.attempt_id, pending.attempt_id].includes(e.attempt_id))); // L282/L532: neither reached attempt revives.
-      c.assert(!t.seen.some(e => e.type === "piece_ready" && e.attempt_id === pending.attempt_id)); // L282/L532: late attempt stays fenced, even before ack.
+      c.assert(!t.seen.slice(boundary).some(e => e.type === "piece_ready" && [first.session_id, pending.session_id].includes(e.session_id))); // L282/L532: neither reached session revives.
+      c.assert(!t.seen.some(e => e.type === "piece_ready" && e.session_id === pending.session_id)); // L282/L532: late session stays fenced, even before ack.
     }
   },
   "ID-04": async c => {
