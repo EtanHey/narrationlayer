@@ -99,7 +99,7 @@ export const negotiationCases: Record<string, Case> = {
     c.assert(JSON.stringify(traces[0]) === JSON.stringify(traces[1]));
   },
   "NEG-01": async c => {
-    for (const major of [0, 2, 3]) {
+    for (const major of [0, 2, 3, 10]) {
       const t = setup(c); t.connection.send({ ...hello, protocol: `nl.engine/${major}` }); await t.settle();
       refusal(c, t.seen, "UNSUPPORTED_VERSION", "never"); c.assert(t.ended());
       t.connection.send(read()); t.connection.send(hello); await t.settle();
@@ -123,11 +123,11 @@ export const negotiationCases: Record<string, Case> = {
       }
       await t.finish();
     }
-    for (const message of [{ ...hello, stage: "B" }, { ...hello, optional_caps: absent, last_owner_epoch: 999 }]) {
+    for (const message of [{ ...hello, stage: "B" }, { ...hello, stage: "B", required_caps: [welcome.caps[0], absent.find(cap => cap !== "player")!] }, { ...hello, optional_caps: absent, last_owner_epoch: 999 }]) {
       const t = setup(c); t.connection.send(message); await t.settle();
       if (message.stage === "B" && !welcome.caps.includes("player")) {
         refusal(c, t.seen, "MISSING_CAPABILITY", "never"); c.assert(t.ended());
-        const e = t.seen[0]; c.assert(e.type === "error" && JSON.stringify(e.details) === JSON.stringify({ missing_caps: ["player"], unknown_cap_indices: [] }));
+        const e = t.seen[0]; c.assert(e.type === "error" && JSON.stringify(e.details) === JSON.stringify({ missing_caps: ["player", ...message.required_caps.filter(cap => !welcome.caps.includes(cap))], unknown_cap_indices: [] }));
         t.connection.send(hello); await t.settle(); c.assert(t.seen.length === 1);
       } else c.assert(t.seen.length === 1 && t.seen[0].type === "welcome" && !t.ended());
       await t.finish();
