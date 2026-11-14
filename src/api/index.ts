@@ -48,7 +48,7 @@ export { normalizeWordTimingsForScript, type WordTimingAlias, type WordTimingRep
 
 // Local TTS: the runner's argv entry, with an injectable speech preparation, and its take cache.
 export { main as runLocalTtsCli, type SpeechPreparation } from "../../bin/local-tts-runner.js";
-export { clearTakeCacheReceipt, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "../pipelines/local-tts/take-cache.js";
+export { clearTakeCacheReceipt, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams, type TakeCheckReceipt } from "../pipelines/local-tts/take-cache.js";
 
 // Teleprompter: markup and runtime script for a narrated page.
 export { renderTeleprompterMarkup, teleprompterRuntimeScript, type TeleprompterPayload, type TeleprompterSegment } from "../teleprompter.js";
