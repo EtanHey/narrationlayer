@@ -10,6 +10,9 @@
   },
   "files": {
     "src/plan/read-plan.ts": { "layer": 1, "area": "plan", "owner": "P2.S3p2" },
+    "src/engine/publication/decoded.ts": { "layer": 2, "area": "audio", "owner": "P2.S4a" },
+    "src/engine/publication/time.ts": { "layer": 2, "area": "timing", "owner": "P2.S4a" },
+    "src/engine/publication/publication.ts": { "layer": 3, "area": "pipelines", "owner": "P2.S4a" },
     "src/text/voicelayer/display-tokens.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
     "src/text/voicelayer/inline-code-spans.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
     "src/text/voicelayer/markdown-to-speech.ts": { "layer": 1, "area": "text", "owner": "P2.S3p1" },
