@@ -29,7 +29,7 @@ test("announce counts collapsed spaces and trimmed ends, preserving interior tab
 });
 
 // Ruling 90: hosts must choose a finite positive synthesis bound, including at runtime.
-for (const bound of [undefined, 0, -1, NaN, Infinity]) test(`creation rejects synthesis bound ${bound}`, () => {
+for (const bound of [undefined, 0, -1, NaN, Infinity, Number.MAX_VALUE, 2147483648, 0.5]) test(`creation rejects synthesis bound ${bound}`, () => {
   expect(() => Reflect.apply(createEngine, undefined, [{ synthesis_timeout_ms: bound, clock: new FakeClock(), voices: table,
     engines: [], owner_epoch: 1, package_version: "synthetic", artifacts: createArtifactStore(new Map(), 1),
     limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 2, aligner_reap_ms: 50 },

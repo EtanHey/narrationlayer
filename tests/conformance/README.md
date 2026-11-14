@@ -464,4 +464,9 @@ an in-flight piece, replayed resync, and mismatched epoch/player resync (ruling
 89: never stale); STALE-01 repeats controls under a held pause. Four committed
 review variants pin the previously missed faults and their exact fail-sets.
 
-BIND-01 includes L428: every backend call uses the host-chosen `synthesis_timeout_ms` (finite and positive, rulings 90-93). Timeout emits one SYNTH_TIMEOUT and one failed outcome, defers abort and drops late audio before a lease is minted. Publication and byte-port bounds remain owed.
+BIND-01 checks a stuck single-piece call against the conformance host's optional
+`synthesis_timeout_ms` (the binding honours it), its timeout error/outcome/abort,
+and late-result fencing. It also checks a waiting read's timeout. The bound is a
+positive safe integer at most 2147483647 ms (amended rulings 90/92). Every-call
+fresh bounds, exact ticks, pause/feedback independence and timer cancellation
+are engine unit proofs. Publication and byte-port bounds remain owed.

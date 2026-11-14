@@ -39,6 +39,7 @@ export interface Connection {
 }
 export interface Binding {
   name: string;
+  // Host-selected bound (positive safe integer <= 2147483647); a supplied value must be honoured.
   // S0a2 supplies the optional ports; S0a's harness-only bindings need only the clock.
-  create(host: { voices?: Voices; engines?: Message<"welcome">["engines"]; clock: Clock; ports?: FakePorts; hash_key: Uint8Array; store: Map<string, Uint8Array>; audible: boolean }): Connection;
+  create(host: { synthesis_timeout_ms?: number; voices?: Voices; engines?: Message<"welcome">["engines"]; clock: Clock; ports?: FakePorts; hash_key: Uint8Array; store: Map<string, Uint8Array>; audible: boolean }): Connection;
 }

@@ -573,8 +573,8 @@ test("synthesis timeout: stop wins and shutdown uses its deadline", async () => 
 });
 
 for (const bound of [0, -1, NaN, Infinity]) test(`synthesis timeout: rejects invalid host bound ${bound}`, () => {
-  // Ruling 90; undefined is passed through JSON to exercise a missing option.
-  expect(() => harness(1, units, 2, JSON.parse(JSON.stringify({ bound })).bound)).toThrow();
+  // Amended ruling 90: pass the actual runtime values, without JSON coercion.
+  expect(() => harness(1, units, 2, bound)).toThrow();
 });
 test("synthesis timeout: each call gets a fresh bound and partial playback fails", async () => {
   const h = harness();
@@ -586,4 +586,47 @@ test("synthesis timeout: each call gets a fresh bound and partial playback fails
   await h.clock.advance(9999); await turn(); expect(h.events().some(e => e.type === "error")).toBe(false);
   await h.clock.advance(1); await turn();
   expect(h.events().filter(e => e.type === "outcome")).toMatchObject([{ generation: { reason: "synth_timeout", status: "failed" }, playback: { reason: "speech_failed" } }]);
+});
+
+test("synthesis timeout: waiting read is bounded behind an abort-ignoring predecessor", async () => {
+  const h = harness(); let calls = 0;
+  h.backend.synthesizeRequest = () => { calls++; return new Promise(() => {}); };
+  h.session.send(request); await turn();
+  h.session.send({ ...request, request_id: "wait-read", idempotency_key: "wait-key", start: { after_session: "session-1-1" } });
+  await turn(); await h.clock.advance(9999); await turn();
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(0);
+  await h.clock.advance(1); await turn();
+  const outcomes = h.events().filter(e => e.type === "outcome");
+  expect(calls).toBe(1); expect(outcomes).toHaveLength(2);
+  expect(outcomes.find(e => e.session_id === "session-1-2")).toMatchObject({ generation: { status: "failed", reason: "synth_timeout" }, playback: { reason: "synth_failed" } });
+  await h.clock.advance(10000); await turn(); expect(h.events().filter(e => e.type === "outcome")).toHaveLength(2);
+  let ended = false; void h.session.shutdown(h.clock.now() + 5).then(() => { ended = true; }); await turn(); await h.clock.advance(5); await turn(); expect(ended).toBe(true);
+});
+test("synthesis timeout: pause and player feedback do not move the call bound", async () => {
+  for (const paused of [false, true]) {
+    const h = harness();
+    h.backend.script([{ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(10) } }]);
+    const synthesize = h.backend.synthesizeRequest.bind(h.backend); let calls = 0;
+    h.backend.synthesizeRequest = (r, signal) => ++calls === 1 ? synthesize(r, signal) : new Promise(() => {});
+    h.session.send(request); await turn(); await h.clock.advance(1); await turn(); await turn(); expect(calls).toBe(2);
+    await h.clock.advance(5000); await turn(); h.feedback("spawned");
+    if (paused) h.session.send({ protocol: "nl.engine/1", type: "control", command_id: "pause-bound", session_id: "session-1-1", op: "pause", args: { owner: "user" } });
+    else h.feedback("first_sample");
+    if (paused) expect(h.events().find(e => e.type === "control_ack" && e.command_id === "pause-bound")).toMatchObject({ outcome: "accept" });
+    await turn(); await h.clock.advance(4999); await turn(); expect(h.events().some(e => e.type === "error")).toBe(false);
+    await h.clock.advance(1); await turn();
+    expect(h.events().filter(e => e.type === "error")).toMatchObject([{ code: "SYNTH_TIMEOUT" }]);
+    expect(h.events().filter(e => e.type === "outcome")).toMatchObject([{ playback: { reason: "speech_failed" }, generation: { reason: "synth_timeout" } }]);
+  }
+});
+test("synthesis timeout: abort cancels the timer and timeout abort is deferred", async () => {
+  for (const stop of [true, false]) {
+    const h = harness(); const pending = new Set<symbol>(); let inCallback = false, abortInsideCallback = false;
+    const schedule = h.clock.schedule.bind(h.clock);
+    h.clock.schedule = (ms, callback) => { const token = Symbol(); pending.add(token); const cancel = schedule(ms, () => { pending.delete(token); inCallback = true; try { callback(); } finally { inCallback = false; } }); return () => { pending.delete(token); cancel(); }; };
+    h.backend.synthesizeRequest = (_r, signal) => { signal.addEventListener("abort", () => { abortInsideCallback ||= inCallback; }); return new Promise(() => {}); };
+    h.session.send(request); await turn(); expect(pending.size).toBe(1);
+    if (stop) { h.stop(); await turn(); await h.clock.advance(1); expect(pending.size).toBe(0); }
+    else { await h.clock.advance(10000); await turn(); expect(abortInsideCallback).toBe(false); expect(pending.size).toBe(0); }
+  }
 });
