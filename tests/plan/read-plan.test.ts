@@ -194,21 +194,31 @@ test("plan identity and engine pick only declared fields", () => {
   expect(result.plan.type).toBe("plan"); expect(result.plan).not.toHaveProperty("extra"); expect(result.plan.engine).toEqual(engine);
 });
 
+function checkPauseFixture(fixture: typeof pauseFixtures[number]) {
+  const result = read(fixture.text, 100000, fixture.format === "plain" ? "plain" : "markdown");
+  if ("word_pauses" in fixture && fixture.word_pauses) {
+    // The oracle may include extra zero-pause budget cuts. Compare their union.
+    const expected = new Map(fixture.word_pauses.map(([at, pause]) => [at, pause]));
+    // Category 4: the contract keeps sentence units where VL packs prose.
+    if ("contract_sentence_ends" in fixture) for (const at of fixture.contract_sentence_ends ?? []) expected.set(at, 550);
+    // Category 1: structural labels remain inside contract sentence units.
+    if ("contract_label_ends" in fixture) for (const at of fixture.contract_label_ends ?? []) expected.set(at, 0);
+    const actual = new Map(result.plan.pieces.map(piece => [piece.word_end, piece.segments[0].pause_after_ms]));
+    for (const at of new Set([...expected.keys(), ...actual.keys()])) expect(actual.get(at) ?? 0).toBe(expected.get(at) ?? 0);
+  } else expect(result.plan.pieces.map(piece => piece.segments[0].pause_after_ms)).toEqual(fixture.pauses);
+  expect(result.requests.every(request => /[\p{L}\p{N}]/u.test(request.text))).toBe(true);
+  partition(result);
+}
+
+test("prose runs: wordless blocks carry forward across adjacent blocks", () => {
+  const fixtures = pauseFixtures.filter(fixture => "oracle_budget" in fixture);
+  expect(fixtures.length).toBe(32);
+  for (const fixture of fixtures) checkPauseFixture(fixture);
+});
+
 test("pause parity: VoiceLayer reference boundaries on invented documents", () => {
   expect(pauseFixtures.length).toBeGreaterThanOrEqual(40);
-  for (const fixture of pauseFixtures) {
-    const result = read(fixture.text, 100000, fixture.format === "plain" ? "plain" : "markdown");
-    if ("word_pauses" in fixture && fixture.word_pauses) {
-      // The oracle may include extra zero-pause budget cuts. Compare their union.
-      const expected = new Map(fixture.word_pauses.map(([at, pause]) => [at, pause]));
-      // Category 4: the contract keeps sentence units where VL packs prose.
-      if ("contract_sentence_ends" in fixture) for (const at of fixture.contract_sentence_ends ?? []) expected.set(at, 550);
-      const actual = new Map(result.plan.pieces.map(piece => [piece.word_end, piece.segments[0].pause_after_ms]));
-      for (const at of new Set([...expected.keys(), ...actual.keys()])) expect(actual.get(at) ?? 0).toBe(expected.get(at) ?? 0);
-    } else expect(result.plan.pieces.map(piece => piece.segments[0].pause_after_ms)).toEqual(fixture.pauses);
-    expect(result.requests.every(request => /[\p{L}\p{N}]/u.test(request.text))).toBe(true);
-    partition(result);
-  }
+  for (const fixture of pauseFixtures) checkPauseFixture(fixture);
   const bold = read("**Branches**\nLeaves.");
   expect(bold.plan.pieces[0].segments[0].kind).toBe("heading");
   expect(bold.requests[0].text).toBe("Branches.");
@@ -248,6 +258,22 @@ const wordlessShapes = {
 'after-bold':'**Grove**\n!!\nTail.', 'after-blank-bold':'Pears fall.\n\n**Grove**\n—\n\nTail.',
 'rule':'Pears fall.\n\n---\n\nTail.', 'table':'| Leaf | Fruit |\n| --- | --- |\n| Pear | Green |',
 'backtick':'Pears fall.\n`\nTail.', 'wordless-item':'Pears fall.\n- -\nTail.', 'after-terminal':'Pears fall.\n!!',
+
+'emoji-only':'😀\nTail.', 'digits-only':'12345\n!!\nTail.', 'wordless-quote':'> —\nTail.',
+'wordless-code':'**Grove**\n```\n—\n```\nTail.', 'underscore-rule':'Pears fall.\n\n___\n\nTail.',
+'paired-backticks':'Pears fall.\n``\nTail.', 'five-chain':'**Grove**\n—\n!!\n`\n> …\n| · |\nTail.',
+'item-star':'Pears fall.\n* —\nTail.', 'item-plus':'Pears fall.\n+ —\nTail.',
+'item-number-dot':'Pears fall.\n1. —\nTail.', 'item-number-paren':'Pears fall.\n2) —\nTail.',
+'item-unchecked':'Pears fall.\n- [ ] —\nTail.', 'item-checked':'Pears fall.\n- [x] —\nTail.',
+'before-paragraph':'Pears fall.\n\n> —\nTail.', 'before-heading':'Pears fall.\n\n—\n# Grove\nTail.',
+'before-bold':'Pears fall.\n\n—\n**Grove**\nTail.', 'before-label':'Pears fall.\n\n—\n**Tree:** leaf grows.',
+'before-list':'Pears fall.\n\n—\n- Leaf', 'before-quote':'Pears fall.\n\n—\n> Leaf.',
+'before-code-after-blank':'Pears fall.\n\n—\n```\nleaf\n```',
+'before-table-row':'**Grove**\n| — |\nTail.',
+'code-to-code':'Pears fall.\n\n```\n—\n```\n```\nleaf\n```',
+'wordless-last-block':'**Grove**\n```\n—\n```', 'wordless-only-blocks':'> —\n```\n…\n```\n| · |',
+'prose-with-blank':'**Grove**\n—\n\nTail.', 'prose-without-blank':'**Grove**\n—\nTail.',
+'nested-wordless-item':'- Leaf\n  - —\n  - Fruit', 'table-header-rows':'| — |\n| --- |\n| Leaf |',
 };
 
 test("no engine request without a word: seeded prose, headings, lists, rules and tables", () => {

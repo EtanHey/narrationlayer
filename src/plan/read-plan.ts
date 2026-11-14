@@ -30,18 +30,19 @@ function plainProjection(text: string): StructuredSpeech {
       display: { ...block.source }, speech: { ...block.source } })) };
 }
 
-interface LocatedUnit extends SynthesisSourceUnit { speech_start: number }
+interface LocatedUnit extends SynthesisSourceUnit { speech_start: number; prose_run?: number }
 
 function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
   const units: LocatedUnit[] = [];
   const segmenter = new Intl.Segmenter(undefined, { granularity: "sentence" });
-  let rangeIndex = 0;
+  let rangeIndex = 0, proseRun = 0;
   const pause = (ms: number) => { const last = units.at(-1); if (last) last.pause_after_ms = Math.max(last.pause_after_ms, ms); };
   // VL prosody.ts:140,199,201: blank lines and following headings raise the preceding pause.
   // Use projection blocks, not the display builder's budget-dependent runs.
   for (const [blockIndex, block] of projection.blocks.entries()) {
-    if (block.kind === "separator") pause(1000);
-    if (block.kind === "heading") pause(600);
+    if (block.kind === "separator") { pause(1000); proseRun++; }
+    if (block.kind === "heading") { pause(600); proseRun++; }
+    if (block.kind === "list-item") proseRun++;
     while (rangeIndex < projection.ranges.length && projection.ranges[rangeIndex].source.end <= block.source.start) rangeIndex++;
     let first: number | undefined, end = 0;
     for (let index = rangeIndex; index < projection.ranges.length && projection.ranges[index].source.start < block.source.end; index++) {
@@ -73,13 +74,9 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
         // Whitespace boundaries preserve words; unspaced CJK stays one possibly over-cap unit.
         const starts = [...segmenter.segment(flat)].map(sentence => sentence.index)
           .filter(at => at === 0 || /\s/u.test(flat[at - 1]));
-        // VL merges wordless text before sentence sizing (:255-273). Leading
-        // punctuation belongs to this prose run, not a preceding heading.
-        const firstWord = starts.findIndex((at, index) => WORD.test(text.slice(at, starts[index + 1] ?? text.length)));
-        if (firstWord > 0) starts.splice(1, firstWord);
         starts.forEach((at, index) => {
           const slice = text.slice(at, starts[index + 1] ?? text.length);
-          if (slice.trim()) units.push({ kind: "sentence", text: slice, speech_start: start + at,
+          if (slice.trim()) units.push({ kind: "sentence", text: slice, speech_start: start + at, prose_run: proseRun,
             pause_after_ms: 0 });
         });
       };
@@ -98,11 +95,19 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
         if (!bold) {
           const label = lineText.trimStart().match(/^(\*\*|__)([^*_\n]*?\S)\1(:?)(?=[ \t]+\S)/);
           structuralLine = !!label && (label[2].endsWith(":") || label[3] === ":");
+          // VL :174-183 accepts a label only if its stripped spelling is
+          // actually present in speech; plain literal ** markers do not match.
+          if (structuralLine && label) {
+            const at = speechAt(block.source.start + line.index);
+            structuralLine = projection.speechText.slice(at).trimStart().startsWith(label[2].replace(/[*_`]/g, "") + label[3]);
+          }
+          if (structuralLine) proseRun++; // VL :174-183,246: a structural label opens a run.
           continue;
         }
         const start = speechAt(block.source.start + line.index), stop = speechAt(block.source.start + line.index + lineText.length);
         const heading = projection.speechText.slice(start, stop);
         prose(cursor, start);
+        proseRun++; // VL :239-242: bold heading ends the preceding prose run.
         pause(600);
         if (heading.trim()) units.push({ kind: "heading", text: heading, speech_start: start, pause_after_ms: 800 });
         cursor = stop;
@@ -116,10 +121,20 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
   }
   // VL prosody.ts:261-273: every wordless unit joins the previous unit (max pause),
   // or carries its leading text into the next unit. Keep source speech coordinates.
+  // VL :199-249: prose continues across adjacent paragraph/code/table blocks;
+  // only separators, headings, items and structural labels begin a new run.
+  const lastWordInRun = new Map<number, number>();
+  units.forEach((unit, index) => {
+    if (unit.prose_run !== undefined && WORD.test(unit.text)) lastWordInRun.set(unit.prose_run, index);
+  });
   const merged: LocatedUnit[] = [];
   let leading: number | undefined;
-  for (const unit of units) {
+  for (const [index, unit] of units.entries()) {
     if (!WORD.test(unit.text)) {
+      if (unit.prose_run !== undefined && (lastWordInRun.get(unit.prose_run) ?? -1) > index) {
+        leading ??= unit.speech_start;
+        continue;
+      }
       const previous = merged.at(-1);
       if (previous) {
         previous.text = projection.speechText.slice(previous.speech_start, unit.speech_start + unit.text.length);
