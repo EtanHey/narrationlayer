@@ -92,7 +92,7 @@ export const ENGINE_ROOTS = { directory: "src/engine/", exclude: "src/engine/con
 // Crypto is the sole audited external dependency; any addition requires an explicit blocking review.
 export const ENGINE_EXTERNAL_ALLOW = new Set(["node:crypto"]);
 
-/** Static reach includes type edges; syntax checks reject hidden loading and blocking calls. */
+/** Static reach includes type edges; syntax checks reject hidden loading and blocking references. */
 export function engineReach(repo: Repo = diskRepo()): { reached: Map<string, string | null>; violations: string[] } {
   const reached = new Map<string, string | null>();
   const violations = new Set<string>();
@@ -105,18 +105,37 @@ export function engineReach(repo: Repo = diskRepo()): { reached: Map<string, str
     const visit = (node: ts.Node): void => {
       if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference))
         violations.add(`engine loader ${file}: require()`);
-      if (ts.isCallExpression(node)) {
-        const callee = unwrap(node.expression);
-        if (callee.kind === ts.SyntaxKind.ImportKeyword) violations.add(`engine loader ${file}: import()`);
-        const name = ts.isIdentifier(callee) ? callee.text
-          : ts.isPropertyAccessExpression(callee) ? callee.name.text
-          : ts.isElementAccessExpression(callee) && ts.isStringLiteralLike(callee.argumentExpression) ? callee.argumentExpression.text : "";
-        if (name === "require") violations.add(`engine loader ${file}: require()`);
-        // Conservatively refuse any Sync-named call, including aliases reached through an object.
-        if (name.endsWith("Sync") || (name === "wait" && (ts.isPropertyAccessExpression(callee)
-          || ts.isElementAccessExpression(callee)) && callee.expression.getText(sf) === "Atomics"))
-          violations.add(`engine blocking call ${file}: ${callee.getText(sf)}`);
+      if (ts.isCallExpression(node) && unwrap(node.expression).kind === ts.SyntaxKind.ImportKeyword)
+        violations.add(`engine loader ${file}: import()`);
+      // Inspect references and declarations as well as calls; string/comment contents are not names.
+      const member = ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node);
+      const name = ts.isPropertyAccessExpression(node) ? node.name.text
+        : ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) ? node.argumentExpression.text
+        : ts.isIdentifier(node) && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node) ? node.text
+        : ts.isStringLiteralLike(node) && (ts.isBindingElement(node.parent) && node.parent.propertyName === node
+          || "name" in node.parent && node.parent.name === node
+          || ts.isComputedPropertyName(node.parent)) ? node.text : "";
+      const binding = node.parent && ts.isBindingElement(node.parent) && (node.parent.propertyName ?? node.parent.name) === node
+        && ts.isObjectBindingPattern(node.parent.parent) ? node.parent.parent.parent : undefined;
+      const initializer = binding && (ts.isVariableDeclaration(binding) || ts.isParameter(binding)) ? binding.initializer : undefined;
+      const owner = member ? unwrap(node.expression).getText(sf) : initializer ? unwrap(initializer).getText(sf) : "";
+      if (ts.isIdentifier(node) && ["process", "Bun", "Atomics", "globalThis"].includes(node.text)
+        && !ts.isPartOfTypeNode(node) && !ts.isTypeQueryNode(node.parent) && !ts.isQualifiedName(node.parent)
+        && !("name" in node.parent && node.parent.name === node && !ts.isShorthandPropertyAssignment(node.parent))
+        && !(ts.isBindingElement(node.parent) && node.parent.propertyName === node)) {
+        const access = node.parent;
+        // A direct member is checked by its own visit, preserving the existing diagnostic.
+        if (!((ts.isPropertyAccessExpression(access) || ts.isElementAccessExpression(access)) && access.expression === node))
+          violations.add(`engine blocking call ${file}: ${node.text}`);
       }
+      if (name === "require") violations.add(`engine loader ${file}: require()`);
+      if (["eval", "Function", "Worker"].includes(name))
+        violations.add(`engine loader ${file}: ${name}`);
+      if (name.endsWith("Sync") || owner === "Atomics" && name === "wait"
+        || owner === "process" && ["binding", "dlopen", "getBuiltinModule"].includes(name)
+        || ["process", "Bun", "Atomics", "globalThis"].includes(owner)
+          && !["require", "eval", "Function", "Worker"].includes(name))
+        violations.add(`engine blocking call ${file}: ${node.getText(sf)}`);
       ts.forEachChild(node, visit);
     };
     visit(sf);
