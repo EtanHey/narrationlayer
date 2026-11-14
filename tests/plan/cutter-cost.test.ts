@@ -27,6 +27,48 @@ const plan = (text: string, max_chars: number) => planSynthesisUnits({
   units: [{ kind: "sentence", text, pause_after_ms: 200 }], max_chars,
 });
 
+test("cutter cost: planning time grows linearly with one long sentence", () => {
+  const inputs = [10_000, 40_000].map(n => Array.from({ length: n },
+    (_, i) => `word${i % 11 === 10 ? "," : ""}`).join(" "));
+  const counts = inputs.map(text => {
+    let work = 0;
+    const matchAll = RegExp.prototype[Symbol.matchAll];
+    const { slice, indexOf } = String.prototype;
+    try {
+      // Charge whole iterator inputs even when iteration stops early. Token tests
+      // and candidate loops are bounded by these characters, not counted twice.
+      RegExp.prototype[Symbol.matchAll] = function (text: string) {
+        work += text.length;
+        return matchAll.call(this, text);
+      };
+      String.prototype.slice = function (start?: number, end?: number) {
+        const result = slice.call(this, start, end);
+        work += result.length;
+        return result;
+      };
+      String.prototype.indexOf = function (search: string, position?: number) {
+        const result = indexOf.call(this, search, position);
+        const from = Math.min(Math.max(Math.trunc(position ?? 0) || 0, 0), this.length);
+        work += Math.max(0, (result < 0 ? this.length : result + search.length) - from);
+        return result;
+      };
+      plan(text, 150);
+    } finally {
+      RegExp.prototype[Symbol.matchAll] = matchAll;
+      String.prototype.slice = slice;
+      String.prototype.indexOf = indexOf;
+    }
+    expect(RegExp.prototype[Symbol.matchAll]).toBe(matchAll);
+    expect(String.prototype.slice).toBe(slice);
+    expect(String.prototype.indexOf).toBe(indexOf);
+    return work;
+  });
+  // Update only after auditing changed scans; recompute both pins and prove the
+  // unbounded-window mutation fails. This is a scan budget, not instruction count.
+  expect(counts).toEqual([476_486, 1_906_557]);
+  expect(counts[1] / counts[0]).toBeLessThan(6);
+});
+
 // SHA256 of JSON.stringify(base 8dd07dc planner output), in seed order; Bun 1.3.11.
 test("cutter cost: the cuts are unchanged", () => {
   let i = 0;
@@ -34,20 +76,4 @@ test("cutter cost: the cuts are unchanged", () => {
     const digest = createHash("sha256").update(JSON.stringify(plan(row.text, row.max_chars))).digest("hex");
     expect(digest, `input ${i}: length ${row.text.length}, cap ${row.max_chars}`).toBe(fixture[i++]);
   }
-});
-
-test("cutter cost: planning time grows linearly with one long sentence", () => {
-  const inputs = [10_000, 40_000].map(n => Array.from({ length: n },
-    (_, i) => `word${i % 11 === 10 ? "," : ""}`).join(" "));
-  for (let warmup = 0; warmup < 3; warmup++) for (const text of inputs) plan(text, 150);
-  const samples: number[][] = inputs.map(() => []);
-  for (let run = 0; run < 7; run++) {
-    inputs.forEach((text, i) => {
-      const start = performance.now();
-      plan(text, 150);
-      samples[i].push(performance.now() - start);
-    });
-  }
-  const [small, large] = samples.map(times => times.sort((a, b) => a - b)[3]);
-  expect(large / small).toBeLessThan(6);
 });
