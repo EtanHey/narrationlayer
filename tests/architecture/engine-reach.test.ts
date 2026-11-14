@@ -100,3 +100,59 @@ test("engine reach: package self-references also require approval", () => {
   });
   expect(result.violations).toEqual(["engine external import src/engine/main.ts -> self"]);
 });
+
+// The earlier review's twelve missed forms, followed by its twenty-one caught forms.
+const reviewedForms = [
+  ['({ readFileSync: r }) => r()', {}],
+  ['const w = Atomics.wait; w()', {}],
+  ['Reflect.apply(Atomics.wait, Atomics, [a, 0, 1])', {}],
+  ['Atomics.wait.call(Atomics, a, 0, 1)', {}],
+  ['(0, Atomics.wait)(a, 0, 1)', {}],
+  ['require.resolve(x)', {}],
+  ['eval("import(name)")', {}],
+  ['new Function("return 1")', {}],
+  ['process.binding("fs")', {}],
+  ['const { readFileSync: r } = process.getBuiltinModule("fs"); r(x)', {}],
+  ['Bun.which("tool")', {}],
+  ['new Worker(new URL("worker.js", import.meta.url))', {}],
+  ['export * from "../plan/helper"', { 'src/plan/helper.ts': 'readFileSync()' }],
+  ['import x = require("node:crypto")', {}],
+  ['import type { T } from "../plan/helper"', { 'src/plan/helper.ts': 'readFileSync()' }],
+  ['import "../plan/helper.js"', { 'src/plan/helper.ts': 'readFileSync()' }],
+  ['import "../plan/helper"', { 'src/plan/helper/index.ts': 'readFileSync()' }],
+  ['import * as fs from "node:fs"; fs.readFileSync(x)', {}],
+  ['import fs from "node:fs"; fs.readFileSync(x)', {}],
+  ['({ readFileSync }) => readFileSync()', {}],
+  ['import fs from "node:fs"; const r = fs.readFileSync; r()', {}],
+  ['fs?.readFileSync?.(x)', {}],
+  ['Atomics?.wait(a, 0, 1)', {}],
+  ['Bun.spawnSync([])', {}],
+  ['Bun.file(x).textSync()', {}],
+  ['Bun.sleepSync(1)', {}],
+  ['Atomics.wait(a, 0, 1)', {}],
+  ['import cp from "node:child_process"; cp.execFileSync(x)', {}],
+  ['globalThis.require(x)', {}],
+  ['module.require(x)', {}],
+  ['import.meta.require(x)', {}],
+  ['import "fs/promises"', {}],
+  ['import "./conformance/helper"', { 'src/engine/conformance/helper.ts': 'readFileSync()' }],
+] satisfies [string, Record<string, string>][];
+
+test.each(reviewedForms)("engine reach: review form %s", (source, more) => {
+  expect(fixture(source, more).violations.length).toBeGreaterThan(0);
+});
+
+test("engine reach: unrelated and locally defined Sync names are intended violations", () => {
+  for (const source of ['cache.readFileSync("k")', 'class Engine { stepSync() {} }; new Engine().stepSync()'])
+    expect(fixture(source).violations.length).toBeGreaterThan(0);
+});
+
+test.each([
+  'const r = fs.readFileSync', 'const { "readFileSync": r } = fs',
+  'const { wait: w } = Atomics', 'const { binding: b } = process', 'const { which: w } = Bun',
+  'process.dlopen', 'process["getBuiltinModule"]', 'Function("return 1")',
+  'const r = import.meta.require', 'class Engine { ["stepSync"]() {} }',
+])("engine reach: refuses unused references and named patterns %s", source => {
+  expect(fixture(source).violations.length).toBeGreaterThan(0);
+  expect(fixture('import "../plan/helper";', { 'src/plan/helper.ts': source }).violations.length).toBeGreaterThan(0);
+});

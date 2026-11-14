@@ -24,12 +24,20 @@
     "evidence": "BIND-01 is inactive; no test proves non-reentrancy, and session emit currently invokes observe.event inline."
   },
   {
-    "id": "no-sync-io",
+    "id": "no-sync-io-engine-reach",
     "contract_line": 427,
-    "obligation": "The engine, its backend dependencies and player dependencies contain no synchronous spawn or filesystem call.",
+    "obligation": "The engine and every module in its static import reach contain no synchronous spawn or filesystem call.",
     "state": "proved",
     "case_ids": [],
     "evidence": "tests/architecture/engine-reach.test.ts: engine reach: nothing the engine imports can block checks every static dependency, including type-only imports, refuses unapproved externals and loaders, and pins 22 files; independent backend or player modules outside that reach are not covered."
+  },
+  {
+    "id": "no-sync-io-host-modules",
+    "contract_line": 427,
+    "obligation": "Backend and player modules loaded beside the engine, outside its static import reach, contain no synchronous spawn or filesystem call.",
+    "state": "owed",
+    "case_ids": [],
+    "evidence": "No independent backend or player module is an engine root today; engineReach does not prove this part of contract line 427."
   },
   {
     "id": "bounded-awaits",
