@@ -219,7 +219,7 @@ export function createEngineSession<Audio>(options: {
             if (session.request.voice.require_clone) throw new SynthesisFailure("VOICE_UNAVAILABLE"); // Q95
             if (session.request.voice.fallback !== "declared") throw error;
             const edge = options.welcome.engines.find(e => e.family === "edge");
-            if (edge?.max_chars !== undefined && request.text.length > edge.max_chars) throw error; // Q97: clone failure stands.
+            if (edge?.max_chars !== undefined && request.text.length > edge.max_chars) throw new SynthesisFailure("ENGINE_UNAVAILABLE"); // Q97 amended: no allowed family can serve.
             engine = { family: "edge", voice: options.default_voice ?? "", profile_revision: "default" };
             rate = "+0%"; substituted = true; fallback_reason = "clone_synthesis_failed"; // Q95: default rate, this piece only.
             audio = await callBackend();

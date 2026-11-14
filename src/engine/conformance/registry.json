@@ -218,8 +218,7 @@
     "stage": "A",
     "owner_slice": "S7",
     "active": true,
-    "owed": "Host adoption of short-speak XTTS/F5 cascade, mode rates and auto-slow.",
-    "ruling_96": "Undeclared admission-selected family: INVALID_REQUEST at admit, no session. Declared selected family unavailable during synthesis, or missing/unavailable allowed fallback: ENGINE_UNAVAILABLE at synthesize."
+    "owed": "Host adoption of short-speak XTTS/F5 cascade, mode rates and auto-slow."
   },
   {
     "id": "ENG-03",
@@ -238,7 +237,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": true
+    "active": true,
+    "ruling_96": "Undeclared admission-selected family: INVALID_REQUEST at admit, no session. Declared selected family unavailable during synthesis, or missing/unavailable allowed fallback: ENGINE_UNAVAILABLE at synthesize."
   },
   {
     "id": "FALL-01",

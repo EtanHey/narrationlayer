@@ -1,14 +1,18 @@
 import type { Binding } from "./binding";
 import engine from "./engine-binding";
 /** Deliberate faults at the port/wire boundaries, never imported by product code. */
-export function wrongFallback(fault: "required" | "marks" | "truncate" | "voice" | "rate" | "reason" | "timing"): Binding {
+export function wrongFallback(fault: "required" | "marks" | "truncate" | "voice" | "rate" | "reason" | "timing" | "sticky"): Binding {
   return { name: `wrong-fallback-${fault}`, create(host) {
-    let substituted = false;
+    let substituted = false, servingEdge = false;
     const caps = host.engines?.map(e => fault === "truncate" && e.family === "edge" ? { ...e, max_chars: 1000 } : e);
     const backend = host.ports?.backend;
     const c = engine.create({ ...host, engines: caps, ...(backend && host.ports ? { ports: { ...host.ports, backend: {
       script: steps => backend.script(steps), get calls() { return backend.calls; },
       synthesizeRequest(r, signal) {
+        if (fault === "sticky") {
+          const request = servingEdge && r.family === "qwen3_clone" ? { ...r, family: "edge" as const, voice: host.voices?.default_voice ?? r.voice, rate: "+0%" } : r;
+          return backend.synthesizeRequest(request, signal).then(audio => { if (request.family === "edge") servingEdge = true; return audio; });
+        }
         const cap = host.engines?.find(e => e.family === r.family)?.max_chars;
         return backend.synthesizeRequest(fault === "truncate" && r.family === "edge" ? { ...r, text: r.text.slice(0, cap) } : r, signal);
       },

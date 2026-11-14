@@ -12,9 +12,10 @@ import type { Event, Message } from "../../../src/engine/messages/messages";
 for (const id of ["ENG-01", "ENG-02", "ENG-03"]) test(`synthesis fallback: ${id}`, async () => {
   expect((await runCase(id, engine, engineCases[id])).result).toBe("pass");
 });
-for (const [absent, clone, declaredFallback] of [[false, false, false], [true, false, false], [false, true, false], [true, true, false], [false, true, true]]) test(`Q96 unavailable ${clone ? "clone" : "stock"}, absent ${absent}, limited fallback ${declaredFallback}`, async () => {
+for (const [absent, clone, declaredFallback, cloneFails = false] of [[false, false, false], [true, false, false], [false, true, false], [true, true, false], [false, true, true], [false, true, true, true]]) test(`Q96 unavailable ${clone ? "clone" : "stock"}, absent ${absent}, limited fallback ${declaredFallback}, clone failure ${cloneFails}`, async () => {
   const clock = new FakeClock(), backend = new ScriptedBackend(clock), spawn = new ScriptedSpawn(clock);
-  const caps: Message<"welcome">["engines"] = absent ? [] : [{ family: clone ? "qwen3_clone" : "edge", available: false, legacy: false, clone, timing: "none", cancel: "abort_only" }];
+  if (cloneFails) backend.script([{ latency_ms: 1, late_after_cancel: false, result: { kind: "error", code: "synthetic failure" } }]);
+  const caps: Message<"welcome">["engines"] = absent ? [] : [{ family: clone ? "qwen3_clone" : "edge", available: cloneFails, legacy: false, clone, timing: "none", cancel: "abort_only" }];
   if (declaredFallback) caps.push({ family: "edge", available: true, max_chars: 10, legacy: false, clone: false, timing: "none", cancel: "abort_only" });
   const c = engine.create({ clock, store: new Map(), hash_key: new Uint8Array(32), audible: false, engines: caps,
     voices: { profiles: { lantern: clone ? { kind: "clone", revision: "one" } : { kind: "preset", revision: "one", voice: "stock" } }, default_voice: "stock", hebrew_voice: "he-IL-HilaNeural" },
@@ -25,6 +26,7 @@ for (const [absent, clone, declaredFallback] of [[false, false, false], [true, f
   for (let i = 0; i < 64 && !seen.some(e => e.type === (absent ? "error" : "outcome")); i++) { await clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve(); }
   expect(seen.filter(e => e.type === "error")).toMatchObject([absent ? { code: "INVALID_REQUEST", phase: "admit" } : { code: "ENGINE_UNAVAILABLE", phase: "synthesize", retry: "new_request" }]); // Q96
   expect(seen.filter(e => e.type === "outcome")).toMatchObject(absent ? [] : [{ generation: { status: "failed" } }]);
-  expect(backend.calls).toEqual([]); // Q96: availability is checked before calling.
+  expect(backend.calls.length).toBe(cloneFails ? 1 : 0); // Q96/Q97 amended: no call to the unavailable or over-cap family.
+  expect(backend.calls.every(call => call.family === "qwen3_clone")).toBe(true);
   await c.shutdown(clock.now()); await collect; backend.assertDrained();
 });

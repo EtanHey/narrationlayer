@@ -29,8 +29,8 @@ async function complete(c: CaseContext, t: ReturnType<typeof setup>, req: Messag
   t.backend.synthesizeRequest = synthesize;
   const own = t.seen.slice(start), pieces = own.filter(e => e.type === "piece_ready");
   c.assert(own.filter(e => e.type === "outcome").length === 1);
-  c.assert(own.some(e => e.type === "outcome" && e.generation.status === (failure ? "failed" : "committed")));
-  if (failure) c.assert(own.filter(e => e.type === "error").length === 1 && own.some(e => e.type === "error" && e.code === failure && e.phase === "synthesize" && e.retry === "new_request")); // §2 natural completion; bounded fake-clock progress, no fixed arrival tick.
+  c.assert(own.some(e => e.type === "outcome" && e.generation.status === (failure ? "failed" : "committed"))); // §2: terminal generation; bounded fake-clock progress, no fixed arrival tick.
+  if (failure) c.assert(own.filter(e => e.type === "error").length === 1 && own.some(e => e.type === "error" && e.code === failure && e.phase === "synthesize" && e.retry === "new_request")); // §2.5, Q95-97: the failure carries its synthesis phase and retry policy.
   c.assert(!!plan && (failure ? pieces.length < plan.pieces.length : pieces.length === plan.pieces.length)); // §1.2 L65: the engine owns grouping.
   return { plan, pieces };
 }
@@ -39,7 +39,7 @@ async function fallback(c: CaseContext, required = false, allowed = true, cap = 
   const caps = engines(true).filter(e => available !== "absent" || e.family !== "edge").map(e => e.family === "edge" ? { ...e, max_chars: cap, available: available === true, timing } : e);
   const t = setup(c, [], { voices, engines: caps });
   const req = { ...request("lantern", required, "Amber rafts float. Violet cranes glide. Golden otters swim."), use: "read", rate: "+25%", voice: { profile: "lantern", require_clone: required, fallback: allowed ? "declared" : "none" } } satisfies Message<"narrate">;
-  const fail = required ? "VOICE_UNAVAILABLE" : !allowed || cap < 20 ? "SYNTH_FAILED" : available !== true ? "ENGINE_UNAVAILABLE" : undefined;
+  const fail = required ? "VOICE_UNAVAILABLE" : !allowed ? "SYNTH_FAILED" : cap < 20 || available !== true ? "ENGINE_UNAVAILABLE" : undefined;
   const call = t.backend.synthesizeRequest.bind(t.backend);
   t.backend.synthesizeRequest = (r, signal) => {
     // A failure rule per family; no unused scripted work when fallback is correctly refused.
@@ -57,7 +57,7 @@ async function fallback(c: CaseContext, required = false, allowed = true, cap = 
     c.assert(result.pieces.every((p, i) => p.synthesis.rate === (i === 1 ? "+0%" : "+25%"))); // Q95
     c.assert(result.pieces.every((p, i) => p.synthesis.fallback_reason === (i === 1 ? "clone_synthesis_failed" : null))); // Q95
     c.assert(result.pieces[1].words.every(w => w.timing === (timing === "engine" ? "measured" : "estimated"))); // Q98: Edge declares no timing; estimate its audio.
-    c.assert(calls.length === 4 && calls.some(r => r.family === "edge" && r.text === "Violet cranes glide.")); // Q97: no truncation.
+    c.assert([0, 1, 2].every(i => calls.filter(r => r.piece_index === i).at(-1)?.family === (i === 1 ? "edge" : "qwen3_clone")) && calls.some(r => r.family === "edge" && r.text === "Violet cranes glide.")); // Q95: each piece is served as its piece_ready says; Q97: no truncation.
   }
   await t.finish();
 }
