@@ -5,6 +5,7 @@ const pinned = [
   "src/core/render-types.ts",
   "src/engine/artifacts/store.ts",
   "src/engine/core/engine.ts",
+  "src/engine/host-callbacks.ts",
   "src/engine/messages/messages.ts",
   "src/engine/messages/parser.ts",
   "src/engine/messages/schema.ts",

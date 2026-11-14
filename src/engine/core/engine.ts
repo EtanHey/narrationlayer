@@ -1,3 +1,4 @@
+import { hostCallbacks, type HostLog } from "../host-callbacks";
 import type { Limits, Message } from "../messages/messages";
 import { createEngineSession, type Backend, type Clock } from "../session/session";
 import { createPublication, type ArtifactPort } from "../publication/publication";
@@ -13,10 +14,12 @@ export function createEngine(options: {
   artifacts: ArtifactPort & Pick<ReturnType<typeof createArtifactStore>, "resolve" | "minted" | "releaseFromHost" | "shutdown" | "custody">; owner_epoch: number; limits: Limits;
   package_version: string;
   synthesis_timeout_ms: number;
+  log?: HostLog;
   observe?: Parameters<typeof createEngineSession>[0]["observe"];
   engines: Message<"welcome">["engines"];
   voices: Voices;
 }) {
+  const host = hostCallbacks(options.log);
   const voices = parseVoices(structuredClone(options.voices)), engines = structuredClone(options.engines);
   const session = createEngineSession({ ...options, default_voice: voices.default_voice,
     // Stage-A player edges belong to the host.
@@ -31,11 +34,17 @@ export function createEngine(options: {
       // No declared cap means whole sentences; the cutter requires a positive safe integer.
       return { ...planRead({ request, identity, engine, max_chars: capability.max_chars ?? Number.MAX_SAFE_INTEGER }), selection };
     } },
-    publication: createPublication(options.artifacts),
+    publication: createPublication(options.artifacts, options.log),
   });
-  return { ...session, custody: () => options.artifacts.custody(),
+  return { ...session, custody: () => {
+      try { return host.call("artifacts.custody", () => options.artifacts.custody()); }
+      catch { return { kind: "failed" as const, live: [], pending_delete: [] }; }
+    },
     shutdown(deadline: number) {
-      options.artifacts.shutdown();
+      host.ignore("artifacts.shutdown", () => options.artifacts.shutdown());
       return session.shutdown(deadline);
-    }, resolve: (handle: string, lease_id: string) => options.artifacts.resolve(handle, lease_id) };
+    }, resolve: (handle: string, lease_id: string) => {
+      try { return host.call("artifacts.resolve", () => options.artifacts.resolve(handle, lease_id)); }
+      catch { return { kind: "failed" as const }; }
+    } };
 }

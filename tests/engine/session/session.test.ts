@@ -15,7 +15,7 @@ const turn = async () => { for (let i = 0; i < 4; i++) await Promise.resolve(); 
 const limits = { max_chars: { read: 1000, speak: 100, ask_prompt: 100 }, lookahead: 2, aligner_reap_ms: 100 };
 const units: SynthesisSourceUnit[] = [{ kind: "heading", text: "Synthetic heading", pause_after_ms: 0 }, { kind: "list_item", text: "Synthetic whole list item.", pause_after_ms: 0 }];
 const active: { session: { shutdown(d: number): Promise<void>; events: AsyncIterable<Event> }; events(): Event[]; consumed?: Event[]; epoch: number; inputs: Input<"host">[]; delivered: { event: Event; replay: boolean }[] }[] = [];
-function harness(epoch = 1, source = units, lookahead = 2, synthesis_timeout_ms = 10000) {
+function harness(epoch = 1, source = units, lookahead = 2, synthesis_timeout_ms = 10000, artifacts?: Parameters<typeof createEngineSession>[0]["artifacts"]) {
   const clock = new FakeClock(), backend = new ScriptedBackend(clock), delivered: { event: Event; replay: boolean }[] = [], inputs: Input<"host">[] = [];
   let calls = 0, callsBeforePlan = 0, publications = 0;
   // Synthetic stand-in only: typed units plus real cutter, whitespace word table.
@@ -36,13 +36,14 @@ function harness(epoch = 1, source = units, lookahead = 2, synthesis_timeout_ms 
     release() { return { kind: "released" }; },
     async piece(audio, context) { publications++; return { known_ms: startMs([...context.prefix, { sample_count: audio.samples, sample_rate: audio.sample_rate }]), first_audible_offset_ms: 0, type: "piece_ready", owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, index: context.index, piece_id: context.piece_id, spoken_text: context.spoken_text, synthesis_ms: context.synthesis_ms, start_ms: startMs(context.prefix), duration_ms: audio.samples, artifact: { handle: "synthetic", lease_id: "synthetic", format: "wav", sample_rate: audio.sample_rate, sample_count: audio.samples, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "+0%", attempts: [], unavailable: [], fallback_reason: null } }; }, async commit() {},
   };
+  const logs: { callback: string; error_name: string }[] = [];
   const observe = { input(i: Input<"host">) { inputs.push(i); }, event(event: Event, replay: boolean) { delivered.push({ event, replay }); } };
   const session = createEngineSession({ synthesis_timeout_ms, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: epoch, limits: { ...limits, lookahead }, planner, clock, publication,
     backend: { synthesizeRequest(r, signal) { if (!delivered.some(d => d.event.type === "plan")) callsBeforePlan++; return backend.synthesizeRequest(r, signal); } },
-    observe,
+    artifacts, observe, log: entry => { logs.push(entry); },
   });
   session.send(hello); void session.events[Symbol.asyncIterator]().next(); expect(delivered.pop()?.event.type).toBe("welcome");
-  const h = { session, clock, backend, publication, planner, delivered, inputs, epoch, observe, get publicationCalls() { return publications; }, get plannerCalls() { return calls; }, get callsBeforePlan() { return callsBeforePlan; }, events: () => delivered.map(d => d.event),
+  const h = { logs, session, clock, backend, publication, planner, delivered, inputs, epoch, observe, get publicationCalls() { return publications; }, get plannerCalls() { return calls; }, get callsBeforePlan() { return callsBeforePlan; }, events: () => delivered.map(d => d.event),
     script(n = source.length, late = false) { backend.script(Array.from({ length: n }, () => ({ latency_ms: 1, late_after_cancel: late, result: { kind: "audio", ...pcmAudio(10) } }))); },
     async tick() { for (let i = 0; i < 12; i++) await clock.advance(1); },
     stop(reason: "stop" | "cancel" = "stop") { session.send({ protocol: "nl.engine/1", type: "control", command_id: "stop-one", session_id: `session-${epoch}-1`, op: "stop", args: { scope: "session", reason } }); },
@@ -209,11 +210,12 @@ test("N1: parser refusal preserves a raw string request_id", () => {
   const h = harness(); h.session.send({ ...request, voice: 7 });
   expect(h.events()).toMatchObject([{ type: "error", code: "INVALID_REQUEST", request_id: request.request_id }]);
 });
-test("N4: accept observer failure propagates instead of becoming a planner refusal", () => {
+test("N4: accept observer failure is logged without becoming a planner refusal", () => {
   const h = harness(), record = h.observe.input;
-  h.observe.input = i => { if (i.kind === "accept") throw new Error("observer failed"); record(i); };
-  expect(() => h.session.send(request)).toThrow("observer failed");
-  expect(h.events()).toEqual([]);
+  h.observe.input = i => { record(i); if (i.kind === "accept") throw new Error("observer failed"); };
+  expect(() => h.session.send(request)).not.toThrow();
+  expect(h.logs).toEqual([{ callback: "observe.input", error_name: "Error" }]); // R100/102(a),103
+  expect(h.events().map(e => e.type)).toEqual(["accepted", "plan"]); // The fault adds no event.
 });
 
 function pacing(lookahead = 1) {
@@ -668,4 +670,75 @@ test("synthesis timeout: a queued read waits through the predecessor lookahead l
   for (let i = 0; i < 5; i++) { h.feedback("spawned", i); h.feedback("first_sample", i); h.feedback("exited", i); await h.tick(); }
   expect(h.indices("session-1-2")).toEqual([0]);
   expect(h.events().some(e => e.type === "error")).toBe(false); h.replay();
+});
+
+// R100/101/102/103: observable faults, per-session containment, and private log shape.
+test("BIND-03: observer outcome throws once; logging never carries fault text", async () => {
+  const h = harness(1, units.slice(0, 1)); h.script(2);
+  const record = h.observe.event;
+  h.observe.event = (event, replay) => { record(event, replay); if (event.type === "outcome") { const error = new TypeError(request.input.text); error.name = request.input.text; throw error; } };
+  h.session.send(request); await h.tick(); h.feedback("spawned"); h.feedback("first_sample"); h.feedback("exited"); await h.tick();
+  h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
+  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(2);
+  expect(h.logs).toEqual([{ callback: "observe.event", error_name: "TypeError" }]);
+  expect(JSON.stringify(h.logs)).not.toContain(request.input.text);
+});
+for (const method of ["monotonic", "schedule"] as const) test(`BIND-03: throwing ${method} ends only its session`, async () => {
+  const h = harness(1, units.slice(0, 1)), original = h.clock[method]; h.script(1);
+  h.clock[method] = () => { throw new Error(request.input.text); };
+  expect(() => h.session.send(request)).not.toThrow(); await turn();
+  Reflect.set(h.clock, method, original); await h.tick();
+  expect(h.events()).toContainEqual(expect.objectContaining({ type: "error", code: "SYNTH_FAILED", phase: "synthesize" }));
+  h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
+  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(1);
+});
+
+for (const method of ["now", "schedule"] as const) test(`BIND-03: shutdown ${method} throw is its deadline path`, async () => {
+  const h = harness();
+  Reflect.set(h.clock, method, () => { throw new RangeError("synthetic private fault"); });
+  await h.session.shutdown(100);
+  expect(h.logs).toEqual([{ callback: `clock.${method}`, error_name: "RangeError" }]); // R102(c),103
+});
+
+for (const callback of ["piece", "commit"] as const) test(`BIND-03: rejected publication ${callback} is logged and contained`, async () => {
+  const h = harness(1, units.slice(0, 1)), original = h.publication[callback]; h.script(2);
+  Reflect.set(h.publication, callback, () => Promise.reject(new Error(request.input.text)));
+  h.session.send(request); await h.tick(); Reflect.set(h.publication, callback, original);
+  expect(h.logs).toContainEqual({ callback: `publication.${callback}`, error_name: "Error" }); // R102(b),103
+  expect(h.events()).toContainEqual(expect.objectContaining({ type: "error", code: "SYNTH_FAILED", phase: "synthesize" }));
+  h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
+  expect(h.events().filter(e => e.type === "accepted")).toHaveLength(2);
+});
+
+test("BIND-03: throwing cancel cannot leave an earlier piece timeout armed", async () => {
+  const h = harness(1, units, 2, 10), schedule = h.clock.schedule.bind(h.clock);
+  h.clock.schedule = (ms, callback) => { schedule(ms, callback); return () => { throw Error("synthetic cancel"); }; };
+  h.backend.script([1, 9].map(latency_ms => ({ latency_ms, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(10) } })));
+  h.session.send(request); await h.tick();
+  expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(2);
+  expect(h.events().filter(e => e.type === "error")).toEqual([]); // R102(a): cancel is treated as completed.
+  expect(h.logs).toContainEqual({ callback: "clock.cancel", error_name: "Error" });
+});
+
+for (const delivered of [false, true]) test(`BIND-03: minted fault refuses without details, delivered=${delivered}`, async () => {
+  let live = true;
+  const h = harness(1, units.slice(0, 1), 2, 10000, { releaseFromHost() { const kind = live ? "released" : "expired"; live = false; return { kind }; }, minted() { throw Error(request.input.text); } });
+  if (delivered) { h.script(1); h.session.send(request); await h.tick(); h.session.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: "synthetic" }); }
+  const before = h.events().length;
+  h.session.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: delivered ? "synthetic" : "unknown-lease" });
+  expect(h.events().slice(before)).toMatchObject([{ type: "error", code: "ARTIFACT_EXPIRED" }]); // Amended R102(a)
+  expect(h.events().at(-1)).not.toHaveProperty("details"); expect(h.logs.at(-1)).toEqual({ callback: "artifacts.minted", error_name: "Error" });
+  expect(h.events().filter(e => e.type === "outcome")).toHaveLength(0); // No session ends for a diagnostic failure.
+});
+test("BIND-03: waiting bound clock fault fails only the waiter", async () => {
+  const h = harness(); h.backend.synthesizeRequest = () => new Promise(() => {});
+  h.session.send(request); await turn(); h.stop(); await turn(); // R92(c): predecessor ended but its call has not settled.
+  const schedule = h.clock.schedule.bind(h.clock); let faulted = false;
+  h.clock.schedule = (ms, callback) => { if (!faulted) { faulted = true; throw Error(request.input.text); } return schedule(ms, callback); };
+  expect(() => h.session.send({ ...request, request_id: "waiter-fault", idempotency_key: "waiter-fault", start: { after_session: "session-1-1" } })).not.toThrow();
+  expect(h.events().filter(e => e.type === "error")).toEqual([]); await turn(); // R102(b): after send.
+  expect(faulted).toBe(true); expect(h.logs).toContainEqual({ callback: "clock.schedule", error_name: "Error" });
+  expect(h.events().filter(e => e.type === "error")).toMatchObject([{ code: "SYNTH_FAILED", phase: "synthesize", session_id: "session-1-2" }]);
+  expect(h.events().filter(e => e.type === "outcome")).toMatchObject([{ session_id: "session-1-1", playback: { reason: "stop_preparing" } }, { session_id: "session-1-2", generation: { status: "failed" }, playback: { reason: "synth_failed" } }]);
 });

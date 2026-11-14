@@ -1,3 +1,4 @@
+import { throwingCases } from "./throwing-cases";
 import { resyncCases } from "./resync-cases";
 import { stopCases } from "./stop-cases";
 import { seekCases } from "./seek-cases";
@@ -288,6 +289,7 @@ export const engineCases: Record<string, Case> = {
   },
   ...selectionCases,
   ...negotiationCases,
+  ...throwingCases,
   ...pacingCases,
   ...pauseCases,
   ...seekCases, ...stopCases,

@@ -1,3 +1,4 @@
+import { hostCallbacks, type HostLog } from "../host-callbacks";
 import { createHash } from "node:crypto";
 import type { Message } from "../messages/messages";
 import { decodePcm, firstAudibleOffsetMs } from "./decoded";
@@ -16,7 +17,8 @@ export interface ArtifactPort {
   commit(identity: Pick<PublicationContext, "owner_epoch" | "session_id" | "attempt_id">, signal: AbortSignal): Promise<void>;
 }
 /** Layer 3 composes the independent layer-2 audio and timing leaves; no session or conformance imports. */
-export function createPublication(artifacts: ArtifactPort) {
+export function createPublication(artifacts: ArtifactPort, log?: HostLog) {
+  const host = hostCallbacks(log);
   return {
     async piece(audio: { bytes: Uint8Array; timings: unknown }, context: PublicationContext, signal: AbortSignal): Promise<PublishedPiece> {
       signal.throwIfAborted();
@@ -25,7 +27,9 @@ export function createPublication(artifacts: ArtifactPort) {
       const known_ms = startMs([...context.prefix, decoded]), first_audible_offset_ms = firstAudibleOffsetMs(bytes);
       const words = wordTimes(context.words, start_ms, duration_ms, context.timing === "none" ? null : audio.timings);
       const sha256 = createHash("sha256").update(bytes).digest("hex");
-      const stored = await artifacts.put(bytes, { owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, piece_id: context.piece_id }, signal);
+      let stored: Awaited<ReturnType<ArtifactPort["put"]>>;
+      try { stored = await artifacts.put(bytes, { owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, piece_id: context.piece_id }, signal); }
+      catch (error) { host.report("artifacts.put", error); throw error; }
       try {
         signal.throwIfAborted();
         return { type: "piece_ready", session_id: context.session_id, attempt_id: context.attempt_id, index: context.index, piece_id: context.piece_id,
@@ -33,7 +37,7 @@ export function createPublication(artifacts: ArtifactPort) {
           artifact: { ...stored, sample_count: decoded.sample_count, sample_rate: decoded.sample_rate, sha256 }, words,
           actual: Array.from({ length: context.segments }, (_, segment) => ({ segment, engine: context.engine.family, voice: context.engine.voice, substituted: context.substituted ?? false })),
           synthesis: { rate: context.rate, attempts: [], unavailable: [], fallback_reason: context.fallback_reason ?? null } };
-      } catch (error) { artifacts.release(stored.lease_id); throw error; }
+      } catch (error) { host.ignore("artifacts.release", () => artifacts.release(stored.lease_id)); throw error; }
     },
     release: artifacts.release.bind(artifacts),
     commit: artifacts.commit.bind(artifacts),
