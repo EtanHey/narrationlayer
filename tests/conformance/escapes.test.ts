@@ -226,3 +226,23 @@ test("the entry preserves a named probe failure when both hung reports agree", a
     expect(result.report.rows.some((r: { diagnostic?: string }) => r.diagnostic?.includes("unavailable"))).toBe(false);
   }
 });
+
+test("equal child reports cannot promote failed local determinism or realm probes", async () => {
+  for (const mode of ["tojson", "realm"]) {
+    const source = `import engine from ${JSON.stringify(resolve(root, "src/engine/conformance/engine-binding.ts"))};
+      let n = 0;
+      export default { name: "probe-failure", create(host) {
+        if (!host.ports && ${JSON.stringify(mode)} === "realm") try { new ShadowRealm(); } catch {}
+        const c = engine.create(host);
+        return { ...c, events: (async function* () { for await (const e of c.events)
+          yield !host.ports && ${JSON.stringify(mode)} === "tojson"
+            ? Object.assign(Object.create({ toJSON() { return { ...e, n: ++n }; } }), e) : e;
+        })() };
+      } };`;
+    const result = await run(source, process.platform === "darwin" ? ["--require-containment"] : []);
+    expect(result.code).toBe(1);
+    const row = result.report.rows.find((r: { id: string }) => r.id === "CONF-01");
+    expect(row.result).toBe("fail");
+    if (mode === "realm") expect(row.diagnostic).toBe("forbidden APIs: ShadowRealm");
+  }
+});
