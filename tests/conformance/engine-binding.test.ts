@@ -22,11 +22,12 @@ async function proof(id: string) {
   if (process.platform === "darwin") expect(report.containment).toBe("macos-sandbox");
 }
 test("engine binding: the packaged entry passes the active cases under containment", () => proof("engine"));
+for (const id of ["PLAN-D5", "PLAN-01", "PAUSE-PL-01", "PLAN-03"]) test(`${id}: the broken engine is red on exactly this case`, () => proof(id));
 for (let i = 0; i < ids.length; i += 4) {
   const group = ids.slice(i, i + 4);
   test(`broken engines match their exact fail-sets: ${group.join(", ")}`, async () => {
-    const results = await Promise.allSettled(group.map(proof));
-    const errors = results.flatMap((result, index) => result.status === "rejected" ? [`${group[index]}: ${String(result.reason)}`] : []);
+    const errors: string[] = [];
+    for (const id of group) { try { await proof(id); } catch (error) { errors.push(`${id}: ${String(error)}`); } }
     if (errors.length) throw new Error(errors.join("\n"));
   });
 }
@@ -108,6 +109,16 @@ test("PLAN-LAT-01 bounds a swallowed second narrate under the fake clock", async
   expect((await runCase("PLAN-LAT-01", broken, engineCases["PLAN-LAT-01"])).result).toBe("fail");
 });
 
+test("a successful read checks backend text even when plan and pieces report whole units", async () => {
+  const wrong = { name: "backend-word-only", create: (host: Parameters<typeof engine.create>[0]) => {
+    const backend = host.ports?.backend, original = backend?.synthesizeRequest.bind(backend);
+    if (backend && original) backend.synthesizeRequest = (request, signal) => original(
+      request !== null && typeof request === "object" && !Array.isArray(request) && request.text === "Golden otters swim."
+        ? { ...request, text: "Golden" } : request, signal);
+    return engine.create(host);
+  } };
+  expect((await runCase("GEN-02", wrong, engineCases["GEN-02"])).result).toBe("fail");
+});
 for (const [id, code] of [["NEG-01", "UNSUPPORTED_VERSION"], ["NEG-02", "MISSING_CAPABILITY"], ["NEG-03", "NOT_NEGOTIATED"], ["LIM-01", "INPUT_TOO_LONG"], ["VER-02e", "INVALID_REQUEST"], ["VER-01", "welcome"]]) {
   test(`${id}: the broken engine matches its committed fail-set`, () => proof(id));
   for (const wrong of ["omit", "duplicate", "wrong-phase", "missing-details"]) {

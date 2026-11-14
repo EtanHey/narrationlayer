@@ -1,9 +1,11 @@
+import { brokenPlanning } from "./broken-planning";
 import type { Binding, Json } from "./binding";
 import engine from "./engine-binding";
 import type { Message } from "../messages/messages";
 
 /** Each variant violates one observable rule; no variant knows the case runner. */
 export function brokenEngine(rule: string): Binding {
+  if (["PLAN-D5", "PLAN-01", "PAUSE-PL-01", "PLAN-03"].includes(rule)) return brokenPlanning(rule);
   return { name: `broken-${rule}`, create(host) {
     const connection = engine.create(host);
     return { send: connection.send, shutdown: connection.shutdown,
