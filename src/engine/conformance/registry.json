@@ -161,7 +161,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": "Controls beyond stop and command_id error correlation owed to the controls slice (lead rulings R3 and question 52)."
   },
   {
     "id": "CUST-01",
@@ -389,7 +390,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": "Stage A terminal-writer state machine belongs to the host-side row."
   },
   {
     "id": "ID-05h",
@@ -530,7 +532,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": "Pause clause owed to the controls slice."
   },
   {
     "id": "PACE-02",
@@ -539,7 +542,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true
   },
   {
     "id": "PACE-D6",
@@ -788,7 +791,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": "Error command_id correlation owed to the controls slice (lead ruling R3; question 52)."
   },
   {
     "id": "SHUT-01",

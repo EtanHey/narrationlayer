@@ -1,3 +1,4 @@
+import { pacingCases } from "./pacing-cases";
 import { artifactCases } from "./artifact-cases";
 import { negotiationCases } from "./negotiation-cases";
 import type { Case, CaseContext } from "./runner";
@@ -112,6 +113,7 @@ function textFree(c: CaseContext, text: string) {
 }
 export const engineCases: Record<string, Case> = {
   ...negotiationCases,
+  ...pacingCases,
   ...artifactCases,
   "GEN-02": async c => {
     const t = setup(c, [...steps(100), ...steps(100)]);
