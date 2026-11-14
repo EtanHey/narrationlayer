@@ -26,7 +26,7 @@ test("PLAN-02: a later fitting mark beats a colon and internal cuts add no pause
 test("PLAN-D4: last fitting phrase mark wins over a later bare space", () => {
   const parts = plan("One two three, four five six; seven eight nine ten eleven twelve.", 42);
   expect(parts[0].text).toBe("One two three, four five six;");
-  for (const mark of [",", ";", ":", "—", "–", "-"]) {
+  for (const mark of [",", ";", ":", "—", "―", "–"]) {
     expect(plan(`One two three${mark} four five six seven eight nine.`, 26)[0].text).toBe(`One two three${mark}`);
   }
   expect(plan("One two three four five six seven eight nine.", 22)[0].text).toBe("One two three four");
@@ -104,4 +104,38 @@ test("planner is deterministic, preserves inputs, and validates its numeric boun
   expect(() => plan("One two three.", 20, -1)).toThrow(RangeError);
   expect(plan("Indivisible", 2)[0].text).toBe("Indivisible");
   expect(() => planSynthesisUnits({ units: [{ kind: "heading", text: "Hello", pause_after_ms: 10 }], max_chars: 10, first_piece_raw: true })).toThrow(RangeError);
+});
+
+const w = (n: number) => Array(n).fill("lantern").join(" ");
+for (const [tail, lengths] of [
+  ["first- and second-rate lanterns glow.", [106, 26]],
+  ["pages 3- 4 lantern lantern lantern.", [106, 24]],
+] satisfies [string, number[]][]) test(`PLAN-D4: a hyphen that joins words is not a cut point: ${tail}`, () => {
+  const text = `${w(12)} ${tail}`, parts = plan(text, 120);
+  expect(parts.map(p => p.text.length)).toEqual(lengths);
+  expect(parts.map(p => p.text).join(" ")).toBe(text);
+  for (const p of parts) expect(p.text.split(" ").filter(w => /[\p{L}\p{N}]/u.test(w)).length).toBeGreaterThanOrEqual(3);
+});
+test("PLAN-D4: attached hyphen falls back to space; a lone hyphen is a mark", () => {
+  const parts = plan("One two three- four five six seven eight nine.", 26);
+  expect(parts[0].text).toBe("One two three- four five");
+  for (const p of parts) expect(p.text.split(" ").length).toBeGreaterThanOrEqual(3);
+  expect(plan("One two three - four five six seven eight nine.", 26).map(p => p.text)).toEqual(["One two three -", "four five six", "seven eight nine."]);
+});
+for (const [tail, lengths] of [
+  ["amber - tail words lantern lantern.", [103, 27]],
+  ["amber— tail words lantern lantern.", [102, 27]],
+  ["amber ― tail words lantern lantern.", [103, 27]],
+  ["amber – tail words lantern lantern.", [103, 27]],
+  ["amber —tail words lantern lantern.", [107, 22]],
+] satisfies [string, number[]][]) test(`PLAN-D4: dash control ${tail}`, () => {
+  expect(plan(`${w(12)} ${tail}`, 120).map(p => p.text.length)).toEqual(lengths);
+});
+
+test("PLAN-D4: a lone hyphen at a later window start keeps the old cuts", () => {
+  expect(plan("one two three, - four five six seven eight nine ten", 14).map(p => p.text))
+    .toEqual(["one two three, -", "four five six seven eight nine ten"]);
+});
+test("PLAN-D4: a lone hyphen at a short window start keeps the old cuts", () => {
+  expect(plan("-5 z— a - bb a q–", 8).map(p => p.text)).toEqual(["-5 z— a -", "bb a q–"]);
 });
