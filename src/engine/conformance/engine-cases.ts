@@ -22,7 +22,7 @@ async function bounded(c: CaseContext, promise: Promise<unknown>) {
 export function createProbed(c: CaseContext, host: Parameters<Binding["create"]>[0]) {
   let depth = 0;
   const violations: string[] = [];
-  const record = (name: string) => { if (depth) violations.push(name); };
+  const record = (name: string) => { if (depth) { violations.push(name); c.failed = true; } };
   for (const method of ["get", "set", "has", "delete"] as const) {
     const original = host.store[method].bind(host.store);
     Reflect.set(host.store, method, (...args: unknown[]) => {
@@ -157,11 +157,12 @@ export const engineCases: Record<string, Case> = {
       const spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
       const connection = createProbed(c, { clock: c.clock, ports: { backend, spawn, player, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32), audible: false });
       const seen: Event[] = [];
+      // Line 426: event consumption cannot nest a send on an outer send stack.
       const send = (message: Json) => { c.assert(depth === 0); depth++; try { connection.send(message); } finally { depth--; } };
       let ended = false;
       const collect = (async () => {
         for await (const raw of connection.events) {
-          c.assert(depth === 0);
+          c.assert(depth === 0); // Line 426: no consumer runs inside send.
           const event = parseEvent(raw); c.assert(event.ok);
           if (!event.ok || !event.value) continue;
           seen.push(event.value);
@@ -173,27 +174,44 @@ export const engineCases: Record<string, Case> = {
         ended = true;
       })().catch(() => { c.failed = true; ended = true; });
       send(hello); send(read("bind-first"));
+      // Lines 425/426: neither work ports nor a consumer ran on send's stack.
       c.assert(calls === 0 && aborts === 0 && seen.length === 0);
       for (let i = 0; i < 64; i++) await Promise.resolve();
-      c.assert(calls === (reenter ? 2 : 1));
+      await c.clock.advance(0);
+      for (let i = 0; i < 64; i++) await Promise.resolve();
+      // BIND-01: work starts; 425/426 do not fix the race with a consumer stop.
+      c.assert(reenter ? calls >= 1 && calls <= 2 : calls === 1);
+      // Admission queues exactly one acceptance and plan per fresh request (116).
       c.assert(seen.filter(e => e.type === "accepted" && e.request_id === "bind-first").length === 1);
       c.assert(seen.filter(e => e.type === "plan").length === (reenter ? 2 : 1));
       if (reenter) {
         const plan = seen.findIndex(e => e.type === "plan");
         const ack = seen.findIndex(e => e.type === "control_ack");
         const second = seen.findIndex(e => e.type === "accepted" && e.request_id === "bind-second");
+        // Lines 114/116: queued plan precedes the inner stop ack, then admission.
         c.assert(plan >= 0 && ack > plan && second > ack);
       } else {
         const accepted = seen.find(e => e.type === "accepted"); c.assert(accepted?.type === "accepted");
         if (accepted?.type === "accepted") send({ protocol: "nl.engine/1", type: "control", command_id: "bind-stop", session_id: accepted.session_id, op: "stop", args: { scope: "session", reason: "stop" } });
-        c.assert(aborts === 0);
+        c.assert(aborts === 0); // Line 425, amendment 1: firing listeners is work.
       }
       await bounded(c, connection.shutdown(c.clock.now()));
       for (let i = 0; i < 64; i++) await Promise.resolve();
-      c.assert(ended && aborts === (reenter ? 2 : 1)); await collect;
+      // Shutdown ends the stream and cancels every call actually started (430).
+      c.assert(ended && aborts === calls); await collect;
       const seq = seen.filter(e => "seq" in e).map(e => "seq" in e ? e.seq : 0);
-      c.assert(seq.every((n, i) => n === i + 1));
+      c.assert(seq.every((n, i) => n === i + 1)); // Line 114: fresh events add one seq.
     }
+    // Line 426 applies to a raw then callback as well as a for-await consumer.
+    const connection = createProbed(c, { clock: c.clock, store: new Map(), hash_key: new Uint8Array(32), audible: false });
+    let depth = 0, called = false;
+    void connection.events[Symbol.asyncIterator]().next().then(() => { c.assert(depth === 0); called = true; }, () => { c.failed = true; });
+    depth++; try { connection.send(hello); c.assert(!called); } finally { depth--; }
+    for (let i = 0; i < 64; i++) await Promise.resolve();
+    await c.clock.advance(0);
+    for (let i = 0; i < 64; i++) await Promise.resolve();
+    c.assert(called); // Hello must provide the first event; the consumer must resume.
+    await bounded(c, connection.shutdown(c.clock.now()));
   },
   ...negotiationCases,
   ...pacingCases,

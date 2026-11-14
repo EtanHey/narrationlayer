@@ -146,7 +146,7 @@ test("single source of state: reducer input fold reproduces fresh events and rep
   const h = harness(); h.script(); h.session.send(request); h.session.send(request); h.session.send({ nope: true }); await h.tick(); h.stop();
   // The shared afterEach now checks this scenario and every other wire through shutdown.
 });
-test("send: nothing of the host's runs before it returns", async () => {
+test("send: no host port that starts work or touches storage runs before return", async () => {
   const h = harness(); h.script(1, true); expect(h.session.send(request)).toBeUndefined();
   expect(h.events()[0]?.type).toBe("accepted"); expect(h.backend.calls).toHaveLength(0);
   await turn(); expect(h.backend.calls).toHaveLength(1);
@@ -499,4 +499,40 @@ test("send: abort fires after the stop decision and after return", async () => {
   h.stop(); expect(signal?.aborted).toBe(false);
   expect(h.events().filter(e => e.type === "outcome")).toHaveLength(1);
   await turn(); expect(signal?.aborted).toBe(true);
+});
+
+test("send: re-entering consumer starts two calls and fires two aborts", async () => {
+  const h = harness(); let calls = 0, aborts = 0;
+  h.backend.synthesizeRequest = (_request, signal) => {
+    calls++; signal.addEventListener("abort", () => { aborts++; }); return new Promise(() => {});
+  };
+  const consumed: Event[] = []; const tracked = active.find(a => a.session === h.session);
+  if (!tracked) throw Error("missing fixture"); tracked.consumed = consumed;
+  // The host's async-iterator adapter adds the same hop as the conformance trace.
+  const events = (async function* () { for await (const event of h.session.events) yield event; })();
+  const collect = (async () => { for await (const event of events) {
+    consumed.push(event);
+    if (event.type === "accepted" && event.request_id === request.request_id) {
+      h.stop(); h.session.send({ ...request, request_id: "request-second", idempotency_key: "key-second" });
+    }
+  } })();
+  h.session.send(request);
+  for (let i = 0; i < 64; i++) await Promise.resolve();
+  expect(calls).toBe(2); await h.session.shutdown(0);
+  for (let i = 0; i < 64; i++) await Promise.resolve();
+  expect(aborts).toBe(2); await collect;
+});
+
+test("send: settled run does not fire a deferred abort listener", async () => {
+  for (const offset of [3, 4]) {
+    const h = harness(1, units.slice(0, 1)); let calls = 0, aborts = 0;
+    h.backend.synthesizeRequest = (_request, signal) => {
+      calls++; signal.addEventListener("abort", () => { aborts++; }); return Promise.resolve(pcmAudio(10));
+    };
+    h.session.send(request);
+    for (let i = 0; i < offset; i++) await Promise.resolve();
+    expect(calls).toBe(1); h.stop();
+    for (let i = 0; i < 64; i++) await Promise.resolve();
+    expect(aborts).toBe(0);
+  }
 });

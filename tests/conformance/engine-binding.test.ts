@@ -212,3 +212,19 @@ for (const wrong of ["clear-on-release", "ending-delete", "late-lifecycle"]) tes
   const id = wrong === "ending-delete" ? "ART-01" : "SHUT-01";
   expect((await runCase(id, binding, engineCases[id])).result).toBe("fail");
 });
+
+test("BIND-01: conforming backend start from a timer armed after the turn passes", async () => {
+  const timer = { name: "conforming-timer-start", create(host: Parameters<typeof engine.create>[0]) {
+    if (host.ports) {
+      const backend = host.ports.backend, synthesize = backend.synthesizeRequest.bind(backend);
+      backend.synthesizeRequest = (request, signal) => new Promise((resolve, reject) => {
+        host.clock.schedule(0, () => {
+          if (signal.aborted) reject(Error("cancelled before start"));
+          else void synthesize(request, signal).then(resolve, reject);
+        });
+      });
+    }
+    return engine.create(host);
+  } };
+  expect((await runCase("BIND-01", timer, engineCases["BIND-01"])).result).toBe("pass");
+});

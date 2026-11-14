@@ -4,12 +4,7 @@
     "contract_line": 331,
     "obligation": "Capture never waits for a NarrationLayer reply, with host-owned player and aligner kill bounds.",
     "state": "owed",
-    "case_ids": [
-      "MIC-01",
-      "SPK-03e",
-      "SPK-03h",
-      "FALL-02"
-    ],
+    "case_ids": ["MIC-01", "SPK-03e", "SPK-03h", "FALL-02"],
     "evidence": "All four registry rows are inactive; host capture independence and the 50 ms kill paths are not proved by an engine import rule."
   },
   {
@@ -17,20 +12,16 @@
     "contract_line": 425,
     "obligation": "send validates and enqueues synchronously without I/O and returns before a microtask runs.",
     "state": "proved",
-    "case_ids": [
-      "BIND-01"
-    ],
-    "evidence": "BIND-01 and tests/engine/session/session.test.ts: send: nothing of the host's runs before it returns prove deferred host ports; send: narrate then stop in the same turn starts no backend pins cancellation before start. BIND-01 also checks consumer sends, queued event order and contiguous seq. observe is an internal synchronous diagnostic hook, not a host callback of the contract."
+    "case_ids": ["BIND-01"],
+    "evidence": "BIND-01 shared probe proves that no host port starting work, touching storage or arming a timer runs inside send or synchronous shutdown. tests/engine/session/session.test.ts: send: no host port that starts work or touches storage runs before return; send: narrate then stop in the same turn starts no backend; send: abort fires after the stop decision and after return pin this engine. chooseEngine (selection) and observe (diagnostic) are supplied through createEngine options and still run inside send; neither is reachable through a public door today. The coming ./engine door must not expose observe (owed to that slice)."
   },
   {
     "id": "events-not-reentrant",
     "contract_line": 426,
     "obligation": "Events are delivered asynchronously and never re-enter send.",
     "state": "proved",
-    "case_ids": [
-      "BIND-01"
-    ],
-    "evidence": "BIND-01 and tests/engine/session/session.test.ts: send: nothing of the host's runs before it returns prove deferred host ports; send: narrate then stop in the same turn starts no backend pins cancellation before start. BIND-01 also checks consumer sends, queued event order and contiguous seq. observe is an internal synchronous diagnostic hook, not a host callback of the contract."
+    "case_ids": ["BIND-01"],
+    "evidence": "BIND-01 depth counters prove no consumer callback runs inside send, for both for-await and raw next().then consumers; queued-event order and contiguous seq are also checked. chooseEngine (selection) and observe (diagnostic) are supplied through createEngine options and still run inside send; neither is reachable through a public door today. The coming ./engine door must not expose observe (owed to that slice)."
   },
   {
     "id": "no-sync-io-engine-reach",
@@ -53,9 +44,7 @@
     "contract_line": 428,
     "obligation": "Every exposed await has a bounded timeout ending in SYNTH_TIMEOUT or an interrupted generation.",
     "state": "owed",
-    "case_ids": [
-      "BIND-01"
-    ],
+    "case_ids": ["BIND-01"],
     "evidence": "BIND-01 proves its first two clauses; its bounded synthesis timeout and SYNTH_TIMEOUT clause remains owed."
   },
   {
@@ -63,9 +52,7 @@
     "contract_line": 429,
     "obligation": "Throwing host callbacks are caught and logged without crashing the engine.",
     "state": "owed",
-    "case_ids": [
-      "BIND-03"
-    ],
+    "case_ids": ["BIND-03"],
     "evidence": "BIND-03 is inactive; tests/engine/artifacts/store.test.ts: D5: aborts and storage failures leave no bytes or lease covers byte-port set failures, and port failures: release retains custody and resolve sanitizes diagnostics covers get/delete failures; tests/engine/artifacts/custody.test.ts: release: failed deferred delete keeps bytes pending but the lease expired covers deferred delete failure without logging; tests/engine/session/session.test.ts: N4: accept observer failure propagates instead of becoming a planner refusal explicitly permits an observer throw to escape."
   },
   {
@@ -73,9 +60,7 @@
     "contract_line": 430,
     "obligation": "shutdown(deadline) ends sessions with shutdown outcomes and retains leases through the host archive flush.",
     "state": "proved",
-    "case_ids": [
-      "SHUT-01"
-    ],
+    "case_ids": ["SHUT-01"],
     "evidence": "SHUT-01 is active and checks shutdown outcomes, deadline-now and mixed settlement at the host-clock deadline, retained bytes and post-shutdown releases; tests/engine/artifacts/custody.test.ts: shutdown: mixed settlement custody property keeps the deadline at every offset and shutdown: engine custody pins live and pending handles through every release pin the engine deadline and custody surface. BACKEND_DRAIN_UNKNOWN at an unsettled deadline and physical drain remain owed."
   }
 ]

@@ -339,10 +339,17 @@ Still owed: BACKEND_DRAIN_UNKNOWN when settlement misses the deadline; physical
 status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
 (BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).
 
-BIND-01 proves synchronous admission and asynchronous host work and event delivery.
-`chooseEngine` and the planner run inside `send`: they are pure request decisions,
-as are clock reads. Backend calls, byte-port work, clock scheduling and firing
-abort listeners run after the turn, in request order. The reducer fences a stop
-before the deferred abort fires. A same-turn narrate and stop starts no backend.
-`observe` is this repository's synchronous diagnostic hook, not a host callback
-provided by the contract. BIND-01's bounded synthesis timeout remains owed.
+BIND-01 proves that no host port starting work, touching storage or arming a timer
+runs inside `send` or synchronous `shutdown`, and that no consumer code runs
+inside `send` (both `for await` and raw `next().then`). Its fake clock also permits
+a zero-delay timer armed after the turn; this engine's exact microtask counts
+belong to its unit suite. Backend calls and abort listeners run after the turn;
+the reducer fences a stop before the deferred abort fires.
+
+`chooseEngine` (selection) and `observe` (diagnostic) are supplied through
+`createEngine` options and still run inside `send`; neither is reachable through
+a public door today. The coming `./engine` door must not expose `observe` (owed
+to that slice). The planner also runs synchronously as a pure request decision.
+Clock reads (`now` and `monotonic`) are not wrapped: a read is not I/O under line
+425. The bounded synthesis timeout remains owed. BIND-01 does not catch deferring
+the whole `send`; other conformance rows cover that fault.
