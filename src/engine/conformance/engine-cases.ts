@@ -1,4 +1,5 @@
 import { pacingCases } from "./pacing-cases";
+import { artifactCases } from "./artifact-cases";
 import { negotiationCases } from "./negotiation-cases";
 import type { Case, CaseContext } from "./runner";
 import type { BackendStep, Json } from "./binding";
@@ -113,6 +114,7 @@ function textFree(c: CaseContext, text: string) {
 export const engineCases: Record<string, Case> = {
   ...negotiationCases,
   ...pacingCases,
+  ...artifactCases,
   "GEN-02": async c => {
     const t = setup(c, [...steps(100), ...steps(100)]);
     for (const request_id of ["request-gen-1", "request-gen-2"]) {

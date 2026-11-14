@@ -2612,6 +2612,28 @@
           209
         ]
       }
+    },
+    "artifact_release": {
+      "line": 394,
+      "objects": {
+        "$": {
+          "line": 394,
+          "required": [
+            "protocol",
+            "type",
+            "lease_id"
+          ],
+          "optional": []
+        }
+      },
+      "enums": {
+        "$.protocol": [
+          "nl.engine/1"
+        ],
+        "$.type": [
+          "artifact_release"
+        ]
+      }
     }
   }
 }

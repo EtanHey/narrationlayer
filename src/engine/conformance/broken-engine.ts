@@ -8,7 +8,7 @@ export function brokenEngine(rule: string): Binding {
   if (["PLAN-D5", "PLAN-01", "PAUSE-PL-01", "PLAN-03"].includes(rule)) return brokenPlanning(rule);
   return { name: `broken-${rule}`, create(host) {
     const connection = engine.create(host);
-    return { send: connection.send, shutdown: connection.shutdown,
+    return { resolve: connection.resolve, send: connection.send, shutdown: connection.shutdown,
       events: (async function* () {
         let held: Json[] = [], firstSession: string | undefined;
         let plan: Message<"plan"> | undefined;

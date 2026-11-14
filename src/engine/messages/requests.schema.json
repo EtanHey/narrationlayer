@@ -90,6 +90,32 @@
       ]
     },
     {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "enum": [
+            "nl.engine/1"
+          ]
+        },
+        "type": {
+          "enum": [
+            "artifact_release"
+          ]
+        },
+        "lease_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "protocol",
+        "type",
+        "lease_id"
+      ],
+      "additionalProperties": true
+    },
+    {
       "allOf": [
         {
           "type": "object",

@@ -8,7 +8,7 @@ export function brokenPacing(rule: string): Binding {
     const c = engine.create(host), queued = new Set<string>();
     let queuedRequest = false, shift = 0, lastExitAt = -1, duplicate = false;
     const commands = new Map<string, string>(), outcomes = new Map<string, Message<"outcome">>();
-    return { shutdown: c.shutdown, send(message) {
+    return { resolve: c.resolve, shutdown: c.shutdown, send(message) {
       if (message && typeof message === "object" && !Array.isArray(message)) {
         if (message.type === "player_feedback" && message.edge === "exited") lastExitAt = host.clock.now();
         if (message.type === "narrate") {
