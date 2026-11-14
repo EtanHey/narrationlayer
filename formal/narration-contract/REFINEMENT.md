@@ -239,3 +239,5 @@ whole-state assertion now explicitly includes only the intended last-seq update.
 SNAP-01 source mutations remove the live filter or substitute untimed plan words;
 the whole mutation driver supplies sensitivity and restored-pass evidence.
 No new model-level or host/player acceptance is claimed.
+
+S7c-2 / ruling 91: a matching backend failure with `SYNTH_TIMEOUT` uses the existing SynthesisFailure transition and I01 terminal locks. It records generation reason `synth_timeout`; the host-clock timer and deferred abort are session-level proofs in BIND-01, not modeled timer liveness.

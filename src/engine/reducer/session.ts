@@ -9,6 +9,7 @@ export type SessionState = Identity & {
   pause_owner?: "user" | "f5" | "ask";
   released_leases?: string[];
   request: Message<"narrate">; plan: Body<Message<"plan">>;
+  synthesis_reason?: "synth_timeout";
   generation: Generation; playback: Playback | null; outcome: Message<"outcome"> | null;
   known_ms: number; fenced: boolean; delivered: Body<Message<"piece_ready">>[]; started: boolean; eof: boolean;
   current: Current; job_epoch: number; previous: Pick<Current, "player_instance_id" | "piece_index"> | null; receipts: Receipt[];
@@ -227,7 +228,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
         } else if (input.result.kind === "commit") {
           // I04 / Seal + Commit: complete coverage for N planned pieces.
           if (s.delivered.length === s.plan.pieces.length) s.generation = "committed";
-        } else { const { code, message } = input.result.error; emit({ type: "error", code, message, phase: "synthesize", retry: "new_request", session_id }); s.generation = "failed"; s.fenced = true; if (s.playback === null) s.playback = s.delivered.length === 0 ? "synth_failed" : "speech_failed"; }
+        } else { const { code, message } = input.result.error; emit({ type: "error", code, message, phase: "synthesize", retry: "new_request", session_id }); s.generation = "failed"; if (code === "SYNTH_TIMEOUT") s.synthesis_reason = "synth_timeout"; s.fenced = true; if (s.playback === null) s.playback = s.delivered.length === 0 ? "synth_failed" : "speech_failed"; }
       } else {
         const f = input.feedback;
         if (s.playback !== null) return { state, effects: [] }; // I01: EOF before publication still locks playback.
@@ -262,7 +263,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
   }
   // I01 / Step: independent immutable terminals; publication failure may follow natural EOF.
   if (!s.outcome && s.generation !== "running" && s.playback !== null) {
-    const body: Body<Message<"outcome">> = { type: "outcome", session_id, playback: { reason: s.playback }, generation: { status: s.generation }, stopped_at_ms: s.current.audio_ms, word_index: 0, heard: s.started, physical: "unknown",
+    const body: Body<Message<"outcome">> = { type: "outcome", session_id, playback: { reason: s.playback }, generation: { status: s.generation, ...(s.synthesis_reason ? { reason: s.synthesis_reason } : {}) }, stopped_at_ms: s.current.audio_ms, word_index: 0, heard: s.started, physical: "unknown",
       missing_piece_indices: s.plan.pieces.filter(p => !s.delivered.some(d => d.index === p.index)).map(p => p.index), history: { route: "host", state: "unconfirmed", reason: "mirror" }, artifacts: s.delivered.filter(p => !s.released_leases?.includes(p.artifact.lease_id)).map(p => ({ piece_id: p.piece_id, handle: p.artifact.handle, lease_id: p.artifact.lease_id })) };
     s.outcome = { ...body, protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: engine.seq + 1 }; emit(body);
   }

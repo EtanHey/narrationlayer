@@ -13,7 +13,7 @@ import { runCase } from "../../src/engine/conformance/runner";
 import { engineCases, hello } from "../../src/engine/conformance/engine-cases";
 const root = resolve(import.meta.dir, "../..");
 const runtime = process.env.CONFORMANCE_BUN ?? process.execPath;
-const ids = ["BIND-start", "BIND-abort", "ENG-01", "SUB-01", "PLAN-LAT-01", "ORDER-01", "ERR-01", "ID-03", "ID-04", "TIME-02", "GEN-02", "LIFE-01e", "TIME-01", "GEN-01e", "WORD-02", "DET-01"];
+const ids = ["BIND-timeout", "timeout-late", "BIND-start", "BIND-abort", "ENG-01", "SUB-01", "PLAN-LAT-01", "ORDER-01", "ERR-01", "ID-03", "ID-04", "TIME-02", "GEN-02", "LIFE-01e", "TIME-01", "GEN-01e", "WORD-02", "DET-01"];
 async function proof(id: string) {
   const name = id === "engine" ? "engine-binding" : `broken-${id.toLowerCase()}`;
   const proc = Bun.spawn([runtime, resolve(root, "src/engine/conformance/entry.ts"), "--binding", resolve(root, `src/engine/conformance/${name}.ts`), ...(process.platform === "darwin" ? ["--require-containment"] : [])], { stdout: "pipe", stderr: "pipe" });
@@ -53,7 +53,7 @@ test("before negotiation garbage is NOT_NEGOTIATED; malformed hello retains pars
 });
 
 test("after negotiation the session keeps parser refusals for malformed requests", async () => {
-  const c = createEngineSession({ welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, clock: new FakeClock(), limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 2, aligner_reap_ms: 50 },
+  const c = createEngineSession({ synthesis_timeout_ms: 10000, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, clock: new FakeClock(), limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 2, aligner_reap_ms: 50 },
     planner: { plan() { throw new Error("unused"); } }, backend: { async synthesizeRequest() { throw new Error("unused"); } },
     publication: { async piece() { throw new Error("unused"); }, async commit() {} } });
   const stream = c.events[Symbol.asyncIterator]();

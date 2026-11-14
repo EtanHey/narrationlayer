@@ -78,7 +78,7 @@ async function read(lengths: number[], lie = 1) {
     return publish(audio, context, signal);
   };
   backend.script(lengths.map(n => ({ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(n, 24000, n * 1000 / 24000 * lie) } })));
-  const session = createEngineSession({ welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 100 }, planner, backend, clock, publication, observe: { event(e) { events.push(e); } } });
+  const session = createEngineSession({ synthesis_timeout_ms: 10000, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 100 }, planner, backend, clock, publication, observe: { event(e) { events.push(e); } } });
   session.send(hello); void session.events[Symbol.asyncIterator]().next(); expect(events.pop()?.type).toBe("welcome");
   session.send({ protocol: "nl.engine/1", type: "narrate", request_id: "synthetic-request", idempotency_key: "synthetic-key", use: "read", input: { text: "Copper boats drift", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
   for (let i = 0; i < 40; i++) await clock.advance(1);
@@ -204,7 +204,7 @@ async function lifecycleRead(failSecond = false, stopFirst = false, decrease = f
   const publication = createPublication({ async put() { now += 11; if (failStore) throw Error("synthetic publication failure"); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, release() { return { kind: "released" }; }, async commit() {} });
   const publish = publication.piece;
   publication.piece = async (...args) => { const result = await publish(...args); if (decrease && args[1].index === 1) result.known_ms = 0; return result; };
-  const session = createEngineSession({ welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 100 }, clock,
+  const session = createEngineSession({ synthesis_timeout_ms: 10000, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 100 }, clock,
     planner: { plan(req, limits, id) { const result = planner.plan(req, limits, id); return { ...result, requests: result.requests.map(r => ({ ...r, text: canary + "😀" })) }; } }, publication,
     backend: { async synthesizeRequest(r) { calls++; now += 3; if (failSecond && r.piece_index === 1) throw Error("synthetic failure"); return pcmAudio(lengths[r.piece_index], rates[r.piece_index]); } },
     observe: { event(e) { events.push(e); if (stopFirst && e.type === "duration") session.send({ protocol: "nl.engine/1", type: "control", command_id: "synthetic-stop", session_id: e.session_id, op: "stop", args: { scope: "session", reason: "stop" } }); } },

@@ -12,7 +12,7 @@ import type { Binding } from "../../src/engine/conformance/binding";
 function own(fault: string): Binding {
   return { name: `own-${fault}`, create(host) {
     const engine = { family: "edge", profile_revision: "synthetic-1", voice: "synthetic" };
-    return createEngineSession({ clock: host.clock, backend: host.ports?.backend ?? new ScriptedBackend(host.clock), owner_epoch: 1,
+    return createEngineSession({ synthesis_timeout_ms: 10000, clock: host.clock, backend: host.ports?.backend ?? new ScriptedBackend(host.clock), owner_epoch: 1,
       welcome: { package_version: "0.0.0-conformance", protocol_minor: 0,
         caps: ["read", "speak", "ask_prompt", "display_document", "word_timing", "lifecycle"],
         engines: [{ family: "edge", max_chars: fault === "large-limit" ? 1000 : 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }] },

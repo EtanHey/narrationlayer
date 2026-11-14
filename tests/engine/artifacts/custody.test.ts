@@ -51,7 +51,7 @@ test(name, async () => {
       };
       backend.script(Array.from({ length: count }, (_, index) => ({ latency_ms: 1, late_after_cancel: false,
         result: mode === "failure" && index === target ? { kind: "error", code: "synthetic" } : { kind: "audio", ...pcmAudio(24) } })));
-      const session = createEngineSession({ welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, clock, backend, planner, publication,
+      const session = createEngineSession({ synthesis_timeout_ms: 10000, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, owner_epoch: 1, clock, backend, planner, publication,
         limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 4, aligner_reap_ms: 50 },
         observe: { event(event) { events.push(event); } } });
       session.send(hello); void session.events[Symbol.asyncIterator]().next(); expect(events.pop()?.type).toBe("welcome");
@@ -81,7 +81,7 @@ test("custody: release offsets preserve exactly the remaining delivered leases",
     const store = createArtifactStore(port, 1), events: Event[] = [], released = new Set<string>();
     const { createEngine } = await import("../../../src/engine/core/engine");
     backend.script(Array.from({ length: 6 }, () => ({ latency_ms: 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(24) } })));
-    const session = createEngine({ clock, backend, artifacts: store, owner_epoch: 1, package_version: "0.0.0-test",
+    const session = createEngine({ synthesis_timeout_ms: 10000, clock, backend, artifacts: store, owner_epoch: 1, package_version: "0.0.0-test",
       limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 },
       engines: [{ family: "edge", max_chars: 40, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }],
       voices: { profiles: { synthetic: { kind: "preset", revision: "1", voice: "synthetic" } }, default_voice: "synthetic", hebrew_voice: "he-IL-HilaNeural" } });
@@ -128,7 +128,7 @@ async function releaseFixture(failDelete = false, guess = false) {
     return { plan: { ...identity, type: "plan", display_document: { version: 1, text: "Synthetic.", speech_start: 0, blocks: [] }, words, engine: { family: "edge", voice: "synthetic", profile_revision: "1" }, pieces: words.map((_, index) => ({ piece_id: `p-${index}`, index, word_start: index, word_end: index + 1, raw: false, segments: [{ word_start: index, word_end: index + 1, kind: "sentence", pause_after_ms: 0, pause_in: "this_piece_end" }] })) }, requests: words.map(w => ({ piece_index: w.index, text: w.text })) };
   } };
   backend.script(Array.from({ length: 3 }, () => ({ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(24) } })));
-  const session = createEngineSession({ owner_epoch: 1, clock, backend, planner, publication, artifacts: store, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 3, aligner_reap_ms: 50 } });
+  const session = createEngineSession({ synthesis_timeout_ms: 10000, owner_epoch: 1, clock, backend, planner, publication, artifacts: store, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 3, aligner_reap_ms: 50 } });
   const events: Event[] = [], collect = (async () => { for await (const e of session.events) events.push(e); })();
   session.send(hello); session.send({ protocol: "nl.engine/1", type: "narrate", request_id: "release-test", idempotency_key: "release-test", use: "read", input: { text: "Synthetic.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
   for (let i = 0; i < 12; i++) { await clock.advance(1); for (let j = 0; j < 32; j++) await Promise.resolve(); }
@@ -160,7 +160,7 @@ test("release: guessed minted lease at put offset zero is refused without deleti
 });
 test("release: a session without an artifact store refuses INVALID_REQUEST", async () => {
   // A throw-only session has no artifact store.
-  const c = createEngineSession({ owner_epoch: 1, clock: new FakeClock(), backend: { async synthesizeRequest() { throw Error("unused"); } }, planner: { plan() { throw Error("unused"); } }, publication: { async piece() { throw Error("unused"); }, async commit() {} }, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 1, aligner_reap_ms: 50 } });
+  const c = createEngineSession({ synthesis_timeout_ms: 10000, owner_epoch: 1, clock: new FakeClock(), backend: { async synthesizeRequest() { throw Error("unused"); } }, planner: { plan() { throw Error("unused"); } }, publication: { async piece() { throw Error("unused"); }, async commit() {} }, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 1, aligner_reap_ms: 50 } });
   const stream = c.events[Symbol.asyncIterator](); c.send(hello); await stream.next(); c.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: "lease:1:1" });
   expect((await stream.next()).value).toMatchObject({ type: "error", code: "INVALID_REQUEST" }); await c.shutdown(0);
 });
@@ -172,7 +172,7 @@ test("shutdown: settlement leaves no unnamed lease at every publication offset",
     const { createEngine } = await import("../../../src/engine/core/engine");
     let shutdown: Promise<void> | undefined;
     const terminals: Message<"outcome">[] = [];
-    const engine = createEngine({ clock, backend, observe: { event(e) { if (e.type === "outcome") terminals.push(e); } }, artifacts: { ...store, async put(...args) {
+    const engine = createEngine({ synthesis_timeout_ms: 10000, clock, backend, observe: { event(e) { if (e.type === "outcome") terminals.push(e); } }, artifacts: { ...store, async put(...args) {
       const receipt = await store.put(...args);
       arm(receipt.lease_id);
       for (let i = 0; i < 8; i++) await Promise.resolve(); // Hold the stored receipt in flight.
@@ -219,7 +219,7 @@ function shutdownEngine() {
   const clock = new FakeClock(), backend = new ScriptedBackend(clock), bytes = new Map<string, Uint8Array>(), events: Event[] = [];
   let failDelete = false;
   const store = createArtifactStore({ has: h => bytes.has(h), get: h => bytes.get(h), set: (h, b) => bytes.set(h, b), delete(h) { if (failDelete) throw Error("synthetic refusal"); return bytes.delete(h); } }, 1);
-  const engine = createEngine({ clock, backend, artifacts: store, owner_epoch: 1, package_version: "0", observe: { event(e) { events.push(e); } },
+  const engine = createEngine({ synthesis_timeout_ms: 10000, clock, backend, artifacts: store, owner_epoch: 1, package_version: "0", observe: { event(e) { events.push(e); } },
     limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 }, engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], voices: { profiles: { synthetic: { kind: "preset", revision: "1", voice: "synthetic" } }, default_voice: "synthetic", hebrew_voice: "he-IL-HilaNeural" } });
   engine.send(hello);
   const read = (id: string) => engine.send({ protocol: "nl.engine/1", type: "narrate", request_id: id, idempotency_key: id, use: "read", input: { text: "Copper boats drift.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
