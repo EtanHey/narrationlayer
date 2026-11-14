@@ -457,10 +457,11 @@ test("publication context cannot mutate the plan retained by the session", async
   expect(h.publicationCalls).toBe(2);
 });
 
-test("LIFE-01e: absent first segment fails before any backend call", async () => {
+test("a plan with a piece of zero segments is refused at admission, not after acceptance", async () => {
   const h = harness(), plan = h.planner.plan;
   h.planner.plan = (...args) => { const result = plan(...args); result.plan.pieces[0].segments = []; return result; };
   h.session.send(request); await h.tick();
   expect(h.backend.calls).toHaveLength(0);
-  expect(h.events().at(-1)).toMatchObject({ type: "outcome", generation: { status: "failed" } });
+  expect(h.events()).toMatchObject([{ type: "error", code: "INVALID_REQUEST", phase: "admit" }]);
+  expect(h.events()).toHaveLength(1);
 });
