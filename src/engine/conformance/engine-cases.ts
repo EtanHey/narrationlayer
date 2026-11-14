@@ -1,3 +1,4 @@
+import { pacingCases } from "./pacing-cases";
 import { negotiationCases } from "./negotiation-cases";
 import type { Case, CaseContext } from "./runner";
 import type { BackendStep, Json } from "./binding";
@@ -15,7 +16,7 @@ async function bounded(c: CaseContext, promise: Promise<unknown>) {
   for (let i = 0; i < 8 && !done; i++) { await c.clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve(); }
   c.assert(done); if (error) throw error;
 }
-function setup(c: CaseContext, steps: BackendStep[]) {
+export function setup(c: CaseContext, steps: BackendStep[]) {
   const backend = new ScriptedBackend(c.clock), spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
   backend.script(steps);
   const connection = c.binding.create({ clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
@@ -68,7 +69,7 @@ export function assertBackendCalls(c: CaseContext, seen: Event[], calls: readonl
 // Plain-text reads: every call (delivered or not) speaks exactly its planned piece's words.
 const planned = (plan: Extract<Event, { type: "plan" }>, i: number) => plan.words.slice(plan.pieces[i].word_start, plan.pieces[i].word_end).map(w => w.text).join(" ");
 type MessagePieces = Extract<Event, { type: "piece_ready" }>[];
-function success(c: CaseContext, seen: Event[], request_id: string, count: number, calls: readonly Json[]) {
+export function success(c: CaseContext, seen: Event[], request_id: string, count: number, calls: readonly Json[]) {
   const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
   c.assert(accepted.length >= 1 && accepted.every(e => e.session_id === accepted[0].session_id));
   const session_id = accepted[0].session_id;
@@ -88,7 +89,7 @@ function success(c: CaseContext, seen: Event[], request_id: string, count: numbe
   return { own, plans, pieces, records, durations, outcomes };
 }
 // These fixtures have exactly one attempted call without a delivered piece.
-function interrupted(c: CaseContext, seen: Event[], request_id: string, delivered: number, generation: "failed" | "cancelled", calls: readonly Json[]) {
+export function interrupted(c: CaseContext, seen: Event[], request_id: string, delivered: number, generation: "failed" | "cancelled", calls: readonly Json[]) {
   const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
   c.assert(accepted.length === 1);
   const own = seen.filter(e => "session_id" in e && e.session_id === accepted[0].session_id);
@@ -111,6 +112,7 @@ function textFree(c: CaseContext, text: string) {
 }
 export const engineCases: Record<string, Case> = {
   ...negotiationCases,
+  ...pacingCases,
   "GEN-02": async c => {
     const t = setup(c, [...steps(100), ...steps(100)]);
     for (const request_id of ["request-gen-1", "request-gen-2"]) {

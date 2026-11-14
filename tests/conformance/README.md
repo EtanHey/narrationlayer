@@ -255,3 +255,32 @@ major, including 01, fatally as UNSUPPORTED_VERSION; NEG-03 refuses malformed
 protocol strings as INVALID_REQUEST, keeps the binding open and proves recovery.
 This is the engine's two-step rule and the lead's amended ruling 50; the first
 version of the follow-up brief's exact-string rule was wrong.
+
+Pacing and identity add PACE-01, PACE-02, CTRL-01, SESS-01 and ID-05e (33
+active rows). PACE-01 independently bounds delivery and synthesis by host-sent
+playing indices and the requested lookahead (default 2, overrides 1 and 5),
+checks serial lifecycle/backend calls, and requires every window to resume.
+Pause remains owed to the controls slice. PACE-02 queues three reads: plan and
+admission precede synthesis; a dependent starts prefetch only after predecessor
+generation ends, by commit, cancellation or failure. Prefetch holds at piece 0,
+even after spawned; first_sample releases normal pacing. Predecessor playback
+and outcome do not gate this release (lead amendment 1). Both with-outcome and
+without-outcome interleavings are exercised. An unknown predecessor produces a
+plan and no backend calls or pieces; stopping it gives one outcome (lead question
+53). This is a waiting dependency, distinct from a dependent stranded after a
+known predecessor ends.
+
+CTRL-01 checks byte-identical stop receipts including seq, conflicting args,
+the exact 32-receipt window, per-session ownership, and raw event numbering.
+Other control operations remain owed. SESS-01 checks echoed opaque unknown ids,
+control-phase UNKNOWN_SESSION/never, silent unknown feedback, successful ongoing
+playback and continued binding service; a known ended session receives noop.
+Command-id error correlation remains owed (lead ruling R3); absence is not a
+requirement. Lead rulings R1/R2/R4 cover request lookahead, session-id echo and
+silent feedback; question 52 remains open for controls. ID-05e races stop and EOF
+in both orders, in one turn, one microtask apart and one fake millisecond apart,
+on one-piece and last-of-three reads. It requires one committed outcome, the
+first reason and the corresponding accept/noop ack. Command receipts can follow
+an outcome; session data cannot. The host terminal-writer clause remains owed
+to ID-05h. Five committed wrong engines each fail only their own row; eight
+additional fault probes test the cases without real time, audio or devices.
