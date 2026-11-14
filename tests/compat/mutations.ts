@@ -60,6 +60,7 @@ export const cases: MutationRow[] = [
   { kind: "named-test", name: "read-plan-partition", file: "src/plan/read-plan.ts", before: "word_start: start, word_end: cursor,", after: "word_start: start, word_end: cursor + 1,", testFile: "tests/plan/read-plan.test.ts", testName: "partition: every document word belongs to exactly one segment and piece" },
   { kind: "named-test", name: "read-plan-token-match", file: "src/plan/read-plan.ts", before: 'if (words[cursor]?.text !== token[0]) throw new ReadPlanError("TOKEN_MISMATCH");', after: '/* scratch: skip token comparison */', testFile: "tests/plan/read-plan.test.ts", testName: "token disagreement throws before a plan escapes" },
   { kind: "named-test", name: "read-plan-kind", file: "src/plan/read-plan.ts", before: 'segment.kind === "list_item" ? "item" : segment.kind', after: 'segment.kind', testFile: "tests/plan/read-plan.test.ts", testName: "every plan parses: the projected fixtures are wire events" },
+  { kind: "named-test", name: "planner-word-boundary", file: "src/plan/synthesis-units.ts", before: "[,;:—―–-](?=\\s|$)", after: "[,;:―–-](?=\\s|$)|[—]", testFile: "tests/plan/synthesis-round1.test.ts", testName: "word boundary: every cut falls on whitespace" },
   // Clock deadline inclusivity is independent of the conformance command entry module.
   { kind: "conformance-case", name: "conformance-clock-deadline", file: "src/engine/conformance/clock.ts", before: "next[1].at > end", after: "next[1].at >= end", binding: "src/engine/conformance/null-binding.ts", caseId: "CONF-02" },
 ];
