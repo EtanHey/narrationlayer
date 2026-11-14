@@ -15,10 +15,12 @@ export function pcmAudio(samples: number, sample_rate = 1000, duration_ms = samp
 export class ScriptedBackend implements FakeBackend {
   private steps: BackendStep[] = [];
   private requests: Json[] = [];
+  private highWater = 0;
   private active = new Set<{ waiting: boolean }>();
   constructor(private clock: Clock) {}
   // Case-only request observations, never lifecycle records or logs; preserve text for case assertions.
   get calls(): readonly Json[] { return structuredClone(this.requests); }
+  get peak(): number { return this.highWater; }
   get pending(): number { return this.steps.length + this.active.size; }
   assertDrained(): void {
     if (this.pending) throw new Error(`backend: ${this.steps.length} unused steps, ${this.active.size} pending requests${[...this.active].some(s => s.waiting) ? "; late_after_cancel step was never cancelled" : ""}`);
@@ -38,7 +40,7 @@ export class ScriptedBackend implements FakeBackend {
     this.requests.push(structuredClone(request));
     const step = this.steps.shift();
     if (!step) return Promise.reject(new Error("backend script exhausted"));
-    const state = { waiting: step.late_after_cancel }; this.active.add(state);
+    const state = { waiting: step.late_after_cancel }; this.active.add(state); this.highWater = Math.max(this.highWater, this.active.size);
     return new Promise((resolve, reject) => {
       let cancel = () => {};
       const deliver = () => {

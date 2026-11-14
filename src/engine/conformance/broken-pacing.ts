@@ -7,7 +7,7 @@ export function brokenPacing(rule: string): Binding {
   return { name: `broken-${rule}`, create(host) {
     const c = engine.create(host), queued = new Set<string>();
     let queuedRequest = false, shift = 0, lastExitAt = -1, duplicate = false;
-    const commands = new Map<string, string>(), outcomes = new Map<string, Message<"outcome">>();
+    const ids = new Map<string, string>(), commands = new Map<string, string>(), outcomes = new Map<string, Message<"outcome">>();
     return { resolve: c.resolve, shutdown: c.shutdown, send(message) {
       if (message && typeof message === "object" && !Array.isArray(message)) {
         if (message.type === "player_feedback" && message.edge === "exited") lastExitAt = host.clock.now();
@@ -17,6 +17,7 @@ export function brokenPacing(rule: string): Binding {
             message = { ...message, lookahead: Number(message.lookahead ?? 2) + 1 };
         }
         if (message.type === "control" && typeof message.command_id === "string") {
+          ids.set(String(message.session_id), message.command_id);
           duplicate = lastExitAt === host.clock.now();
           if (rule === "CTRL-01") {
             const fingerprint = JSON.stringify(message), key = `${message.session_id}:${message.command_id}`;
@@ -34,7 +35,7 @@ export function brokenPacing(rule: string): Binding {
           for (const edge of ["spawned", "first_sample"]) c.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: event.session_id, piece_index: 0, control_epoch: 1, player_instance_id: "player-0", edge, t_mono_ms: host.clock.now(), source: "player_reported" });
         }
         if (rule === "SESS-01" && event.type === "error" && event.code === "UNKNOWN_SESSION") {
-          yield { protocol: "nl.engine/1", type: "control_ack", owner_epoch: event.owner_epoch, seq: event.seq, command_id: "stop-command", control_epoch: 0, outcome: "noop" }; continue;
+          yield { protocol: "nl.engine/1", type: "control_ack", owner_epoch: event.owner_epoch, seq: event.seq, command_id: ids.get(String(event.session_id)) ?? "unknown-command", control_epoch: 0, outcome: "noop" }; continue;
         }
         if (event.type === "outcome") outcomes.set(event.session_id, event);
         if (rule === "ID-05e" && duplicate && event.type === "control_ack" && event.outcome === "noop" && [...outcomes.values()].at(-1)?.playback.reason === "completed") {

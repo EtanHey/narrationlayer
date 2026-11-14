@@ -304,3 +304,15 @@ first reason and the corresponding accept/noop ack. Command receipts can follow
 an outcome; session data cannot. The host terminal-writer clause remains owed
 to ID-05h. Five committed wrong engines each fail only their own row; eight
 additional fault probes test the cases without real time, audio or devices.
+
+Round 1 reads concurrency from ScriptedBackend's own read-only peak, recorded
+at actual call time, including when a binding captures its method at create.
+PACE-01 uses single-session fixtures; PACE-02 uses queued sessions. Their peak
+of 1 does not assert engine-wide serialization of independent reads: two
+independent reads may overlap today (open lead question 55). PACE-01 adds nine
+pieces and requires a delivery bound plus progress, not a full prefetch window.
+Queued reads have five pieces so pacing by their own index is observable.
+CTRL-01 counts raw events around every replay, checks one outcome per session,
+varies each stop argument alone, and checks that a reuse rejection consumes no
+receipt slot. Sequence replay interpretation and spawned/first_sample semantics
+remain lead questions 54 and 56; questions 52 and 53 also remain open.
