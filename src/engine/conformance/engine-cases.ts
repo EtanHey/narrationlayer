@@ -59,6 +59,7 @@ function cumulative(count: number, scale = 1, audioShapes = shapes) {
 export function assertBackendCalls(c: CaseContext, seen: Event[], calls: readonly Json[], session_id: string, pieces: MessagePieces, undelivered = 0) {
   const requested = seen.filter(e => e.type === "lifecycle" && e.edge === "synthesis_requested");
   c.assert(calls.length === requested.length);
+  c.assert(requested.every(r => seen.some(e => e.type === "accepted" && e.session_id === r.session_id)));
   const own = requested.flatMap((r, i) => r.session_id === session_id ? [calls[i]] : []);
   c.assert(own.length === pieces.length + undelivered);
   own.forEach((call, i) => c.assert(call !== null && typeof call === "object" && !Array.isArray(call) && call.piece_index === i && typeof call.text === "string" && (i >= pieces.length || call.text === pieces[i].spoken_text)));
@@ -83,9 +84,10 @@ function success(c: CaseContext, seen: Event[], request_id: string, count: numbe
   c.assert(outcomes.length === 1 && outcomes[0].generation.status === "committed");
   c.assert(!seen.some(e => e.type === "error"));
   assertBackendCalls(c, seen, calls, session_id, pieces).forEach((call, i) => c.assert((call as { text: string }).text === planned(plans[0], i)));
-  c.assert(own.at(-1)?.type === "outcome");
+  c.assert(own.at(-1)?.type === "outcome"); // Live-lease timing_update exception is owed to alignment (S7).
   return { own, plans, pieces, records, durations, outcomes };
 }
+// These fixtures have exactly one attempted call without a delivered piece.
 function interrupted(c: CaseContext, seen: Event[], request_id: string, delivered: number, generation: "failed" | "cancelled", calls: readonly Json[]) {
   const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
   c.assert(accepted.length === 1);
@@ -101,7 +103,7 @@ function interrupted(c: CaseContext, seen: Event[], request_id: string, delivere
   c.assert(durations.length === delivered && durations.every(d => !d.final));
   c.assert(outcomes.length === 1 && outcomes[0].generation.status === generation);
   assertBackendCalls(c, seen, calls, accepted[0].session_id, pieces, 1).forEach((call, i) => c.assert((call as { text: string }).text === planned(plans[0], i)));
-  c.assert(own.at(-1)?.type === "outcome");
+  c.assert(own.at(-1)?.type === "outcome"); // Live-lease timing_update exception is owed to alignment (S7).
 }
 function textFree(c: CaseContext, text: string) {
   const raw = JSON.stringify(c.trace.filter(e => e && typeof e === "object" && !Array.isArray(e) && (e.type === "lifecycle" || e.type === "error")));
@@ -253,7 +255,7 @@ export const engineCases: Record<string, Case> = {
     for (const event of t.seen) if (event.type !== "welcome") c.assert(event.seq === ++seq);
     success(c, t.seen, "request-1", 1, t.backend.calls);
     c.assert(!t.seen.some(e => e.type === "error"));
-    c.assert(t.seen.at(-1)?.type === "outcome"); // Lease-backed timing_update exception owed to S7.
+    c.assert(t.seen.at(-1)?.type === "outcome"); // Live-lease timing_update exception is owed to alignment (S7).
   },
   "ERR-01": async c => {
     const t = setup(c, [{ latency_ms: 1, late_after_cancel: false, result: { kind: "error", code: "synthetic failure" } }]);
