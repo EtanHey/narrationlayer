@@ -6,7 +6,7 @@ const root = resolve(import.meta.dir, "../.."), runtime = process.env.CONFORMANC
 const entry = resolve(root, "src/engine/conformance/entry.ts");
 const savedBinding = resolve(root, "src/engine/conformance/broken-priv-saved-log.ts");
 async function run(binding: string) {
-  const p = Bun.spawn([runtime, entry, "--binding", binding, ...(process.platform === "darwin" ? ["--require-containment"] : [])], { stdout: "pipe", stderr: "pipe" });
+  const p = Bun.spawn([runtime, entry, "--binding", binding, ...(process.platform === "darwin" ? ["--require-containment"] : [])], { env: { ...process.env, NL_CONFORMANCE_WATCHDOG_MS: "3000" }, stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
   const report = JSON.parse(stdout);
   expect(code).toBe(1); expect(report.containment).toBe(process.platform === "darwin" ? "macos-sandbox" : "in-process-tripwire");
@@ -16,7 +16,7 @@ async function run(binding: string) {
 }
 test("saved console.error: direct runCase is green by design while the saved log escapes", async () => {
   const script = `import binding from ${JSON.stringify(savedBinding)};import {runCase} from ${JSON.stringify(resolve(root, "src/engine/conformance/runner.ts"))};import {privacyCases} from ${JSON.stringify(resolve(root, "src/engine/conformance/privacy-cases.ts"))};console.log(JSON.stringify(await runCase('PRIV-01e',binding,privacyCases['PRIV-01e'])));`;
-  const p = Bun.spawn([runtime, "--eval", script], { stdout: "pipe", stderr: "pipe" });
+  const p = Bun.spawn([runtime, "--eval", script], { env: { ...process.env, NL_CONFORMANCE_WATCHDOG_MS: "3000" }, stdout: "pipe", stderr: "pipe" });
   const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
   expect(code).toBe(0); expect(JSON.parse(out).result).toBe("pass"); expect(hasReadText(err)).toBe(true);
 });
