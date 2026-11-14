@@ -385,7 +385,7 @@ a zero-delay timer armed after the turn; this engine's exact microtask counts
 belong to its unit suite. Backend calls and abort listeners run after the turn;
 the reducer fences a stop before the deferred abort fires.
 
-`chooseEngine` (selection) and `observe` (diagnostic) are supplied through
+The voices table (selection) and `observe` (diagnostic) are supplied through
 `createEngine` options and still run inside `send`; neither is reachable through
 a public door today. The coming `./engine` door must not expose `observe` (owed
 to that slice). The planner also runs synchronously as a pure request decision.
@@ -417,6 +417,17 @@ synthetic preset. The synthesize half of ENG-01, per-segment failure fallback,
 XTTS/F5 cascade limits, mode rates and auto-slow remain owed.
 `broken-eng-01` serves a mandated clone using Edge; `broken-sub-01` hides the
 substitution flag. Their receipts pin ENG-01 and SUB-01 respectively.
+
+The six scheduling controls in `conforming.test.ts` run every active row in an
+isolated process with the real preload: timer start, two/eight extra microtasks,
+serial backend calls, timer abort, and ordered events delayed by 1 ms. A 1500 ms
+child watchdog bounds hangs; case progress uses only the fake clock. These
+controls cover ordered event delays of 1 ms. Longer ordered delivery remains
+owed: at 3 ms, ART-01, CTRL-01, PACE-01, SESS-01 and SHUT-01 still fail; at 7 ms,
+ART-01, ART-04, CTRL-01, PACE-01, PACE-02, SESS-01, SHUT-01 and VER-02e still fail.
+Those rows retain fixed-tick assumptions beyond the committed 1 ms control.
+Running the conforming engines through the packaged entry's two children,
+including reversed case order and the parent stream scan, remains owed.
 
 SEEK-01e checks delivered-word landing, unavailable timing, audio clamping,
 re-anchored lookahead and preserved pause ownership (I09, stage-A mirror only).

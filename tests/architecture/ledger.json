@@ -9,6 +9,13 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/broken-shut-late.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
+    "src/engine/conformance/broken-life-future.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
+    "src/engine/conformance/broken-shut-race.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
+    "src/engine/conformance/broken-priv-rejoin.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
+    "src/engine/conformance/broken-priv-order.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
+    "src/engine/conformance/broken-priv-streams.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
+    "src/engine/conformance/broken-priv-children.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU1"},
     "src/engine/conformance/broken-seek-reject-moves.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5b"},
     "src/engine/conformance/broken-seek-stale-taken.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5b"},
     "src/engine/conformance/broken-seek-ended-accepted.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5b"},

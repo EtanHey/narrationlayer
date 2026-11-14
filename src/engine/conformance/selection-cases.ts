@@ -8,16 +8,17 @@ const request = (profile: string, require_clone = false, text = "Amber rafts flo
 const audio = () => ({ latency_ms: 8, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(100, 1000, 300) } } as const);
 async function complete(c: CaseContext, t: ReturnType<typeof setup>, req: Message<"narrate">) {
   const start = t.seen.length;
-  t.backend.script([audio()]); t.connection.send(req);
+  const synthesize = t.backend.synthesizeRequest.bind(t.backend);
+  t.backend.synthesizeRequest = (request, signal) => {
+    t.backend.script([audio()]); return synthesize(request, signal);
+  }; // L116: script at the port, independent of plan delivery.
+  t.connection.send(req);
   let plan: Message<"plan"> | undefined;
   const played = new Set<number>();
   for (let tick = 0; tick < 512; tick++) {
     await t.settle(1);
     const own = t.seen.slice(start);
-    if (!plan) {
-      plan = own.find(e => e.type === "plan");
-      if (plan) t.backend.script(Array.from({ length: plan.pieces.length - 1 }, audio));
-    }
+    plan ??= own.find(e => e.type === "plan");
     for (const p of own.filter(e => e.type === "piece_ready")) if (!played.has(p.index)) {
       played.add(p.index);
       for (const edge of ["spawned", "first_sample", "last_sample", "exited"])
@@ -25,6 +26,7 @@ async function complete(c: CaseContext, t: ReturnType<typeof setup>, req: Messag
     }
     if (own.some(e => e.type === "outcome")) break;
   }
+  t.backend.synthesizeRequest = synthesize;
   const own = t.seen.slice(start), pieces = own.filter(e => e.type === "piece_ready");
   c.assert(own.some(e => e.type === "outcome" && e.playback.reason === "completed" && e.generation.status === "committed")); // §2 natural completion; bounded fake-clock progress, no fixed arrival tick.
   c.assert(!!plan && pieces.length === plan.pieces.length); // §1.2 L65: the engine owns grouping.

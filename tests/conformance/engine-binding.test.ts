@@ -228,3 +228,19 @@ test("BIND-01: conforming backend start from a timer armed after the turn passes
   } };
   expect((await runCase("BIND-01", timer, engineCases["BIND-01"])).result).toBe("pass");
 });
+
+for (const id of ["LIFE-FUTURE", "SHUT-RACE"]) test(`${id}: round-one wrong engine matches its exact fail-set`, () => proof(id));
+test("ID-04 rejects a replay acceptance duplicated after its first count check", async () => {
+  const binding = { name: "late-extra-accept", create(host: Parameters<typeof engine.create>[0]) {
+    const c = engine.create(host); let count = 0;
+    return { ...c, events: (async function* () { for await (const e of c.events) {
+      yield e;
+      if (e.type === "accepted" && e.request_id === "request-1" && ++count === 2) {
+        await new Promise<void>(resolve => { host.clock.schedule(1, resolve); }); yield e;
+      }
+    } })() };
+  } };
+  expect((await runCase("ID-04", binding, engineCases["ID-04"])).result).toBe("fail");
+});
+
+test("SHUT-LATE: late deadline with held stream matches its exact fail-set", () => proof("SHUT-LATE"));

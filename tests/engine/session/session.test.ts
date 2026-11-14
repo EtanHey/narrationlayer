@@ -525,7 +525,7 @@ test("send: re-entering consumer starts two calls and fires two aborts", async (
 });
 
 test("send: settled run does not fire a deferred abort listener", async () => {
-  for (const offset of [3, 4]) {
+  for (const offset of [2, 3]) {
     const h = harness(1, units.slice(0, 1)); let calls = 0, aborts = 0;
     h.backend.synthesizeRequest = (_request, signal) => {
       calls++; signal.addEventListener("abort", () => { aborts++; }); return Promise.resolve(pcmAudio(10));
