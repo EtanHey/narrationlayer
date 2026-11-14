@@ -1,4 +1,4 @@
-import { assertBackendCalls } from "./engine-cases";
+import { createProbed, assertBackendCalls } from "./engine-cases";
 import { FakeClock } from "./clock";
 import type { Case, CaseContext } from "./runner";
 import type { Json } from "./binding";
@@ -20,7 +20,7 @@ function setup(c: CaseContext, audio = false, clock = c.clock) {
       return synthesize(request, signal);
     };
   }
-  const connection = c.binding.create({ clock, ports: { backend, spawn, player, host: new ScriptedHost(clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
+  const connection = createProbed(c, { clock, ports: { backend, spawn, player, host: new ScriptedHost(clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
   const seen: Event[] = [];
   let ended = false;
   const collecting = (async () => { for await (const raw of connection.events) { if (raw && typeof raw === "object" && !Array.isArray(raw) && raw.type === "welcome") c.assert(!("seq" in raw)); const parsed = parseEvent(raw); c.assert(parsed.ok && parsed.value !== null); if (parsed.ok && parsed.value) seen.push(parsed.value); } ended = true; })().catch(() => { c.failed = true; });

@@ -4,6 +4,7 @@ if (import.meta.main) {
   const { pathToFileURL } = await import("node:url");
   const { writeFileSync } = await import("node:fs");
   const { canonical, runConformance, validateRegistry, registry } = await import("./runner.js");
+  const { hasReadText } = await import("./privacy-cases.js");
   const { default: nullBinding } = await import("./null-binding.js");
   const { trapState, trapsPresent } = await import("./wall-guard.js");
   const { sandboxAvailable, sandboxCommand } = await import("./sandbox.js");
@@ -86,7 +87,6 @@ if (import.meta.main) {
             if (!completed) return { bytes: "", report: undefined, code: -1,
               error: "child watchdog expired before report/log streams completed" };
             const [bytes, stdout, stderr, code] = completed;
-            process.stderr.write(stdout + stderr);
             let report: Report | undefined;
             let error = "child report unavailable";
             try {
@@ -104,7 +104,14 @@ if (import.meta.main) {
               else if (!validRows) error = "child report registry mismatch (ids, order, metadata or activation)";
               else report = parsed;
             } catch { /* Missing/invalid reports become a named failure below. */ }
-            return { bytes, report, code, error };
+            let acceptedBytes = bytes;
+            for (const [stream, content] of [["stdout", stdout], ["stderr", stderr]]) {
+              if (registry.some(row => row.id === "PRIV-01e" && row.active) && hasReadText(content)) {
+                if (report) { diagnostic(report, "PRIV-01e", `read text in child ${stream}`); acceptedBytes = canonical(report); }
+                process.stderr.write(`PRIV-01e: read text detected in child ${stream}\n`);
+              } else process.stderr.write(content);
+            }
+            return { bytes: acceptedBytes, report, code, error };
           } finally {
             clearTimeout(deadline);
             // Bun owns stdio[3] and closes it when the subprocess is collected.

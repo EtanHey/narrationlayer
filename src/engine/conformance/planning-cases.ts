@@ -4,7 +4,7 @@ import { parseEvent } from "../messages/parser";
 import { pcmAudio, ScriptedBackend } from "./fake-backend";
 import { ScriptedPlayer, ScriptedSpawn } from "./fake-player";
 import { ScriptedHost } from "./host-stub";
-import { assertBackendCalls, hello } from "./engine-cases";
+import { createProbed, assertBackendCalls, hello } from "./engine-cases";
 
 type Unit = { kind: "heading" | "item" | "sentence"; text: string };
 const unit = (kind: Unit["kind"], text: string): Unit => ({ kind, text });
@@ -24,7 +24,7 @@ async function read(c: CaseContext, units: Unit[], expected = units, format: "pl
     backend.script([{ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(100) } }]);
     return synthesize(request, signal);
   };
-  const connection = c.binding.create({ clock: c.clock, ports: { backend, spawn, player, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32), audible: false });
+  const connection = createProbed(c, { clock: c.clock, ports: { backend, spawn, player, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32), audible: false });
   const seen: Event[] = [];
   const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })().catch(() => { c.failed = true; });
   const text = units.map(u => u.kind === "heading" ? `# ${u.text}` : u.kind === "item" ? `- ${u.text}` : u.text).join("\n");

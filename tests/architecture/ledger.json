@@ -9,6 +9,11 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/broken-priv-saved-log.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7d" },
+    "src/engine/conformance/privacy-cases.ts": { "layer": 4, "area": "engine", "owner": "P2.S7d" },
+    "src/engine/conformance/broken-priv-01e.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7d" },
+    "src/engine/conformance/broken-bind-start.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7c1" },
+    "src/engine/conformance/broken-bind-abort.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7c1" },
     "src/engine/conformance/pause-cases.ts": {"layer": 4, "area": "engine", "owner": "P2.S5a"},
     "src/engine/conformance/broken-pause-01.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5a"},
     "src/engine/conformance/broken-pause-02.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S5a"},

@@ -8,19 +8,9 @@ const text = "Amber rafts float. Violet cranes glide. Golden otters swim.";
 const read = (id: string) => ({ protocol: "nl.engine/1", type: "narrate", request_id: id, idempotency_key: id, use: "read", input: { text, format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces", lookahead: 3 });
 const script = (read = 0): BackendStep[] => [31, 47, 63].map(n => n + read * 101).map(n => ({ latency_ms: 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(n, 1000, n) } }));
 function fixture(c: CaseContext, steps = [...script(), ...script(1), ...script(2).slice(0, 1), { latency_ms: 2, late_after_cancel: true, result: { kind: "audio", ...pcmAudio(79) } } satisfies BackendStep]) {
-  let store = new Map<string, Uint8Array>(), inside = false, portInCall = false;
+  let store = new Map<string, Uint8Array>();
   const create = c.binding.create;
-  c.binding.create = host => {
-    store = host.store;
-    for (const method of ["get", "set", "has", "delete"] as const) {
-      const original = store[method].bind(store);
-      Reflect.set(store, method, (...args: unknown[]) => { if (inside) portInCall = true; return Reflect.apply(original, store, args); });
-    }
-    const connection = create(host), send = connection.send.bind(connection), shutdown = connection.shutdown.bind(connection);
-    connection.send = message => { inside = true; try { send(message); } finally { inside = false; } };
-    connection.shutdown = deadline => { inside = true; try { return shutdown(deadline); } finally { inside = false; } };
-    return connection;
-  };
+  c.binding.create = host => { store = host.store; return create(host); };
   const t = setup(c, steps); c.binding.create = create;
   c.assert(typeof t.connection.resolve === "function");
   const released = new Set<string>();
@@ -58,7 +48,7 @@ function fixture(c: CaseContext, steps = [...script(), ...script(1), ...script(2
     for (const p of pieces().filter(p => p.session_id === a.session_id)) for (const edge of ["spawned", "first_sample", "exited"]) t.connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: p.session_id, player_instance_id: `artifact-player-${p.index}`, control_epoch: p.index + 1, piece_index: p.index, edge, t_mono_ms: c.clock.now(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: p.start_ms + p.duration_ms } } : {}) });
     await t.settle(); success(c, t.seen, id, 3, t.backend.calls); outcome(id);
   };
-  return { ...t, ruleA: () => c.assert(!portInCall), pieces, release, check, complete, outcome, released, store };
+  return { ...t, pieces, release, check, complete, outcome, released, store };
 }
 async function endings(c: CaseContext) {
   for (const end of ["completed", "stop", "failure", "shutdown"]) for (const same of [false, true]) {
@@ -81,7 +71,7 @@ async function endings(c: CaseContext) {
     for (let i = 0; i < 8; i++) await t.settle(1);
     if (end === "completed") success(c, t.seen, "artifact-end", 3, t.backend.calls);
     else interrupted(c, t.seen, "artifact-end", count, end === "failure" ? "failed" : end === "shutdown" ? "interrupted" : "cancelled", t.backend.calls);
-    t.outcome("artifact-end"); t.check(); await t.finish(); t.check(); t.ruleA();
+    t.outcome("artifact-end"); t.check(); await t.finish(); t.check();
   }
 }
 export const artifactCases: Record<string, Case> = {
@@ -124,7 +114,7 @@ export const artifactCases: Record<string, Case> = {
       for (const p of t.pieces()) { await t.release(p); await t.release(p); }
       t.check(); c.assert(t.store.size === 0);
       t.connection.send(read("shutdown-late")); await t.settle(50);
-      c.assert(c.trace.length === length); t.ruleA();
+      c.assert(c.trace.length === length);
       let twice = false; void t.connection.shutdown(c.clock.now()).then(() => { twice = true; }); await t.settle(); c.assert(twice);
       // Only now let the intentionally unresponsive fixture settle for harness cleanup.
       if (stuck) await t.settle(10000);
@@ -150,7 +140,7 @@ export const artifactCases: Record<string, Case> = {
       const out = outcomes[0];
       if (out.heard) { completed++; c.assert(out.playback.reason === "completed" && out.generation.status === "committed"); }
       else c.assert(out.playback.reason === "shutdown" && out.generation.status === "interrupted");
-      t.check(); for (const p of t.pieces()) await t.release(p); await t.finish(); t.ruleA();
+      t.check(); for (const p of t.pieces()) await t.release(p); await t.finish();
     }
     c.assert(completed > 0);
   },
@@ -170,12 +160,12 @@ export const artifactCases: Record<string, Case> = {
     t.connection.send({ protocol: "nl.engine/1", type: "control", command_id: "artifact-stop", session_id: p.session_id, op: "stop", args: { scope: "session", reason: "stop" } });
     await t.settle(3); interrupted(c, t.seen, "artifact-stop", 1, "cancelled", t.backend.calls); t.outcome("artifact-stop"); t.check();
     await t.finish(); t.check();
-    await endings(c); t.ruleA();
+    await endings(c);
     c.assert(t.store.size === t.pieces().length - t.released.size);
     const live = fixture(c, [...script(), ...script(1)]);
     for (const id of ["artifact-first", "artifact-second"]) { live.connection.send(read(id)); await live.complete(id); }
     for (const p of live.pieces()) await live.release(p);
-    live.check(); c.assert(live.store.size === 0); await live.finish(); live.ruleA();
+    live.check(); c.assert(live.store.size === 0); await live.finish();
   },
   "ART-04": async c => {
     const t = fixture(c, [...script(), ...script(1)]);

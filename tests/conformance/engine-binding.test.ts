@@ -13,7 +13,7 @@ import { runCase } from "../../src/engine/conformance/runner";
 import { engineCases, hello } from "../../src/engine/conformance/engine-cases";
 const root = resolve(import.meta.dir, "../..");
 const runtime = process.env.CONFORMANCE_BUN ?? process.execPath;
-const ids = ["PLAN-LAT-01", "ORDER-01", "ERR-01", "ID-03", "ID-04", "TIME-02", "GEN-02", "LIFE-01e", "TIME-01", "GEN-01e", "WORD-02", "DET-01"];
+const ids = ["BIND-start", "BIND-abort","PLAN-LAT-01", "ORDER-01", "ERR-01", "ID-03", "ID-04", "TIME-02", "GEN-02", "LIFE-01e", "TIME-01", "GEN-01e", "WORD-02", "DET-01"];
 async function proof(id: string) {
   const name = id === "engine" ? "engine-binding" : `broken-${id.toLowerCase()}`;
   const proc = Bun.spawn([runtime, resolve(root, "src/engine/conformance/entry.ts"), "--binding", resolve(root, `src/engine/conformance/${name}.ts`), ...(process.platform === "darwin" ? ["--require-containment"] : [])], { stdout: "pipe", stderr: "pipe" });
@@ -128,7 +128,7 @@ for (const [id, code] of [["NEG-01", "UNSUPPORTED_VERSION"], ["NEG-02", "MISSING
   }
 }
 
-for (const id of ["ART-01", "ART-04", "ART-STOP"]) test(`${id}: the broken engine is red on exactly its committed fail-set`, () => proof(id));
+for (const id of ["ART-01", "ART-04", "ART-STOP", "PRIV-01e"]) test(`${id}: the broken engine is red on exactly its committed fail-set`, () => proof(id));
 for (const wrong of ["other-lease", "noop", "ignore-handle", "echo", "stale-outcome", "shared-buffer"]) {
   test(`artifacts: own wrong engine ${wrong} is caught`, async () => {
     const binding = { name: `own-artifact-${wrong}`, create(host: Parameters<typeof engine.create>[0]) {
@@ -211,4 +211,20 @@ for (const wrong of ["clear-on-release", "ending-delete", "late-lifecycle"]) tes
   } };
   const id = wrong === "ending-delete" ? "ART-01" : "SHUT-01";
   expect((await runCase(id, binding, engineCases[id])).result).toBe("fail");
+});
+
+test("BIND-01: conforming backend start from a timer armed after the turn passes", async () => {
+  const timer = { name: "conforming-timer-start", create(host: Parameters<typeof engine.create>[0]) {
+    if (host.ports) {
+      const backend = host.ports.backend, synthesize = backend.synthesizeRequest.bind(backend);
+      backend.synthesizeRequest = (request, signal) => new Promise((resolve, reject) => {
+        host.clock.schedule(0, () => {
+          if (signal.aborted) reject(Error("cancelled before start"));
+          else void synthesize(request, signal).then(resolve, reject);
+        });
+      });
+    }
+    return engine.create(host);
+  } };
+  expect((await runCase("BIND-01", timer, engineCases["BIND-01"])).result).toBe("pass");
 });

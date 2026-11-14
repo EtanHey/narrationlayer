@@ -1,6 +1,7 @@
 [
   "ART-01",
   "ART-04",
+  "BIND-01",
   "CONF-04",
   "CTRL-01",
   "DET-01",
@@ -28,6 +29,7 @@
   "PLAN-D4",
   "PLAN-D5",
   "PLAN-LAT-01",
+  "PRIV-01e",
   "SESS-01",
   "SHUT-01",
   "TIME-01",
