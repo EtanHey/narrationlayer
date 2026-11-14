@@ -260,7 +260,10 @@ from `src/engine/` except the conformance tooling, including type-only edges. It
 rejects blocking or loading references, unapproved external modules, dynamic loading and
 unresolved imports. Inside the engine’s reach, names ending in `Sync` are reserved:
 the rule refuses them whoever defines them, so a reader never has to ask whether
-a call can block. `tests/architecture/engine-reach.test.ts` pins the reachable
+a call can block. The names `eval`, `Function`, `Worker` and `require`, like names
+ending in `Sync`, are reserved inside the engine's reach wherever they stand.
+A name computed at run time cannot be seen by a syntax rule.
+`tests/architecture/engine-reach.test.ts` pins the reachable
 files and proves these refusals with synthetic trees; `engine-no-wait.json` in
 the same directory records the contract's no-wait obligations, current evidence
 and remaining debt, with registry case references checked by a shape test.

@@ -156,3 +156,19 @@ test.each([
   expect(fixture(source).violations.length).toBeGreaterThan(0);
   expect(fixture('import "../plan/helper";', { 'src/plan/helper.ts': source }).violations.length).toBeGreaterThan(0);
 });
+
+test.each([
+  ['process', 'const p = process; p.binding("fs")'],
+  ['Bun', 'const b = Bun; b.which("tool")'],
+  ['Atomics', 'const A = Atomics; A.wait(a, 0, 1)'],
+  ['globalThis', 'const g = globalThis; g["ev" + "al"]("source")'],
+])("engine reach: refuses value references to owner %s", (name, source) => {
+  expect(fixture(source).violations.length).toBeGreaterThan(0);
+  expect(fixture('import "../plan/helper";', { 'src/plan/helper.ts': source }).violations.length).toBeGreaterThan(0);
+  expect(fixture(`// ${name}\nconst text = "${name}"; const template = \`${name}\`; other.${name}; const o = { ${name}: 1 }; type T = ${name}; type U = typeof ${name}; type V = typeof ${name}.member;`).violations).toEqual([]);
+});
+
+test("engine reach: Function type and unrelated eval property are intended violations", () => {
+  for (const source of ['type Callback = Function', 'unrelated.eval'])
+    expect(fixture(source).violations.length).toBeGreaterThan(0);
+});

@@ -119,12 +119,22 @@ export function engineReach(repo: Repo = diskRepo()): { reached: Map<string, str
         && ts.isObjectBindingPattern(node.parent.parent) ? node.parent.parent.parent : undefined;
       const initializer = binding && (ts.isVariableDeclaration(binding) || ts.isParameter(binding)) ? binding.initializer : undefined;
       const owner = member ? unwrap(node.expression).getText(sf) : initializer ? unwrap(initializer).getText(sf) : "";
+      if (ts.isIdentifier(node) && ["process", "Bun", "Atomics", "globalThis"].includes(node.text)
+        && !ts.isPartOfTypeNode(node) && !ts.isTypeQueryNode(node.parent) && !ts.isQualifiedName(node.parent)
+        && !("name" in node.parent && node.parent.name === node && !ts.isShorthandPropertyAssignment(node.parent))
+        && !(ts.isBindingElement(node.parent) && node.parent.propertyName === node)) {
+        const access = node.parent;
+        // A direct member is checked by its own visit, preserving the existing diagnostic.
+        if (!((ts.isPropertyAccessExpression(access) || ts.isElementAccessExpression(access)) && access.expression === node))
+          violations.add(`engine blocking call ${file}: ${node.text}`);
+      }
       if (name === "require") violations.add(`engine loader ${file}: require()`);
       if (["eval", "Function", "Worker"].includes(name))
         violations.add(`engine loader ${file}: ${name}`);
       if (name.endsWith("Sync") || owner === "Atomics" && name === "wait"
         || owner === "process" && ["binding", "dlopen", "getBuiltinModule"].includes(name)
-        || owner === "Bun" && name === "which")
+        || ["process", "Bun", "Atomics", "globalThis"].includes(owner)
+          && !["require", "eval", "Function", "Worker"].includes(name))
         violations.add(`engine blocking call ${file}: ${node.getText(sf)}`);
       ts.forEachChild(node, visit);
     };
