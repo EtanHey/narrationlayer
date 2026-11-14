@@ -52,10 +52,10 @@ function fixture(c: CaseContext, steps = [...script(), ...script(1), ...script(2
 }
 async function endings(c: CaseContext) {
   for (const end of ["completed", "stop", "failure", "shutdown"]) for (const same of [false, true]) {
-    const steps = end === "failure" ? [...script().slice(0, 1), { latency_ms: 2, late_after_cancel: false, result: { kind: "error", code: "invented" } } satisfies BackendStep]
+    const steps = end === "failure" ? [...script().slice(0, 2), { latency_ms: 2, late_after_cancel: false, result: { kind: "error", code: "invented" } } satisfies BackendStep]
       : (end === "stop" || end === "shutdown") ? [...script().slice(0, 2), { ...script()[2], late_after_cancel: true }] : script();
     const t = fixture(c, steps); t.connection.send(read("artifact-end"));
-    const count = end === "failure" ? 1 : (end === "stop" || end === "shutdown") ? 2 : 3;
+    const count = end === "failure" ? 2 : (end === "stop" || end === "shutdown") ? 2 : 3;
     for (let i = 0; i < 12 && t.pieces().length < count; i++) await t.settle(1);
     c.assert(t.pieces().length === count); t.check();
     // Arm the final playback edge, keeping the terminal out of the trace until release.
