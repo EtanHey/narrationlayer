@@ -45,7 +45,7 @@ function fixture(c: CaseContext, steps = [...script(), ...script(), ...script().
     const a = t.seen.find(e => e.type === "accepted" && e.request_id === id); c.assert(a?.type === "accepted");
     if (a?.type !== "accepted") return;
     for (const p of pieces().filter(p => p.session_id === a.session_id)) for (const edge of ["spawned", "first_sample", "exited"]) t.connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: p.session_id, player_instance_id: `artifact-player-${p.index}`, control_epoch: p.index + 1, piece_index: p.index, edge, t_mono_ms: c.clock.now(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: p.start_ms + p.duration_ms } } : {}) });
-    await t.settle(); success(c, t.seen, id, 3); outcome(id);
+    await t.settle(); success(c, t.seen, id, 3, t.backend.calls); outcome(id);
   };
   return { ...t, pieces, release, check, complete, outcome, released, store };
 }
@@ -64,7 +64,7 @@ export const artifactCases: Record<string, Case> = {
     c.assert(t.pieces().length === 7);
     const p = t.pieces()[6];
     t.connection.send({ protocol: "nl.engine/1", type: "control", command_id: "artifact-stop", session_id: p.session_id, op: "stop", args: { scope: "session", reason: "stop" } });
-    await t.settle(3); interrupted(c, t.seen, "artifact-stop", 1, "cancelled"); t.outcome("artifact-stop"); t.check();
+    await t.settle(3); interrupted(c, t.seen, "artifact-stop", 1, "cancelled", t.backend.calls); t.outcome("artifact-stop"); t.check();
     await t.finish(); t.check();
     c.assert(t.store.size === t.pieces().length - t.released.size);
     const live = fixture(c, [...script(), ...script()]);

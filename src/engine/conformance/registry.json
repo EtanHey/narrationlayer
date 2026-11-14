@@ -611,7 +611,11 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": [
+      "Raw piece 0 with next_piece_start: slice enabling raw first pieces.",
+      "Piece durations equal speech plus pause placement: assembly slice."
+    ]
   },
   {
     "id": "PEXIT-01",
@@ -629,7 +633,10 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": [
+      "One-word remainder after over-limit cutting: second planning PR after the serving-engine sentence-cap fix (S3p4)."
+    ]
   },
   {
     "id": "PLAN-02",
@@ -647,7 +654,11 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": [
+      "Over-limit sentence clause: second planning PR after the serving-engine sentence-cap fix (S3p4).",
+      "Recorded cuts under the legacy budget rule: tests/plan characterization golden, not the engine binding."
+    ]
   },
   {
     "id": "PLAN-D4",
@@ -665,7 +676,10 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": true,
+    "owed": [
+      "Short remainder after over-limit cutting: second planning PR after S3p4; this slice checks minimum words on admitted whole source units."
+    ]
   },
   {
     "id": "PLAN-LAT-01",

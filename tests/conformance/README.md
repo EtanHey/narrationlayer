@@ -187,7 +187,37 @@ failed/cancelled prefixes instead have their own nonfinal duration and terminal
 receipts; ID-04 separately checks its deliberate idempotency refusal. Privacy
 checks scan raw error/lifecycle events, including fields dropped by parseEvent.
 TIME-01 includes a non-tie 0.3+0.3 ms pair and the documented half-up tie.
-Variant entry proofs run in serial groups of at most four concurrent spawns.
+Variant entry proofs run serially.
+
+The first planning slice adds PLAN-D5, PLAN-01, PLAN-03 and PAUSE-PL-01
+(twenty active rows). It compares source-unit word ranges with plan ranges and
+checks every piece_ready against plan.words, allowing the projection's terminal
+full stop for headings/items. Headings and whole list items are units; the
+lengths fixture has five requests, including its two-sentence item whole.
+The shape fixture includes labels, inline code, link labels, a bare URL and
+paragraph sentences. PLAN-D5 counts tokens containing a letter or digit.
+All reads use invented in-memory PCM, fake time and synthetic stage-A feedback.
+
+PLAN-D4 and PLAN-02 remain inactive. Over-limit sentence cuts in PLAN-03 and
+short-remainder merging in PLAN-D5 and the one-word remainder in PLAN-01 remain owed to the second planning PR after
+S3p4 separates the serving-engine cap from the input limit. Today over-limit
+headings/items stay whole at cutter level; the engine admission limit prevents
+exercising them through this binding. The legacy-budget half of PLAN-03 remains
+covered by the tests/plan characterization golden, not by this engine case.
+PAUSE-PL-01 checks the plan half: each boundary's expected pause appears once,
+on its ending segment, every raw flag is false, every pause_in is
+this_piece_end, and the final pause is zero. Raw piece 0/next_piece_start is owed
+to the slice enabling raw first pieces; durations including that placement are
+owed to assembly. Registry owed fields record these activation limits.
+
+Every successful read receipt now compares the fake backend's recorded calls to
+delivered pieces: exactly one call per piece, in order, with the same text. The
+port lacks session IDs, so ordered synthesis_requested records associate global
+call positions with sessions; total call/record counts must also agree. Failed
+and cancelled fixtures require their delivered prefix plus exactly one attempted
+call without a piece; delivered text must still match. Each session ends at its
+outcome. One unit per request and one request per piece describe this binding
+today; the contract permits grouping, which remains a later design decision.
 
 S1b makes hello mandatory and routes it through the messages module's negotiate.
 UNSUPPORTED_VERSION and MISSING_CAPABILITY end the binding; NOT_NEGOTIATED permits
@@ -198,7 +228,7 @@ belongs to PACE-01. Unknown capability contents are never echoed: diagnostics
 name fixed capabilities and at most eight unknown required_caps array positions.
 The six new broken engines each fail exactly their named case. Broader new checks
 also catch the existing ID-03 engine in VER-02e and ORDER-01 engine in LIM-01,
-NEG-03 and VER-01. Null now fails eighteen of twenty-two active rows.
+NEG-03 and VER-01. With both slices merged, null fails twenty-four of twenty-eight active rows.
 
 S7b-1 activates ART-01 and ART-04. Each uses three different invented PCM pieces,
 an independent byte/hash oracle, the shared per-read receipts, copy isolation,
