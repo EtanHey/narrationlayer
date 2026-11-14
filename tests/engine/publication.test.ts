@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { decodePcm, AudioDecodeError } from "../../src/engine/publication/decoded";
+import { decodePcm, AudioDecodeError, firstAudibleOffsetMs } from "../../src/engine/publication/decoded";
 import { startMs, wordTimes } from "../../src/engine/publication/time";
 import { createPublication } from "../../src/engine/publication/publication";
 import { createEngineSession, type ReadPlanner } from "../../src/engine/session/session";
@@ -139,3 +139,85 @@ test("publication byte copy: caller overwrite during put preserves the stored ha
   expect(decodePcm(stored[0]).sample_count).toBe(20);
 });
 test("publication context contains only this piece's detached words", async () => { await read([251, 251, 251]); });
+
+function audibleWav(bits: number, encoding: number, channels = 1, frames = 101, extensible = false) {
+  const base = encodedWav(bits, encoding, extensible), header = extensible ? 68 : 44;
+  const b = new Uint8Array(header + frames * channels * bits / 8); b.set(base.subarray(0, header));
+  const v = new DataView(b.buffer); v.setUint32(4, b.length - 8, true); v.setUint16(22, channels, true);
+  v.setUint32(28, 24000 * channels * bits / 8, true); v.setUint16(32, channels * bits / 8, true);
+  v.setUint32(header - 4, b.length - header, true);
+  if (bits === 8) b.fill(128, header);
+  return { b, v, header };
+}
+test("first audible: all encodings, extensible, stereo second channel, silence and strict threshold", () => {
+  for (const [bits, encoding] of [[8, 1], [16, 1], [24, 1], [32, 1], [32, 3], [64, 3]]) for (const extensible of [false, true]) {
+    const { b, v, header } = audibleWav(bits, encoding, 2, 101, extensible), at = header + (48 * 2 + 1) * bits / 8;
+    expect(firstAudibleOffsetMs(b)).toBe(4);
+    if (encoding === 3) { if (bits === 32) v.setFloat32(at, -0.5, true); else v.setFloat64(at, -0.5, true); }
+    else if (bits === 8) v.setUint8(at, 64);
+    else if (bits === 16) v.setInt16(at, -16384, true);
+    else if (bits === 24) { v.setUint8(at, 0); v.setInt16(at + 1, -16384, true); }
+    else v.setInt32(at, -1073741824, true);
+    expect(firstAudibleOffsetMs(b)).toBe(2);
+  }
+  const { b, v, header } = audibleWav(64, 3);
+  v.setFloat64(header, 10 ** (-42 / 20), true); expect(firstAudibleOffsetMs(b)).toBe(4);
+  v.setFloat64(header + 48 * 8, -(10 ** (-42 / 20)) * 1.001, true); expect(firstAudibleOffsetMs(b)).toBe(2);
+});
+const canary = "Zirconium lanterns orbit velvet asteroids";
+async function lifecycleRead(failSecond = false, stopFirst = false, decrease = false, failStore = false) {
+  let now = 0, calls = 0;
+  const events: Event[] = [], clock = { monotonic: () => now, schedule: () => () => {} };
+  const rates = [24000, 48000, 24000], lengths = [12, 24, 36];
+  const publication = createPublication({ async put() { now += 11; if (failStore) throw Error("synthetic publication failure"); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, async commit() {} });
+  const publish = publication.piece;
+  publication.piece = async (...args) => { const result = await publish(...args); if (decrease && args[1].index === 1) result.known_ms = 0; return result; };
+  const session = createEngineSession({ owner_epoch: 1, limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 100 }, clock,
+    planner: { plan(req, limits, id) { const result = planner.plan(req, limits, id); return { ...result, requests: result.requests.map(r => ({ ...r, text: canary + "😀" })) }; } }, publication,
+    backend: { async synthesizeRequest(r) { calls++; now += 3; if (failSecond && r.piece_index === 1) throw Error("synthetic failure"); return pcmAudio(lengths[r.piece_index], rates[r.piece_index]); } },
+    observe: { event(e) { events.push(e); if (stopFirst && e.type === "duration") session.send({ protocol: "nl.engine/1", type: "control", command_id: "synthetic-stop", session_id: e.session_id, op: "stop", args: { scope: "session", reason: "stop" } }); } },
+  });
+  session.send({ protocol: "nl.engine/1", type: "narrate", request_id: "synthetic-request", idempotency_key: "synthetic-key", use: "read", input: { text: canary, format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+  for (let i = 0; i < 40; i++) await Promise.resolve();
+  await session.shutdown(100);
+  for (const event of events) expect(parseEvent(event).ok).toBe(true);
+  return { events, calls };
+}
+test("duration: mixed rates, rounded once, 1 ms difference, final exactly once", async () => {
+  const { events } = await lifecycleRead(), duration = events.filter(e => e.type === "duration"), pieces = events.filter(e => e.type === "piece_ready");
+  expect(duration.map(e => [e.known_ms, e.final])).toEqual([[1, false], [1, false], [3, true]]);
+  expect(pieces[1].start_ms + pieces[1].duration_ms - duration[1].known_ms).toBe(1);
+  for (const p of pieces) expect(events[events.indexOf(p) + 1].type).toBe("duration");
+});
+test("duration: stop between pieces and rejected decreasing receipt end without late duration", async () => {
+  const stopped = await lifecycleRead(false, true), rejected = await lifecycleRead(false, false, true);
+  for (const { events, calls } of [stopped, rejected]) {
+    expect(events.filter(e => e.type === "duration")).toHaveLength(1);
+    expect(events.at(-1)?.type).toBe("outcome"); expect(calls).toBe(events === stopped.events ? 1 : 2);
+  }
+  expect(rejected.events.at(-1)).toMatchObject({ generation: { status: "failed" } });
+});
+test("LIFE-01e: three pieces, monotonic, audio timestamp before store, failed second request stays alone", async () => {
+  const { events } = await lifecycleRead(), records = events.filter(e => e.type === "lifecycle");
+  expect(records.map(e => e.edge)).toEqual(["synthesis_requested", "audio_ready", "synthesis_requested", "audio_ready", "synthesis_requested", "audio_ready"]);
+  expect(records.map(e => e.piece_index)).toEqual([0, 0, 1, 1, 2, 2]);
+  expect(records.map(e => e.t_mono_ms)).toEqual([0, 3, 14, 17, 28, 31]);
+  for (const p of events.filter(e => e.type === "piece_ready")) {
+    expect(events[events.indexOf(p) - 1]).toMatchObject({ type: "lifecycle", edge: "audio_ready", sample_count: p.artifact.sample_count, duration_ms: p.duration_ms, first_audible_offset_ms: p.duration_ms });
+  }
+  expect(records[0]).toMatchObject({ segment_index: 0, chars: (canary + "😀").length, kind: "sentence" });
+  const storeFailed = await lifecycleRead(false, false, false, true);
+  expect(storeFailed.events.filter(e => e.type === "lifecycle").map(e => e.edge)).toEqual(["synthesis_requested"]);
+  const failed = await lifecycleRead(true);
+  expect(failed.events.filter(e => e.type === "lifecycle").map(e => e.edge)).toEqual(["synthesis_requested", "audio_ready", "synthesis_requested"]);
+});
+test("lifecycle records are text-free", async () => {
+  const { events } = await lifecycleRead();
+  const text = JSON.stringify(events.filter(e => e.type === "lifecycle" || e.type === "duration"));
+  for (let i = 0; i <= canary.length - 8; i++) expect(text).not.toContain(canary.slice(i, i + 8));
+});
+test("first audible: 10 s 24 kHz silence scan timing", () => {
+  const { b } = audibleWav(16, 1, 1, 240000), start = performance.now();
+  expect(firstAudibleOffsetMs(b)).toBe(10000);
+  console.log(`first audible 10s 24kHz silence wall_ms=${(performance.now() - start).toFixed(3)}`);
+});

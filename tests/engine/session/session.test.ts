@@ -31,7 +31,7 @@ function harness(epoch = 1, source = units, lookahead = 2) {
     return { plan: { type: "plan", ...identity, display_document: { version: 1, text, speech_start: 0, blocks: [] }, words, pieces: pieces.map((p, index) => ({ piece_id: `piece-${identity.session_id}-${index}`, index, word_start: 0, word_end: words.length, raw: false, segments: p.segments.map(s => ({ word_start: 0, word_end: words.length, kind: s.kind === "list_item" ? "item" : s.kind, pause_after_ms: s.pause_after_ms, pause_in: s.pause_in })) })), engine: { family: "fake", profile_revision: "1", voice: req.voice.profile } }, requests: pieces.map((p, index) => ({ piece_index: index, text: p.segments[0].text })) };
   } };
   const publication: Publication<ReturnType<typeof pcmAudio>> = {
-    async piece(audio, context) { publications++; return { type: "piece_ready", owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, index: context.index, piece_id: context.piece_id, spoken_text: context.spoken_text, synthesis_ms: context.synthesis_ms, start_ms: startMs(context.prefix), duration_ms: audio.samples, artifact: { handle: "synthetic", lease_id: "synthetic", format: "wav", sample_rate: audio.sample_rate, sample_count: audio.samples, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "+0%", attempts: [], unavailable: [], fallback_reason: null } }; }, async commit() {},
+    async piece(audio, context) { publications++; return { known_ms: startMs([...context.prefix, { sample_count: audio.samples, sample_rate: audio.sample_rate }]), first_audible_offset_ms: 0, type: "piece_ready", owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, index: context.index, piece_id: context.piece_id, spoken_text: context.spoken_text, synthesis_ms: context.synthesis_ms, start_ms: startMs(context.prefix), duration_ms: audio.samples, artifact: { handle: "synthetic", lease_id: "synthetic", format: "wav", sample_rate: audio.sample_rate, sample_count: audio.samples, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "+0%", attempts: [], unavailable: [], fallback_reason: null } }; }, async commit() {},
   };
   const observe = { input(i: Input<"host">) { inputs.push(i); }, event(event: Event, replay: boolean) { delivered.push({ event, replay }); } };
   const session = createEngineSession({ owner_epoch: epoch, limits: { ...limits, lookahead }, planner, clock, publication,
@@ -64,7 +64,7 @@ afterEach(async () => {
 });
 test("PLAN-LAT-01: plan is enqueued before the first backend call", () => {
   const h = harness(); h.script(); h.session.send(request);
-  expect(h.callsBeforePlan).toBe(0); expect(h.events().map(e => e.type)).toEqual(["accepted", "plan"]);
+  expect(h.callsBeforePlan).toBe(0); expect(h.events().map(e => e.type)).toEqual(["accepted", "plan", "lifecycle"]);
 });
 test("planner called once: repeated admission never replans or starts work", () => {
   const h = harness(); h.script(); h.session.send(request); h.session.send(request);
@@ -455,4 +455,12 @@ test("publication context cannot mutate the plan retained by the session", async
   };
   h.script(); h.session.send(request); await h.tick();
   expect(h.publicationCalls).toBe(2);
+});
+
+test("LIFE-01e: absent first segment fails before any backend call", async () => {
+  const h = harness(), plan = h.planner.plan;
+  h.planner.plan = (...args) => { const result = plan(...args); result.plan.pieces[0].segments = []; return result; };
+  h.session.send(request); await h.tick();
+  expect(h.backend.calls).toHaveLength(0);
+  expect(h.events().at(-1)).toMatchObject({ type: "outcome", generation: { status: "failed" } });
 });

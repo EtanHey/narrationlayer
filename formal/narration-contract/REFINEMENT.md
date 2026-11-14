@@ -166,3 +166,41 @@ The session detaches planner plans and publication pieces on ingestion, so a
 provider retaining and mutating its return value cannot rewrite a live read.
 This changes storage ownership and cost, not the fences, inputs or wire behavior.
 No eviction, per-session last seq or retry input is introduced.
+
+## S4b duration and engine lifecycle records
+
+The reducer sequences a new `synthesis_requested` input and an `audio_ready`
+record immediately before each accepted `piece_ready`, followed by `duration`.
+The request input contains identity, index, UTF-16 length and monotonic time;
+kind comes from the plan's first segment, never request text. It changes only
+`seq`, and is dropped for unknown, foreign, non-running or terminal sessions.
+Publication computes cumulative `known_ms` with the exact decoded-sample formula
+and supplies it alongside the piece. A decreasing or invalid receipt is refused
+before delivery; the session's existing receipt-rejection path fails synthesis.
+The last emitted duration is retained independently of control targets; the
+cursor's previously unchanged `duration_ms` is updated on accepted delivery.
+These numeric fields and emissions do not add a model transition:
+
+- I01: neither the new input nor emissions changes generation, playback, fence,
+  delivered list or outcome. Existing terminals remain immutable.
+- I02: the new input uses the same owner/session/attempt fence. The emissions
+  occur only on an already identity-checked piece; no domain state changes.
+- I03: non-running/terminal requests are dropped; fenced late pieces cannot
+  produce audio-ready or duration. No input or emission clears the fence or
+  changes generation, playback, delivered list or outcome.
+- I04: the existing piece transition alone appends to delivered. The emissions
+  neither append nor seal/commit, and `final` reflects complete plan coverage.
+  Rejecting an invalid duration does not introduce a partial delivery; the
+  existing failure transition is used. No new EOF or commit rule is introduced.
+
+The depth-4 alphabet stays at 40: the request input is checked separately for
+EVERY session at EVERY reachable frontier, including depth 4, asserting identical
+session maps and only the expected sequence increment/record. Its execution
+therefore cannot affect a later domain transition; named tests additionally
+cover foreign/unknown identities and the live record contents. Piece delivery
+now emits two additional sequenced events and updates cursor duration: these
+observable numbers distinguish snapshots that formerly shared a serialization.
+Counts move from 44,227 visits / 38,729 distinct to 44,380 / 38,876; represented
+prefixes remain 7,876,923. The new request input is not a letter in those counts.
+The model, configurations and checking program are unchanged. This is reducer
+and publication evidence, not player, binding-level or live acceptance.
