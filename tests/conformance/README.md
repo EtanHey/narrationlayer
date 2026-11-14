@@ -222,7 +222,8 @@ port lacks session IDs, so ordered synthesis_requested records associate global
 call positions with sessions; total call/record counts must also agree. Failed
 and cancelled fixtures require their delivered prefix plus exactly one attempted
 call without a piece; delivered text must still match. Each session ends at its
-outcome. One unit per request and one request per piece describe this binding
+outcome, except for a `timing_update` under a live lease, owed to alignment
+(S7). One unit per request and one request per piece describe this binding
 today; the contract permits grouping, which remains a later design decision.
 
 S1b makes hello mandatory and routes it through the messages module's negotiate.
@@ -234,7 +235,46 @@ belongs to PACE-01. Unknown capability contents are never echoed: diagnostics
 name fixed capabilities and at most eight unknown required_caps array positions.
 The six new broken engines each fail exactly their named case. Broader new checks
 also catch the existing ID-03 engine in VER-02e and ORDER-01 engine in LIM-01,
-NEG-03 and VER-01. With both slices merged, null fails twenty-two of twenty-six active rows.
+NEG-03 and VER-01. With both slices merged, null fails twenty-six of thirty active rows.
+
+S7b-1 activates ART-01 and ART-04. Each uses three different invented PCM pieces,
+an independent byte/hash oracle, the shared per-read receipts, copy isolation,
+and raw-trace release refusals. The ART-01 broken engine is also caught by ART-04's
+live-byte check; ID-03 gains ART-01 (late delivery after stop), and GEN-02 gains
+both artifact rows (duplicate final duration in shared success receipts).
+Resolution passes through all engine binding wrappers, including broken engines.
+Owed to S7b-2: shutdown reason/deadline, in-flight publication, release after
+shutdown, failed-delete diagnostics/pending deletes, SHUT-01. Later: retain_artifact
+and assembled prompt, live-lease timing_update (ORDER-01), host ART-02/03 and
+CUST-01. HASH-01 belongs to the privacy slice. No device or real audio is used.
+
+Round 1: release decisions and reducer bookkeeping happen inside send; only the
+byte-port delete is deferred. A failed host delete leaves an expired lease and a
+pending handle, without retry or diagnostic. Deferred deletes after stream close
+and requests sent after shutdown remain owed to S7b-2. ART-01 exercises each of
+completed, stopped, failed synthesis and shutdown with earlier-turn and same-turn
+release; each read uses independent sample counts. The committed ART-01 byte-delete
+variant remains red on both artifact rows through their shared live-byte receipt.
+The stop-only re-add variant is red on ART-01 alone.
+
+S1b-b requires every synthesis_requested session to have an accepted event,
+and negotiation reads use the shared backend receipt: one call per planned
+piece, with text equal to that piece's plan words and those words tied to the
+submitted plain text. The plan tie is exact: a heading or item without terminal
+punctuation fails this receipt on a correct engine because its spoken projection
+adds a full stop. Such fixtures use the planning cases' projection rule; moving
+that rule into the shared receipt remains owed. The interrupted receipt's
+fixtures assume exactly one undelivered call; broader attempt shapes remain owed.
+
+LIM-01 counts raw input.text UTF-16 code units before trimming or NFKC (lead
+ruling 43). NEG-02 compares optional-capability welcomes with a fresh plain
+hello's caps, including order; each capability's own case proves it is served.
+VER-02e compares parsed streams for a plain markdown-shaped document with a
+misplaced top-level format or input.format2. NEG-01 rejects a well-formed other
+major, including 01, fatally as UNSUPPORTED_VERSION; NEG-03 refuses malformed
+protocol strings as INVALID_REQUEST, keeps the binding open and proves recovery.
+This is the engine's two-step rule and the lead's amended ruling 50; the first
+version of the follow-up brief's exact-string rule was wrong.
 
 PLAN-D4 follows the lead's revised phrase rule (question 49 remains open): comma,
 semicolon, colon, em dash, horizontal bar and en dash need following whitespace;

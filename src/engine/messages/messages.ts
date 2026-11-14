@@ -53,6 +53,7 @@ const hello = { json: { allOf: [helloBase.json, { if: { required: ["audible"] },
 } };
 export const requests = {
   hello,
+  artifact_release: message("artifact_release", { lease_id: boundedString(1, 128) }),
   narrate: narration,
   control: tagged("control", controlSchema), set_speed: message("set_speed", { command_id: opaqueString, speed: e(0.75, 1, 1.25, 1.5, 2) }),
   player_feedback: message("player_feedback", { session_id: opaqueString, control_epoch: i, player_instance_id: opaqueString, piece_index: i, edge: e("spawned", "first_sample", "first_audible", "last_sample", "exited"), t_mono_ms: i }, { source, exit: o({ status, stopped_at_ms: i }, { code: i }) }),

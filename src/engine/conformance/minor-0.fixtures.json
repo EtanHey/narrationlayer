@@ -128,5 +128,18 @@
         "code": 0
       }
     }
+  },
+  {
+    "minor": 0,
+    "wire": {
+      "protocol": "nl.engine/1",
+      "type": "artifact_release",
+      "lease_id": "lease:1:1"
+    },
+    "expected": {
+      "protocol": "nl.engine/1",
+      "type": "artifact_release",
+      "lease_id": "lease:1:1"
+    }
   }
 ]

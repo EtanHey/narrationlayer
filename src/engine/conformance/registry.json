@@ -6,7 +6,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true,
+    "owed": "S7b-2: shutdown reason/deadline, in-flight publication, deferred delete after stream close and release after shutdown, failed-delete diagnostics and pending deletes; later: retain_artifact, timing_update; host ART-02/03 and CUST-01; HASH-01 privacy"
   },
   {
     "id": "ART-02",
@@ -33,7 +34,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true,
+    "owed": "S7b-2: shutdown reason/deadline, in-flight publication, deferred delete after stream close and release after shutdown, failed-delete diagnostics and pending deletes; later: retain_artifact, timing_update; host ART-02/03 and CUST-01; HASH-01 privacy"
   },
   {
     "id": "ASK-01",
@@ -276,7 +278,10 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": true
+    "active": true,
+    "owed": [
+      "The shared interrupted receipt assumes exactly one undelivered backend call; other failed/cancelled attempt shapes need their own fixtures."
+    ]
   },
   {
     "id": "GEN-01h",
@@ -492,7 +497,10 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S1",
-    "active": true
+    "active": true,
+    "owed": [
+      "Each advertised capability is proved served by its own capability case; negotiation checks advertisement and admission only."
+    ]
   },
   {
     "id": "NEG-03",
@@ -510,7 +518,10 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": true
+    "active": true,
+    "owed": [
+      "A timing_update under a live lease may follow outcome; lease-backed exception belongs to alignment (S7)."
+    ]
   },
   {
     "id": "PACE-01",

@@ -11,7 +11,7 @@ export function brokenOverLimit(rule: "space" | "pause" | "hyphen"): Binding {
       texts && request && typeof request === "object" && !Array.isArray(request) && typeof request.piece_index === "number"
         ? { ...request, text: texts[request.piece_index] } : request, signal);
     const c = engine.create(host);
-    return { shutdown: c.shutdown, send(message) {
+    return { resolve: c.resolve, shutdown: c.shutdown, send(message) {
       if (message && typeof message === "object" && !Array.isArray(message) && message.type === "narrate") texts = undefined;
       if (rule === "space" && message && typeof message === "object" && !Array.isArray(message) && message.type === "narrate") {
         const input = message.input;
