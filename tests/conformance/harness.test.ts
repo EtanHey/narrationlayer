@@ -69,3 +69,16 @@ test("observation digests expose fixture differences even when verdicts match", 
   const a = first.rows.find(r => r.id === "CONF-01"), b = second.rows.find(r => r.id === "CONF-01");
   expect(a && "trace_digest" in a ? a.trace_digest : undefined).not.toBe(b && "trace_digest" in b ? b.trace_digest : undefined);
 });
+
+test("a hung shutdown or stream makes the harness probe fail by name under fake time", async () => {
+  for (const mode of ["shutdown", "stream"]) {
+    const hung = { name: mode, create() { return {
+      send() {},
+      events: (async function* () { if (mode === "stream") await new Promise<void>(() => {}); })(),
+      shutdown: () => mode === "shutdown" ? new Promise<void>(() => {}) : Promise.resolve(),
+    }; } };
+    const report = await runConformance(hung);
+    expect(report.rows.find(r => r.id === "CONF-01")?.result).toBe("fail");
+    expect(report.rows.every(r => !("diagnostic" in r) || !r.diagnostic?.includes("unavailable"))).toBe(true);
+  }
+});

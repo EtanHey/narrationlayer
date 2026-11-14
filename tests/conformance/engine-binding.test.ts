@@ -12,7 +12,7 @@ import { engineCases, hello } from "../../src/engine/conformance/engine-cases";
 const root = resolve(import.meta.dir, "../..");
 const runtime = process.env.CONFORMANCE_BUN ?? process.execPath;
 const ids = ["PLAN-LAT-01", "ORDER-01", "ERR-01", "ID-03", "ID-04", "TIME-02", "GEN-02", "LIFE-01e", "TIME-01", "GEN-01e", "WORD-02", "DET-01"];
-for (const id of ["engine", ...ids]) test(id === "engine" ? "engine binding: the packaged entry passes the active cases under containment" : (["ERR-01", "TIME-02"].includes(id) ? `${id}: the broken engine matches its fail-set` : `${id}: the broken engine is red on exactly this case`), async () => {
+async function proof(id: string) {
   const name = id === "engine" ? "engine-binding" : `broken-${id.toLowerCase()}`;
   const proc = Bun.spawn([runtime, resolve(root, "src/engine/conformance/entry.ts"), "--binding", resolve(root, `src/engine/conformance/${name}.ts`), ...(process.platform === "darwin" ? ["--require-containment"] : [])], { stdout: "pipe", stderr: "pipe" });
   const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
@@ -20,7 +20,15 @@ for (const id of ["engine", ...ids]) test(id === "engine" ? "engine binding: the
   const report = JSON.parse(out);
   expect(report.rows.filter((r: { result: string }) => r.result === "fail").map((r: { id: string }) => r.id)).toEqual(id === "engine" ? [] : JSON.parse(readFileSync(resolve(root, `src/engine/conformance/${name}.fail-set.json`), "utf8")));
   if (process.platform === "darwin") expect(report.containment).toBe("macos-sandbox");
-});
+}
+test("engine binding: the packaged entry passes the active cases under containment", () => proof("engine"));
+for (let i = 0; i < ids.length; i += 4) {
+  const group = ids.slice(i, i + 4);
+  test(`broken engines match their exact fail-sets: ${group.join(", ")}`, async () => {
+    const results = await Promise.allSettled(group.map(proof));
+    for (const result of results) if (result.status === "rejected") throw result.reason;
+  });
+}
 test("optional negotiation emits one unnumbered welcome; malformed and repeated hello are refused", async () => {
   const clock = new FakeClock(), c = engine.create({ clock, store: new Map(), hash_key: new Uint8Array(32), audible: false });
   const stream = c.events[Symbol.asyncIterator]();

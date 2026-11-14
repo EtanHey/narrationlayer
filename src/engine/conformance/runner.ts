@@ -42,12 +42,12 @@ async function execute(id: string, binding: Binding, run?: Case) {
   const context = new CaseContext(binding);
   let wall_violations = 0;
   const start = trapState.violations.length;
-  let result: "pass" | "fail" = "pass";
+  let result: "pass" | "fail" = "pass", probeTimedOut = false;
   try { if (!run) throw new Error("missing implementation"); await withoutWallTime(() => run(context), violated => { wall_violations += Number(violated); }); if (!context.assertions || context.failed) throw new Error("invalid assertions"); }
-  catch { result = "fail"; }
+  catch (error) { result = "fail"; probeTimedOut = error instanceof Error && error.message === "probe did not settle under fake clock"; }
   const realms = trapState.violations.slice(start).filter(v => v.kind === "realm");
   if (realms.length) result = "fail";
-  const diagnostic = realms.length ? { diagnostic: `forbidden APIs: ${[...new Set(realms.map(v => v.api))].sort().join(", ")}` } : {};
+  const diagnostic = realms.length ? { diagnostic: `forbidden APIs: ${[...new Set(realms.map(v => v.api))].sort().join(", ")}` } : probeTimedOut ? { diagnostic: "probe did not settle under fake clock" } : {};
   return { outcome: { id, result, assertions: context.assertions, ...diagnostic }, trace: context.trace, wall_violations };
 }
 export async function runCase(id: string, binding: Binding, run?: Case) {
@@ -61,8 +61,18 @@ async function probe(binding: Binding) {
   const collect = (async () => { for await (const event of connection.events) events.push(event); })();
   connection.send(hello);
   await clock.advance(0);
-  await connection.shutdown(clock.now());
-  await collect;
+  const bounded = async (promise: Promise<unknown>) => {
+    let done = false, error: unknown;
+    void promise.then(() => { done = true; }, e => { error = e; done = true; });
+    for (let i = 0; i < 8 && !done; i++) {
+      await clock.advance(1);
+      for (let j = 0; j < 128; j++) await Promise.resolve();
+    }
+    if (!done) throw new Error("probe did not settle under fake clock");
+    if (error) throw error;
+  };
+  await bounded(connection.shutdown(clock.now()));
+  await bounded(collect);
   return canonical({ binding: binding.name, events });
 }
 export const cases: Record<string, Case> = {

@@ -212,3 +212,17 @@ test("watchdog bounds a stalled report stream after the real children exit", asy
     expect(performance.now()-start).toBeLessThan(3000);
   } finally { rmSync(dir,{recursive:true}); }
 });
+
+
+test("the entry preserves a named probe failure when both hung reports agree", async () => {
+  for (const mode of ["shutdown", "stream"]) {
+    const source = `import engine from ${JSON.stringify(resolve(root, "src/engine/conformance/engine-binding.ts"))};
+      export default { name: "hung-probe", create(host) { const c = engine.create(host); return { ...c,
+      ${mode === "shutdown" ? "shutdown() { return new Promise(() => {}); }" : "events: (async function* () { yield* c.events; await new Promise(() => {}); })()"}
+      }; } };`;
+    const result = await run(source, process.platform === "darwin" ? ["--require-containment"] : []);
+    expect(result.code).toBe(1);
+    expect(result.report.rows.find((r: { id: string }) => r.id === "CONF-01")).toMatchObject({ result: "fail", diagnostic: "probe did not settle under fake clock" });
+    expect(result.report.rows.some((r: { diagnostic?: string }) => r.diagnostic?.includes("unavailable"))).toBe(false);
+  }
+});

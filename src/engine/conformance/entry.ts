@@ -126,7 +126,7 @@ if (import.meta.main) {
         const equal = first.bytes === second.bytes;
         const row = report.rows.find(r => r.id === "CONF-01");
         if (!row) throw new Error("missing CONF-01");
-        row.result = parseable && clean && equal ? "pass" : "fail";
+        row.result = parseable && clean && equal && !("diagnostic" in row && row.diagnostic === "probe did not settle under fake clock") ? "pass" : "fail";
         if (row.result === "pass") Reflect.deleteProperty(row, "diagnostic");
         else if (!parseable) diagnostic(report, "CONF-01", `${first.report ? second.error : first.error}; child exited ${first.code}, ${second.code}`);
         else if (!clean && !("diagnostic" in row && String(row.diagnostic).startsWith("forbidden APIs:"))) diagnostic(report, "CONF-01", `child did not complete cleanly; child exited ${first.code}, ${second.code}`);

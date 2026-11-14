@@ -166,16 +166,25 @@ host-owned in stage A. Stage-A audible is host-owned and ignored by this binding
 handle collisions are refused without overwrites; full custody remains S7.
 
 The generation/time binding slice activates six more cases (sixteen active rows).
-GEN-02 checks a complete three-piece prefix and final duration; GEN-01e covers
-first/second-piece synthesis failure. LIFE-01e checks ordered, monotonic,
+GEN-02 checks two complete three-piece reads, each with its own final duration; GEN-01e covers
+first/second-piece synthesis failure. LIFE-01e checks exact scripted edge time, ordered, monotonic,
 text-free engine lifecycle records on success and failure, and the capability.
 TIME-01 independently sums sample fractions using BigInt, rounds once with ties
 upward, and disagrees deliberately with summed rounded durations. The audio's
 claimed sample rate disagrees with its WAV header. WORD-02 requires estimated
-word coverage, and DET-01 reuses identical requests with different audio lengths
+word coverage on 300/400/500 ms pieces, and DET-01 reuses identical requests with different audio lengths
 in one connection. No real audio/device/backend is used. All event reads parse.
 Case waits, including PLAN-LAT-01's second session and stream shutdown, have fake
 clock bounds; a swallowed event fails its case rather than losing every row to
-the parent's watchdog. Each new committed broken binding has exactly its named
-row red. Older ERR-01 and TIME-02 variants now also fail the related new rows;
-their fail-sets retain that evidence.
+the parent's watchdog. The hello-only harness probe also has fake-clock bounds;
+entry preserves its named failure when independent child reports agree. Its green
+output and both null report snapshots are unchanged. Every committed broken
+binding has exactly its named row red; variants use event/fixture shapes to keep
+the violated rule attributable while shared success checks remain strict.
+All successful reads are checked by their own session id for admission, plan,
+pieces, lifecycle, one final duration, committed outcome and no errors. Intentional
+failed/cancelled prefixes instead have their own nonfinal duration and terminal
+receipts; ID-04 separately checks its deliberate idempotency refusal. Privacy
+checks scan raw error/lifecycle events, including fields dropped by parseEvent.
+TIME-01 includes a non-tie 0.3+0.3 ms pair and the documented half-up tie.
+Variant entry proofs run in serial groups of at most four concurrent spawns.
