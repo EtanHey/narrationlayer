@@ -428,3 +428,47 @@ test("shutdown preserves playback completed before commit while ending generatio
   expect(view(shutdown).outcome).toMatchObject({ playback: { reason: "completed" }, generation: { status: "committed" }, heard: true });
   expect(run(shutdown, commit, failure)).toEqual(shutdown);
 });
+
+test("S5a pause ownership table, receipts, stale and terminal precedence", () => {
+  for (const authority of ["host", "engine"] as const) {
+    let state = accepted(2, authority), serial = 0;
+    const control = (op: "pause" | "resume", owner: "user" | "f5" | "ask", expected?: number) => {
+      const before = view(state), command: Message<"control"> = { protocol: "nl.engine/1", type: "control", session_id: identity.session_id, command_id: `park-${serial++}`, op, args: { owner }, ...(expected === undefined ? {} : { expected_control_epoch: expected }) };
+      const input: Input = { kind: "control", command, target: before.current }, result = reduce(state, input);
+      state = result.state;
+      const ack = result.effects.find(e => e.kind === "emit" && e.event.type === "control_ack");
+      if (!ack || ack.kind !== "emit" || ack.event.type !== "control_ack") throw Error("missing ack");
+      expect(view(state).current.control_epoch).toBe(before.current.control_epoch + (authority === "engine" && ack.event.outcome === "accept" ? 1 : 0));
+      expect(result.effects).toHaveLength(1);
+      expect(JSON.stringify(result.effects)).not.toContain("pause_owner");
+      expect(reduce(state, input).effects).toEqual([{ kind: "replay", event: ack.event }]);
+      return ack.event;
+    };
+    expect(control("resume", "user").outcome).toBe("noop");
+    const first = control("pause", "f5"); expect(first.outcome).toBe("accept"); expect(first.reason).toBeUndefined();
+    expect(control("pause", "f5").outcome).toBe("noop");
+    expect(control("pause", "ask").outcome).toBe("noop"); expect(view(state).pause_owner).toBe("f5");
+    expect(control("pause", "user")).toMatchObject({ outcome: "accept", reason: "manual pause" });
+    expect(control("pause", "ask").outcome).toBe("noop"); expect(view(state).pause_owner).toBe("user");
+    expect(control("resume", "f5")).toMatchObject({ outcome: "reject", reason: "pause owner differs" }); expect(view(state).pause_owner).toBe("user");
+    expect(control("pause", "ask", 999)).toMatchObject({ outcome: "reject", reason: "STALE_EPOCH", current: view(state).current }); expect(view(state).pause_owner).toBe("user");
+    state = run(state, { ...seek, command: { ...seek.command, expected_control_epoch: undefined }, target: view(state).current }); expect(view(state).pause_owner).toBe("user");
+    expect(control("resume", "user").outcome).toBe("accept"); expect(view(state).pause_owner).toBeUndefined();
+    expect(control("pause", "ask").outcome).toBe("accept");
+    expect(control("pause", "f5").outcome).toBe("noop"); expect(view(state).pause_owner).toBe("ask");
+    for (const owner of ["user", "f5", "ask"] as const) {
+      state = accepted(2, authority);
+      const first = control("pause", owner); expect(first.outcome).toBe("accept"); expect(first.reason).toBeUndefined();
+      expect(control("resume", owner, 999)).toMatchObject({ outcome: "reject", reason: "STALE_EPOCH", current: view(state).current });
+      expect(view(state).pause_owner).toBe(owner);
+      for (const other of ["user", "f5", "ask"] as const) if (other !== owner) {
+        expect(control("resume", other)).toMatchObject({ outcome: "reject", reason: "pause owner differs" });
+        expect(view(state).pause_owner).toBe(owner);
+      }
+      expect(control("resume", owner).outcome).toBe("accept");
+    }
+    state = run(state, stop);
+    expect(control("pause", "user").outcome).toBe("noop");
+    expect(control("pause", "ask").outcome).toBe("noop"); expect(control("resume", "ask").outcome).toBe("noop");
+  }
+});

@@ -1,4 +1,5 @@
 import { privacyCases } from "./privacy-cases";
+import { pauseCases } from "./pause-cases";
 import { pacingCases } from "./pacing-cases";
 import { artifactCases } from "./artifact-cases";
 import { negotiationCases } from "./negotiation-cases";
@@ -220,6 +221,7 @@ export const engineCases: Record<string, Case> = {
   },
   ...negotiationCases,
   ...pacingCases,
+  ...pauseCases,
   ...artifactCases,
   "GEN-02": async c => {
     const t = setup(c, [...steps(100), ...steps(100)]);
