@@ -32,3 +32,6 @@ test("row 7: preset identity and revision", () => expect(choose("meadow")).toEqu
 test("inherited property names are missing", () => {
   for (const name of ["constructor", "__proto__"]) { expect(choose(name).fallback_reason).toBe("clone_profile_missing"); expect(() => choose(name, "brief", true)).toThrow(VoiceUnavailable); }
 });
+test("announce read preserves the clone", () => {
+  expect(selectVoice({ use: "read", mode: "announce", voice: { profile: "lantern", require_clone: false, fallback: "none" } }, "Amber", 5, voices, engines)).toMatchObject({ engine: { family: "qwen3_clone" }, substituted: false });
+});

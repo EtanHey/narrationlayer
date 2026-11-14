@@ -151,7 +151,8 @@ export function createEngineSession<Audio>(options: {
           step({ kind: "backend", identity, result: { kind: "commit" } }); break;
         }
         if (nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) break;
-        const request = requests.get(identity.session_id)?.[index];
+        const plannedRequests = requests.get(identity.session_id), selection = plannedRequests?.selection;
+        const request = plannedRequests?.[index];
         if (!request || request.piece_index !== piece.index || !piece.segments[0]) throw new Error("invalid planner requests");
         const started = options.clock.monotonic();
         step({ kind: "synthesis_requested", identity, piece_index: piece.index, chars: request.text.length, t_mono_ms: Math.round(started) });
@@ -163,8 +164,8 @@ export function createEngineSession<Audio>(options: {
           prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
           words: structuredClone(session.plan.words.slice(piece.word_start, piece.word_end)),
           // Engine selection owes the resolved profile/mode rate when the request omits it.
-          engine: { ...session.plan.engine }, substituted: requests.get(identity.session_id)?.selection?.substituted ?? false,
-          fallback_reason: requests.get(identity.session_id)?.selection?.fallback_reason ?? null, segments: piece.segments.length, rate: session.request.rate ?? "+0%",
+          engine: { ...session.plan.engine }, substituted: selection?.substituted ?? false,
+          fallback_reason: selection?.fallback_reason ?? null, segments: piece.segments.length, rate: session.request.rate ?? "+0%",
           synthesis_ms: ready - started, spoken_text: request.text,
         }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.

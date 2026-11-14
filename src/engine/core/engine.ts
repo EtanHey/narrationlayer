@@ -4,7 +4,7 @@ import { createPublication, type ArtifactPort } from "../publication/publication
 import type { createArtifactStore } from "../artifacts/store";
 import { planRead } from "../../plan/read-plan";
 
-import { selectVoice, type Voices } from "../selection/voice";
+import { parseVoices, selectVoice, type Voices } from "../selection/voice";
 import { projectStructuredSpeech } from "../../text/voicelayer/structured-speech";
 
 /** Host owns voice data, byte custody and time; this factory owns their composition. */
@@ -16,14 +16,14 @@ export function createEngine(options: {
   engines: Message<"welcome">["engines"];
   voices: Voices;
 }) {
-  const voices = structuredClone(options.voices), engines = structuredClone(options.engines);
+  const voices = parseVoices(structuredClone(options.voices)), engines = structuredClone(options.engines);
   const session = createEngineSession({ ...options,
     // Stage-A player edges belong to the host.
     welcome: { package_version: options.package_version, protocol_minor: 0,
       caps: ["read", "speak", "ask_prompt", "display_document", "word_timing", "artifacts", "lifecycle"], engines },
     planner: { plan: (request, _limits, identity) => {
       const projection = request.input.format === "markdown" ? projectStructuredSpeech(request.input.text) : { displayText: request.input.text, speechText: request.input.text };
-      const selection = selectVoice(request, projection.displayText, projection.speechText.length, voices, engines);
+      const selection = selectVoice(request, projection.displayText, projection.speechText.replace(/ {2,}/g, " ").trim().length, voices, engines);
       const { engine } = selection;
       const capability = engines.find(capability => capability.family === engine.family) ?? (engine.family === "qwen3_clone" ? { max_chars: undefined } : undefined);
       if (!capability) throw new Error("selected engine family is not declared");
