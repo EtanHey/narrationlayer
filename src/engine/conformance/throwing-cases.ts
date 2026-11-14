@@ -27,10 +27,8 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       }
       return create(wrapped);
     };
-    const steps = Array.from({ length: 2 }, () => ({ latency_ms: 1, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(100, 1000, 300) } }));
-    // A backend fault occurs before consuming a script entry.
-    if (["monotonic", "schedule", "backend", "rejection"].includes(fault)) steps.pop();
-    const t = setup(c, steps); c.binding.create = create; armed = true;
+    const step = { latency_ms: 1, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(100, 1000, 300) } };
+    const t = setup(c, [step]); c.binding.create = create; armed = true;
     t.connection.send(read("fault-read")); // R102: a throw cannot escape send.
     await until(c, () => t.seen.some(e => e.type === "piece_ready" || e.type === "outcome"));
     async function complete(id: string) {
@@ -45,6 +43,7 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       c.assert(t.seen.filter(e => e.type === "outcome" && e.session_id === accepted.session_id).length === 1); // R100: thrown outcome still terminal.
     }
     await complete("fault-read"); c.assert(thrown);
+    if (t.backend.pending === 0) t.backend.script([step]); // L429/558, R90: either backend/bound order is valid.
     t.connection.send(read("healthy-read")); await until(c, () => t.seen.filter(e => e.type === "accepted").length === 2 && t.seen.some(e => e.type === "piece_ready" && e.session_id === t.seen.filter(e => e.type === "accepted")[1]?.session_id));
     await complete("healthy-read"); await t.finish();
     c.assert(logs.length > 0); c.assert(!JSON.stringify(logs).includes("Copper boats drift.")); // R103

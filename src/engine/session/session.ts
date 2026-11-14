@@ -309,9 +309,9 @@ export function createEngineSession<Audio>(options: {
         host.ignore("artifacts.releaseFromHost", () => { if (hasDeliveredLease(state, value.lease_id)) result = options.artifacts!.releaseFromHost(value.lease_id); });
         if (result.kind === "released") step({ kind: "artifact_release", lease_id: value.lease_id });
         else if (result.kind === "expired") {
-          try { step({ kind: "refuse", code: "ARTIFACT_EXPIRED", message: "ARTIFACT_EXPIRED" },
-            host.call("artifacts.minted", () => options.artifacts!.minted(value.lease_id)) ? { lease_id: value.lease_id } : undefined); }
-          catch { const owner = Object.values(state.sessions).find(s => s.delivered.some(p => p.artifact.lease_id === value.lease_id)); if (owner) failHost(owner); }
+          let minted = false;
+          host.ignore("artifacts.minted", () => { minted = options.artifacts!.minted(value.lease_id); });
+          step({ kind: "refuse", code: "ARTIFACT_EXPIRED", message: "ARTIFACT_EXPIRED" }, minted ? { lease_id: value.lease_id } : undefined);
         }
       } else if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
       else if (value.type === "control" && (value.op === "stop" || value.op === "pause" || value.op === "resume" || value.op === "seek" || value.op === "resync")) {
