@@ -10,7 +10,7 @@ import { synthesize } from "./synthesis.js";
 import { RunnerFailure, TakeCheckError } from "./failure.js";
 import { applyBreathingInPlace } from "./breathing.js";
 import { loudnessNormalizeInPlace } from "./loudness.js";
-import { clearTakeCacheReceipt, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
+import { computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
 import { assertKeepPiecesDir, keepPieces } from "./keep-pieces.js";
 
 export interface ResolvedLocalTtsVoice extends CacheKeyParams {
@@ -248,7 +248,6 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
     throw new TakeCheckError("take checks require a positive pitch ceiling and 0..10 retries");
   if (args.refreshCache && !args.cache) throw new RunnerFailure("--refresh-cache cannot be combined with --no-cache");
   if (args.keepPiecesDir !== undefined) await assertKeepPiecesDir(args.keepPiecesDir);
-  await clearTakeCacheReceipt(args.output);
   const evidence: TakeCheckReceipt = { attempts: 0, failures: [], gaveUp: false };
   const stage = await mkdtemp(`${args.output}.checks-`);
   const output = path.join(stage, "take.wav");
@@ -275,7 +274,9 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           throw new TakeCheckError("take check execution failed; no retry performed");
         }
       })();
-      const reason = pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
+      const tooShort = pitch.windows.length === 0;
+      if (tooShort) evidence.pitchNote = "not judged: shorter than one window";
+      const reason = tooShort ? undefined : pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
       if (!reason) {
         const cachePath = path.join(args.cacheDir, `${key}.wav`);
         if (args.cache && source === "render") {
@@ -292,16 +293,16 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           : { dir: args.keepPiecesDir, count: JSON.parse(await readFile(path.join(args.keepPiecesDir, "pieces.json"), "utf8")).pieces.length };
         await writeTakeCacheReceipt(args.output, key, { cacheEnabled: args.cache,
           refreshed: args.refreshCache, keptPieces, takeChecks: evidence });
-        return result.kind === "cache-hit" ? { ...result, cachePath }
+        const pitchNote = evidence.pitchNote ? ` pitch=${evidence.pitchNote}` : "";
+        return result.kind === "cache-hit" ? { ...result, cachePath, piecesNote: result.piecesNote + pitchNote }
           : { ...result, cacheNote: args.cache ? ` cache checked->frozen key=${key}` : "",
-            piecesNote: keptPieces ? ` pieces=${keptPieces.count} kept in ${args.keepPiecesDir}` : "" };
+            piecesNote: (keptPieces ? ` pieces=${keptPieces.count} kept in ${args.keepPiecesDir}` : "") + pitchNote };
       }
       evidence.failures.push({ source, attempt: evidence.attempts, reason });
       if (pieces) await rm(pieces, { recursive: true, force: true });
       if (evidence.attempts >= checks.retries + 1) {
         evidence.gaveUp = true;
-        await writeTakeCacheReceipt(args.output, key, { cacheEnabled: args.cache, takeChecks: evidence });
-        throw new RunnerFailure("take checks gave up after bounded retries");
+        throw new RunnerFailure(`take checks gave up after bounded retries: ${JSON.stringify(evidence)}`);
       }
       refresh = false;
     }

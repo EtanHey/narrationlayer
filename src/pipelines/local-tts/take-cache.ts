@@ -134,6 +134,7 @@ export async function clearTakeCacheReceipt(output: string): Promise<void> {
 }
 
 export interface TakeCheckReceipt {
+  pitchNote?: "not judged: shorter than one window";
   attempts: number;
   failures: { source: "cache" | "render"; attempt: number; reason: string }[];
   gaveUp: boolean;

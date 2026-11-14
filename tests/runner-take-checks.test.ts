@@ -5,9 +5,10 @@ import { renderLocalTts, type LocalTtsRenderOptions } from "../src/pipelines/loc
 import { normalizeForSpeech, prepareSpeechChannels } from "../src/text-normalize.js";
 import { computeContentHashKey } from "../src/pipelines/local-tts/take-cache.js";
 
-function tone(hz: number) {
-  const pcm = Buffer.alloc(24000 * 2);
-  for (let i = 0; i < 24000; i++) pcm.writeInt16LE(Math.round(4000 * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
+function tone(hz: number, seconds = 1) {
+  const count = Math.round(24000 * seconds);
+  const pcm = Buffer.alloc(count * 2);
+  for (let i = 0; i < count; i++) pcm.writeInt16LE(Math.round(4000 * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
   const h = Buffer.alloc(44);
   h.write("RIFF"); h.writeUInt32LE(36 + pcm.length, 4); h.write("WAVEfmt ", 8);
   h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
@@ -15,7 +16,7 @@ function tone(hz: number) {
   h.write("data", 36); h.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([h, pcm]);
 }
-async function fixture(failures: number) {
+async function fixture(failures: number, seconds = 1) {
   await mkdir("docs.local/w92-tests", { recursive: true });
   const dir = path.resolve(await mkdtemp("docs.local/w92-tests/case-"));
   let calls = 0;
@@ -27,7 +28,7 @@ async function fixture(failures: number) {
     calls++;
     // No failing take may have reached the cache before a subsequent request.
     expect(await readdir(cacheDir)).toEqual([]);
-    return Response.json({ audio_b64: tone(calls <= failures ? 400 : 180).toString("base64") });
+    return Response.json({ audio_b64: tone(calls <= failures ? 400 : 180, seconds).toString("base64") });
   } });
   const args: LocalTtsRenderOptions = { text: "Hello moon.", output: path.join(dir, "out.wav"),
     sampleRate: 24000, resolved: { daemonUrl: `http://127.0.0.1:${server.port}`, referenceClip: "synthetic.wav", referenceText: "Synthetic reference." },
@@ -55,14 +56,12 @@ test("failed takes retry fresh requests, publish only the passing take and keep 
   } finally { await f.close(); }
 });
 
-test("give-up records every failure and never publishes or caches rejected audio", async () => {
+test("give-up reports failures without publishing audio or a receipt", async () => {
   const f = await fixture(Infinity);
   try {
     await expect(renderLocalTts(f.args)).rejects.toThrow("gave up");
     expect(f.calls()).toBe(3);
-    const r = await receipt(f.args.output);
-    expect(r.takeChecks.gaveUp).toBe(true);
-    expect(r.takeChecks.failures).toHaveLength(3);
+    expect(await Bun.file(`${f.args.output}.cache.json`).exists()).toBe(false);
     expect(await readdir(f.args.cacheDir)).toEqual([]);
     expect(await Bun.file(f.args.output).exists()).toBe(false);
     expect((await readdir(f.dir)).some(n => n.includes(".checks-"))).toBe(false);
@@ -130,6 +129,45 @@ test("check execution error exits 2 without a fresh request or publication", asy
     expect(await readFile(f.args.output, "utf8")).toBe("previous accepted output");
     expect(await readFile(cached, "utf8")).toBe("not audio");
     expect(await Bun.file(`${f.args.output}.cache.json`).exists()).toBe(false);
+    expect((await readdir(f.dir)).some(n => n.includes(".checks-"))).toBe(false);
+  } finally { await f.close(); }
+});
+
+
+test("a 0.6 s take passes without retry and reports pitch not judged", async () => {
+  const f = await fixture(Infinity, 0.6);
+  try {
+    await renderLocalTts(f.args);
+    expect(f.calls()).toBe(1);
+    expect((await receipt(f.args.output)).takeChecks).toEqual({ attempts: 1, failures: [], gaveUp: false,
+      pitchNote: "not judged: shorter than one window" });
+    expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+    expect(f.calls()).toBe(1);
+    expect((await receipt(f.args.output)).takeChecks.pitchNote).toBe("not judged: shorter than one window");
+  } finally { await f.close(); }
+});
+
+test("CLI give-up preserves the previous WAV, spoken text and receipt byte for byte", async () => {
+  const f = await fixture(Infinity);
+  try {
+    const reference = path.join(f.dir, "reference.wav"), auth = path.join(f.dir, "auth");
+    await writeFile(reference, tone(180));
+    await writeFile(auth, "synthetic");
+    const previous = [tone(180), Buffer.from("Earlier synthetic input."), Buffer.from('{"cacheKey":"previous-key"}\n')];
+    const files = [f.args.output, `${f.args.output}.spoken.txt`, `${f.args.output}.cache.json`];
+    for (const [i, file] of files.entries()) await writeFile(file, previous[i]!);
+    const child = Bun.spawn([process.execPath, "bin/local-tts-runner.ts", "--text", f.args.text,
+      "--output", f.args.output, "--reference", reference, "--reference-text", "Synthetic reference.",
+      "--auth-token-file", auth, "--daemon-url", f.args.resolved.daemonUrl, "--cache-dir", f.args.cacheDir,
+      "--take-checks", "--pitch-ceiling", "300"], { stdout: "pipe", stderr: "pipe" });
+    const stderr = await new Response(child.stderr).text();
+    expect(await child.exited).toBe(1);
+    expect(f.calls()).toBe(3);
+    expect(stderr).toContain('"gaveUp":true');
+    expect(stderr).toContain('"attempts":3');
+    expect(stderr.match(/pitch-over-ceiling/g)).toHaveLength(3);
+    for (const [i, file] of files.entries()) expect(await readFile(file)).toEqual(previous[i]!);
+    expect(await readdir(f.args.cacheDir)).toEqual([]);
     expect((await readdir(f.dir)).some(n => n.includes(".checks-"))).toBe(false);
   } finally { await f.close(); }
 });

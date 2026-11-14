@@ -339,7 +339,7 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
 
   const output = path.resolve(expandHome(args.output));
   await mkdir(path.dirname(output), { recursive: true });
-  await clearTakeCacheReceipt(output);
+  if (!args.takeChecks) await clearTakeCacheReceipt(output);
 
   const resolved = await resolveReference(args);
 

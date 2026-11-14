@@ -1,11 +1,11 @@
 {
-  "sha256": "de42a5bbe44d9e44cafdf65b6ef55625f00bbdcad3eb677f31b34c189faa0b9f",
+  "sha256": "df8dc3d9339531fb254baaae1919377fdc7de554b33d764951dd304f3f001fa5",
   "files": {
     "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
     "src/api/index.d.ts": "2ef9e7c362d29d143ca8e7cddc25661804824709f32186c1f41ed0267d9e5d43",
     "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
     "src/core/render-types.d.ts": "2917a9ecd2d5107d4d8a8a01aa27be8fa2cdd609c1feb0c6ffc0f6ddf77da119",
-    "src/pipelines/local-tts/take-cache.d.ts": "1608058f29a460bf0aa2e3bf67a96888db7947c2d5c24f7a90a10b99dfe9c404",
+    "src/pipelines/local-tts/take-cache.d.ts": "2d11d008c0ae554b5dfe8cf34e843995fc22aa63098443822b1480b874b36954",
     "src/plan/breathing.d.ts": "2739c58b646df90a7fb04e7bf3699292ddfd41a8cc201d751ebf7f7a60d27099",
     "src/plan/index.d.ts": "b6db6bbd829aa332fd16a7484a2aa2e5b676e3a8c1e3eab19dfb0e24a4801d47",
     "src/plan/utterances.d.ts": "14f6b4ad810911a23fb7e26665c90541004e954958936a5b8469adb2941693c8",
@@ -180,7 +180,7 @@
     },
     "TakeCheckReceipt": {
       "kind": "type",
-      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface TakeCheckReceipt {\n    attempts: number;\n    failures: {\n        source: \"cache\" | \"render\";\n        attempt: number;\n        reason: string;\n    }[];\n    gaveUp: boolean;\n}"
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface TakeCheckReceipt {\n    pitchNote?: \"not judged: shorter than one window\";\n    attempts: number;\n    failures: {\n        source: \"cache\" | \"render\";\n        attempt: number;\n        reason: string;\n    }[];\n    gaveUp: boolean;\n}"
     },
     "TeleprompterPayload": {
       "kind": "type",
