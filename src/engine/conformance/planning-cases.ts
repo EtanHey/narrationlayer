@@ -4,7 +4,7 @@ import { parseEvent } from "../messages/parser";
 import { pcmAudio, ScriptedBackend } from "./fake-backend";
 import { ScriptedPlayer, ScriptedSpawn } from "./fake-player";
 import { ScriptedHost } from "./host-stub";
-import { hello } from "./engine-cases";
+import { assertBackendCalls, hello } from "./engine-cases";
 
 type Unit = { kind: "heading" | "item" | "sentence"; text: string };
 const unit = (kind: Unit["kind"], text: string): Unit => ({ kind, text });
@@ -64,6 +64,8 @@ async function read(c: CaseContext, units: Unit[], expected = units) {
     const u = ranges.find(u => p.word_start >= u.start && p.word_end <= u.end); c.assert(!!u && p.segments[0].kind === u.kind);
   });
   c.assert(plan.pieces.at(-1)?.word_end === cursor);
+  assertBackendCalls(c, seen, backend.calls, accepted[0].session_id, pieces);
+  c.assert(own.at(-1)?.type === "outcome");
   return { plan, pieces, ranges };
 }
 const heading = (text: string) => unit("heading", text);

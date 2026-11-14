@@ -53,7 +53,17 @@ function cumulative(count: number, scale = 1, audioShapes = shapes) {
   }
   return Number((2n * numerator + denominator) / (2n * denominator));
 }
-function success(c: CaseContext, seen: Event[], request_id: string, count: number) {
+// The backend port has no session id. Pair its ordered calls with the ordered
+// synthesis_requested records, including failed/cancelled attempts without audio.
+export function assertBackendCalls(c: CaseContext, seen: Event[], calls: readonly Json[], session_id: string, pieces: MessagePieces, undelivered = 0) {
+  const requested = seen.filter(e => e.type === "lifecycle" && e.edge === "synthesis_requested");
+  c.assert(calls.length === requested.length);
+  const own = requested.flatMap((r, i) => r.session_id === session_id ? [calls[i]] : []);
+  c.assert(own.length === pieces.length + undelivered);
+  own.forEach((call, i) => c.assert(call !== null && typeof call === "object" && !Array.isArray(call) && call.piece_index === i && typeof call.text === "string" && (i >= pieces.length || call.text === pieces[i].spoken_text)));
+}
+type MessagePieces = Extract<Event, { type: "piece_ready" }>[];
+function success(c: CaseContext, seen: Event[], request_id: string, count: number, calls: readonly Json[]) {
   const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
   c.assert(accepted.length >= 1 && accepted.every(e => e.session_id === accepted[0].session_id));
   const session_id = accepted[0].session_id;
@@ -68,9 +78,11 @@ function success(c: CaseContext, seen: Event[], request_id: string, count: numbe
   c.assert(durations.every((d, i) => own.indexOf(d) > own.indexOf(pieces[0]) && (i === 0 || d.known_ms >= durations[i - 1].known_ms) && (d.final || own.indexOf(d) < own.indexOf(finals[0]))));
   c.assert(outcomes.length === 1 && outcomes[0].generation.status === "committed");
   c.assert(!seen.some(e => e.type === "error"));
+  assertBackendCalls(c, seen, calls, session_id, pieces);
+  c.assert(own.at(-1)?.type === "outcome");
   return { own, plans, pieces, records, durations, outcomes };
 }
-function interrupted(c: CaseContext, seen: Event[], request_id: string, delivered: number, generation: "failed" | "cancelled") {
+function interrupted(c: CaseContext, seen: Event[], request_id: string, delivered: number, generation: "failed" | "cancelled", calls: readonly Json[]) {
   const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
   c.assert(accepted.length === 1);
   const own = seen.filter(e => "session_id" in e && e.session_id === accepted[0].session_id);
@@ -84,6 +96,8 @@ function interrupted(c: CaseContext, seen: Event[], request_id: string, delivere
   // A failed/cancelled prefix has no final: that claim requires every planned piece.
   c.assert(durations.length === delivered && durations.every(d => !d.final));
   c.assert(outcomes.length === 1 && outcomes[0].generation.status === generation);
+  assertBackendCalls(c, seen, calls, accepted[0].session_id, pieces, 1);
+  c.assert(own.at(-1)?.type === "outcome");
 }
 function textFree(c: CaseContext, text: string) {
   const raw = JSON.stringify(c.trace.filter(e => e && typeof e === "object" && !Array.isArray(e) && (e.type === "lifecycle" || e.type === "error")));
@@ -96,10 +110,10 @@ export const engineCases: Record<string, Case> = {
       t.connection.send({ ...read(request_id, request_id, multiText), lookahead: 3 });
       for (let i = 0; i < 24; i++) await t.settle(1);
       complete(t, c, request_id); await t.settle();
-      success(c, t.seen, request_id, 3);
+      success(c, t.seen, request_id, 3, t.backend.calls);
     }
     await t.finish();
-    for (const id of ["request-gen-1", "request-gen-2"]) success(c, t.seen, id, 3);
+    for (const id of ["request-gen-1", "request-gen-2"]) success(c, t.seen, id, 3, t.backend.calls);
     c.assert(!t.seen.some(e => e.type === "error"));
   },
   "LIFE-01e": async c => {
@@ -123,8 +137,8 @@ export const engineCases: Record<string, Case> = {
       }
       c.assert(records.every((r, i) => i === 0 || r.t_mono_ms >= records[i - 1].t_mono_ms));
       textFree(c, text);
-      if (!failed) success(c, t.seen, "request-multi", 3);
-      else interrupted(c, t.seen, "request-multi", 1, "failed");
+      if (!failed) success(c, t.seen, "request-multi", 3, t.backend.calls);
+      else interrupted(c, t.seen, "request-multi", 1, "failed", t.backend.calls);
       const outcome = t.seen.findIndex(e => e.type === "outcome"); c.assert(outcome >= 0 && !t.seen.slice(outcome + 1).some(e => e.type === "lifecycle"));
     }
   },
@@ -133,7 +147,7 @@ export const engineCases: Record<string, Case> = {
     for (const audioShapes of [shapes, [[3, 10000], [6, 20000], [7, 4800]], [[3, 10000], [12, 40000], [7, 4800]]]) {
       const script: BackendStep[] = audioShapes.map(([n, rate], i) => ({ latency_ms: i + 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(n, rate, 999), sample_rate: 8000 } }));
       const t = await multi(c, script); complete(t, c); await t.settle(); await t.finish();
-      const { pieces } = success(c, t.seen, "request-multi", 3);
+      const { pieces } = success(c, t.seen, "request-multi", 3, t.backend.calls);
       c.assert(cumulative(2, 1, audioShapes) !== audioShapes.slice(0, 2).reduce((sum, [n, r]) => sum + Math.round(n * 1000 / r), 0));
       pieces.forEach((p, i) => c.assert(p.start_ms === cumulative(i, 1, audioShapes) && p.artifact.sample_rate === audioShapes[i][1] && p.artifact.sample_count === audioShapes[i][0]));
     }
@@ -148,14 +162,14 @@ export const engineCases: Record<string, Case> = {
       c.assert(JSON.stringify(outcomes[0].missing_piece_indices) === JSON.stringify([0, 1, 2].slice(failedIndex)));
       c.assert(pieces.length === failedIndex && pieces.every((p, i) => p.index === i && t.seen.indexOf(p) < t.seen.indexOf(errors[0])) && t.seen.indexOf(errors[0]) < t.seen.indexOf(outcomes[0]));
       textFree(c, multiText);
-      interrupted(c, t.seen, "request-multi", failedIndex, "failed");
+      interrupted(c, t.seen, "request-multi", failedIndex, "failed", t.backend.calls);
     }
   },
   "WORD-02": async c => {
     const script: BackendStep[] = [[750, 2500], [4000, 10000], [2400, 4800]].map(([n, rate], i) => ({ latency_ms: i + 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(n, rate, 999) } }));
     const t = await multi(c, script); complete(t, c); await t.settle(); await t.finish();
     const plans = t.seen.filter(e => e.type === "plan"), pieces = t.seen.filter(e => e.type === "piece_ready");
-    success(c, t.seen, "request-multi", 3);
+    success(c, t.seen, "request-multi", 3, t.backend.calls);
     c.assert(plans.length === 1 && pieces.length === 3 && pieces.every(p => p.duration_ms >= 300));
     c.assert(JSON.stringify(pieces.flatMap(p => p.words.map(w => w.index))) === JSON.stringify(plans[0].words.map(w => w.index)));
     for (const p of pieces) c.assert(p.words.length > 0 && p.words.every((w, i) => Number.isFinite(w.start_ms) && Number.isFinite(w.end_ms) && w.timing === "estimated" && w.start_ms >= p.start_ms && w.end_ms > w.start_ms && w.end_ms <= p.start_ms + p.duration_ms && (i === 0 || w.start_ms >= p.words[i - 1].end_ms)));
@@ -166,7 +180,7 @@ export const engineCases: Record<string, Case> = {
       t.connection.send({ ...read(`request-det-${scale}`, `key-det-${scale}`, multiText), lookahead: 3 });
       for (let i = 0; i < 24; i++) await t.settle(1);
       complete(t, c, `request-det-${scale}`); await t.settle();
-      const { pieces, records, durations } = success(c, t.seen, `request-det-${scale}`, 3);
+      const { pieces, records, durations } = success(c, t.seen, `request-det-${scale}`, 3, t.backend.calls);
       c.assert(pieces.length === 3 && durations.length >= 3 && durations.every(d => shapes.some((_, i) => d.known_ms === cumulative(i + 1, scale))));
       pieces.forEach((p, i) => {
         const duration = Math.round(shapes[i][0] * scale * 1000 / shapes[i][1]);
@@ -178,7 +192,7 @@ export const engineCases: Record<string, Case> = {
       });
     }
     await t.finish();
-    for (const scale of [12, 24]) success(c, t.seen, `request-det-${scale}`, 3);
+    for (const scale of [12, 24]) success(c, t.seen, `request-det-${scale}`, 3, t.backend.calls);
     c.assert(!t.seen.some(e => e.type === "error"));
   },
   "PLAN-LAT-01": async c => {
@@ -215,7 +229,7 @@ export const engineCases: Record<string, Case> = {
         const request = backend.calls[i];
         c.assert(request !== null && typeof request === "object" && !Array.isArray(request) && request.text === texts[i]);
         c.assert(plan >= 0 && outcome > plan);
-        interrupted(c, seen, `request-${i + 1}`, 0, "cancelled");
+        interrupted(c, seen, `request-${i + 1}`, 0, "cancelled", backend.calls);
       }
       backend.assertDrained(); player.assertDrained(); spawn.assertDrained();
     }
@@ -232,7 +246,7 @@ export const engineCases: Record<string, Case> = {
     await t.finish();
     let seq = 0;
     for (const event of t.seen) if (event.type !== "welcome") c.assert(event.seq === ++seq);
-    success(c, t.seen, "request-1", 1);
+    success(c, t.seen, "request-1", 1, t.backend.calls);
     c.assert(!t.seen.some(e => e.type === "error"));
     c.assert(t.seen.at(-1)?.type === "outcome"); // Lease-backed timing_update exception owed to S7.
   },
@@ -244,7 +258,7 @@ export const engineCases: Record<string, Case> = {
     const accepted = t.seen.find(e => e.type === "accepted");
     c.assert(accepted?.type === "accepted" && errors[0].session_id === accepted.session_id);
     textFree(c, "Copper boats drift.");
-    interrupted(c, t.seen, "request-1", 0, "failed");
+    interrupted(c, t.seen, "request-1", 0, "failed", t.backend.calls);
     c.assert(outcomes.length === 1 && outcomes[0].playback.reason === "synth_failed" && outcomes[0].generation.status === "failed");
     c.assert(t.seen.indexOf(errors[0]) < t.seen.indexOf(outcomes[0]) && t.seen.at(-1) === outcomes[0]);
   },
@@ -258,7 +272,7 @@ export const engineCases: Record<string, Case> = {
     c.assert(outcomes.length === 1 && outcomes[0].session_id === accepted.session_id);
     const count = t.seen.length; await t.settle(2); c.assert(t.seen.length === count);
     c.assert(!t.seen.some(e => e.type === "piece_ready")); await t.finish();
-    interrupted(c, t.seen, "request-1", 0, "cancelled");
+    interrupted(c, t.seen, "request-1", 0, "cancelled", t.backend.calls);
   },
   "ID-04": async c => {
     const t = setup(c, [audio(), audio()]);
@@ -273,12 +287,12 @@ export const engineCases: Record<string, Case> = {
     const conflicts = t.seen.filter(e => e.type === "error" && e.code === "IDEMPOTENCY_CONFLICT");
     c.assert(conflicts.length === 1 && conflicts[0].type === "error" && conflicts[0].phase === "admit" && conflicts[0].retry === "never");
     c.assert(t.backend.calls.length === 2); await t.finish();
-    for (const id of ["request-1", "request-2"]) success(c, t.seen.filter(e => e.type !== "error" || e.code !== "IDEMPOTENCY_CONFLICT"), id, 1);
+    for (const id of ["request-1", "request-2"]) success(c, t.seen.filter(e => e.type !== "error" || e.code !== "IDEMPOTENCY_CONFLICT"), id, 1, t.backend.calls);
     c.assert(t.seen.filter(e => e.type === "error").length === 1);
   },
   "TIME-02": async c => {
     const t = setup(c, [audio()]); t.connection.send(read()); await t.settle(1); await t.finish();
-    success(c, t.seen, "request-1", 1);
+    success(c, t.seen, "request-1", 1, t.backend.calls);
     c.assert(!t.seen.some(e => e.type === "error"));
     const pieces = t.seen.filter(e => e.type === "piece_ready"); c.assert(pieces.length === 1);
     for (const piece of pieces) { c.assert(piece.duration_ms === 100 && piece.start_ms === 0); c.assert(piece.artifact.sample_count === 100 && piece.artifact.sample_rate === 1000); c.assert(piece.words.every(w => w.start_ms >= 0 && w.end_ms <= 100)); }

@@ -105,3 +105,14 @@ test("PLAN-LAT-01 bounds a swallowed second narrate under the fake clock", async
   } };
   expect((await runCase("PLAN-LAT-01", broken, engineCases["PLAN-LAT-01"])).result).toBe("fail");
 });
+
+test("a successful read checks backend text even when plan and pieces report whole units", async () => {
+  const wrong = { name: "backend-word-only", create: (host: Parameters<typeof engine.create>[0]) => {
+    const backend = host.ports?.backend, original = backend?.synthesizeRequest.bind(backend);
+    if (backend && original) backend.synthesizeRequest = (request, signal) => original(
+      request !== null && typeof request === "object" && !Array.isArray(request) && request.text === "Golden otters swim."
+        ? { ...request, text: "Golden" } : request, signal);
+    return engine.create(host);
+  } };
+  expect((await runCase("GEN-02", wrong, engineCases["GEN-02"])).result).toBe("fail");
+});

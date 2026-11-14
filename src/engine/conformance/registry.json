@@ -631,7 +631,10 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": true
+    "active": true,
+    "owed": [
+      "One-word remainder after over-limit cutting: second planning PR after the serving-engine sentence-cap fix (S3p4)."
+    ]
   },
   {
     "id": "PLAN-02",
