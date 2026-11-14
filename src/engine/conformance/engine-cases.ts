@@ -65,11 +65,11 @@ export function setup(c: CaseContext, steps: BackendStep[], selection: Pick<Para
   const backend = new ScriptedBackend(c.clock), spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
   backend.script(steps);
   const connection = createProbed(c, { ...selection, clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
-  const seen: Event[] = [];
-  const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })().catch(() => { c.failed = true; });
+  const seen: Event[] = [], observed = new Map<Event, number>();
+  const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) { observed.set(parsed.value, c.clock.monotonic()); seen.push(parsed.value); } } })().catch(() => { c.failed = true; });
   const settle = async (ms = 0) => { await c.clock.advance(ms); for (let i = 0; i < 128; i++) await Promise.resolve(); };
   connection.send(hello);
-  return { connection, seen, backend, settle,
+  return { connection, seen, observed, backend, settle,
     async finish() { await bounded(c, connection.shutdown(c.clock.now())); await settle(); await bounded(c, collect); backend.assertDrained(); player.assertDrained(); spawn.assertDrained(); } };
 }
 function stop(connection: ReturnType<typeof setup>["connection"], session_id: string) {
@@ -247,7 +247,7 @@ export const engineCases: Record<string, Case> = {
     c.assert(!t.seen.some(e => e.type === "error"));
   },
   "LIFE-01e": async c => {
-    // L110/247-248: monotonic edges include scheduling before the backend begins.
+    // L110/247-248: scheduling may add latency, but an edge cannot be in the future when observed.
     const text = multiText.replace("cranes", "𝒸ranes"); // One astral character distinguishes UTF-16 units.
     for (const failed of [false, true]) {
       const script = failed ? [steps()[0], { latency_ms: 3, late_after_cancel: false, result: { kind: "error", code: "invented failure" } } satisfies BackendStep] : steps();
@@ -264,7 +264,7 @@ export const engineCases: Record<string, Case> = {
         const requested = records.filter(e => e.piece_index === i && e.edge === "synthesis_requested"), ready = records.filter(e => e.piece_index === i && e.edge === "audio_ready");
         c.assert(requested.length === 1 && ready.length === (failed && i === 1 ? 0 : 1));
         const piece = pieces[i], r = ready[0];
-        if (piece) c.assert(r?.edge === "audio_ready" && r.session_id === piece.session_id && requested[0].session_id === piece.session_id && requested[0].seq < r.seq && r.t_mono_ms >= requested[0].t_mono_ms + script[i].latency_ms && r.duration_ms === piece.duration_ms && r.sample_count === piece.artifact.sample_count && r.first_audible_offset_ms >= 0 && r.first_audible_offset_ms <= piece.duration_ms && requested[0].edge === "synthesis_requested" && requested[0].chars === piece.spoken_text.length && requested[0].segment_index === 0);
+        if (piece) c.assert(r?.edge === "audio_ready" && r.session_id === piece.session_id && requested[0].session_id === piece.session_id && requested[0].seq < r.seq && r.t_mono_ms >= requested[0].t_mono_ms + script[i].latency_ms && r.t_mono_ms <= (t.observed.get(r) ?? -1) && r.duration_ms === piece.duration_ms && r.sample_count === piece.artifact.sample_count && r.first_audible_offset_ms >= 0 && r.first_audible_offset_ms <= piece.duration_ms && requested[0].edge === "synthesis_requested" && requested[0].chars === piece.spoken_text.length && requested[0].segment_index === 0);
       }
       c.assert(records.every((r, i) => i === 0 || r.t_mono_ms >= records[i - 1].t_mono_ms));
       textFree(c, text);
@@ -421,6 +421,7 @@ export const engineCases: Record<string, Case> = {
     const conflicts = t.seen.filter(e => e.type === "error" && e.code === "IDEMPOTENCY_CONFLICT");
     c.assert(conflicts.length === 1 && conflicts[0].type === "error" && conflicts[0].phase === "admit" && conflicts[0].retry === "never");
     c.assert(t.backend.calls.length === 2); await t.finish();
+    c.assert(t.seen.filter(e => e.type === "accepted").length === 3); // L136: exactly one acceptance per send, including the replay, after drain.
     for (const id of ["request-1", "request-2"]) success(c, t.seen.filter(e => e.type !== "error" || e.code !== "IDEMPOTENCY_CONFLICT"), id, 1, t.backend.calls);
     c.assert(t.seen.filter(e => e.type === "error").length === 1);
   },

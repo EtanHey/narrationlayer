@@ -151,7 +151,7 @@ if (import.meta.main) {
           diagnostic(report, "PRIV-01e", message);
           process.stderr.write(`PRIV-01e: ${message}\n`);
         }
-        for (const stream of streams) if (!leaking.has(stream.name)) process.stderr.write(stream.content);
+        if (!leaking.size) for (const stream of streams) process.stderr.write(stream.content);
         if (connections) diagnostic(report, "CONF-03", "connection reached the parent's proxy listener");
         writeFileSync(1, canonical(report));
         const failedCase = report.rows.some(r => r.result === "fail");

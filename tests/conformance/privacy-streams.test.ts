@@ -35,7 +35,8 @@ ${route === "late" ? `if(stale){let turns=4096;const later=()=>{if(turns--)queue
   try { await run(file); } finally { rmSync(dir, { recursive: true }); }
 });
 
-for (const [name, streams] of [["order", ["reverse stderr"]], ["streams", ["forward stdout", "forward stderr", "reverse stdout", "reverse stderr"]], ["children", ["forward stderr", "reverse stdout"]]] as const) test(`privacy parent catches ${name} leak`, async () => {
+for (const [name, streams] of [["rejoin", ["forward stderr"]], ["order", ["reverse stderr"]], ["streams", ["forward stdout", "forward stderr", "reverse stdout", "reverse stderr"]], ["children", ["forward stderr", "reverse stdout"]]] as const) test(`privacy parent catches ${name} leak`, async () => {
   const diagnostic = await run(resolve(root, `src/engine/conformance/broken-priv-${name}.ts`));
   for (const stream of streams) expect(diagnostic).toContain(stream);
+  if (name === "rejoin") expect(diagnostic).toBe("PRIV-01e: read text in child streams: forward stderr\n");
 });

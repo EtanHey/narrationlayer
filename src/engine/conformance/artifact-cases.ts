@@ -79,7 +79,7 @@ export const artifactCases: Record<string, Case> = {
   "SHUT-01": async c => {
     for (const mode of ["partial", "generated", "multiple", "stuck", "now", "mixed"]) {
       const stuck = mode === "stuck" || mode === "now" || mode === "mixed";
-      const steps = mode === "mixed" ? [{ ...script()[0], latency_ms: 10000, late_after_cancel: true }, { ...script(1)[0], latency_ms: 10000, late_after_cancel: true }] : stuck ? [{ ...script()[0], latency_ms: 10000, late_after_cancel: true }] : mode === "partial" ? script().slice(0, 2) : mode === "multiple" ? [...script(), ...script(1)] : script();
+      const steps = mode === "mixed" ? [{ ...script()[0], latency_ms: 10000, late_after_cancel: true }, { ...script(1)[0], latency_ms: 10000, late_after_cancel: false }] : stuck ? [{ ...script()[0], latency_ms: 10000, late_after_cancel: true }] : mode === "partial" ? script().slice(0, 2) : mode === "multiple" ? [...script(), ...script(1)] : script();
       const traceStart = c.trace.length;
       const t = fixture(c, []), synthesize = t.backend.synthesizeRequest.bind(t.backend), counts = new Map<number, number>();
       t.backend.synthesizeRequest = (request, signal) => {
@@ -170,7 +170,7 @@ export const artifactCases: Record<string, Case> = {
     await until(c, () => t.backend.calls.length === 8); // L425: cancel an actually started call.
     const p = t.pieces()[6];
     t.connection.send({ protocol: "nl.engine/1", type: "control", command_id: "artifact-stop", session_id: p.session_id, op: "stop", args: { scope: "session", reason: "stop" } });
-    await t.settle(3); interrupted(c, t.seen, "artifact-stop", 1, "cancelled", t.backend.calls); t.outcome("artifact-stop"); t.check();
+    await until(c, () => t.seen.some(e => e.type === "outcome" && e.session_id === p.session_id)); interrupted(c, t.seen, "artifact-stop", 1, "cancelled", t.backend.calls); t.outcome("artifact-stop"); t.check();
     await t.finish(); t.check();
     await endings(c);
     c.assert(t.store.size === t.pieces().length - t.released.size);

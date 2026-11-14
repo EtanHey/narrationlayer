@@ -94,7 +94,7 @@ async function scenario(c: CaseContext, mode: string) {
       const session = events("accepted")[0].session_id;
       if (mode === "queued") { connection.send(read(privacyText, { request_id: hostId + "-queued", idempotency_key: hostId + "-queued", start: { after_session: session } })); await tick(); }
       if (mode === "stop" || mode === "shutdown") {
-        await wait(() => events("piece_ready").length === 1);
+        await wait(() => events("piece_ready").length >= 1);
         for (const edge of ["spawned", "first_sample"]) connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: session, player_instance_id: "privacy-midway", control_epoch: 1, piece_index: 0, edge, t_mono_ms: c.clock.now() });
         if (mode === "stop") connection.send({ protocol: "nl.engine/1", type: "control", command_id: hostId, session_id: session, op: "stop", args: { scope: "session", reason: "stop" } });
         else void connection.shutdown(c.clock.now());

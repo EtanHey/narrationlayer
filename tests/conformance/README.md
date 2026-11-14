@@ -422,4 +422,9 @@ The six scheduling controls in `conforming.test.ts` run every active row in an
 isolated process with the real preload: timer start, two/eight extra microtasks,
 serial backend calls, timer abort, and ordered events delayed by 1 ms. A 1500 ms
 child watchdog bounds hangs; case progress uses only the fake clock. These
-controls cover finite scheduling delays, not arbitrary engine latency.
+controls cover ordered event delays of 1 ms. Longer ordered delivery remains
+owed: at 3 ms, ART-01, CTRL-01, PACE-01, SESS-01 and SHUT-01 still fail; at 7 ms,
+ART-01, ART-04, CTRL-01, PACE-01, PACE-02, SESS-01, SHUT-01 and VER-02e still fail.
+Those rows retain fixed-tick assumptions beyond the committed 1 ms control.
+Running the conforming engines through the packaged entry's two children,
+including reversed case order and the parent stream scan, remains owed.
