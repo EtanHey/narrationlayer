@@ -340,7 +340,7 @@ status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
 (BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).
 
 PRIV-01e observes raw events (including unknown fields and object keys), never
-parser projections. A unique 8-character-run set from a 104-character invented
+parser projections. A unique 8-character-run set from a 105-character invented
 canary detects partial leaks. Only `plan.display_document.text`, its `blocks`,
 `plan.words[].text`, and `piece_ready.spoken_text` are removed from event copies.
 The input text and resolved audio bytes are text-bearing too; timing word indices
