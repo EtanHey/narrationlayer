@@ -16,3 +16,11 @@ for (const name of ["broken-seek-reject-moves", "broken-seek-stale-taken", "brok
     expect((await runCase("SEEK-01e", broken, cases["SEEK-01e"])).result).toBe("fail");
   });
 }
+
+for (const delay of [3, 20] as const) {
+  test(`seek delayed ${delay} ms: both seek rows accept a conforming engine`, async () => {
+    const { slowSeek } = await import("./seek-conforming-engines");
+    for (const id of ["SEEK-01e", "ID-01e"])
+      expect((await runCase(id, slowSeek(delay), cases[id])).result).toBe("pass");
+  });
+}

@@ -494,3 +494,16 @@ test("S5b seek receipts preserve pause and reject without moving under both auth
     }
   }
 });
+
+test("S5b negative offset precedes ended and stopping playback under both authorities", () => {
+  for (const authority of ["host", "engine"] as const) {
+    const states = [run(accepted(2, authority), stop), run(accepted(1, authority), piece(), feedback("first_sample"), feedback("exited"))];
+    for (const s of states) {
+      const negative: Input = { ...seek, command: { ...seek.command, expected_control_epoch: undefined, args: { audio_ms: -1 } }, seek: { kind: "reject", reason: "invalid offset" } };
+      const r = reduce(s, negative);
+      expect(r.effects).toMatchObject([{ kind: "emit", event: { outcome: "reject", reason: "invalid offset" } }]);
+      expect(view(r.state).current).toEqual(view(s).current);
+      expect(reduce(s, { ...negative, command: { ...seek.command, expected_control_epoch: undefined }, seek: { kind: "accept", clamped: false } }).effects).toMatchObject([{ kind: "emit", event: { outcome: "noop" } }]);
+    }
+  }
+});

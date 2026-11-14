@@ -131,6 +131,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     if (previous) { answer = "reject"; reason = "command id reused"; }
     // ID-01 (no model backing): a stale control receives ONLY its ack with current.
     else if (stale) { answer = "reject"; reason = "STALE_EPOCH"; }
+    else if (c.op === "seek" && input.seek?.kind === "reject" && input.seek.reason === "invalid offset") { answer = "reject"; reason = input.seek.reason; }
     else if (s.outcome || s.playback !== null) answer = "noop";
     else if (c.op === "stop") { if (!c.args.except_sessions?.includes(session_id)) stop(c.args.reason); else answer = "noop"; }
     else if (c.op === "pause") {
