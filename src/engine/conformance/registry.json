@@ -6,7 +6,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true,
+    "owed": "S7b-2: shutdown reason/deadline, in-flight publication, deferred delete after stream close and release after shutdown, failed-delete diagnostics and pending deletes; later: retain_artifact, timing_update; host ART-02/03 and CUST-01; HASH-01 privacy"
   },
   {
     "id": "ART-02",
@@ -33,7 +34,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false
+    "active": true,
+    "owed": "S7b-2: shutdown reason/deadline, in-flight publication, deferred delete after stream close and release after shutdown, failed-delete diagnostics and pending deletes; later: retain_artifact, timing_update; host ART-02/03 and CUST-01; HASH-01 privacy"
   },
   {
     "id": "ASK-01",
