@@ -1,11 +1,10 @@
-import type { PublicationContext } from "../publication/publication";
+import type { PublicationContext, PublishedPiece } from "../publication/publication";
 import { nextSynthesisIndex } from "../reducer/pacing";
 import { initialState, reduce, type Input } from "../reducer/session";
 import { parseEvent, parseRequest } from "../messages/parser";
 import type { Event, Limits, Message } from "../messages/messages";
 type Identity = Pick<Message<"accepted">, "owner_epoch" | "session_id" | "attempt_id">;
 type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
-type Piece = Omit<Message<"piece_ready">, "protocol" | "owner_epoch" | "seq">;
 /** Returned plans and requests become engine-owned; the session detaches them before storage. */
 export interface ReadPlanner {
   plan(request: Message<"narrate">, limits: Limits, identity: Identity): { plan: Plan; requests: readonly { piece_index: number; text: string }[] };
@@ -20,7 +19,7 @@ export interface Backend<Audio> {
 /** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio.
  * Returned receipts become engine-owned; the session detaches them before storage. */
 export interface Publication<Audio> {
-  piece(audio: Audio, context: PublicationContext, signal: AbortSignal): Promise<Piece>;
+  piece(audio: Audio, context: PublicationContext, signal: AbortSignal): Promise<PublishedPiece>;
   commit(identity: Identity, signal: AbortSignal): Promise<void>;
 }
 /** Only reducer state owns terminals/cursors/order. Other state: synthesis requests (text
@@ -139,9 +138,11 @@ export function createEngineSession<Audio>(options: {
         }
         if (nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) break;
         const request = requests.get(identity.session_id)?.[index];
-        if (!request || request.piece_index !== piece.index) throw new Error("invalid planner requests");
+        if (!request || request.piece_index !== piece.index || !piece.segments[0]) throw new Error("invalid planner requests");
         const started = options.clock.monotonic();
+        step({ kind: "synthesis_requested", identity, piece_index: piece.index, chars: request.text.length, t_mono_ms: Math.round(started) });
         const audio = await options.backend.synthesizeRequest(request, abort.signal);
+        const ready = options.clock.monotonic();
         abort.signal.throwIfAborted();
         const delivered = await options.publication.piece(audio, {
           ...identity, index: piece.index, piece_id: piece.piece_id,
@@ -149,10 +150,12 @@ export function createEngineSession<Audio>(options: {
           words: structuredClone(session.plan.words.slice(piece.word_start, piece.word_end)),
           // Engine selection owes the resolved profile/mode rate when the request omits it.
           engine: { ...session.plan.engine }, segments: piece.segments.length, rate: session.request.rate ?? "+0%",
-          synthesis_ms: options.clock.monotonic() - started, spoken_text: request.text,
+          synthesis_ms: ready - started, spoken_text: request.text,
         }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.
-        step({ kind: "backend", identity, result: { kind: "piece", piece: structuredClone(delivered) } });
+        const { known_ms, first_audible_offset_ms, ...receipt } = structuredClone(delivered);
+        step({ kind: "backend", identity, result: { kind: "piece", piece: receipt, known_ms,
+          audio_ready: { t_mono_ms: Math.round(ready), first_audible_offset_ms } } });
         const updated = state.sessions[identity.session_id];
         if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
       }

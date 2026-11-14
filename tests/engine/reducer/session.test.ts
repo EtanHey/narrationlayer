@@ -17,13 +17,13 @@ const identity = { owner_epoch: 1, session_id: "session-1", attempt_id: "attempt
 const current = { session_id: identity.session_id, player_instance_id: "player-1", control_epoch: 1, audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 10, duration_ms: 10 };
 const request: Message<"narrate"> = { protocol: "nl.engine/1", type: "narrate", request_id: "req-1", idempotency_key: "key", use: "read", input: { text: "Synthetic words only", format: "plain" }, voice: { profile: "fake", require_clone: false, fallback: "none" }, delivery: "pieces" };
 function acceptance(n = 1): Input {
-  const plan = { type: "plan", session_id: identity.session_id, attempt_id: identity.attempt_id, display_document: { version: 1, text: "Synthetic", speech_start: 0, blocks: [] }, words: [], pieces: Array.from({ length: n }, (_, index) => ({ piece_id: `p${index}`, index, word_start: 0, word_end: 0, raw: false, segments: [] })), engine: { family: "fake", profile_revision: "1", voice: "fake" } } satisfies Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
+  const plan = { type: "plan", session_id: identity.session_id, attempt_id: identity.attempt_id, display_document: { version: 1, text: "Synthetic", speech_start: 0, blocks: [] }, words: [], pieces: Array.from({ length: n }, (_, index) => ({ piece_id: `p${index}`, index, word_start: 0, word_end: 0, raw: false, segments: [{ word_start: 0, word_end: 0, kind: "sentence", pause_after_ms: 0, pause_in: "this_piece_end" }] })), engine: { family: "fake", profile_revision: "1", voice: "fake" } } satisfies Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
   return structuredClone({ kind: "accept", identity, current, request, plan });
 }
 function accepted(n = 1, authority: "engine" | "host" = "engine"): State { return reduce(initialState(1, authority), acceptance(n)).state; }
 const view = (s: State) => s.sessions[identity.session_id];
 function piece(index = 0): Input {
-  return { kind: "backend", identity, result: { kind: "piece", piece: { type: "piece_ready", session_id: identity.session_id, attempt_id: identity.attempt_id, piece_id: `p${index}`, index, start_ms: index * 10, duration_ms: 10, spoken_text: "Synthetic", artifact: { handle: "h", lease_id: "l", format: "wav", sample_rate: 1, sample_count: 1, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "1", attempts: [], unavailable: [], fallback_reason: null }, synthesis_ms: 0 } } };
+  return { kind: "backend", identity, result: { kind: "piece", known_ms: (index + 1) * 10, audio_ready: { t_mono_ms: index + 1, first_audible_offset_ms: 0 }, piece: { type: "piece_ready", session_id: identity.session_id, attempt_id: identity.attempt_id, piece_id: `p${index}`, index, start_ms: index * 10, duration_ms: 10, spoken_text: "Synthetic", artifact: { handle: "h", lease_id: "l", format: "wav", sample_rate: 1, sample_count: 1, sha256: "synthetic" }, words: [], actual: [], synthesis: { rate: "1", attempts: [], unavailable: [], fallback_reason: null }, synthesis_ms: 0 } } };
 }
 const commit: Input = { kind: "backend", identity, result: { kind: "commit" } }, failure: Input = { kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_FAILED", message: "synthetic failure" } } }, stop: Input = { kind: "stop", session_id: identity.session_id, reason: "stop" };
 function feedback(edge: Message<"player_feedback">["edge"], overrides: Partial<Message<"player_feedback">> = {}, id = identity): Input {
@@ -79,8 +79,8 @@ test("seq: rejection between emits and interleaved sessions share one owner coun
   let s = accepted(2); const second = acceptance(); if (second.kind !== "accept") throw Error("fixture");
   const inputs: Input[] = [{ kind: "admit", request }, { kind: "refuse", code: "INVALID_REQUEST", message: "invalid" }, piece(), feedback("first_sample", { control_epoch: 9 }), piece(1), { ...second, request: { ...request, request_id: "req-2", idempotency_key: "key-2" }, identity: { ...identity, session_id: "session-2" }, current: { ...current, session_id: "session-2" }, plan: { ...second.plan, session_id: "session-2" } }];
   const seq: number[] = []; for (const i of inputs) { const r = reduce(s, i); s = r.state; for (const e of r.effects) if (e.kind === "emit" && "seq" in e.event) seq.push(e.event.seq); }
-  expect(seq).toEqual([3, 4, 5, 6, 7, 8]); expect(s.seq).toBe(8);
-  const replay = reduce(s, { kind: "admit", request }); expect(replay.state.seq).toBe(8); expect(replay.effects).toMatchObject([{ kind: "replay", event: { type: "accepted", seq: 1 } }]);
+  expect(seq).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 12]); expect(s.seq).toBe(12);
+  const replay = reduce(s, { kind: "admit", request }); expect(replay.state.seq).toBe(12); expect(replay.effects).toMatchObject([{ kind: "replay", event: { type: "accepted", seq: 1 } }]);
   const first = reduce(initialState(1, "engine"), acceptance()); expect(first.effects.map(e => e.kind === "emit" ? e.event.type : e.kind)).toEqual(["accepted", "plan", "backend"]);
 });
 test("idempotency: first ack replays without state changes; changed args rejected; 32 receipts", () => {
@@ -275,6 +275,13 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
         const index = nextSynthesisIndex(session, lookahead, state.sessions);
         if (index !== undefined && (session.fenced || session.generation !== "running" || index !== session.delivered.length || index >= session.plan.pieces.length || index > session.current.piece_index + Math.max(1, lookahead))) throw Error("pacing");
       }
+      for (const session of Object.values(state.sessions)) {
+        const input: Input = { kind: "synthesis_requested", identity: { owner_epoch: session.owner_epoch, session_id: session.session_id, attempt_id: session.attempt_id }, piece_index: session.delivered.length, chars: 7, t_mono_ms: 1 };
+        const probe = reduce(state, input);
+        if (probe.state.sessions !== state.sessions || probe.effects.some(e => e.kind !== "emit" || e.event.type !== "lifecycle" || e.event.edge !== "synthesis_requested")) throw Error("lifecycle changed domain");
+        const expected = !session.outcome && session.generation === "running" && session.delivered.length < session.plan.pieces.length ? 1 : 0;
+        if (probe.effects.length !== expected || probe.state.seq !== state.seq + expected) throw Error("lifecycle fence/seq");
+      }
       visits++; distinct.add(k); if (depth === 4) continue;
       for (const input of alphabet) {
         const r = reduce(state, input); check(state, input, r.state, r.effects); scripts += paths;
@@ -284,7 +291,7 @@ test("exhaustive: I01 I02 I03 I04 and guards through depth 4 with two-piece sess
     frontier = next;
   }
   console.log(`exhaustive depth=4 alphabet=${alphabet.length} scripts=${scripts} visits=${visits} distinct=${distinct.size} wall_ms=${(performance.now() - start).toFixed(1)}`);
-  expect(visits).toBe(44227); expect(distinct.size).toBe(38729);
+  expect(visits).toBe(44380); expect(distinct.size).toBe(38876);
   expect(scripts).toBe(7876923);
   expect(scripts).toBe(3 * (1 + alphabet.length + alphabet.length ** 2 + alphabet.length ** 3 + alphabet.length ** 4));
 }, 20000);
@@ -385,4 +392,31 @@ test("aliasing: mutating a replay cannot change later accepted or control replay
   if (admitted.kind !== "replay" || admitted.event.type !== "accepted") throw Error("missing accepted replay");
   admitted.event.request_id = "mutated";
   expect(reduce(s, { kind: "admit", request }).effects).toEqual([{ kind: "replay", event: { ...s.admissions.key.accepted, request_id: request.request_id } }]);
+});
+
+test("duration: rejects decreases, final once, current follows known_ms, stop and late piece emit nothing", () => {
+  let s = accepted(3);
+  for (let index = 0; index < 3; index++) {
+    const r = reduce(s, piece(index)); s = r.state;
+    expect(r.effects.flatMap(e => e.kind === "emit" ? [e.event.type] : [])).toEqual(["lifecycle", "piece_ready", "duration"]);
+    expect(r.effects.at(-1)).toMatchObject({ event: { known_ms: (index + 1) * 10, final: index === 2 } });
+    expect(view(s).current.duration_ms).toBe((index + 1) * 10);
+    if (index === 0) {
+      const bad = piece(1); if (bad.kind !== "backend" || bad.result.kind !== "piece") throw Error("fixture");
+      bad.result.known_ms = 9; expect(reduce(s, bad).effects).toEqual([]);
+      expect(view(reduce(s, bad).state).delivered).toHaveLength(1);
+      const ended = reduce(s, stop).state;
+      expect(reduce(ended, piece(1)).effects).toEqual([]);
+    }
+  }
+});
+test("LIFE-01e: requested input is fenced by identity, running state and outcome", () => {
+  const a = acceptance(); if (a.kind !== "accept") throw Error("fixture");
+  a.plan.pieces[0].segments = [{ word_start: 0, word_end: 0, kind: "heading", pause_after_ms: 0, pause_in: "this_piece_end" }];
+  const s = reduce(initialState(1, "engine"), a).state;
+  const input: Input = { kind: "synthesis_requested", identity, piece_index: 0, chars: 11, t_mono_ms: 2 };
+  expect(reduce(s, input).effects).toMatchObject([{ event: { type: "lifecycle", edge: "synthesis_requested", kind: "heading", segment_index: 0, chars: 11 } }]);
+  for (const state of [reduce(s, stop).state, reduce(s, failure).state, run(s, piece(), commit)]) expect(reduce(state, input).effects).toEqual([]);
+  expect(reduce(s, { ...input, identity: { ...identity, attempt_id: "foreign" } }).effects).toEqual([]);
+  expect(reduce(initialState(1, "engine"), input).effects).toEqual([]);
 });
