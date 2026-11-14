@@ -6,17 +6,19 @@ type Generation = Message<"outcome">["generation"]["status"] | "running";
 type Playback = Message<"outcome">["playback"]["reason"];
 type Receipt = { command: Message<"control">; ack: Message<"control_ack"> };
 export type SessionState = Identity & {
+  released_leases?: string[];
   request: Message<"narrate">; plan: Body<Message<"plan">>;
   generation: Generation; playback: Playback | null; outcome: Message<"outcome"> | null;
   known_ms: number; fenced: boolean; delivered: Body<Message<"piece_ready">>[]; started: boolean; eof: boolean;
   current: Current; job_epoch: number; previous: Pick<Current, "player_instance_id" | "piece_index"> | null; receipts: Receipt[];
 };
-type RefusalCode = Extract<Message<"error">["code"], "INVALID_REQUEST" | "INPUT_TOO_LONG" | "VOICE_UNAVAILABLE" | "NOT_NEGOTIATED" | "UNSUPPORTED_VERSION" | "MISSING_CAPABILITY">;
+type RefusalCode = Extract<Message<"error">["code"], "INVALID_REQUEST" | "INPUT_TOO_LONG" | "VOICE_UNAVAILABLE" | "NOT_NEGOTIATED" | "UNSUPPORTED_VERSION" | "MISSING_CAPABILITY" | "ARTIFACT_EXPIRED">;
 type SynthesisError = Pick<Message<"error">, "message"> & { code: "SYNTH_FAILED" | "SYNTH_TIMEOUT" | "ENGINE_UNAVAILABLE" | "VOICE_UNAVAILABLE" };
 type Authority = "host" | "engine";
 export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; sessions: Record<string, SessionState>; admissions: Record<string, { session_id: string; accepted: Message<"accepted"> }> };
 export type Input<A extends Authority = Authority> =
   | (A extends "engine" ? { kind: "reanchor"; session_id: string; reason: "restart" | "speed"; target: Current } : never)
+  | { kind: "artifact_release"; lease_id: string }
   | { kind: "admit"; request: Message<"narrate"> }
   | ({ kind: "refuse"; code: RefusalCode } & Pick<Message<"error">, "message" | "request_id">)
   | { kind: "accept"; identity: Identity; current: Current; request: Message<"narrate">; plan: Body<Message<"plan">> }
@@ -58,8 +60,15 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     const event: Event = { ...body, protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: ++engine.seq };
     effects.push({ kind: "emit", event }); return event;
   }
+  if (input.kind === "artifact_release") {
+    for (const s of Object.values(state.sessions)) if (!s.outcome && s.delivered.some(p => p.artifact.lease_id === input.lease_id)
+      && !s.released_leases?.includes(input.lease_id))
+      engine.sessions = { ...engine.sessions, [s.session_id]: { ...s, released_leases: [...(s.released_leases ?? []), input.lease_id] } };
+    return result();
+  }
   if (input.kind === "refuse") {
     const rules = {
+      ARTIFACT_EXPIRED: { phase: "retain", retry: "never" },
       INVALID_REQUEST: { phase: "admit", retry: "never" }, INPUT_TOO_LONG: { phase: "admit", retry: "never" },
       VOICE_UNAVAILABLE: { phase: "admit", retry: "new_request" }, NOT_NEGOTIATED: { phase: "negotiate", retry: "after_resync" },
       UNSUPPORTED_VERSION: { phase: "negotiate", retry: "never" }, MISSING_CAPABILITY: { phase: "negotiate", retry: "never" },
@@ -189,7 +198,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
   // I01 / Step: independent immutable terminals; publication failure may follow natural EOF.
   if (!s.outcome && s.generation !== "running" && s.playback !== null) {
     const body: Body<Message<"outcome">> = { type: "outcome", session_id, playback: { reason: s.playback }, generation: { status: s.generation }, stopped_at_ms: s.current.audio_ms, word_index: 0, heard: s.started, physical: "unknown",
-      missing_piece_indices: s.plan.pieces.filter(p => !s.delivered.some(d => d.index === p.index)).map(p => p.index), history: { route: "host", state: "unconfirmed", reason: "mirror" }, artifacts: s.delivered.map(p => ({ piece_id: p.piece_id, handle: p.artifact.handle, lease_id: p.artifact.lease_id })) };
+      missing_piece_indices: s.plan.pieces.filter(p => !s.delivered.some(d => d.index === p.index)).map(p => p.index), history: { route: "host", state: "unconfirmed", reason: "mirror" }, artifacts: s.delivered.filter(p => !s.released_leases?.includes(p.artifact.lease_id)).map(p => ({ piece_id: p.piece_id, handle: p.artifact.handle, lease_id: p.artifact.lease_id })) };
     s.outcome = { ...body, protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: engine.seq + 1 }; emit(body);
   }
   return result();

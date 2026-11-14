@@ -25,7 +25,7 @@ export class CaseContext {
   constructor(binding: Binding) {
     this.binding = { name: binding.name, create: host => {
       const connection = binding.create(host), trace = this.trace;
-      return { send: message => connection.send(message), shutdown: deadline => connection.shutdown(deadline),
+      return { ...(connection.resolve ? { resolve: (handle: string, lease_id: string) => connection.resolve!(handle, lease_id) } : {}), send: message => connection.send(message), shutdown: deadline => connection.shutdown(deadline),
         events: (async function* () { for await (const event of connection.events) { trace.push(structuredClone(event)); yield event; } })() };
     } };
   }

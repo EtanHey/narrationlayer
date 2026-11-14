@@ -1376,5 +1376,19 @@
       "retry": "never",
       "message": "Invalid request"
     }
+  },
+  {
+    "name": "artifact_release",
+    "direction": "request",
+    "valid": {
+      "protocol": "nl.engine/1",
+      "type": "artifact_release",
+      "lease_id": "lease:1:1"
+    },
+    "invalid": {
+      "protocol": "nl.engine/1",
+      "type": "artifact_release"
+    },
+    "missing": "lease_id"
   }
 ]

@@ -30,6 +30,7 @@ export interface HostStub {
 }
 export type FakePorts = { backend: FakeBackend; player: FakePlayer; spawn: FakeSpawn; host: HostStub };
 export interface Connection {
+  resolve?(handle: string, lease_id: string): { kind: "resolved"; bytes: Uint8Array } | { kind: "expired" | "failed" };
   send(message: Json): void;
   events: AsyncIterable<Json>;
   shutdown(deadline: number): Promise<void>;

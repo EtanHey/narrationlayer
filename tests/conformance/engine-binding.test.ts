@@ -1,3 +1,5 @@
+import type { Message } from "../../src/engine/messages/messages";
+import type { Json } from "../../src/engine/conformance/binding";
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
@@ -22,14 +24,7 @@ async function proof(id: string) {
   if (process.platform === "darwin") expect(report.containment).toBe("macos-sandbox");
 }
 test("engine binding: the packaged entry passes the active cases under containment", () => proof("engine"));
-for (let i = 0; i < ids.length; i += 4) {
-  const group = ids.slice(i, i + 4);
-  test(`broken engines match their exact fail-sets: ${group.join(", ")}`, async () => {
-    const results = await Promise.allSettled(group.map(proof));
-    const errors = results.flatMap((result, index) => result.status === "rejected" ? [`${group[index]}: ${String(result.reason)}`] : []);
-    if (errors.length) throw new Error(errors.join("\n"));
-  });
-}
+for (const id of ids) test(`broken engine matches its exact fail-set: ${id}`, () => proof(id));
 test("unconditional negotiation emits one unnumbered welcome; malformed and repeated hello are refused", async () => {
   const clock = new FakeClock(), c = engine.create({ clock, store: new Map(), hash_key: new Uint8Array(32), audible: false });
   const stream = c.events[Symbol.asyncIterator]();
@@ -131,4 +126,31 @@ for (const [id, code] of [["NEG-01", "UNSUPPORTED_VERSION"], ["NEG-02", "MISSING
       expect((await runCase(id, binding, engineCases[id])).result).toBe("fail");
     });
   }
+}
+
+for (const id of ["ART-01", "ART-04"]) test(`${id}: the broken engine is red on exactly its committed fail-set`, () => proof(id));
+for (const wrong of ["other-lease", "noop", "ignore-handle", "echo", "stale-outcome", "shared-buffer"]) {
+  test(`artifacts: own wrong engine ${wrong} is caught`, async () => {
+    const binding = { name: `own-artifact-${wrong}`, create(host: Parameters<typeof engine.create>[0]) {
+      const c = engine.create(host); let first: Message<"piece_ready"> | undefined;
+      return { ...c, send(message: Json) {
+        if (message && typeof message === "object" && !Array.isArray(message) && message.type === "artifact_release") {
+          if (wrong === "noop") return;
+          if (wrong === "other-lease") { const keys = [...host.store.keys()]; if (keys.length > 1) host.store.delete(keys[1]); }
+        }
+        c.send(message);
+      }, resolve(handle: string, lease: string) {
+        if (wrong === "ignore-handle") handle = handle.replace(/:\d+$/, `:${lease.split(":").at(-1)}`);
+        const result = c.resolve(handle, lease);
+        return wrong === "shared-buffer" && result.kind === "resolved" ? { kind: "resolved" as const, bytes: host.store.get(handle)! } : result;
+      }, events: (async function* () { for await (const e of c.events) {
+        if (e.type === "piece_ready") first ??= e;
+        if (wrong === "echo" && e.type === "error" && e.code === "ARTIFACT_EXPIRED" && !e.details) { yield { ...e, details: { lease_id: "quartzFalconRiverMeadowX" } }; continue; }
+        if (wrong === "stale-outcome" && e.type === "outcome" && first && e.session_id === first.session_id) { yield { ...e, artifacts: [{ piece_id: first.piece_id, handle: first.artifact.handle, lease_id: first.artifact.lease_id }, ...e.artifacts] }; continue; }
+        yield e;
+      } })() };
+    } };
+    const id = ["ignore-handle", "echo"].includes(wrong) ? "ART-04" : "ART-01";
+    expect((await runCase(id, binding, engineCases[id])).result).toBe("fail");
+  });
 }

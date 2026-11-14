@@ -38,6 +38,10 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
         throw error instanceof ArtifactStoreError ? error : new ArtifactStoreError("storage");
       }
     },
+    minted(lease_id: string): boolean {
+      const prefix = `lease:${owner_epoch}:`, suffix = lease_id.slice(prefix.length), n = Number(suffix);
+      return lease_id.startsWith(prefix) && Number.isSafeInteger(n) && n > 0 && n <= next && String(n) === suffix;
+    },
     release(lease_id: string): ReturnType<ArtifactPort["release"]> {
       const entry = live.get(lease_id);
       if (!entry) return { kind: "expired" };

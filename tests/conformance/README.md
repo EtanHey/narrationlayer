@@ -199,3 +199,14 @@ name fixed capabilities and at most eight unknown required_caps array positions.
 The six new broken engines each fail exactly their named case. Broader new checks
 also catch the existing ID-03 engine in VER-02e and ORDER-01 engine in LIM-01,
 NEG-03 and VER-01. Null now fails eighteen of twenty-two active rows.
+
+S7b-1 activates ART-01 and ART-04. Each uses three different invented PCM pieces,
+an independent byte/hash oracle, the shared per-read receipts, copy isolation,
+and raw-trace release refusals. The ART-01 broken engine is also caught by ART-04's
+live-byte check; ID-03 gains ART-01 (late delivery after stop), and GEN-02 gains
+both artifact rows (duplicate final duration in shared success receipts).
+Resolution passes through all engine binding wrappers, including broken engines.
+Owed to S7b-2: shutdown reason/deadline, in-flight publication, release after
+shutdown, failed-delete diagnostics/pending deletes, SHUT-01. Later: retain_artifact
+and assembled prompt, live-lease timing_update (ORDER-01), host ART-02/03 and
+CUST-01. HASH-01 belongs to the privacy slice. No device or real audio is used.

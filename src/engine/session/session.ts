@@ -36,6 +36,7 @@ export function createEngineSession<Audio>(options: {
   clock: Clock;
   backend: Backend<Audio>;
   publication: Publication<Audio>;
+  artifacts?: Pick<ArtifactPort, "release"> & { minted(lease_id: string): boolean };
   observe?: { input?(input: Input<"host">): void; event?(event: Event, replay: boolean): void };
 }) {
   let state = initialState(options.owner_epoch, "host"), counter = 0;
@@ -202,7 +203,15 @@ export function createEngineSession<Audio>(options: {
         refuse(parsed.error.code, request_id); return;
       }
       const value = parsed.value;
-      if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
+      if (value.type === "artifact_release") {
+        // Host I/O never runs inside send; ordered microtasks serialize give-backs.
+        queueMicrotask(() => {
+          const result = options.artifacts?.release(value.lease_id);
+          if (result?.kind === "released") step({ kind: "artifact_release", lease_id: value.lease_id });
+          else if (result?.kind === "expired") step({ kind: "refuse", code: "ARTIFACT_EXPIRED", message: "ARTIFACT_EXPIRED" },
+            options.artifacts?.minted(value.lease_id) ? { lease_id: value.lease_id } : undefined);
+        });
+      } else if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
       else if (value.type === "control" && value.op === "stop") {
         const current = state.sessions[value.session_id]?.current;
         if (current) step({ kind: "control", command: value, target: current });

@@ -204,3 +204,11 @@ Counts move from 44,227 visits / 38,729 distinct to 44,380 / 38,876; represented
 prefixes remain 7,876,923. The new request input is not a letter in those counts.
 The model, configurations and checking program are unchanged. This is reducer
 and publication evidence, not player, binding-level or live acceptance.
+
+## S7b-1 lease release
+
+Reducer SHA-256: `4e6e0d9cfa64cecd55c7c508235dd532dbe0c3500dfd419afc52b58a170aee1d`.
+I06 is bound to ART-01: released delivered leases are excluded from subsequent
+outcome receipts; generation and playback coverage still use all delivered pieces.
+The existing alphabet does not include artifact_release; custody offset tests
+exercise releases before and after outcomes across two sessions.
