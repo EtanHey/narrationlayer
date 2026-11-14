@@ -85,6 +85,7 @@
   ],
   "cliVerbs": [
     "doctor",
+    "check-take",
     "create-job",
     "render",
     "status",

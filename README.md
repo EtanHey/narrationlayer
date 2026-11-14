@@ -203,3 +203,7 @@ are documented in `docs/mcp-tools.json` and drift-tested against
 - `src/schema.ts` — schema and validation helpers
 - `src/contract.ts` — shared MCP tool contract
 - `src/service.ts` — shared CLI/MCP job lifecycle
+
+### Take checks for narration builds
+
+Run `narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz>` after synthesis and recognition (ffmpeg required). It prints a JSON verdict and exits 0 on pass, 1 on failure. Supply the spoken text and an array of `{word, start, end}` recognition records; the first-word screen tests exact-token presence anywhere after lowercasing and removing non-ASCII letters/digits, rather than proving an acoustic omission. The build supplies each voice's ceiling from that voice's measured controls; there is no global default. Pitch uses a dependency-free YIN difference estimator at 8 kHz, 64 ms frames, 10 ms hop, 65–450 Hz, and nonoverlapping one-second voiced medians (including a final partial window); the JSON reports every window and those above the ceiling. No voiced frames fails the combined verdict. This is a narrow empirical screen, with octave and recognition errors possible; it neither changes rendering nor regenerates takes. The build owns regeneration.
