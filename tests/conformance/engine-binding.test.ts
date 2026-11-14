@@ -24,7 +24,7 @@ async function proof(id: string) {
   if (process.platform === "darwin") expect(report.containment).toBe("macos-sandbox");
 }
 test("engine binding: the packaged entry passes the active cases under containment", () => proof("engine"));
-for (const id of ["PLAN-D5", "PLAN-01", "PAUSE-PL-01", "PLAN-03", "PLAN-D4", "PLAN-02", ...ids]) test(`broken engine matches its exact fail-set: ${id}`, () => proof(id));
+for (const id of ["PLAN-D5", "PLAN-01", "PAUSE-PL-01", "PLAN-03", "PLAN-D4", "PLAN-02", "PACE-01", "PACE-02", "CTRL-01", "SESS-01", "ID-05e", ...ids]) test(`broken engine matches its exact fail-set: ${id}`, () => proof(id));
 test("unconditional negotiation emits one unnumbered welcome; malformed and repeated hello are refused", async () => {
   const clock = new FakeClock(), c = engine.create({ clock, store: new Map(), hash_key: new Uint8Array(32), audible: false });
   const stream = c.events[Symbol.asyncIterator]();

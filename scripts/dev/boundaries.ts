@@ -39,16 +39,20 @@ export function diskRepo(root = ROOT): Repo {
 
 /** Every module specifier: import, import type, export from, import(), require(), import = require, import("…") type nodes. */
 export function importSpecifiers(source: string, fileName = "x.ts"): string[] {
+  return sourceSpecifiers(ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true));
+}
+
+function sourceSpecifiers(sf: ts.SourceFile, staticOnly = false): string[] {
   const specs: string[] = [];
   const literal = (n: ts.Node | undefined) => (n && ts.isStringLiteralLike(n) ? specs.push(n.text) : 0);
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) literal(node.moduleSpecifier);
-    else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) literal(node.arguments[0]); // a non-literal argument cannot be resolved statically
+    else if (!staticOnly && ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) literal(node.arguments[0]); // a non-literal argument cannot be resolved statically
     else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) literal(node.argument.literal);
     else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) literal(node.moduleReference.expression);
     ts.forEachChild(node, visit);
   };
-  visit(ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true));
+  visit(sf);
   return specs;
 }
 
@@ -81,6 +85,50 @@ export function resolveImport(repo: Repo, from: string, spec: string): string | 
   } else return ownPackageTarget(repo, spec);
   const candidates = [base.replace(/\.(m?js)$/, ".ts"), base, `${base}.ts`, path.join(base, "index.ts")];
   return candidates.find((c) => repo.tracked.has(c)) ?? "";
+}
+
+// Hosts load the engine, not its child-process conformance tooling; every engine module is a root.
+export const ENGINE_ROOTS = { directory: "src/engine/", exclude: "src/engine/conformance/" };
+// Crypto is the sole audited external dependency; any addition requires an explicit blocking review.
+export const ENGINE_EXTERNAL_ALLOW = new Set(["node:crypto"]);
+
+/** Static reach includes type edges; syntax checks reject hidden loading and blocking calls. */
+export function engineReach(repo: Repo = diskRepo()): { reached: Map<string, string | null>; violations: string[] } {
+  const reached = new Map<string, string | null>();
+  const violations = new Set<string>();
+  const queue: [string, string | null][] = repo.files.filter(f => f.startsWith(ENGINE_ROOTS.directory)
+    && !f.startsWith(ENGINE_ROOTS.exclude)).sort().map(f => [f, null]);
+  for (const [file, importer] of queue) {
+    if (reached.has(file)) continue;
+    reached.set(file, importer);
+    const sf = ts.createSourceFile(file, repo.read(file) ?? "", ts.ScriptTarget.Latest, true);
+    const visit = (node: ts.Node): void => {
+      if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference))
+        violations.add(`engine loader ${file}: require()`);
+      if (ts.isCallExpression(node)) {
+        const callee = unwrap(node.expression);
+        if (callee.kind === ts.SyntaxKind.ImportKeyword) violations.add(`engine loader ${file}: import()`);
+        const name = ts.isIdentifier(callee) ? callee.text
+          : ts.isPropertyAccessExpression(callee) ? callee.name.text
+          : ts.isElementAccessExpression(callee) && ts.isStringLiteralLike(callee.argumentExpression) ? callee.argumentExpression.text : "";
+        if (name === "require") violations.add(`engine loader ${file}: require()`);
+        // Conservatively refuse any Sync-named call, including aliases reached through an object.
+        if (name.endsWith("Sync") || (name === "wait" && (ts.isPropertyAccessExpression(callee)
+          || ts.isElementAccessExpression(callee)) && callee.expression.getText(sf) === "Atomics"))
+          violations.add(`engine blocking call ${file}: ${callee.getText(sf)}`);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+    for (const spec of sourceSpecifiers(sf, true)) {
+      const to = resolveImport(repo, file, spec);
+      if (!spec.startsWith(".") && !spec.startsWith("/") && !spec.startsWith("file:") && !ENGINE_EXTERNAL_ALLOW.has(spec))
+        violations.add(`engine external import ${file} -> ${spec}`);
+      if (to === "") violations.add(`engine unresolved import ${file} -> ${spec}`);
+      else if (to !== null) queue.push([to, file]);
+    }
+  }
+  return { reached, violations: [...violations].sort() };
 }
 
 const rank = (e: LedgerEntry): number => (e.layer === "api" ? 6 : e.layer);

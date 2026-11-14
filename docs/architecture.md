@@ -254,3 +254,11 @@ Every new file gets a ledger row (layer, area, owner).
   candidate, so dashboards, manifests, and timing repair stay reusable.
 - Keep the generated dashboard as a local demo artifact, not a hosted dashboard
   product in this repo.
+
+The `engineReach` rule in `scripts/dev/boundaries.ts` follows every static import
+from `src/engine/` except the conformance tooling, including type-only edges. It
+rejects synchronous calls, unapproved external modules, dynamic loading and
+unresolved imports. `tests/architecture/engine-reach.test.ts` pins the reachable
+files and proves these refusals with synthetic trees; `engine-no-wait.json` in
+the same directory records the contract's no-wait obligations, current evidence
+and remaining debt, with registry case references checked by a shape test.

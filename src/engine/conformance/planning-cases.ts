@@ -85,7 +85,7 @@ function cuts(text: string, limit: number): string[] {
   const result: string[] = [];
   while (text.length > limit) {
     const valid = [...text.matchAll(/\s+/gu)].filter(m => m.index <= limit && count(text.slice(0, m.index)) >= 3 && count(text.slice(m.index + m[0].length)) >= 3);
-    const marked = valid.filter(m => /[,;:]$|\s[—–-]$/u.test(text.slice(0, m.index)));
+    const marked = valid.filter(m => /[,;:—―–]$|\s-$/u.test(text.slice(0, m.index)));
     const cut = (marked.length ? marked : valid).at(-1);
     if (!cut) throw new Error("fixture has no valid cut");
     result.push(text.slice(0, cut.index)); text = text.slice(cut.index + cut[0].length);
@@ -99,6 +99,10 @@ const over = [
   `${w(12)} well-made lamp—${w(6)}.`, `Lantern, ${w(20)}.`,
   `${w(5)}, ${w(7)}; ${w(6)}: ${w(9)}, ${w(8)} — ${w(7)}, ${w(6)}.`,
 ];
+const dashRows = ["first- and second-rate lanterns glow.", "pages 3- 4 lantern lantern lantern.",
+  "amber - tail words lantern lantern.", "amber— tail words lantern lantern.",
+  "amber ― tail words lantern lantern.", "amber – tail words lantern lantern.", "amber —tail words lantern lantern."]
+  .map(tail => `${w(12)} ${tail}`);
 const middle = `Lantern ${w(5)}, ${w(6)}, ${w(6)} and ${w(4)}.`;
 const surroundings = (text: string) => [unit("sentence", "Copper boats drift slowly."), unit("sentence", text), unit("sentence", "Violet cranes glide home.")];
 function boundaries(c: CaseContext, d: Awaited<ReturnType<typeof read>>) {
@@ -113,7 +117,12 @@ function boundaries(c: CaseContext, d: Awaited<ReturnType<typeof read>>) {
 }
 export const planningCases: Record<string, Case> = {
   "PLAN-D4": async c => {
-    for (const text of [...over, `${w(15)}.`, `Lantern ${w(5)}, ${w(6)}.`]) boundaries(c, await read(c, [unit("sentence", text)], undefined, "plain"));
+    for (const text of [...over, ...dashRows, `${w(14)}, ${w(5)} amber- ${w(15)}.`]) {
+      const d = await read(c, [unit("sentence", text)], undefined, "plain");
+      c.assert(text.length > d.limit); boundaries(c, d);
+    }
+    for (const text of dashRows) boundaries(c, await read(c, [unit("sentence", text)], undefined, "markdown"));
+    for (const text of [`${w(15)}.`, `Lantern ${w(5)}, ${w(6)}.`]) boundaries(c, await read(c, [unit("sentence", text)], undefined, "plain"));
     boundaries(c, await read(c, surroundings(middle), undefined, "plain"));
     boundaries(c, await read(c, [heading("Harbour notes"), ...surroundings(middle), unit("item", "Carry the copper lanterns home")]));
   },
@@ -122,6 +131,7 @@ export const planningCases: Record<string, Case> = {
       const d = await read(c, [unit("sentence", text)], undefined, "plain");
       const control = await read(c, [unit("sentence", "Copper boats drift.")], undefined, "plain");
       const expected = cuts(text, d.limit);
+      c.assert(d.pieces.length === expected.length);
       for (const [i, p] of d.plan.pieces.entries()) {
         c.assert(p.segments[0].pause_after_ms === (i === d.plan.pieces.length - 1 ? control.plan.pieces[0].segments[0].pause_after_ms : 0));
         if (d.pieces[i].spoken_text.endsWith(":")) c.assert(d.pieces[i].spoken_text === expected[i]);
@@ -131,7 +141,8 @@ export const planningCases: Record<string, Case> = {
       const d = await read(c, surroundings(middle), undefined, format);
       const control = await read(c, surroundings(`Lantern ${w(5)}, ${w(6)}.`), undefined, format);
       const u = d.ranges[1], inside = d.plan.pieces.filter(p => p.word_start >= u.start && p.word_end <= u.end);
-      c.assert(inside.length > 1);
+      c.assert(inside.length === cuts(middle, d.limit).length);
+      c.assert(control.plan.pieces[1].segments[0].pause_after_ms > 0);
       for (const p of inside.slice(0, -1)) c.assert(p.segments[0].pause_after_ms === 0);
       c.assert(inside.at(-1)?.segments[0].pause_after_ms === control.plan.pieces[1].segments[0].pause_after_ms);
     }
@@ -161,10 +172,12 @@ export const planningCases: Record<string, Case> = {
         if (u.kind !== "sentence" || u.text.length <= d.limit) c.assert(d.plan.pieces.filter(p => p.word_start === u.start && p.word_end === u.end).length === 1);
       }
       boundaries(c, d);
-      if (i === 0) c.assert(d.pieces.length === 7);
+      c.assert(d.pieces.length === projected.reduce((n, u) => n + (u.kind === "sentence" ? cuts(u.text, d.limit).length : 1), 0));
     }
   },
   "PAUSE-PL-01": async c => {
+    const plain = await read(c, [unit("sentence", "Copper boats drift."), unit("sentence", "Violet cranes glide.")], undefined, "plain");
+    c.assert(plain.plan.pieces[0].segments[0].pause_after_ms === 550 && plain.plan.pieces[1].segments[0].pause_after_ms === 0);
     const d = await read(c, [heading("Meadow"), unit("item", "Gather the pears"), unit("item", "Carry all the green baskets home"), unit("sentence", "Quiet boats return."), unit("sentence", "Golden birds settle.")]);
     c.assert(d.plan.pieces.length === 5);
     d.plan.pieces.forEach((p, i) => c.assert(!p.raw && p.segments.length === 1 && p.segments[0].pause_in === "this_piece_end" && p.segments[0].pause_after_ms === [900, 450, 700, 550, 0][i]));

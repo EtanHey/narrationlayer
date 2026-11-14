@@ -1,0 +1,58 @@
+[
+  {
+    "id": "microphone-independent",
+    "contract_line": 331,
+    "obligation": "Capture never waits for a NarrationLayer reply, with host-owned player and aligner kill bounds.",
+    "state": "owed",
+    "case_ids": ["MIC-01", "SPK-03e", "SPK-03h", "FALL-02"],
+    "evidence": "All four registry rows are inactive; host capture independence and the 50 ms kill paths are not proved by an engine import rule."
+  },
+  {
+    "id": "send-no-io",
+    "contract_line": 425,
+    "obligation": "send validates and enqueues synchronously without I/O and returns before a microtask runs.",
+    "state": "owed",
+    "case_ids": ["BIND-01"],
+    "evidence": "BIND-01 is inactive on base 42cb5b44; tests/engine/session/session.test.ts: send never awaits: unresolved synthesis returns accepted synchronously proves synchronous return only, and tests/engine/artifacts/custody.test.ts: release: same-turn release then stop excludes the lease with zero synchronous deletes proves deferred byte deletion; session pump can still call the backend synchronously, so a general no-host-port proof is owed. ART-01 also checks that byte-port calls stay outside send and synchronous shutdown."
+  },
+  {
+    "id": "events-not-reentrant",
+    "contract_line": 426,
+    "obligation": "Events are delivered asynchronously and never re-enter send.",
+    "state": "owed",
+    "case_ids": ["BIND-01"],
+    "evidence": "BIND-01 is inactive; no test proves non-reentrancy, and session emit currently invokes observe.event inline."
+  },
+  {
+    "id": "no-sync-io",
+    "contract_line": 427,
+    "obligation": "The engine, its backend dependencies and player dependencies contain no synchronous spawn or filesystem call.",
+    "state": "proved",
+    "case_ids": [],
+    "evidence": "tests/architecture/engine-reach.test.ts: engine reach: nothing the engine imports can block checks every static dependency, including type-only imports, refuses unapproved externals and loaders, and pins 22 files; independent backend or player modules outside that reach are not covered."
+  },
+  {
+    "id": "bounded-awaits",
+    "contract_line": 428,
+    "obligation": "Every exposed await has a bounded timeout ending in SYNTH_TIMEOUT or an interrupted generation.",
+    "state": "owed",
+    "case_ids": ["BIND-01"],
+    "evidence": "BIND-01 is inactive; synthesis timeout enforcement is not implemented, and the session awaits backend synthesis and publication without a timeout."
+  },
+  {
+    "id": "host-throws",
+    "contract_line": 429,
+    "obligation": "Throwing host callbacks are caught and logged without crashing the engine.",
+    "state": "owed",
+    "case_ids": ["BIND-03"],
+    "evidence": "BIND-03 is inactive; tests/engine/artifacts/store.test.ts: D5: aborts and storage failures leave no bytes or lease covers byte-port set failures, and port failures: release retains custody and resolve sanitizes diagnostics covers get/delete failures; tests/engine/artifacts/custody.test.ts: release: failed deferred delete keeps bytes pending but the lease expired covers deferred delete failure without logging; tests/engine/session/session.test.ts: N4: accept observer failure propagates instead of becoming a planner refusal explicitly permits an observer throw to escape."
+  },
+  {
+    "id": "shutdown-deadline",
+    "contract_line": 430,
+    "obligation": "shutdown(deadline) ends sessions with shutdown outcomes and retains leases through the host archive flush.",
+    "state": "proved",
+    "case_ids": ["SHUT-01"],
+    "evidence": "SHUT-01 is active and checks shutdown outcomes, deadline-now and mixed settlement at the host-clock deadline, retained bytes and post-shutdown releases; tests/engine/artifacts/custody.test.ts: shutdown: mixed settlement custody property keeps the deadline at every offset and shutdown: engine custody pins live and pending handles through every release pin the engine deadline and custody surface. BACKEND_DRAIN_UNKNOWN at an unsettled deadline and physical drain remain owed."
+  }
+]

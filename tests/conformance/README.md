@@ -276,6 +276,61 @@ protocol strings as INVALID_REQUEST, keeps the binding open and proves recovery.
 This is the engine's two-step rule and the lead's amended ruling 50; the first
 version of the follow-up brief's exact-string rule was wrong.
 
+Pacing and identity add PACE-01, PACE-02, CTRL-01, SESS-01 and ID-05e (33
+active rows). PACE-01 independently bounds delivery and synthesis by host-sent
+playing indices and the requested lookahead (default 2, overrides 1 and 5),
+checks serial lifecycle/backend calls, and requires every window to resume.
+Pause remains owed to the controls slice. PACE-02 queues three reads: plan and
+admission precede synthesis; a dependent starts prefetch only after predecessor
+generation ends, by commit, cancellation or failure. Prefetch holds at piece 0,
+even after spawned; first_sample releases normal pacing. Predecessor playback
+and outcome do not gate this release (lead amendment 1). Both with-outcome and
+without-outcome interleavings are exercised. An unknown predecessor produces a
+plan and no backend calls or pieces; stopping it gives one outcome (lead question
+53). This is a waiting dependency, distinct from a dependent stranded after a
+known predecessor ends.
+
+CTRL-01 checks byte-identical stop receipts including seq, conflicting args,
+the exact 32-receipt window, per-session ownership, and raw event numbering.
+Other control operations remain owed. SESS-01 checks echoed opaque unknown ids,
+control-phase UNKNOWN_SESSION/never, silent unknown feedback, successful ongoing
+playback and continued binding service; a known ended session receives noop.
+Command-id error correlation remains owed (lead ruling R3); absence is not a
+requirement. Lead rulings R1/R2/R4 cover request lookahead, session-id echo and
+silent feedback; question 52 remains open for controls. ID-05e races stop and EOF
+in both orders, in one turn, one microtask apart and one fake millisecond apart,
+on one-piece and last-of-three reads. It requires one committed outcome, the
+first reason and the corresponding accept/noop ack. Command receipts can follow
+an outcome; session data cannot. The host terminal-writer clause remains owed
+to ID-05h. Five committed wrong engines each fail only their own row; eight
+additional fault probes test the cases without real time, audio or devices.
+
+Round 1 reads concurrency from ScriptedBackend's own read-only peak, recorded
+at actual call time, including when a binding captures its method at create.
+PACE-01 uses single-session fixtures; PACE-02 uses queued sessions. Their peak
+of 1 does not assert engine-wide serialization of independent reads: two
+independent reads may overlap today (open lead question 55). PACE-01 adds nine
+pieces and requires a delivery bound plus progress, not a full prefetch window.
+Queued reads have five pieces so pacing by their own index is observable.
+CTRL-01 counts raw events around every replay, checks one outcome per session,
+varies each stop argument alone, and checks that a reuse rejection consumes no
+receipt slot. Sequence replay interpretation and spawned/first_sample semantics
+remain lead questions 54 and 56; questions 52 and 53 also remain open.
+
+PLAN-D4 follows the lead's revised phrase rule (question 49 remains open): comma,
+semicolon, colon, em dash, horizontal bar and en dash need following whitespace;
+ASCII hyphens need whitespace on both sides. Attached hyphens fall back to a valid
+space. The old-rule binding in `broken-over-limit.ts` keeps its plan, pieces and
+backend requests consistent and must fail PLAN-D4.
+
+Owed on PLAN-D4: no-valid-cut sentences sent whole over limit (engine selection,
+question 48); whitespace runs and non-breaking spaces as cut points; and the
+sentence splitter's own rules. These are not implemented by these cases.
+
+The owed sentence-splitter rules include plain text beginning with a spaced dash:
+`read()` rejects that shape before boundary comparison. PLAN-D4 now also reads
+dash fixtures in markdown and an attached hyphen at a later cut in plain text.
+
 SHUT-01 covers partial and generated reads, two concurrent reads and a queued
 read, shutdown outcomes, retained bytes, late releases, closed-stream silence,
 and absolute fake-clock deadlines with an unresponsive backend. ART-01 records
