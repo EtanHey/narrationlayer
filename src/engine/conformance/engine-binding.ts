@@ -7,7 +7,7 @@ export default {
   name: "engine",
   create(host) {
     const owner_epoch = 1;
-    return createEngine({ clock: host.clock, backend: host.ports?.backend ?? new ScriptedBackend(host.clock),
+    return createEngine({ synthesis_timeout_ms: host.synthesis_timeout_ms ?? 2000, clock: host.clock, backend: host.ports?.backend ?? new ScriptedBackend(host.clock),
       owner_epoch, package_version: "0.0.0-conformance",
       limits: { max_chars: { read: 1000, speak: 900, ask_prompt: 800 }, lookahead: 2, aligner_reap_ms: 50 },
       engines: host.engines ?? [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }],

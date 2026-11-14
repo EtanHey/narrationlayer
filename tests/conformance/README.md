@@ -336,7 +336,7 @@ read, shutdown outcomes, retained bytes, late releases, closed-stream silence,
 and absolute fake-clock deadlines with an unresponsive backend. ART-01 records
 byte-port calls inside send/shutdown and rejects any synchronous call.
 Still owed: BACKEND_DRAIN_UNKNOWN when settlement misses the deadline; physical
-status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
+status other than unknown; throwing host callbacks
 (BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).
 
 PRIV-01e observes raw events (including unknown fields and object keys), never
@@ -390,7 +390,7 @@ The voices table (selection) and `observe` (diagnostic) are supplied through
 a public door today. The coming `./engine` door must not expose `observe` (owed
 to that slice). The planner also runs synchronously as a pure request decision.
 Clock reads (`now` and `monotonic`) are not wrapped: a read is not I/O under line
-425. The bounded synthesis timeout remains owed. BIND-01 does not catch deferring
+425. BIND-01 now covers bounded backend calls; publication and byte-port bounds remain owed. It does not catch deferring
 the whole `send`; other conformance rows cover that fault.
 S5a pause controls (stage A mirror):
 
@@ -463,3 +463,10 @@ reverse-session conforming control passes all three rows. SNAP-01 also checks
 an in-flight piece, replayed resync, and mismatched epoch/player resync (ruling
 89: never stale); STALE-01 repeats controls under a held pause. Four committed
 review variants pin the previously missed faults and their exact fail-sets.
+
+BIND-01 checks a stuck single-piece call against the conformance host's optional
+`synthesis_timeout_ms` (the binding honours it), its timeout error/outcome/abort,
+and late-result fencing. It also checks a waiting read's timeout. The bound is a
+positive safe integer at most 2147483647 ms (amended rulings 90/92). Every-call
+fresh bounds, exact ticks, pause/feedback independence and timer cancellation
+are engine unit proofs. Publication and byte-port bounds remain owed.

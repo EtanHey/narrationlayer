@@ -32,6 +32,7 @@ export type Publication<Audio> = {
  * outgoing queue (transport), including its closed flag and pending iterator readers. */
 export function createEngineSession<Audio>(options: {
   owner_epoch: number;
+  synthesis_timeout_ms: number;
   welcome: Pick<Message<"welcome">, "package_version" | "protocol_minor" | "caps" | "engines">;
   limits: Limits;
   planner: ReadPlanner;
@@ -41,8 +42,12 @@ export function createEngineSession<Audio>(options: {
   artifacts?: { releaseFromHost(lease_id: string): { kind: "released" | "expired" }; minted(lease_id: string): boolean };
   observe?: { input?(input: Input<"host">): void; event?(event: Event, replay: boolean): void };
 }) {
+  // Amended ruling 90: the host chooses a positive safe integer within timer range.
+  if (!Number.isSafeInteger(options.synthesis_timeout_ms) || !(options.synthesis_timeout_ms > 0) || options.synthesis_timeout_ms > 2147483647)
+    throw new Error("invalid synthesis_timeout_ms");
   let state = initialState(options.owner_epoch, "host"), counter = 0;
   const requests = new Map<string, readonly { piece_index: number; text: string }[] & { selection?: Substitution }>();
+  const waiting = new Map<string, { cancel?: () => void }>();
   const runs = new Set<Promise<void>>();
   let shutdownPromise: Promise<void> | undefined;
   const aborts = new Map<string, AbortController>();
@@ -89,18 +94,39 @@ export function createEngineSession<Audio>(options: {
       if (start && typeof start === "object" && start.after_session === id) pump(session.session_id);
     }
   }
+  function clearWaiting(id: string) {
+    const wait = waiting.get(id);
+    if (wait) { waiting.delete(id); queueMicrotask(() => wait.cancel?.()); }
+  }
+  // Amended ruling 92: even an abort-ignoring predecessor cannot hold a read forever.
+  function boundWaiting(identity: Identity) {
+    const id = identity.session_id;
+    if (waiting.has(id)) return;
+    const wait: { cancel?: () => void } = {}, started = options.clock.monotonic();
+    waiting.set(id, wait);
+    queueMicrotask(() => {
+      if (waiting.get(id) !== wait || shuttingDown || state.sessions[id].generation !== "running") return;
+      wait.cancel = options.clock.schedule(Math.max(0, options.synthesis_timeout_ms - (options.clock.monotonic() - started)), () => {
+        waiting.delete(id);
+        step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis wait timed out" } } });
+      });
+    });
+  }
   function pump(id: string) {
     const session = Object.hasOwn(state.sessions, id) ? state.sessions[id] : undefined;
     if (!session) return;
     if (closed || shuttingDown || aborts.has(id) || session.generation !== "running" || session.fenced) {
-      if (session.generation !== "running") requests.delete(id);
+      if (session.generation !== "running") { requests.delete(id); clearWaiting(id); }
       return;
     }
     const start = session.request.start;
     // The pure rule releases logical generation; this handle gates physical settlement.
-    if (start && typeof start === "object" && aborts.has(start.after_session)) return;
+    if (start && typeof start === "object" && aborts.has(start.after_session)) { boundWaiting(session); return; }
+    if (session.delivered.length === 0 && start && typeof start === "object"
+      && (!state.sessions[start.after_session] || state.sessions[start.after_session].generation === "running")) { boundWaiting(session); return; }
     if (session.delivered.length !== session.plan.pieces.length
       && nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) return;
+    clearWaiting(id);
     const abort = new AbortController();
     aborts.set(id, abort);
     let finish!: () => void;
@@ -161,7 +187,16 @@ export function createEngineSession<Audio>(options: {
         if (!request || request.piece_index !== piece.index || !piece.segments[0]) throw new Error("invalid planner requests");
         const started = options.clock.monotonic();
         step({ kind: "synthesis_requested", identity, piece_index: piece.index, chars: request.text.length, t_mono_ms: Math.round(started) });
-        const audio = await options.backend.synthesizeRequest(request, abort.signal);
+        // Rulings 90-93: each call starts its own host-clock bound, after send.
+        const cancelTimeout = options.clock.schedule(options.synthesis_timeout_ms, () => {
+          if (shuttingDown || state.sessions[identity.session_id].generation !== "running") return;
+          step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis timed out" } } });
+          queueMicrotask(() => abort.abort());
+        });
+        abort.signal.addEventListener("abort", cancelTimeout, { once: true });
+        let audio: Audio;
+        try { audio = await options.backend.synthesizeRequest(request, abort.signal); }
+        finally { cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout); }
         const ready = options.clock.monotonic();
         abort.signal.throwIfAborted();
         const delivered = await options.publication.piece(audio, {
