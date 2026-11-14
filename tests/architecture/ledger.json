@@ -9,6 +9,10 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/fallback-variants.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S7e2"},
+    "src/engine/conformance/broken-fallback-require.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S7e2"},
+    "src/engine/conformance/broken-fallback-marks.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S7e2"},
+    "src/engine/conformance/broken-fallback-truncate.ts": {"layer": 5, "area": "surfaces", "owner": "P2.S7e2"},
     "src/engine/conformance/broken-resync-other-derivation.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU2"},
     "src/engine/conformance/broken-resync-trailing-session.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU2"},
     "src/engine/conformance/broken-life-failed-future.ts": {"layer": 5, "area": "surfaces", "owner": "P2.FU2"},

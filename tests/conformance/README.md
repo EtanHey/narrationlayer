@@ -413,8 +413,17 @@ projection, trimmed and with runs of spaces collapsed.
 Until the engine owns the speak-path lexical projection, the announce shortcut's 50-character count is of the engine's own projection and can differ from the host's for amounts, decimals, paths and plain-text links (ruling 68, second amendment).
 The voices table is validated when the engine is created.
 The host can supply plain `voices` and `engines` data; the default remains the
-synthetic preset. The synthesize half of ENG-01, per-segment failure fallback,
-XTTS/F5 cascade limits, mode rates and auto-slow remain owed.
+synthetic preset. ENG-01 also covers a mid-read clone failure under require_clone
+(Q95). ENG-02 covers piece-local Edge fallback, later clone recovery, fallback none
+and unavailable Edge (Q94-96, Q98). ENG-03 refuses a smaller fallback cap without
+truncating or calling Edge (Q97). The host short-speak XTTS/F5 cascade, mode rates
+and auto-slow remain owed until host adoption. The backend port carries family,
+voice and rate; scripted steps may select a family. No public wire surface changes.
+Ruling 96 preserves INVALID_REQUEST at admission for an undeclared selected family
+(host configuration error, no session). During synthesis, an unavailable declared
+selected family or a missing/unavailable allowed fallback is ENGINE_UNAVAILABLE.
+Ruling 97 checks only the fallback cap; selected-family planned pieces keep the
+existing whole-sentence behavior when no valid cut exists.
 `broken-eng-01` serves a mandated clone using Edge; `broken-sub-01` hides the
 substitution flag. Their receipts pin ENG-01 and SUB-01 respectively.
 

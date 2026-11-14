@@ -208,8 +208,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": true,
-    "owed": "The synthesize half of ENG-01 remains owed."
+    "active": true
   },
   {
     "id": "ENG-02",
@@ -218,8 +217,9 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false,
-    "owed": "Per-segment clone synthesis failure and Edge fallback remain owed."
+    "active": true,
+    "owed": "Host adoption of short-speak XTTS/F5 cascade, mode rates and auto-slow.",
+    "ruling_96": "Undeclared admission-selected family: INVALID_REQUEST at admit, no session. Declared selected family unavailable during synthesis, or missing/unavailable allowed fallback: ENGINE_UNAVAILABLE at synthesize."
   },
   {
     "id": "ENG-03",
@@ -228,8 +228,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S7",
-    "active": false,
-    "owed": "The XTTS/F5 speak cascade and their max_chars remain owed."
+    "active": true,
+    "owed": "Host adoption of short-speak XTTS/F5 cascade, mode rates and auto-slow."
   },
   {
     "id": "ERR-01",
