@@ -145,7 +145,8 @@ export function createEngineSession<Audio>(options: {
         const delivered = await options.publication.piece(audio, {
           ...identity, index: piece.index, piece_id: piece.piece_id,
           prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
-          words: structuredClone(session.plan.words), word_start: piece.word_start, word_end: piece.word_end,
+          words: structuredClone(session.plan.words.slice(piece.word_start, piece.word_end)),
+          // Engine selection owes the resolved profile/mode rate when the request omits it.
           engine: { ...session.plan.engine }, segments: piece.segments.length, rate: session.request.rate ?? "+0%",
           synthesis_ms: options.clock.monotonic() - started, spoken_text: request.text,
         }, abort.signal);

@@ -5,7 +5,7 @@ import { startMs, wordTimes, type Samples } from "./time";
 type Plan = Message<"plan">;
 export type PublicationContext = Pick<Plan, "session_id" | "attempt_id" | "owner_epoch" | "engine"> & {
   index: number; piece_id: string; prefix: readonly Samples[]; synthesis_ms: number; spoken_text: string;
-  words: Plan["words"]; word_start: number; word_end: number; segments: number; rate: string;
+  words: Plan["words"]; segments: number; rate: string;
 };
 export interface ArtifactPort {
   /** S7 owns durable byte custody, leases and commit; only WAV is decoded in this slice. */
@@ -19,7 +19,7 @@ export function createPublication(artifacts: ArtifactPort) {
       signal.throwIfAborted();
       const bytes = audio.bytes.slice(), decoded = decodePcm(bytes);
       const duration_ms = startMs([decoded]), start_ms = startMs(context.prefix);
-      const words = wordTimes(context.words.slice(context.word_start, context.word_end), start_ms, duration_ms, audio.timings);
+      const words = wordTimes(context.words, start_ms, duration_ms, audio.timings);
       const sha256 = createHash("sha256").update(bytes).digest("hex");
       const stored = await artifacts.put(bytes, signal);
       signal.throwIfAborted();

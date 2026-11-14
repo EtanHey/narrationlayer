@@ -71,6 +71,11 @@ const planner: ReadPlanner = { plan(req, _limits, id) { return { plan: { ...id, 
 async function read(lengths: number[], lie = 1) {
   const clock = new FakeClock(), backend = new ScriptedBackend(clock), events: Event[] = [], store = new Map<string, Uint8Array>();
   const publication = createPublication({ async put(bytes) { const handle = `artifact-${store.size}`; store.set(handle, bytes); return { handle, lease_id: handle, format: "wav" }; }, async commit() {} });
+  const publish = publication.piece;
+  publication.piece = (audio, context, signal) => {
+    expect(context.words).toEqual([words[context.index]]);
+    return publish(audio, context, signal);
+  };
   backend.script(lengths.map(n => ({ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(n, 24000, n * 1000 / 24000 * lie) } })));
   const session = createEngineSession({ owner_epoch: 1, limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 100 }, planner, backend, clock, publication, observe: { event(e) { events.push(e); } } });
   session.send({ protocol: "nl.engine/1", type: "narrate", request_id: "synthetic-request", idempotency_key: "synthetic-key", use: "read", input: { text: "Copper boats drift", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
@@ -91,3 +96,46 @@ async function read(lengths: number[], lie = 1) {
 test("TIME-02: a backend that reports three times the real length changes nothing", async () => { expect(await read([251, 251, 251], 3)).toEqual(await read([251, 251, 251])); });
 test("DET-01: byte-identical requests returning different lengths: every time follows the returned audio", async () => { expect(await read([251, 251, 251])).not.toEqual(await read([500, 750, 1000])); });
 test("every piece_ready parses; three-piece session starts follow decoded samples; piece 1 words are read-global", async () => { const p = await read([251, 251, 251]); expect(p.map(p => p.start_ms)).toEqual([0, 10, 21]); expect(p[1].words[0].start_ms).toBe(10); });
+function encodedWav(bits: number, encoding = 1, extensible = false, riffUnknown = false, dataUnknown = false, pad = true) {
+  const fmtSize = extensible ? 40 : 16, size = 101 * bits / 8, dataAt = 20 + fmtSize;
+  const b = new Uint8Array(dataAt + 8 + size + (pad ? size % 2 : 0)), v = new DataView(b.buffer);
+  b.set(new TextEncoder().encode("RIFF")); b.set(new TextEncoder().encode("WAVEfmt "), 8);
+  v.setUint32(4, riffUnknown ? 0xFFFFFFFF : b.length - 8, true); v.setUint32(16, fmtSize, true);
+  v.setUint16(20, extensible ? 0xFFFE : encoding, true); v.setUint16(22, 1, true); v.setUint32(24, 24000, true);
+  v.setUint32(28, 24000 * bits / 8, true); v.setUint16(32, bits / 8, true); v.setUint16(34, bits, true);
+  if (extensible) { v.setUint16(36, 22, true); v.setUint16(38, bits, true); v.setUint16(44, encoding, true); b.set([16, 0, 128, 0, 0, 170, 0, 56, 155, 113], 50); }
+  b.set(new TextEncoder().encode("data"), dataAt); v.setUint32(dataAt + 4, dataUnknown ? 0xFFFFFFFF : size, true); return b;
+}
+for (const [name, bytes] of [
+  ["float32", encodedWav(32, 3)], ["float64", encodedWav(64, 3)],
+  ["extensible16", encodedWav(16, 1, true)], ["extensible24", encodedWav(24, 1, true)],
+  ["extensible-float32", encodedWav(32, 3, true)], ["extensible-float64", encodedWav(64, 3, true)],
+  ["RIFF unknown", encodedWav(16, 1, false, true)], ["data unknown", encodedWav(16, 1, false, false, true)],
+  ["both unknown", encodedWav(16, 1, false, true, true)],
+  ["final data pad absent 8-bit", encodedWav(8, 1, false, false, false, false)],
+  ["final data pad absent 24-bit", encodedWav(24, 1, false, false, false, false)],
+] as const) test(`decoder round1 accepts ${name}`, () => { expect(decodePcm(bytes)).toEqual({ sample_count: 101, sample_rate: 24000, channels: 1 }); });
+for (const kind of ["overrun", "two data", "partial frame", "non-ASCII id", "zero data with silent payload", "outside RIFF", "short extensible", "invalid subformat", "float16", "unknown non-data size"] as const)
+  test(`decoder round1 refuses ${kind}`, () => {
+    let b = encodedWav(16), v = new DataView(b.buffer);
+    if (kind === "overrun") v.setUint32(40, 0xFFFFFFFE, true);
+    if (kind === "two data") { const c = new Uint8Array(b.length + 8); c.set(b); c.set([100, 97, 116, 97], b.length); b = c; new DataView(b.buffer).setUint32(4, b.length - 8, true); }
+    if (kind === "partial frame") { b = b.slice(0, -1); v = new DataView(b.buffer); v.setUint32(4, 0xFFFFFFFF, true); v.setUint32(40, 0xFFFFFFFF, true); }
+    if (kind === "non-ASCII id") { const c = new Uint8Array(b.length + 8); c.set(b); c[b.length] = 0x80; b = c; new DataView(b.buffer).setUint32(4, b.length - 8, true); }
+    if (kind === "zero data with silent payload") { b = b.slice(0, -2); v = new DataView(b.buffer); v.setUint32(4, b.length - 8, true); v.setUint32(40, 0, true); }
+    if (kind === "outside RIFF") v.setUint32(4, b.length - 9, true);
+    if (kind === "short extensible") v.setUint16(20, 0xFFFE, true);
+    if (kind === "invalid subformat") { b = encodedWav(16, 6, true); }
+    if (kind === "float16") v.setUint16(20, 3, true);
+    if (kind === "unknown non-data size") v.setUint32(16, 0xFFFFFFFF, true);
+    expect(() => decodePcm(b)).toThrow(AudioDecodeError);
+  });
+test("publication byte copy: caller overwrite during put preserves the stored hash", async () => {
+  const audio = pcmAudio(20), stored: Uint8Array[] = [];
+  const publication = createPublication({ async put(bytes) { audio.bytes.fill(0x55); stored.push(bytes.slice()); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, async commit() {} });
+  const piece = await publication.piece(audio, { owner_epoch: 1, session_id: "synthetic", attempt_id: "synthetic", index: 0, piece_id: "synthetic", prefix: [], synthesis_ms: 1, spoken_text: "Copper boats drift", words, segments: 1, rate: "+0%", engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" } }, new AbortController().signal);
+  expect(audio.bytes.every(b => b === 0x55)).toBe(true);
+  expect(piece.artifact.sha256).toBe(createHash("sha256").update(stored[0]).digest("hex"));
+  expect(decodePcm(stored[0]).sample_count).toBe(20);
+});
+test("publication context contains only this piece's detached words", async () => { await read([251, 251, 251]); });
