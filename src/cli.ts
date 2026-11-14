@@ -320,6 +320,6 @@ export async function main() {
 if (import.meta.main) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
+    process.exitCode = process.argv[2] === "check-take" ? 2 : 1;
   });
 }
