@@ -8,7 +8,7 @@ type Receipt = { command: Message<"control">; ack: Message<"control_ack"> };
 export type SessionState = Identity & {
   request: Message<"narrate">; plan: Body<Message<"plan">>;
   generation: Generation; playback: Playback | null; outcome: Message<"outcome"> | null;
-  fenced: boolean; delivered: Body<Message<"piece_ready">>[]; started: boolean; eof: boolean;
+  known_ms: number; fenced: boolean; delivered: Body<Message<"piece_ready">>[]; started: boolean; eof: boolean;
   current: Current; job_epoch: number; previous: Pick<Current, "player_instance_id" | "piece_index"> | null; receipts: Receipt[];
 };
 type RefusalCode = Extract<Message<"error">["code"], "INVALID_REQUEST" | "INPUT_TOO_LONG" | "VOICE_UNAVAILABLE" | "NOT_NEGOTIATED" | "UNSUPPORTED_VERSION" | "MISSING_CAPABILITY">;
@@ -21,7 +21,8 @@ export type Input<A extends Authority = Authority> =
   | ({ kind: "refuse"; code: RefusalCode } & Pick<Message<"error">, "message" | "request_id">)
   | { kind: "accept"; identity: Identity; current: Current; request: Message<"narrate">; plan: Body<Message<"plan">> }
   | { kind: "control"; command: Message<"control">; target: Current }
-  | { kind: "backend"; identity: Identity; result: { kind: "piece"; piece: Body<Message<"piece_ready">> } | { kind: "commit" } | { kind: "failure"; error: SynthesisError } }
+  | { kind: "synthesis_requested"; identity: Identity; piece_index: number; chars: number; t_mono_ms: number }
+  | { kind: "backend"; identity: Identity; result: { kind: "piece"; piece: Body<Message<"piece_ready">>; known_ms: number; audio_ready: Pick<Extract<Message<"lifecycle">, { edge: "audio_ready" }>, "t_mono_ms" | "first_audible_offset_ms"> } | { kind: "commit" } | { kind: "failure"; error: SynthesisError } }
   | { kind: "feedback"; identity: Identity; feedback: Message<"player_feedback"> }
   | { kind: "stop"; session_id: string; reason: "stop" | "cancel" | "replaced" };
 export type Effect = { kind: "plan"; request: Message<"narrate"> } | { kind: "emit" | "replay"; event: Event }
@@ -82,7 +83,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
   if (input.kind === "accept") {
     if (!found && input.identity.owner_epoch === engine.owner_epoch && input.plan.session_id === session_id && input.plan.attempt_id === input.identity.attempt_id) {
       engine.sessions = { ...engine.sessions, [session_id]: { ...input.identity, current: input.current, job_epoch: input.current.control_epoch, previous: null, request: input.request, plan: input.plan,
-        generation: "running", playback: null, outcome: null, fenced: false, delivered: [], started: false, eof: false, receipts: [] } };
+        generation: "running", playback: null, outcome: null, known_ms: 0, fenced: false, delivered: [], started: false, eof: false, receipts: [] } };
       const accepted: Message<"accepted"> = { type: "accepted", protocol: "nl.engine/1", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, request_id: input.request.request_id, session_id, attempt_id: input.identity.attempt_id };
       engine.admissions = { ...engine.admissions, [input.request.idempotency_key]: { session_id, accepted } }; emit(accepted);
       emit(input.plan); effects.push({ kind: "backend", identity: input.identity, op: "start" });
@@ -95,7 +96,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
   if (!found) {
     // Foreign asynchronous jobs are dropped (I02); addressed commands get UNKNOWN_SESSION.
     if (input.kind === "reanchor") effects.push({ kind: "reject", reason: "UNKNOWN_SESSION" });
-    else if (input.kind !== "feedback" && input.kind !== "backend") reject("UNKNOWN_SESSION");
+    else if (input.kind !== "feedback" && input.kind !== "backend" && input.kind !== "synthesis_requested") reject("UNKNOWN_SESSION");
     return result();
   }
   const s = { ...found }; touched = { before: found, after: s };
@@ -130,11 +131,25 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
       // I02 / Feedback(j,o,a): binding supplies owner/attempt; wire session is checked BEFORE epochs.
       const matches = input.identity.owner_epoch === s.owner_epoch && input.identity.session_id === s.session_id && input.identity.attempt_id === s.attempt_id;
       if (!matches || (input.kind === "feedback" && input.feedback.session_id !== session_id)) return { state, effects: [] };
-      if (input.kind === "backend") {
+      if (input.kind === "synthesis_requested") {
+        if (s.generation !== "running") return { state, effects: [] };
+        const expected = s.plan.pieces[s.delivered.length], segment = expected?.segments[0];
+        if (expected?.index === input.piece_index && segment) emit({ type: "lifecycle", edge: "synthesis_requested", session_id,
+          piece_index: input.piece_index, segment_index: 0, chars: input.chars, kind: segment.kind, t_mono_ms: input.t_mono_ms });
+      } else if (input.kind === "backend") {
         if (s.generation !== "running") return { state, effects: [] };
         if (input.result.kind === "piece") {
           const p = input.result.piece, expected = s.plan.pieces[s.delivered.length];
-          if (expected && p.session_id === session_id && p.attempt_id === s.attempt_id && p.index === expected.index && p.piece_id === expected.piece_id) { s.delivered = [...s.delivered, p]; emit(p); }
+          if (expected && p.session_id === session_id && p.attempt_id === s.attempt_id && p.index === expected.index && p.piece_id === expected.piece_id) {
+            if (!Number.isSafeInteger(input.result.known_ms) || input.result.known_ms < s.known_ms) return { state, effects: [] };
+            s.delivered = [...s.delivered, p];
+            s.known_ms = input.result.known_ms;
+            s.current = { ...s.current, duration_ms: input.result.known_ms };
+            emit({ type: "lifecycle", edge: "audio_ready", session_id, piece_index: p.index, duration_ms: p.duration_ms,
+              sample_count: p.artifact.sample_count, t_mono_ms: input.result.audio_ready.t_mono_ms, first_audible_offset_ms: input.result.audio_ready.first_audible_offset_ms });
+            emit(p);
+            emit({ type: "duration", session_id, known_ms: input.result.known_ms, final: s.delivered.length === s.plan.pieces.length });
+          }
         } else if (input.result.kind === "commit") {
           // I04 / Seal + Commit: complete coverage for N planned pieces.
           if (s.delivered.length === s.plan.pieces.length) s.generation = "committed";
