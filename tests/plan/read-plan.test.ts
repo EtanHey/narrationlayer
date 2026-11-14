@@ -199,6 +199,7 @@ test("pause parity: VoiceLayer reference boundaries on invented documents", () =
   for (const fixture of pauseFixtures) {
     const result = read(fixture.text, 100000, fixture.format === "plain" ? "plain" : "markdown");
     expect(result.plan.pieces.map(piece => piece.segments[0].pause_after_ms)).toEqual(fixture.pauses);
+    expect(result.requests.every(request => /[\p{L}\p{N}]/u.test(request.text))).toBe(true);
     partition(result);
   }
   const bold = read("**Branches**\nLeaves.");
@@ -207,4 +208,11 @@ test("pause parity: VoiceLayer reference boundaries on invented documents", () =
   expect(bold.plan.display_document.text).toBe("Branches\nLeaves.");
   expect(read("# Branches:\nLeaves.").requests[0].text).toBe("Branches.");
   expect(read("# Branches!\nLeaves.").requests[0].text).toBe("Branches!");
+});
+
+test("wordless heading-only text uses the neighbourless prose fallback", () => {
+  const result = read("# :");
+  expect(result.requests.map(request => request.text)).toEqual([":"]);
+  expect(result.plan.pieces[0].segments[0].kind).toBe("sentence");
+  partition(result);
 });

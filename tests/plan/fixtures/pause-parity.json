@@ -438,5 +438,575 @@
       900,
       0
     ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "# Oak\n**—**\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "# Oak\n**—**\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "- Green leaf\n**—**\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "- Green leaf\n**—**\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "**Oak**\n**—**\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "**Oak**\n**—**\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "Fruit grows.\n\n**—**\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "Fruit grows.\n\n**—**\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "**!!**\n**Oak**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless-mixed",
+    "text": "**!!**\n**Oak**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless",
+    "text": "**—**\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless",
+    "text": "**—**\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-first",
+    "text": "# —\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-first",
+    "text": "# —\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-middle",
+    "text": "Fruit falls.\n# —\nLeaves grow.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-middle",
+    "text": "Fruit falls.\n# —\nLeaves grow.",
+    "format": "plain",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-last",
+    "text": "Fruit falls.\n# —",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-last",
+    "text": "Fruit falls.\n# —",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "setext-punct-only",
+    "text": "—\n===\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "setext-punct-only",
+    "text": "—\n===\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless",
+    "text": "**…**\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless",
+    "text": "**…**\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-first",
+    "text": "# …\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-first",
+    "text": "# …\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-middle",
+    "text": "Fruit falls.\n# …\nLeaves grow.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-middle",
+    "text": "Fruit falls.\n# …\nLeaves grow.",
+    "format": "plain",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-last",
+    "text": "Fruit falls.\n# …",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-last",
+    "text": "Fruit falls.\n# …",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "setext-punct-only",
+    "text": "…\n===\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "setext-punct-only",
+    "text": "…\n===\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless",
+    "text": "**!!**\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless",
+    "text": "**!!**\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-first",
+    "text": "# !!\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-first",
+    "text": "# !!\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-middle",
+    "text": "Fruit falls.\n# !!\nLeaves grow.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-middle",
+    "text": "Fruit falls.\n# !!\nLeaves grow.",
+    "format": "plain",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-last",
+    "text": "Fruit falls.\n# !!",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-last",
+    "text": "Fruit falls.\n# !!",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "setext-punct-only",
+    "text": "!!\n===\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "setext-punct-only",
+    "text": "!!\n===\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless",
+    "text": "**--**\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-wordless",
+    "text": "**--**\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-first",
+    "text": "# --\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-first",
+    "text": "# --\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-middle",
+    "text": "Fruit falls.\n# --\nLeaves grow.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-middle",
+    "text": "Fruit falls.\n# --\nLeaves grow.",
+    "format": "plain",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-last",
+    "text": "Fruit falls.\n# --",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "heading-punct-only-last",
+    "text": "Fruit falls.\n# --",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "setext-punct-only",
+    "text": "--\n===\nFruit falls.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "setext-punct-only",
+    "text": "--\n===\nFruit falls.",
+    "format": "plain",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented",
+    "text": " **Tree**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented",
+    "text": " **Tree**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented-continuation",
+    "text": "**Tree**\n **Branch**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented-continuation",
+    "text": "**Tree**\n **Branch**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented",
+    "text": "  **Tree**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented",
+    "text": "  **Tree**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented-continuation",
+    "text": "**Tree**\n  **Branch**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented-continuation",
+    "text": "**Tree**\n  **Branch**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented",
+    "text": "   **Tree**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented",
+    "text": "   **Tree**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented-continuation",
+    "text": "**Tree**\n   **Branch**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented-continuation",
+    "text": "**Tree**\n   **Branch**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented",
+    "text": "\t**Tree**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented",
+    "text": "\t**Tree**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented-continuation",
+    "text": "**Tree**\n\t**Branch**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-indented-continuation",
+    "text": "**Tree**\n\t**Branch**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
   }
 ]
