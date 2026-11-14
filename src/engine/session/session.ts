@@ -1,3 +1,4 @@
+import type { PublicationContext } from "../publication/publication";
 import { nextSynthesisIndex } from "../reducer/pacing";
 import { initialState, reduce, type Input } from "../reducer/session";
 import { parseEvent, parseRequest } from "../messages/parser";
@@ -19,7 +20,7 @@ export interface Backend<Audio> {
 /** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio.
  * Returned receipts become engine-owned; the session detaches them before storage. */
 export interface Publication<Audio> {
-  piece(audio: Audio, context: Identity & { index: number; piece_id: string; start_ms: number; synthesis_ms: number; spoken_text: string }, signal: AbortSignal): Promise<Piece>;
+  piece(audio: Audio, context: PublicationContext, signal: AbortSignal): Promise<Piece>;
   commit(identity: Identity, signal: AbortSignal): Promise<void>;
 }
 /** Only reducer state owns terminals/cursors/order. Other state: synthesis requests (text
@@ -143,7 +144,10 @@ export function createEngineSession<Audio>(options: {
         abort.signal.throwIfAborted();
         const delivered = await options.publication.piece(audio, {
           ...identity, index: piece.index, piece_id: piece.piece_id,
-          start_ms: session.delivered.reduce((sum, p) => sum + p.duration_ms, 0),
+          prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
+          words: structuredClone(session.plan.words.slice(piece.word_start, piece.word_end)),
+          // Engine selection owes the resolved profile/mode rate when the request omits it.
+          engine: { ...session.plan.engine }, segments: piece.segments.length, rate: session.request.rate ?? "+0%",
           synthesis_ms: options.clock.monotonic() - started, spoken_text: request.text,
         }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.
