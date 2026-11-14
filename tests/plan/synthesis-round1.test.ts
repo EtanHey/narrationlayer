@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import { planSynthesisUnits } from "../../src/plan/synthesis-units.js";
 import fixtures from "./fixtures/synthesis-round1.json";
+import { plannerFixtures } from "./synthesis-fixtures.js";
+import { displayTokens } from "../../src/text/voicelayer/display-tokens.js";
 
-function run(row: typeof fixtures[number]) {
+function run(row: Pick<typeof fixtures[number], "text" | "max_chars" | "kind">) {
   return planSynthesisUnits({ units: [{
     kind: row.kind === "heading" ? "heading" : row.kind === "list_item" ? "list_item" : "sentence",
     text: row.text, pause_after_ms: 0,
@@ -11,8 +13,8 @@ function run(row: typeof fixtures[number]) {
 const outputs = (id: string) => fixtures.filter(row => row.id === id).flatMap(run);
 const words = (text: string) => text.split(/\s+/u).filter(token => /[\p{L}\p{N}]/u.test(token)).length;
 
-test("PLAN-D4 round1: unspaced em dash and spaced horizontal bar are phrase marks", () => {
-  expect(outputs("finding-1-em-dash")[0].text).toBe("The gardeners walked slowly—");
+test("PLAN-D4 round1: unspaced em dash is not a mark; spaced horizontal bar still is", () => {
+  expect(outputs("finding-1-em-dash")[0].text).toBe("The gardeners walked slowly—carrying");
   expect(outputs("finding-1-horizontal-bar")[0].text).toBe("The gardeners walked slowly ―");
 });
 
@@ -58,7 +60,7 @@ test("round1: every new input joins back with its original intervening whitespac
     const normalized = row.text.trim().replace(/\s+/gu, " ");
     let joined = "";
     for (const segment of run(row)) {
-      // A cut at an unspaced dash has no separator; other cuts can consume one normalized space.
+      // Cuts can consume one normalized space.
       if (normalized[joined.length] === " ") joined += " ";
       joined += segment.text;
       expect(normalized.startsWith(joined)).toBe(true);
@@ -66,4 +68,43 @@ test("round1: every new input joins back with its original intervening whitespac
     }
     expect(joined).toBe(normalized);
   }
+});
+
+test("word boundary: every cut falls on whitespace", () => {
+  const texts = [
+    ...fixtures.map(row => row.text),
+    ...plannerFixtures.flatMap(fixture => fixture.units.map(unit => unit.text)),
+    ...["—", "―", "-", ":", ",", ";", "־"].map(mark => `red blue green${mark}gold white black`),
+    "The lanterns glow slowly — and light the winding road",
+    "The lanterns glow slowly— and light the winding road",
+    "red blue well-known a:b 1,000 x;y gold white black",
+    "red blue https://example.invalid/a:b/c;d gold white black",
+    "red blue /garden/paths/long-name gold white black",
+    "indivisibleverylongchunk",
+    "אור ירוק קטן־גדול ליד שער כחול",
+    "red\u00a0blue\u00a0green—\u00a0gold\u00a0white\u00a0black",
+  ];
+  for (const text of texts) {
+    const normalized = text.trim().replace(/\s+/gu, " ");
+    for (let max_chars = 1; max_chars <= normalized.length; max_chars += 1) {
+      const segments = run({ text, max_chars });
+      expect(segments.map(segment => segment.text).join(" ")).toBe(normalized);
+      expect(segments.flatMap(segment => displayTokens(segment.text).map(token => token[0])))
+        .toEqual(displayTokens(text).map(token => token[0]));
+    }
+  }
+});
+
+test("word boundary: unspaced dashes stay whole; spaced dashes still cut", () => {
+  for (const mark of ["—", "―"]) {
+    expect(run({ text: `one two three${mark}four five six`, max_chars: 14 }).map(s => s.text))
+      .toEqual([`one two three${mark}four five six`]);
+  }
+  for (const mark of [" —", "—"]) {
+    expect(run({ text: `The lanterns glow slowly${mark} and light the winding road`, max_chars: 27 })[0].text)
+      .toBe(`The lanterns glow slowly${mark}`);
+  }
+  const text = "red\u00a0blue\u00a0green—\u00a0gold\u00a0white\u00a0black";
+  expect(displayTokens(text).map(token => token[0])).toEqual(["red", "blue", "green—", "gold", "white", "black"]);
+  expect(run({ text, max_chars: 16 }).map(s => s.text)).toEqual(["red blue green—", "gold white black"]);
 });

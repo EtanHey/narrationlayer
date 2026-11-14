@@ -26,7 +26,7 @@ function splitSentence(text: string, max_chars: number): string[] {
   let remaining = text.slice(start);
   while (remaining.length > max_chars) {
     // §6.1 rule 1, PLAN-D4: use the last fitting phrase mark, including a later mark after a colon.
-    const marks = [...remaining.matchAll(/[,;:–-](?=\s|$)|[—―]/gu)]
+    const marks = [...remaining.matchAll(/[,;:—―–-](?=\s|$)/gu)]
       .map(mark => mark.index + 1).filter(end => end <= max_chars);
     const spaces = [...remaining.matchAll(/ /gu)]
       .map(mark => mark.index).filter(end => end > 0 && end <= max_chars);
