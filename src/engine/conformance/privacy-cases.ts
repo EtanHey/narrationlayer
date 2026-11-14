@@ -9,8 +9,8 @@ export const privacyText = "Zephyrine quillwort marbles the lanternfish harbour.
 const hostId = "synthetic-host-identifier-quartz-falcon";
 // Eight characters catches partial snippets, including object keys, without
 // confusing ordinary short protocol words with the invented read text.
-export const privacyRuns = Array.from({ length: privacyText.length - 7 }, (_, i) => privacyText.slice(i, i + 8));
-export const hasReadText = (value: string) => privacyRuns.some(run => value.includes(run));
+export const privacyRuns = Array.from({ length: privacyText.length - 7 }, (_, i) => privacyText.slice(i, i + 8).toLowerCase());
+export const hasReadText = (value: string) => privacyRuns.some(run => value.toLowerCase().includes(run));
 const obj = (v: Json | undefined) => v !== null && typeof v === "object" && !Array.isArray(v) ? v : {};
 function outsideText(event: Json) {
   const e = obj(structuredClone(event));
@@ -22,7 +22,7 @@ function outsideText(event: Json) {
   return JSON.stringify(e);
 }
 const read = (text = privacyText, extra: Record<string, Json> = {}) => ({ protocol: "nl.engine/1", type: "narrate", request_id: hostId, idempotency_key: hostId, use: "read", input: { text, format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces", ...extra });
-const modes = ["plain", "markdown", "failure", "limit", "conflict", "host-ids", "metadata", "unknown-stop", "invalid", "stop", "shutdown", "queued", "release", "unknown-control", "second-hello", "pre-hello", "second-read", "heading", "list", "code", "label", "url"];
+const modes = ["plain", "markdown", "failure", "limit", "conflict", "host-ids", "metadata", "unknown-stop", "invalid", "stop", "shutdown", "queued", "release", "unknown-control", "second-hello", "pre-hello", "second-read", "heading", "list", "code", "label", "url", "replay", "speak", "ask-prompt", "protocol", "stale"];
 export const privacyCases: Record<string, Case> = { "PRIV-01e": async c => {
   c.assert(privacyText.length >= 96 && new Set(privacyRuns).size === privacyRuns.length);
   for (const mode of modes) await scenario(c, mode);
@@ -72,9 +72,15 @@ async function scenario(c: CaseContext, mode: string) {
     if (mode === "host-ids") Object.assign(request, { request_id: hostId + "-opaque", idempotency_key: hostId + "-opaque" });
     if (mode === "metadata") Object.assign(request, { voice: { profile: hostId, require_clone: false, fallback: "none" }, input: { text: document, format: "plain", source: hostId, text_hash: hostId } });
     if (mode === "invalid") Object.assign(request, { use: privacyText });
-    connection.send(request); await tick();
-    const refused = ["limit", "invalid", "pre-hello"].includes(mode);
-    if (refused) c.assert(events("error").some(e => e.code === (mode === "limit" ? "INPUT_TOO_LONG" : mode === "pre-hello" ? "NOT_NEGOTIATED" : "INVALID_REQUEST")));
+    if (mode === "speak" || mode === "ask-prompt") Object.assign(request, { use: mode === "speak" ? "speak" : "ask_prompt", retain_artifact: false });
+    if (mode === "speak") Object.assign(request, { mode: "brief" });
+    if (mode === "protocol") Object.assign(request, { protocol: "nl.engine/2" });
+    connection.send(request);
+    if (mode === "replay") connection.send(request);
+    await tick();
+    if (mode === "replay") c.assert(events("accepted").length === 2 && events("accepted")[0].session_id === events("accepted")[1].session_id);
+    const refused = ["limit", "invalid", "pre-hello", "protocol"].includes(mode);
+    if (refused) c.assert(events("error").some(e => e.code === (mode === "limit" ? "INPUT_TOO_LONG" : mode === "pre-hello" ? "NOT_NEGOTIATED" : mode === "protocol" ? "UNSUPPORTED_VERSION" : "INVALID_REQUEST")));
     else {
       const plan = events("plan")[0]; c.assert(Boolean(plan) && Array.isArray(plan.pieces));
       if (!markdown) {
@@ -102,6 +108,10 @@ async function scenario(c: CaseContext, mode: string) {
           const lease_id = obj(events("piece_ready")[0].artifact).lease_id;
           for (let i = 0; i < 2; i++) { connection.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id }); await tick(); }
           c.assert(events("error").some(e => e.code === "ARTIFACT_EXPIRED"));
+        }
+        if (mode === "stale") {
+          for (const control_epoch of [1, 0]) connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: session, player_instance_id: "privacy-player-0", control_epoch, piece_index: 0, edge: "spawned", t_mono_ms: c.clock.now() });
+          await tick(); c.assert(events("error").some(e => e.code === "STALE_EPOCH"));
         }
         await complete(String(request.request_id));
         if (mode === "queued" || mode === "second-read") {

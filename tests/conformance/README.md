@@ -345,10 +345,11 @@ canary detects partial leaks. Only `plan.display_document.text`, its `blocks`,
 `plan.words[].text`, and `piece_ready.spoken_text` are removed from event copies.
 The input text and resolved audio bytes are text-bearing too; timing word indices
 are not. Plain display text and words must match the submitted document.
-Twenty-two fresh connections cover completion, markdown and its five shapes,
+Twenty-seven fresh connections cover completion, markdown and its five shapes,
 backend failure, over-limit and invalid refusals, conflict, opaque host ids and
 metadata, unknown controls, a live stop, shutdown, queuing, release twice,
-repeated hello, pre-hello narrate, and a second read that fails.
+repeated hello, pre-hello narrate, a second read that fails, an identical retry,
+speak, ask_prompt, a wrong protocol, and stale player feedback.
 Each scenario wraps all five console methods and stdout/stderr writes, confirms
 seven observable routes, and restores them in finally. This covers writes through
 these JavaScript methods during the scenario in this process; independently
@@ -361,5 +362,16 @@ SESS-01 and SHUT-01 wrong-engine receipts also gain PRIV-01e: they respectively
 omit a second read, miss the repeated release refusal, omit the unknown-session
 refusal, and report the old shutdown reason.
 PRIV-01h still owes host adapter logs. HASH-01 stays inactive: the engine writes
-no hash today; when it writes one to a journal it must be keyed: nothing to test
+no hash to a log, a lifecycle record, a diagnostic or an error today; when it writes one to a journal it must be keyed: nothing to test
 yet. Fleet journal and telemetry are absent from this engine and remain owed.
+
+The parent scans each complete child stdout/stderr pipe with the case-folded
+canary run test before accepting its report, including saved references and late
+writes; it marks PRIV-01e red and emits only a row/stream diagnostic for a leaking
+stream. The active registry controls whether this check applies. The real engine
+produces zero bytes on both child streams in both orders on both Bun versions.
+
+Owed or out of scope: `plan.display_document.blocks` remains stripped whole, as
+the contract explicitly identifies its blocks as text-bearing.
+Transformations beyond case folding (such as reversal, base64 and splitting
+characters across fields) remain outside this row's eight-character-run rule.

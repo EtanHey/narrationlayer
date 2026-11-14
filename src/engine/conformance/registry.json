@@ -328,7 +328,7 @@
     "stage": "A",
     "owner_slice": "S7",
     "active": false,
-    "owed": "The engine writes no hash today; when it writes one to a journal it must be keyed: nothing to test yet."
+    "owed": "The engine writes no hash to a log, a lifecycle record, a diagnostic or an error today; when it writes one to a journal it must be keyed: nothing to test yet."
   },
   {
     "id": "HIST-01",

@@ -9,6 +9,7 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/broken-priv-saved-log.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7d" },
     "src/engine/conformance/privacy-cases.ts": { "layer": 4, "area": "engine", "owner": "P2.S7d" },
     "src/engine/conformance/broken-priv-01e.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7d" },
     "src/engine/conformance/broken-shut-01.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7b2" },
