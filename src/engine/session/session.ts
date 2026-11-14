@@ -1,3 +1,4 @@
+import { nextSynthesisIndex } from "../reducer/pacing";
 import { initialState, reduce, type Input } from "../reducer/session";
 import { parseEvent, parseRequest } from "../messages/parser";
 import type { Event, Limits, Message } from "../messages/messages";
@@ -51,6 +52,8 @@ export function createEngineSession<Audio>(options: {
   }
   function step(input: Input<"host">) {
     options.observe?.input?.(structuredClone(input));
+    const id = "identity" in input ? input.identity.session_id : "session_id" in input ? input.session_id : input.kind === "control" ? input.command.session_id : undefined;
+    const wasRunning = id !== undefined && state.sessions[id]?.generation === "running";
     const result = reduce(state, input);
     state = result.state;
     for (const effect of result.effects) {
@@ -58,13 +61,36 @@ export function createEngineSession<Audio>(options: {
       else if (effect.kind === "plan") plan(effect.request);
       else if (effect.kind === "backend") {
         if (effect.op === "cancel") aborts.get(effect.identity.session_id)?.abort();
-        else {
-          const abort = new AbortController();
-          aborts.set(effect.identity.session_id, abort);
-          void run(effect.identity, abort);
-        }
+        else pump(effect.identity.session_id);
       }
     }
+    if (id !== undefined) {
+      pump(id);
+      if (wasRunning && state.sessions[id]?.generation !== "running") pumpDependents(id);
+    }
+  }
+  function pumpDependents(id: string) {
+    if (closed) return;
+    for (const session of Object.values(state.sessions)) {
+      const start = session.request.start;
+      if (start && typeof start === "object" && start.after_session === id) pump(session.session_id);
+    }
+  }
+  function pump(id: string) {
+    const session = Object.hasOwn(state.sessions, id) ? state.sessions[id] : undefined;
+    if (!session) return;
+    if (closed || aborts.has(id) || session.generation !== "running" || session.fenced) {
+      if (session.generation !== "running") requests.delete(id);
+      return;
+    }
+    const start = session.request.start;
+    // The pure rule releases logical generation; this handle gates physical settlement.
+    if (start && typeof start === "object" && aborts.has(start.after_session)) return;
+    if (session.delivered.length !== session.plan.pieces.length
+      && nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) return;
+    const abort = new AbortController();
+    aborts.set(id, abort);
+    void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort);
   }
   // §2.5: reducer owns contract phase/retry selection for every refusal code.
   function refuse(code: Extract<Input<"host">, { kind: "refuse" }>["code"], request_id?: string) {
@@ -101,7 +127,7 @@ export function createEngineSession<Audio>(options: {
   }
   async function run(identity: Identity, abort: AbortController) {
     try {
-      // §2 L114: strict prefix, one call at a time. Pacing/retry belong to S3b-2.
+      // §2 L114: strict prefix, one synthesis in flight; parked reads hold no timer.
       while (state.sessions[identity.session_id].generation === "running") {
         const session = state.sessions[identity.session_id], index = session.delivered.length;
         const piece = session.plan.pieces[index];
@@ -109,6 +135,7 @@ export function createEngineSession<Audio>(options: {
           await options.publication.commit(identity, abort.signal);
           step({ kind: "backend", identity, result: { kind: "commit" } }); break;
         }
+        if (nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) break;
         const request = requests.get(identity.session_id)?.[index];
         if (!request || request.piece_index !== piece.index) throw new Error("invalid planner requests");
         const started = options.clock.monotonic();
@@ -127,7 +154,12 @@ export function createEngineSession<Audio>(options: {
     } catch {
       // §2.5 L220: reducer emits a text-free error and the one terminal outcome.
       step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_FAILED", message: "synthesis or publication failed" } } });
-    } finally { aborts.delete(identity.session_id); requests.delete(identity.session_id); }
+    } finally {
+      aborts.delete(identity.session_id);
+      if (state.sessions[identity.session_id].generation !== "running") requests.delete(identity.session_id);
+      pump(identity.session_id);
+      if (state.sessions[identity.session_id].generation !== "running") pumpDependents(identity.session_id);
+    }
   }
   return {
     events,
@@ -155,8 +187,8 @@ export function createEngineSession<Audio>(options: {
     async shutdown(_deadline: number): Promise<void> {
       // Owed to S7: shutdown reason (currently cancel) and deadline enforcement (currently immediate).
       if (closed) return;
-      for (const session of Object.values(state.sessions)) if (!session.outcome) step({ kind: "stop", session_id: session.session_id, reason: "cancel" });
       closed = true;
+      for (const session of Object.values(state.sessions)) if (!session.outcome) step({ kind: "stop", session_id: session.session_id, reason: "cancel" });
       for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
     },
   };
