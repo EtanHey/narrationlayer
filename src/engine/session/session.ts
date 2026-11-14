@@ -232,15 +232,34 @@ export function createEngineSession<Audio>(options: {
         else if (result.kind === "expired") step({ kind: "refuse", code: "ARTIFACT_EXPIRED", message: "ARTIFACT_EXPIRED" },
           options.artifacts.minted(value.lease_id) ? { lease_id: value.lease_id } : undefined);
       } else if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
-      else if (value.type === "control" && (value.op === "stop" || value.op === "pause" || value.op === "resume")) {
+      else if (value.type === "control" && (value.op === "stop" || value.op === "pause" || value.op === "resume" || value.op === "seek")) {
         const current = state.sessions[value.session_id]?.current;
-        if (current) step({ kind: "control", command: value, target: current });
+        if (current) {
+          const session = state.sessions[value.session_id];
+          let target = current;
+          let seek: Extract<Input, { kind: "control" }>["seek"];
+          if (value.op === "seek") {
+            const args = value.args;
+            const word = "word_index" in args ? session.delivered.flatMap(p => p.words).find(w => w.index === args.word_index) : undefined;
+            if ("word_index" in args && (args.word_index < 0 || args.word_index >= session.plan.words.length)) seek = { kind: "reject", reason: "word index out of range" };
+            else if ("word_index" in args && !word) seek = { kind: "reject", reason: "word timing unavailable" };
+            else {
+              const requested = "audio_ms" in args ? args.audio_ms : word!.start_ms;
+              // Ruling 73: clamp to the end of the delivered prefix.
+              const offset = Math.max(0, Math.min(requested, session.known_ms));
+              const piece = session.delivered.find(p => word ? p.words.some(w => w.index === word.index) : offset < p.start_ms + p.duration_ms) ?? session.delivered.at(-1);
+              target = { ...current, audio_ms: offset, piece_index: piece?.index ?? 0, piece_start_ms: piece?.start_ms ?? 0, piece_duration_ms: piece?.duration_ms ?? 0 };
+              seek = { kind: "accept", clamped: requested !== offset };
+            }
+          }
+          step({ kind: "control", command: value, target, ...(seek ? { seek } : {}) });
+        }
         else step({ kind: "stop", session_id: value.session_id, reason: value.op === "stop" ? value.args.reason : "stop" });
       } else if (value.type === "player_feedback") {
         const session = state.sessions[value.session_id];
         if (session) step({ kind: "feedback", identity: { owner_epoch: session.owner_epoch, session_id: session.session_id, attempt_id: session.attempt_id }, feedback: value }); // §2.3 L174: host owns player.
       } else {
-        // Owed to later controls: seek/resync routing and control error correlation; refuse cannot carry command_id/session_id yet.
+        // Owed to later controls: resync routing and control error correlation; refuse cannot carry command_id/session_id yet.
         refuse("INVALID_REQUEST");
       }
     },

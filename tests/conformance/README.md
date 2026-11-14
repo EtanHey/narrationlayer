@@ -417,3 +417,9 @@ synthetic preset. The synthesize half of ENG-01, per-segment failure fallback,
 XTTS/F5 cascade limits, mode rates and auto-slow remain owed.
 `broken-eng-01` serves a mandated clone using Edge; `broken-sub-01` hides the
 substitution flag. Their receipts pin ENG-01 and SUB-01 respectively.
+
+SEEK-01e checks delivered-word landing, unavailable timing, audio clamping,
+re-anchored lookahead and preserved pause ownership (I09, stage-A mirror only).
+ID-01e rejects old-player exits after a seek and checks continued pacing.
+SEEK-01h and ID-01h still owe real player landing and the 1.5 s wait; resync
+and stop scopes remain owed.
