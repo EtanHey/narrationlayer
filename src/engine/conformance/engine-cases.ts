@@ -31,9 +31,9 @@ function stop(connection: ReturnType<typeof setup>["connection"], session_id: st
 const multiText = "Amber rafts float. Violet cranes glide. Golden otters swim.";
 const shapes = [[1, 2500], [1, 10000], [7, 4800]];
 const steps = (scale = 1): BackendStep[] => shapes.map(([count, rate], i) => ({ latency_ms: i + 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(count * scale, rate, 999), sample_rate: 8000 } }));
-async function multi(c: CaseContext, script = steps()) {
+async function multi(c: CaseContext, script = steps(), text = multiText) {
   const t = setup(c, script);
-  t.connection.send({ ...read("request-multi", "key-multi", multiText), lookahead: 3 });
+  t.connection.send({ ...read("request-multi", "key-multi", text), lookahead: 3 });
   for (let i = 0; i < 24; i++) await t.settle(1);
   return t;
 }
@@ -103,9 +103,10 @@ export const engineCases: Record<string, Case> = {
     c.assert(!t.seen.some(e => e.type === "error"));
   },
   "LIFE-01e": async c => {
+    const text = multiText.replace("cranes", "𝒸ranes"); // One astral character distinguishes UTF-16 units.
     for (const failed of [false, true]) {
       const script = failed ? [steps()[0], { latency_ms: 3, late_after_cancel: false, result: { kind: "error", code: "invented failure" } } satisfies BackendStep] : steps();
-      const t = await multi(c, script);
+      const t = await multi(c, script, text);
       if (!failed) complete(t, c);
       await t.settle(); await t.finish();
       const pieces = t.seen.filter(e => e.type === "piece_ready"), records = t.seen.filter(e => e.type === "lifecycle");
@@ -121,7 +122,7 @@ export const engineCases: Record<string, Case> = {
         if (piece) c.assert(r?.edge === "audio_ready" && r.session_id === piece.session_id && requested[0].session_id === piece.session_id && requested[0].seq < r.seq && r.t_mono_ms === requested[0].t_mono_ms + script[i].latency_ms && r.duration_ms === piece.duration_ms && r.sample_count === piece.artifact.sample_count && r.first_audible_offset_ms >= 0 && r.first_audible_offset_ms <= piece.duration_ms && requested[0].edge === "synthesis_requested" && requested[0].chars === piece.spoken_text.length && requested[0].segment_index === 0);
       }
       c.assert(records.every((r, i) => i === 0 || r.t_mono_ms >= records[i - 1].t_mono_ms));
-      textFree(c, multiText);
+      textFree(c, text);
       if (!failed) success(c, t.seen, "request-multi", 3);
       else interrupted(c, t.seen, "request-multi", 1, "failed");
       const outcome = t.seen.findIndex(e => e.type === "outcome"); c.assert(outcome >= 0 && !t.seen.slice(outcome + 1).some(e => e.type === "lifecycle"));
@@ -129,7 +130,7 @@ export const engineCases: Record<string, Case> = {
   },
   "TIME-01": async c => {
     // Keep the half-up tie, and independently separate the formulas without a tie.
-    for (const audioShapes of [shapes, [[3, 10000], [6, 20000], [7, 4800]]]) {
+    for (const audioShapes of [shapes, [[3, 10000], [6, 20000], [7, 4800]], [[3, 10000], [12, 40000], [7, 4800]]]) {
       const script: BackendStep[] = audioShapes.map(([n, rate], i) => ({ latency_ms: i + 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(n, rate, 999), sample_rate: 8000 } }));
       const t = await multi(c, script); complete(t, c); await t.settle(); await t.finish();
       const { pieces } = success(c, t.seen, "request-multi", 3);
