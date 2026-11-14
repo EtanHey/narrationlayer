@@ -15,12 +15,18 @@ export function brokenEngine(rule: string): Binding {
           if (rule === "PLAN-LAT-01" && event.type === "plan") { held.push(event); continue; }
           if (held.length && event.type === "lifecycle") { held.push(event); continue; }
           if (held.length && !(event.type === "outcome" && event.playback.reason === "cancel")) { yield* held; held = []; }
-          if (rule === "ERR-01" && event.type === "error" && event.code === "SYNTH_FAILED") continue;
-          if (rule === "ID-04" && event.type === "accepted") { firstSession ??= event.session_id; yield { ...event, session_id: firstSession }; continue; }
-          if (rule === "TIME-02" && event.type === "piece_ready") { yield { ...event, duration_ms: event.duration_ms * 3 }; continue; }
+          if (rule === "ERR-01" && event.type === "error" && event.code === "SYNTH_FAILED" && plan?.pieces.length === 1) continue;
+          if (rule === "ID-04" && event.type === "accepted") { firstSession ??= event.session_id; yield { ...event, session_id: plan?.pieces.length === 1 ? firstSession : event.session_id }; continue; }
+          if (rule === "TIME-02" && event.type === "piece_ready" && plan?.pieces.length === 1) { yield { ...event, duration_ms: event.duration_ms * 3 }; continue; }
+          if (rule === "GEN-02" && event.type === "duration" && event.final && plan && plan.pieces.length >= 3 && event.known_ms > 100 && event.known_ms < 300) yield event;
+          if (rule === "LIFE-01e" && event.type === "lifecycle" && event.edge === "audio_ready") { yield { ...event, first_audible_offset_ms: event.duration_ms + 1 }; continue; }
+          if (rule === "TIME-01" && event.type === "piece_ready" && event.index > 0 && event.duration_ms === 0) { yield { ...event, start_ms: event.start_ms + 1, words: event.words.map(w => ({ ...w, start_ms: w.start_ms + 1, end_ms: w.end_ms + 1 })) }; continue; }
+          if (rule === "GEN-01e" && event.type === "outcome" && event.playback.reason === "speech_failed") { yield { ...event, missing_piece_indices: [] }; continue; }
+          if (rule === "WORD-02" && event.type === "piece_ready" && event.duration_ms >= 100 && plan?.pieces.length === 3) { yield { ...event, words: event.words.map(w => ({ ...w, timing: "measured" })) }; continue; }
+          if (rule === "DET-01" && event.type === "duration" && event.known_ms > 10 && event.known_ms < 100) { yield { ...event, known_ms: 10 }; continue; }
           yield event;
           if (held.length && event.type === "outcome") { yield* held; held = []; }
-          if (rule === "ORDER-01" && event.type === "outcome" && event.playback.reason === "completed") yield event;
+          if (rule === "ORDER-01" && event.type === "outcome" && event.playback.reason === "completed" && plan?.pieces.length === 1) yield event;
           if (rule === "ID-03" && event.type === "control_ack" && plan) yield {
             protocol: "nl.engine/1", type: "piece_ready", owner_epoch: plan.owner_epoch, seq: event.seq + 1,
             session_id: plan.session_id, attempt_id: plan.attempt_id, piece_id: plan.pieces[0].piece_id, index: 0,

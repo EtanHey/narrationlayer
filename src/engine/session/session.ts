@@ -184,7 +184,8 @@ export function createEngineSession<Audio>(options: {
     send(message: unknown): void {
       if (closed) return;
       if (!negotiated && !(message !== null && typeof message === "object" && "type" in message && message.type === "hello")) {
-        refuse("NOT_NEGOTIATED"); return;
+        const request_id = message !== null && typeof message === "object" && "type" in message && message.type === "narrate" && "request_id" in message && typeof message.request_id === "string" && message.request_id.length >= 3 && message.request_id.length <= 128 ? message.request_id : undefined;
+        refuse("NOT_NEGOTIATED", request_id); return;
       }
       const parsed = parseRequest(message, options.limits);
       if (!parsed.ok) {

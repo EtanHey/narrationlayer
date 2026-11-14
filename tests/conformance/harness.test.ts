@@ -29,7 +29,7 @@ test("report schema and complete denominator pinned; reversed order identical", 
   // The supported entry owns the green snapshot; direct imports fail closed.
   expect(canonical(await runConformance(binding, { reverse: true }))).toBe(canonical(report));
   expect(report.rows.filter(r => r.result === "pass").map(r => r.id)).toEqual(["CONF-02"]);
-  expect(report.inactive_engine).toBe(52);
+  expect(report.inactive_engine).toBe(46);
 });
 test("missing case, early stream end and zero assertions are red", async () => {
   expect((await runCase("probe", binding)).result).toBe("fail");
@@ -68,4 +68,17 @@ test("observation digests expose fixture differences even when verdicts match", 
   expect(first.rows.map(r => r.result)).toEqual(second.rows.map(r => r.result));
   const a = first.rows.find(r => r.id === "CONF-01"), b = second.rows.find(r => r.id === "CONF-01");
   expect(a && "trace_digest" in a ? a.trace_digest : undefined).not.toBe(b && "trace_digest" in b ? b.trace_digest : undefined);
+});
+
+test("a hung shutdown or stream makes the harness probe fail by name under fake time", async () => {
+  for (const mode of ["shutdown", "stream"]) {
+    const hung = { name: mode, create() { return {
+      send() {},
+      events: (async function* () { if (mode === "stream") await new Promise<void>(() => {}); })(),
+      shutdown: () => mode === "shutdown" ? new Promise<void>(() => {}) : Promise.resolve(),
+    }; } };
+    const report = await runConformance(hung);
+    expect(report.rows.find(r => r.id === "CONF-01")?.result).toBe("fail");
+    expect(report.rows.every(r => !("diagnostic" in r) || !r.diagnostic?.includes("unavailable"))).toBe(true);
+  }
 });

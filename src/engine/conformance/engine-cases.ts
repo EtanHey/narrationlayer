@@ -8,6 +8,12 @@ import type { Event } from "../messages/messages";
 export const hello = { protocol: "nl.engine/1", type: "hello", client: { name: "synthetic", version: "1" }, binding: "in-process", stage: "A", required_caps: [] } satisfies Json;
 const read = (id = "request-1", key = id, text = "Copper boats drift.") => ({ protocol: "nl.engine/1", type: "narrate", request_id: id, idempotency_key: key, use: "read", input: { text, format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" } satisfies Json);
 const audio = (late_after_cancel = false): BackendStep => ({ latency_ms: 1, late_after_cancel, result: { kind: "audio", ...pcmAudio(100, 1000, 300) } });
+async function bounded(c: CaseContext, promise: Promise<unknown>) {
+  let done = false, error: unknown;
+  void promise.then(() => { done = true; }, e => { error = e; done = true; });
+  for (let i = 0; i < 8 && !done; i++) { await c.clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve(); }
+  c.assert(done); if (error) throw error;
+}
 function setup(c: CaseContext, steps: BackendStep[]) {
   const backend = new ScriptedBackend(c.clock), spawn = new ScriptedSpawn(c.clock), player = new ScriptedPlayer(c.clock, spawn);
   backend.script(steps);
@@ -17,12 +23,163 @@ function setup(c: CaseContext, steps: BackendStep[]) {
   const settle = async (ms = 0) => { await c.clock.advance(ms); for (let i = 0; i < 128; i++) await Promise.resolve(); };
   connection.send(hello);
   return { connection, seen, backend, settle,
-    async finish() { await connection.shutdown(c.clock.now()); await settle(); await collect; backend.assertDrained(); player.assertDrained(); spawn.assertDrained(); } };
+    async finish() { await bounded(c, connection.shutdown(c.clock.now())); await settle(); await bounded(c, collect); backend.assertDrained(); player.assertDrained(); spawn.assertDrained(); } };
 }
 function stop(connection: ReturnType<typeof setup>["connection"], session_id: string) {
   connection.send({ protocol: "nl.engine/1", type: "control", command_id: "stop-command", session_id, op: "stop", args: { scope: "session", reason: "stop" } });
 }
+const multiText = "Amber rafts float. Violet cranes glide. Golden otters swim.";
+const shapes = [[1, 2500], [1, 10000], [7, 4800]];
+const steps = (scale = 1): BackendStep[] => shapes.map(([count, rate], i) => ({ latency_ms: i + 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(count * scale, rate, 999), sample_rate: 8000 } }));
+async function multi(c: CaseContext, script = steps()) {
+  const t = setup(c, script);
+  t.connection.send({ ...read("request-multi", "key-multi", multiText), lookahead: 3 });
+  for (let i = 0; i < 24; i++) await t.settle(1);
+  return t;
+}
+function complete(t: ReturnType<typeof setup>, c: CaseContext, request_id?: string) {
+  const accepted = t.seen.filter(e => e.type === "accepted").find(e => !request_id || e.request_id === request_id); c.assert(accepted?.type === "accepted");
+  if (accepted?.type !== "accepted") return;
+  for (const piece of t.seen.filter(e => e.type === "piece_ready").filter(e => e.session_id === accepted.session_id))
+    for (const edge of ["spawned", "first_sample", "first_audible", "last_sample", "exited"])
+      t.connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: accepted.session_id, control_epoch: piece.index + 1, player_instance_id: `synthetic-${piece.index}`, piece_index: piece.index, edge, t_mono_ms: c.clock.now(), source: "player_reported", ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: piece.start_ms + piece.duration_ms } } : {}) });
+}
+// Independent rational sum; half-up is the engine's documented tie rule.
+function cumulative(count: number, scale = 1, audioShapes = shapes) {
+  let numerator = 0n, denominator = 1n;
+  for (const [samples, rate] of audioShapes.slice(0, count)) {
+    numerator = numerator * BigInt(rate) + BigInt(samples * scale * 1000) * denominator;
+    denominator *= BigInt(rate);
+  }
+  return Number((2n * numerator + denominator) / (2n * denominator));
+}
+function success(c: CaseContext, seen: Event[], request_id: string, count: number) {
+  const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
+  c.assert(accepted.length >= 1 && accepted.every(e => e.session_id === accepted[0].session_id));
+  const session_id = accepted[0].session_id;
+  const own = seen.filter(e => "session_id" in e && e.session_id === session_id);
+  const plans = own.filter(e => e.type === "plan"), pieces = own.filter(e => e.type === "piece_ready");
+  const records = own.filter(e => e.type === "lifecycle"), durations = own.filter(e => e.type === "duration"), outcomes = own.filter(e => e.type === "outcome");
+  c.assert(plans.length === 1 && plans[0].pieces.length === count && pieces.length === count);
+  c.assert(pieces.every((p, i) => p.index === i && p.piece_id === plans[0].pieces[i].piece_id && p.attempt_id === plans[0].attempt_id && own.indexOf(plans[0]) < own.indexOf(p)));
+  c.assert(records.length === 2 * count && pieces.every(p => records.filter(r => r.piece_index === p.index && r.edge === "synthesis_requested").length === 1 && records.filter(r => r.piece_index === p.index && r.edge === "audio_ready").length === 1));
+  const finals = durations.filter(d => d.final);
+  c.assert(finals.length === 1 && pieces.every(p => own.indexOf(p) < own.indexOf(finals[0])));
+  c.assert(durations.every((d, i) => own.indexOf(d) > own.indexOf(pieces[0]) && (i === 0 || d.known_ms >= durations[i - 1].known_ms) && (d.final || own.indexOf(d) < own.indexOf(finals[0]))));
+  c.assert(outcomes.length === 1 && outcomes[0].generation.status === "committed");
+  c.assert(!seen.some(e => e.type === "error"));
+  return { own, plans, pieces, records, durations, outcomes };
+}
+function interrupted(c: CaseContext, seen: Event[], request_id: string, delivered: number, generation: "failed" | "cancelled") {
+  const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
+  c.assert(accepted.length === 1);
+  const own = seen.filter(e => "session_id" in e && e.session_id === accepted[0].session_id);
+  const plans = own.filter(e => e.type === "plan"), pieces = own.filter(e => e.type === "piece_ready"), records = own.filter(e => e.type === "lifecycle"), durations = own.filter(e => e.type === "duration"), outcomes = own.filter(e => e.type === "outcome");
+  c.assert(plans.length === 1 && pieces.length === delivered && pieces.every((p, i) => p.index === i && p.piece_id === plans[0].pieces[i].piece_id));
+  c.assert(records.length === 2 * delivered + 1);
+  for (let i = 0; i <= delivered; i++) {
+    c.assert(records.filter(r => r.piece_index === i && r.edge === "synthesis_requested").length === 1);
+    c.assert(records.filter(r => r.piece_index === i && r.edge === "audio_ready").length === (i < delivered ? 1 : 0));
+  }
+  // A failed/cancelled prefix has no final: that claim requires every planned piece.
+  c.assert(durations.length === delivered && durations.every(d => !d.final));
+  c.assert(outcomes.length === 1 && outcomes[0].generation.status === generation);
+}
+function textFree(c: CaseContext, text: string) {
+  const raw = JSON.stringify(c.trace.filter(e => e && typeof e === "object" && !Array.isArray(e) && (e.type === "lifecycle" || e.type === "error")));
+  for (let i = 0; i <= text.length - 8; i++) c.assert(!raw.includes(text.slice(i, i + 8)));
+}
 export const engineCases: Record<string, Case> = {
+  "GEN-02": async c => {
+    const t = setup(c, [...steps(100), ...steps(100)]);
+    for (const request_id of ["request-gen-1", "request-gen-2"]) {
+      t.connection.send({ ...read(request_id, request_id, multiText), lookahead: 3 });
+      for (let i = 0; i < 24; i++) await t.settle(1);
+      complete(t, c, request_id); await t.settle();
+      success(c, t.seen, request_id, 3);
+    }
+    await t.finish();
+    for (const id of ["request-gen-1", "request-gen-2"]) success(c, t.seen, id, 3);
+    c.assert(!t.seen.some(e => e.type === "error"));
+  },
+  "LIFE-01e": async c => {
+    for (const failed of [false, true]) {
+      const script = failed ? [steps()[0], { latency_ms: 3, late_after_cancel: false, result: { kind: "error", code: "invented failure" } } satisfies BackendStep] : steps();
+      const t = await multi(c, script);
+      if (!failed) complete(t, c);
+      await t.settle(); await t.finish();
+      const pieces = t.seen.filter(e => e.type === "piece_ready"), records = t.seen.filter(e => e.type === "lifecycle");
+      c.assert(pieces.length === (failed ? 1 : 3));
+      c.assert(records.length === (failed ? 3 : 6));
+      const accepted = t.seen.find(e => e.type === "accepted");
+      c.assert(accepted?.type === "accepted" && records.every(r => r.session_id === accepted.session_id));
+      c.assert(t.seen.some(e => e.type === "welcome" && e.caps.includes("lifecycle")));
+      for (let i = 0; i < (failed ? 2 : 3); i++) {
+        const requested = records.filter(e => e.piece_index === i && e.edge === "synthesis_requested"), ready = records.filter(e => e.piece_index === i && e.edge === "audio_ready");
+        c.assert(requested.length === 1 && ready.length === (failed && i === 1 ? 0 : 1));
+        const piece = pieces[i], r = ready[0];
+        if (piece) c.assert(r?.edge === "audio_ready" && r.session_id === piece.session_id && requested[0].session_id === piece.session_id && requested[0].seq < r.seq && r.t_mono_ms === requested[0].t_mono_ms + script[i].latency_ms && r.duration_ms === piece.duration_ms && r.sample_count === piece.artifact.sample_count && r.first_audible_offset_ms >= 0 && r.first_audible_offset_ms <= piece.duration_ms && requested[0].edge === "synthesis_requested" && requested[0].chars === piece.spoken_text.length && requested[0].segment_index === 0);
+      }
+      c.assert(records.every((r, i) => i === 0 || r.t_mono_ms >= records[i - 1].t_mono_ms));
+      textFree(c, multiText);
+      if (!failed) success(c, t.seen, "request-multi", 3);
+      else interrupted(c, t.seen, "request-multi", 1, "failed");
+      const outcome = t.seen.findIndex(e => e.type === "outcome"); c.assert(outcome >= 0 && !t.seen.slice(outcome + 1).some(e => e.type === "lifecycle"));
+    }
+  },
+  "TIME-01": async c => {
+    // Keep the half-up tie, and independently separate the formulas without a tie.
+    for (const audioShapes of [shapes, [[3, 10000], [6, 20000], [7, 4800]]]) {
+      const script: BackendStep[] = audioShapes.map(([n, rate], i) => ({ latency_ms: i + 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(n, rate, 999), sample_rate: 8000 } }));
+      const t = await multi(c, script); complete(t, c); await t.settle(); await t.finish();
+      const { pieces } = success(c, t.seen, "request-multi", 3);
+      c.assert(cumulative(2, 1, audioShapes) !== audioShapes.slice(0, 2).reduce((sum, [n, r]) => sum + Math.round(n * 1000 / r), 0));
+      pieces.forEach((p, i) => c.assert(p.start_ms === cumulative(i, 1, audioShapes) && p.artifact.sample_rate === audioShapes[i][1] && p.artifact.sample_count === audioShapes[i][0]));
+    }
+  },
+  "GEN-01e": async c => {
+    for (const failedIndex of [1, 0]) {
+      const t = await multi(c, [...steps().slice(0, failedIndex), { latency_ms: 3, late_after_cancel: false, result: { kind: "error", code: "invented failure" } }]);
+      await t.finish();
+      const accepted = t.seen.find(e => e.type === "accepted"), errors = t.seen.filter(e => e.type === "error"), outcomes = t.seen.filter(e => e.type === "outcome"), pieces = t.seen.filter(e => e.type === "piece_ready");
+      c.assert(accepted?.type === "accepted" && errors.length === 1 && errors[0].session_id === accepted.session_id && errors[0].code === "SYNTH_FAILED" && errors[0].phase === "synthesize" && errors[0].retry === "new_request");
+      c.assert(outcomes.length === 1 && outcomes[0].session_id === accepted?.session_id && outcomes[0].playback.reason === (failedIndex ? "speech_failed" : "synth_failed") && outcomes[0].generation.status === "failed");
+      c.assert(JSON.stringify(outcomes[0].missing_piece_indices) === JSON.stringify([0, 1, 2].slice(failedIndex)));
+      c.assert(pieces.length === failedIndex && pieces.every((p, i) => p.index === i && t.seen.indexOf(p) < t.seen.indexOf(errors[0])) && t.seen.indexOf(errors[0]) < t.seen.indexOf(outcomes[0]));
+      textFree(c, multiText);
+      interrupted(c, t.seen, "request-multi", failedIndex, "failed");
+    }
+  },
+  "WORD-02": async c => {
+    const script: BackendStep[] = [[750, 2500], [4000, 10000], [2400, 4800]].map(([n, rate], i) => ({ latency_ms: i + 2, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(n, rate, 999) } }));
+    const t = await multi(c, script); complete(t, c); await t.settle(); await t.finish();
+    const plans = t.seen.filter(e => e.type === "plan"), pieces = t.seen.filter(e => e.type === "piece_ready");
+    success(c, t.seen, "request-multi", 3);
+    c.assert(plans.length === 1 && pieces.length === 3 && pieces.every(p => p.duration_ms >= 300));
+    c.assert(JSON.stringify(pieces.flatMap(p => p.words.map(w => w.index))) === JSON.stringify(plans[0].words.map(w => w.index)));
+    for (const p of pieces) c.assert(p.words.length > 0 && p.words.every((w, i) => Number.isFinite(w.start_ms) && Number.isFinite(w.end_ms) && w.timing === "estimated" && w.start_ms >= p.start_ms && w.end_ms > w.start_ms && w.end_ms <= p.start_ms + p.duration_ms && (i === 0 || w.start_ms >= p.words[i - 1].end_ms)));
+  },
+  "DET-01": async c => {
+    const t = setup(c, [...steps(12), ...steps(24)]);
+    for (const scale of [12, 24]) {
+      t.connection.send({ ...read(`request-det-${scale}`, `key-det-${scale}`, multiText), lookahead: 3 });
+      for (let i = 0; i < 24; i++) await t.settle(1);
+      complete(t, c, `request-det-${scale}`); await t.settle();
+      const { pieces, records, durations } = success(c, t.seen, `request-det-${scale}`, 3);
+      c.assert(pieces.length === 3 && durations.length >= 3 && durations.every(d => shapes.some((_, i) => d.known_ms === cumulative(i + 1, scale))));
+      pieces.forEach((p, i) => {
+        const duration = Math.round(shapes[i][0] * scale * 1000 / shapes[i][1]);
+        c.assert(p.start_ms === cumulative(i, scale) && p.duration_ms === duration && p.artifact.sample_count === shapes[i][0] * scale);
+        c.assert(p.words.length === 3 && p.words.every((w, j) => w.start_ms === p.start_ms + Math.round(j * duration / 3) && w.end_ms === p.start_ms + Math.round((j + 1) * duration / 3)));
+        c.assert(durations.some(d => d.known_ms === cumulative(i + 1, scale)));
+        const ready = records.filter(r => r.edge === "audio_ready" && r.piece_index === i);
+        c.assert(ready.length === 1 && ready[0].edge === "audio_ready" && ready[0].duration_ms === duration && ready[0].sample_count === shapes[i][0] * scale && ready[0].duration_ms === p.duration_ms && ready[0].sample_count === p.artifact.sample_count);
+      });
+    }
+    await t.finish();
+    for (const scale of [12, 24]) success(c, t.seen, `request-det-${scale}`, 3);
+    c.assert(!t.seen.some(e => e.type === "error"));
+  },
   "PLAN-LAT-01": async c => {
     // Repeat with shutdown at each call, so the second request needs its own plan too.
     for (const target of [1, 2]) {
@@ -43,7 +200,9 @@ export const engineCases: Record<string, Case> = {
       };
       const texts = ["Copper boats drift.", "Silver kites rise."];
       for (let i = 0; i < target; i++) connection.send(read(`request-${i + 1}`, `key-${i + 1}`, texts[i]));
-      await collect; await c.clock.advance(1);
+      for (let i = 0; i < 8 && calls < target; i++) await c.clock.advance(1);
+      if (calls < target) await bounded(c, connection.shutdown(c.clock.now()));
+      await bounded(c, collect); await c.clock.advance(1);
       c.assert(backend.calls.length === target);
       c.assert(!seen.some(e => "request_id" in e && e.request_id === "request-sentinel"));
       for (let i = 0; i < target; i++) {
@@ -55,6 +214,7 @@ export const engineCases: Record<string, Case> = {
         const request = backend.calls[i];
         c.assert(request !== null && typeof request === "object" && !Array.isArray(request) && request.text === texts[i]);
         c.assert(plan >= 0 && outcome > plan);
+        interrupted(c, seen, `request-${i + 1}`, 0, "cancelled");
       }
       backend.assertDrained(); player.assertDrained(); spawn.assertDrained();
     }
@@ -71,6 +231,8 @@ export const engineCases: Record<string, Case> = {
     await t.finish();
     let seq = 0;
     for (const event of t.seen) if (event.type !== "welcome") c.assert(event.seq === ++seq);
+    success(c, t.seen, "request-1", 1);
+    c.assert(!t.seen.some(e => e.type === "error"));
     c.assert(t.seen.at(-1)?.type === "outcome"); // Lease-backed timing_update exception owed to S7.
   },
   "ERR-01": async c => {
@@ -80,9 +242,8 @@ export const engineCases: Record<string, Case> = {
     c.assert(errors.length === 1 && errors[0].code === "SYNTH_FAILED" && errors[0].phase === "synthesize" && errors[0].retry === "new_request");
     const accepted = t.seen.find(e => e.type === "accepted");
     c.assert(accepted?.type === "accepted" && errors[0].session_id === accepted.session_id);
-    const diagnostic = JSON.stringify(errors.map(e => ({ message: e.message, details: e.details })));
-    const text = "Copper boats drift.";
-    for (let i = 0; i <= text.length - 8; i++) c.assert(!diagnostic.includes(text.slice(i, i + 8)));
+    textFree(c, "Copper boats drift.");
+    interrupted(c, t.seen, "request-1", 0, "failed");
     c.assert(outcomes.length === 1 && outcomes[0].playback.reason === "synth_failed" && outcomes[0].generation.status === "failed");
     c.assert(t.seen.indexOf(errors[0]) < t.seen.indexOf(outcomes[0]) && t.seen.at(-1) === outcomes[0]);
   },
@@ -96,6 +257,7 @@ export const engineCases: Record<string, Case> = {
     c.assert(outcomes.length === 1 && outcomes[0].session_id === accepted.session_id);
     const count = t.seen.length; await t.settle(2); c.assert(t.seen.length === count);
     c.assert(!t.seen.some(e => e.type === "piece_ready")); await t.finish();
+    interrupted(c, t.seen, "request-1", 0, "cancelled");
   },
   "ID-04": async c => {
     const t = setup(c, [audio(), audio()]);
@@ -110,9 +272,13 @@ export const engineCases: Record<string, Case> = {
     const conflicts = t.seen.filter(e => e.type === "error" && e.code === "IDEMPOTENCY_CONFLICT");
     c.assert(conflicts.length === 1 && conflicts[0].type === "error" && conflicts[0].phase === "admit" && conflicts[0].retry === "never");
     c.assert(t.backend.calls.length === 2); await t.finish();
+    for (const id of ["request-1", "request-2"]) success(c, t.seen.filter(e => e.type !== "error" || e.code !== "IDEMPOTENCY_CONFLICT"), id, 1);
+    c.assert(t.seen.filter(e => e.type === "error").length === 1);
   },
   "TIME-02": async c => {
     const t = setup(c, [audio()]); t.connection.send(read()); await t.settle(1); await t.finish();
+    success(c, t.seen, "request-1", 1);
+    c.assert(!t.seen.some(e => e.type === "error"));
     const pieces = t.seen.filter(e => e.type === "piece_ready"); c.assert(pieces.length === 1);
     for (const piece of pieces) { c.assert(piece.duration_ms === 100 && piece.start_ms === 0); c.assert(piece.artifact.sample_count === 100 && piece.artifact.sample_rate === 1000); c.assert(piece.words.every(w => w.start_ms >= 0 && w.end_ms <= 100)); }
     for (const event of t.seen) {

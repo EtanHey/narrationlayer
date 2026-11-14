@@ -132,7 +132,7 @@ Production diagnostics use the host's private per-install key (§2.6).
 Registry: contract draft 0.2 SHA-256
 `95dc426432d015c60c91c139583cd45ae2dc477eb9b8889ff1498c78720ef617`,
 PLAN-v4/errata 0.3. Stage A: 62 engine, 40 host, 2 joint, 2 host-supplied; 18
-stage-B rows. CONF-01/02/03/04 and PLAN-LAT-01, ORDER-01, ERR-01, ID-03, ID-04, TIME-02 active; active.json stays append-only. expectEvent
+stage-B rows. CONF-01/02/03/04 and PLAN-LAT-01, ORDER-01, ERR-01, ID-03, ID-04, TIME-02, GEN-02, LIFE-01e, TIME-01, GEN-01e, WORD-02 and DET-01 active; active.json stays append-only. expectEvent
 asserts a required element; bare iteration does not declare an expected end.
 
 Every case using ScriptedBackend, ScriptedSpawn or ScriptedPlayer must call
@@ -146,22 +146,45 @@ uses invented in-memory PCM and an in-memory artifact port, a fixed synthetic
 Edge engine choice, and package version `0.0.0-conformance`. An absent ports
 object gets an empty scripted backend, sufficient for the hello-only probe.
 The probe now sends a schema-valid hello (client, binding and stage; no version
-object). Null and harness-only bindings fail all six engine cases, so their
-entry exit is now 1; their CONF verdicts retain their original meaning.
+object). Null and harness-only bindings fail all twelve engine cases, so their
+entry exit is 1; their CONF verdicts retain their original meaning.
 
 ORDER-01 covers stage-A natural completion via host feedback and the terminal
 fence; its lease-backed timing_update exception remains owed to S7. Engine
 selection, durable artifacts and live leases remain owed to S7. TIME-02 covers
 piece and word times and any duration/audio_ready events present; S4b supplies
 those additional events. Stage-A player feedback is synthetic; no player runs.
-Lifecycle is intentionally unadvertised until LIFE-01e proves it, despite being
-required by the eventual contract. Required-capability/version negotiation and
+Lifecycle is advertised with LIFE-01e active. Required-capability/version negotiation and
 an unconditional session gate remain S1b work. The optional gate refuses a
 second valid hello as INVALID_REQUEST; malformed hello keeps parser refusals.
 
 Before welcome, every non-hello input (including malformed values) receives
 NOT_NEGOTIATED. A malformed hello retains the parser code. Replayed accepted
 retains its original seq; contiguity concerns new events and is checked in the
-no-replay ORDER-01 case. Lifecycle is advertised only by the slice activating
-LIFE-01e. Stage-A audible is host-owned and ignored by this binding. Shared-store
+no-replay ORDER-01 case. LIFE-01e proves synthesis_requested/audio_ready; the five player edges remain
+host-owned in stage A. Stage-A audible is host-owned and ignored by this binding. Shared-store
 handle collisions are refused without overwrites; full custody remains S7.
+
+The generation/time binding slice activates six more cases (sixteen active rows).
+GEN-02 checks two complete three-piece reads, each with its own final duration; GEN-01e covers
+first/second-piece synthesis failure. LIFE-01e checks exact scripted edge time, ordered, monotonic,
+text-free engine lifecycle records on success and failure, and the capability.
+TIME-01 independently sums sample fractions using BigInt, rounds once with ties
+upward, and disagrees deliberately with summed rounded durations. The audio's
+claimed sample rate disagrees with its WAV header. WORD-02 requires estimated
+word coverage on 300/400/500 ms pieces, and DET-01 reuses identical requests with different audio lengths
+in one connection. No real audio/device/backend is used. All event reads parse.
+Case waits, including PLAN-LAT-01's second session and stream shutdown, have fake
+clock bounds; a swallowed event fails its case rather than losing every row to
+the parent's watchdog. The hello-only harness probe also has fake-clock bounds;
+entry preserves its named failure when independent child reports agree. Its green
+output and both null report snapshots are unchanged. Every committed broken
+binding has exactly its named row red; variants use event/fixture shapes to keep
+the violated rule attributable while shared success checks remain strict.
+All successful reads are checked by their own session id for admission, plan,
+pieces, lifecycle, one final duration, committed outcome and no errors. Intentional
+failed/cancelled prefixes instead have their own nonfinal duration and terminal
+receipts; ID-04 separately checks its deliberate idempotency refusal. Privacy
+checks scan raw error/lifecycle events, including fields dropped by parseEvent.
+TIME-01 includes a non-tie 0.3+0.3 ms pair and the documented half-up tie.
+Variant entry proofs run in serial groups of at most four concurrent spawns.
