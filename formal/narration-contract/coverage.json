@@ -87,7 +87,7 @@
     "scope": "S2a pure reducer only; no real engine/player/journal/History acceptance; I05-I10 unchanged design-level",
     "source": "src/engine/reducer/session.ts",
     "tests": "tests/engine/reducer/session.test.ts",
-    "exhaustive": "Depth 4, 40-input alphabet (including admit, refuse, duplicate accept and failure-with-error), three reachable two-piece/two-session seeds with one authority each; 7876923 represented prefixes, 44227 visits, 38729 distinct states; previous failed exits, final-piece and control-player fences asserted",
+    "exhaustive": "Depth 4, 40-input alphabet (including admit, refuse, duplicate accept and failure-with-error), three reachable two-piece/two-session seeds with one authority each; 7876923 represented prefixes, 44380 visits, 38876 distinct states; previous failed exits, final-piece and control-player fences asserted",
     "proof_command": "bun test tests/engine/reducer; scratch each source mutation below, require its named test red, restore staged git bytes, rerun green",
     "invariants": {
       "I01": {

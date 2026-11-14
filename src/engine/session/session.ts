@@ -112,6 +112,7 @@ export function createEngineSession<Audio>(options: {
       const checked = parseEvent({ ...prepared.plan, protocol: "nl.engine/1", owner_epoch: state.owner_epoch, seq: state.seq + 1 });
       if (!checked.ok || checked.value?.type !== "plan"
         || prepared.plan.session_id !== identity.session_id || prepared.plan.attempt_id !== identity.attempt_id
+        || prepared.plan.pieces.some(p => p.segments.length === 0)
         || prepared.requests.length !== prepared.plan.pieces.length
         || prepared.requests.some((r, i) => r.piece_index !== prepared.plan.pieces[i].index)) throw new Error("invalid plan");
       requests.set(identity.session_id, prepared.requests);
