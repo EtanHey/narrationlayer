@@ -8,17 +8,18 @@ export function brokenEngine(rule: string): Binding {
     const connection = engine.create(host);
     return { send: connection.send, shutdown: connection.shutdown,
       events: (async function* () {
-        let held: Json | undefined, firstSession: string | undefined;
+        let held: Json[] = [], firstSession: string | undefined;
         let plan: Message<"plan"> | undefined;
         for await (const event of connection.events) {
           if (event.type === "plan") plan = event;
-          if (rule === "PLAN-LAT-01" && event.type === "plan") { held = event; continue; }
-          if (held && !(event.type === "outcome" && event.playback.reason === "cancel")) { yield held; held = undefined; }
+          if (rule === "PLAN-LAT-01" && event.type === "plan") { held.push(event); continue; }
+          if (held.length && event.type === "lifecycle") { held.push(event); continue; }
+          if (held.length && !(event.type === "outcome" && event.playback.reason === "cancel")) { yield* held; held = []; }
           if (rule === "ERR-01" && event.type === "error" && event.code === "SYNTH_FAILED") continue;
           if (rule === "ID-04" && event.type === "accepted") { firstSession ??= event.session_id; yield { ...event, session_id: firstSession }; continue; }
           if (rule === "TIME-02" && event.type === "piece_ready") { yield { ...event, duration_ms: event.duration_ms * 3 }; continue; }
           yield event;
-          if (held && event.type === "outcome") { yield held; held = undefined; }
+          if (held.length && event.type === "outcome") { yield* held; held = []; }
           if (rule === "ORDER-01" && event.type === "outcome" && event.playback.reason === "completed") yield event;
           if (rule === "ID-03" && event.type === "control_ack" && plan) yield {
             protocol: "nl.engine/1", type: "piece_ready", owner_epoch: plan.owner_epoch, seq: event.seq + 1,

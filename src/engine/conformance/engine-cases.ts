@@ -14,7 +14,7 @@ function setup(c: CaseContext, steps: BackendStep[]) {
   const connection = c.binding.create({ clock: c.clock, ports: { backend, player, spawn, host: new ScriptedHost(c.clock) }, store: new Map(), hash_key: new Uint8Array(32).fill(1), audible: false });
   const seen: Event[] = [];
   const collect = (async () => { for await (const event of connection.events) { const parsed = parseEvent(event); c.assert(parsed.ok); if (parsed.ok && parsed.value) seen.push(parsed.value); } })().catch(() => { c.failed = true; });
-  const settle = async (ms = 0) => { await c.clock.advance(ms); for (let i = 0; i < 24; i++) await Promise.resolve(); };
+  const settle = async (ms = 0) => { await c.clock.advance(ms); for (let i = 0; i < 128; i++) await Promise.resolve(); };
   connection.send(hello);
   return { connection, seen, backend, settle,
     async finish() { await connection.shutdown(c.clock.now()); await settle(); await collect; backend.assertDrained(); player.assertDrained(); spawn.assertDrained(); } };

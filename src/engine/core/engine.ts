@@ -12,7 +12,7 @@ export function createEngine(options: {
   chooseEngine(request: Message<"narrate">): Message<"plan">["engine"];
 }) {
   return createEngineSession({ ...options,
-    // No lifecycle claim until S4b; no artifacts claim until S7 owns live leases.
+    // No lifecycle claim until LIFE-01e; no artifacts claim until S7 owns live leases.
     welcome: { package_version: options.package_version, protocol_minor: 0,
       caps: ["read", "speak", "ask_prompt", "display_document", "word_timing"], engines: options.engines },
     planner: { plan: (request, limits, identity) => planRead({ request, limits, identity, engine: options.chooseEngine(request) }) },

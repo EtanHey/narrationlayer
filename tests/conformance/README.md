@@ -154,7 +154,7 @@ fence; its lease-backed timing_update exception remains owed to S7. Engine
 selection, durable artifacts and live leases remain owed to S7. TIME-02 covers
 piece and word times and any duration/audio_ready events present; S4b supplies
 those additional events. Stage-A player feedback is synthetic; no player runs.
-Lifecycle is intentionally unadvertised until implemented by S4b, despite being
+Lifecycle is intentionally unadvertised until LIFE-01e proves it, despite being
 required by the eventual contract. Required-capability/version negotiation and
 an unconditional session gate remain S1b work. The optional gate refuses a
 second valid hello as INVALID_REQUEST; malformed hello keeps parser refusals.
