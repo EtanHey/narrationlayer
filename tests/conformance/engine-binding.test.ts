@@ -22,7 +22,7 @@ async function proof(id: string) {
   if (process.platform === "darwin") expect(report.containment).toBe("macos-sandbox");
 }
 test("engine binding: the packaged entry passes the active cases under containment", () => proof("engine"));
-for (const id of ["PLAN-D5", "PLAN-01", "PAUSE-PL-01", "PLAN-03"]) test(`${id}: the broken engine is red on exactly this case`, () => proof(id));
+for (const id of ["PLAN-D5", "PLAN-01", "PAUSE-PL-01", "PLAN-03", "PLAN-D4", "PLAN-02"]) test(`${id}: the broken engine is red on exactly this case`, () => proof(id));
 for (let i = 0; i < ids.length; i += 4) {
   const group = ids.slice(i, i + 4);
   test(`broken engines match their exact fail-sets: ${group.join(", ")}`, async () => {
