@@ -12,6 +12,7 @@ async function run(binding: string) {
   expect(code).toBe(1); expect(report.containment).toBe(process.platform === "darwin" ? "macos-sandbox" : "in-process-tripwire");
   expect(report.rows.filter((r: { result: string }) => r.result === "fail").map((r: { id: string }) => r.id)).toEqual(["PRIV-01e"]);
   expect(stderr).toContain("PRIV-01e"); expect(hasReadText(stderr)).toBe(false);
+  return stderr;
 }
 test("saved console.error: direct runCase is green by design while the saved log escapes", async () => {
   const script = `import binding from ${JSON.stringify(savedBinding)};import {runCase} from ${JSON.stringify(resolve(root, "src/engine/conformance/runner.ts"))};import {privacyCases} from ${JSON.stringify(resolve(root, "src/engine/conformance/privacy-cases.ts"))};console.log(JSON.stringify(await runCase('PRIV-01e',binding,privacyCases['PRIV-01e'])));`;
@@ -32,4 +33,9 @@ events:(async function*(){for await(const e of c.events){if(e.type==='outcome'){
 ${route === "late" ? `if(stale){let turns=4096;const later=()=>{if(turns--)queueMicrotask(later);else if(console.error===savedError)${action};};queueMicrotask(later);}` : action}
 }yield e;}})()};}};`);
   try { await run(file); } finally { rmSync(dir, { recursive: true }); }
+});
+
+for (const [name, streams] of [["order", ["reverse stderr"]], ["streams", ["forward stdout", "forward stderr", "reverse stdout", "reverse stderr"]], ["children", ["forward stderr", "reverse stdout"]]] as const) test(`privacy parent catches ${name} leak`, async () => {
+  const diagnostic = await run(resolve(root, `src/engine/conformance/broken-priv-${name}.ts`));
+  for (const stream of streams) expect(diagnostic).toContain(stream);
 });

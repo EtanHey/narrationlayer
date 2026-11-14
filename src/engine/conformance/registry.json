@@ -81,7 +81,7 @@
     "stage": "A",
     "owner_slice": "S7",
     "active": true,
-    "owed": "Bounded synthesis timeout and SYNTH_TIMEOUT (third clause)."
+    "owed": "Bounded synthesis timeout and SYNTH_TIMEOUT (third clause); positive scheduling controls exercise finite fake-clock delays, not unbounded scheduling latency."
   },
   {
     "id": "BIND-02",

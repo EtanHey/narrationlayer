@@ -17,8 +17,16 @@ const audio = (late_after_cancel = false): BackendStep => ({ latency_ms: 1, late
 async function bounded(c: CaseContext, promise: Promise<unknown>) {
   let done = false, error: unknown;
   void promise.then(() => { done = true; }, e => { error = e; done = true; });
-  for (let i = 0; i < 8 && !done; i++) { await c.clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve(); }
+  for (let i = 0; i < 64 && !done; i++) { await c.clock.advance(1); for (let j = 0; j < 128; j++) await Promise.resolve(); }
   c.assert(done); if (error) throw error;
+}
+// L114/425: wait for the required observation, not this binding's turn schedule.
+export async function until(c: CaseContext, ready: () => boolean, limit = 64) {
+  for (let i = 0; i < limit && !ready(); i++) {
+    await c.clock.advance(1);
+    for (let j = 0; j < 128; j++) await Promise.resolve();
+  }
+  c.assert(ready());
 }
 // Every fixture checks host work at the send/shutdown boundary, including work
 // reached indirectly through an abort listener on a host backend.
@@ -185,6 +193,7 @@ export const engineCases: Record<string, Case> = {
       for (let i = 0; i < 64; i++) await Promise.resolve();
       // BIND-01: work starts; 425/426 do not fix the race with a consumer stop.
       c.assert(reenter ? calls >= 1 && calls <= 2 : calls === 1);
+      await until(c, () => seen.filter(e => e.type === "plan").length === (reenter ? 2 : 1));
       // Admission queues exactly one acceptance and plan per fresh request (116).
       c.assert(seen.filter(e => e.type === "accepted" && e.request_id === "bind-first").length === 1);
       c.assert(seen.filter(e => e.type === "plan").length === (reenter ? 2 : 1));
@@ -205,7 +214,7 @@ export const engineCases: Record<string, Case> = {
       await bounded(c, connection.shutdown(c.clock.now()));
       for (let i = 0; i < 64; i++) await Promise.resolve();
       // Shutdown ends the stream and cancels every call actually started (430).
-      c.assert(ended && aborts === calls); await collect;
+      await until(c, () => ended && aborts === calls); await collect;
       const seq = seen.filter(e => "seq" in e).map(e => "seq" in e ? e.seq : 0);
       c.assert(seq.every((n, i) => n === i + 1)); // Line 114: fresh events add one seq.
     }
@@ -217,7 +226,7 @@ export const engineCases: Record<string, Case> = {
     for (let i = 0; i < 64; i++) await Promise.resolve();
     await c.clock.advance(0);
     for (let i = 0; i < 64; i++) await Promise.resolve();
-    c.assert(called); // Hello must provide the first event; the consumer must resume.
+    await until(c, () => called); // Hello must provide the first event; the consumer must resume.
     await bounded(c, connection.shutdown(c.clock.now()));
   },
   ...selectionCases,
@@ -230,7 +239,7 @@ export const engineCases: Record<string, Case> = {
     for (const request_id of ["request-gen-1", "request-gen-2"]) {
       t.connection.send({ ...read(request_id, request_id, multiText), lookahead: 3 });
       for (let i = 0; i < 24; i++) await t.settle(1);
-      complete(t, c, request_id); await t.settle();
+      complete(t, c, request_id); await until(c, () => t.seen.filter(e => e.type === "outcome").length === (request_id.endsWith("1") ? 1 : 2));
       success(c, t.seen, request_id, 3, t.backend.calls);
     }
     await t.finish();
@@ -238,6 +247,7 @@ export const engineCases: Record<string, Case> = {
     c.assert(!t.seen.some(e => e.type === "error"));
   },
   "LIFE-01e": async c => {
+    // L110/247-248: monotonic edges include scheduling before the backend begins.
     const text = multiText.replace("cranes", "𝒸ranes"); // One astral character distinguishes UTF-16 units.
     for (const failed of [false, true]) {
       const script = failed ? [steps()[0], { latency_ms: 3, late_after_cancel: false, result: { kind: "error", code: "invented failure" } } satisfies BackendStep] : steps();
@@ -254,7 +264,7 @@ export const engineCases: Record<string, Case> = {
         const requested = records.filter(e => e.piece_index === i && e.edge === "synthesis_requested"), ready = records.filter(e => e.piece_index === i && e.edge === "audio_ready");
         c.assert(requested.length === 1 && ready.length === (failed && i === 1 ? 0 : 1));
         const piece = pieces[i], r = ready[0];
-        if (piece) c.assert(r?.edge === "audio_ready" && r.session_id === piece.session_id && requested[0].session_id === piece.session_id && requested[0].seq < r.seq && r.t_mono_ms === requested[0].t_mono_ms + script[i].latency_ms && r.duration_ms === piece.duration_ms && r.sample_count === piece.artifact.sample_count && r.first_audible_offset_ms >= 0 && r.first_audible_offset_ms <= piece.duration_ms && requested[0].edge === "synthesis_requested" && requested[0].chars === piece.spoken_text.length && requested[0].segment_index === 0);
+        if (piece) c.assert(r?.edge === "audio_ready" && r.session_id === piece.session_id && requested[0].session_id === piece.session_id && requested[0].seq < r.seq && r.t_mono_ms >= requested[0].t_mono_ms + script[i].latency_ms && r.duration_ms === piece.duration_ms && r.sample_count === piece.artifact.sample_count && r.first_audible_offset_ms >= 0 && r.first_audible_offset_ms <= piece.duration_ms && requested[0].edge === "synthesis_requested" && requested[0].chars === piece.spoken_text.length && requested[0].segment_index === 0);
       }
       c.assert(records.every((r, i) => i === 0 || r.t_mono_ms >= records[i - 1].t_mono_ms));
       textFree(c, text);
@@ -300,7 +310,7 @@ export const engineCases: Record<string, Case> = {
     for (const scale of [12, 24]) {
       t.connection.send({ ...read(`request-det-${scale}`, `key-det-${scale}`, multiText), lookahead: 3 });
       for (let i = 0; i < 24; i++) await t.settle(1);
-      complete(t, c, `request-det-${scale}`); await t.settle();
+      complete(t, c, `request-det-${scale}`); await until(c, () => t.seen.filter(e => e.type === "outcome").length === (scale === 12 ? 1 : 2));
       const { pieces, records, durations } = success(c, t.seen, `request-det-${scale}`, 3, t.backend.calls);
       c.assert(pieces.length === 3 && durations.length >= 3 && durations.every(d => shapes.some((_, i) => d.known_ms === cumulative(i + 1, scale))));
       pieces.forEach((p, i) => {
@@ -356,11 +366,12 @@ export const engineCases: Record<string, Case> = {
     }
   },
   "ORDER-01": async c => {
-    const t = setup(c, [audio()]); t.connection.send(read()); await t.settle(1);
+    // L114: wait for the piece and terminal before checking their relative order.
+    const t = setup(c, [audio()]); t.connection.send(read()); await until(c, () => t.seen.some(e => e.type === "piece_ready"));
     const accepted = t.seen.find(e => e.type === "accepted"); c.assert(accepted?.type === "accepted");
     if (accepted?.type !== "accepted") return;
     for (const edge of ["spawned", "first_sample", "last_sample", "exited"]) t.connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: accepted.session_id, control_epoch: 1, player_instance_id: "synthetic-player", piece_index: 0, edge, t_mono_ms: c.clock.now(), source: "player_reported", ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: 100 } } : {}) });
-    await t.settle();
+    await until(c, () => t.seen.some(e => e.type === "outcome"));
     const named = t.seen.filter(e => ["accepted", "plan", "piece_ready", "outcome"].includes(e.type));
     c.assert(named.map(e => e.type).join() === "accepted,plan,piece_ready,outcome");
     const outcome = t.seen.find(e => e.type === "outcome"); c.assert(outcome?.type === "outcome" && outcome.playback.reason === "completed" && outcome.generation.status === "committed");
@@ -372,8 +383,9 @@ export const engineCases: Record<string, Case> = {
     c.assert(t.seen.at(-1)?.type === "outcome"); // Live-lease timing_update exception is owed to alignment (S7).
   },
   "ERR-01": async c => {
+    // L221/114: observe synthesis failure before shutdown, independent of scheduling.
     const t = setup(c, [{ latency_ms: 1, late_after_cancel: false, result: { kind: "error", code: "synthetic failure" } }]);
-    t.connection.send(read()); await t.settle(1); await t.finish();
+    t.connection.send(read()); await until(c, () => t.seen.some(e => e.type === "outcome")); await t.finish();
     const errors = t.seen.filter(e => e.type === "error"), outcomes = t.seen.filter(e => e.type === "outcome");
     c.assert(errors.length === 1 && errors[0].code === "SYNTH_FAILED" && errors[0].phase === "synthesize" && errors[0].retry === "new_request");
     const accepted = t.seen.find(e => e.type === "accepted");
@@ -384,10 +396,10 @@ export const engineCases: Record<string, Case> = {
     c.assert(t.seen.indexOf(errors[0]) < t.seen.indexOf(outcomes[0]) && t.seen.at(-1) === outcomes[0]);
   },
   "ID-03": async c => {
-    const t = setup(c, [audio(true)]); t.connection.send(read()); await t.settle();
+    const t = setup(c, [audio(true)]); t.connection.send(read()); await until(c, () => t.backend.calls.length === 1 && t.seen.some(e => e.type === "accepted"));
     const accepted = t.seen.find(e => e.type === "accepted"); c.assert(accepted?.type === "accepted");
     if (accepted?.type !== "accepted") return;
-    stop(t.connection, accepted.session_id); await t.settle();
+    stop(t.connection, accepted.session_id); await until(c, () => t.seen.some(e => e.type === "outcome") && t.seen.some(e => e.type === "control_ack"));
     c.assert(t.seen.some(e => e.type === "control_ack" && e.command_id === "stop-command"));
     const outcomes = t.seen.filter(e => e.type === "outcome");
     c.assert(outcomes.length === 1 && outcomes[0].session_id === accepted.session_id);
@@ -396,15 +408,16 @@ export const engineCases: Record<string, Case> = {
     interrupted(c, t.seen, "request-1", 0, "cancelled", t.backend.calls);
   },
   "ID-04": async c => {
+    // L136: the replay and conflict receipts refer to two fully observed admissions.
     const t = setup(c, [audio(), audio()]);
-    t.connection.send(read()); t.connection.send(read("request-2")); await t.settle(1);
+    t.connection.send(read()); t.connection.send(read("request-2")); await until(c, () => t.seen.filter(e => e.type === "piece_ready").length === 2);
     const first = t.seen.filter(e => e.type === "accepted"); c.assert(first.length === 2 && first[0].session_id !== first[1].session_id);
     const plans = t.seen.filter(e => e.type === "plan").length;
-    t.connection.send(read()); await t.settle();
+    t.connection.send(read()); await until(c, () => t.seen.filter(e => e.type === "accepted").length === 3);
     c.assert(plans === 2 && t.seen.filter(e => e.type === "plan").length === plans);
     const accepted = t.seen.filter(e => e.type === "accepted");
     c.assert(accepted.length === 3 && JSON.stringify(accepted[0]) === JSON.stringify(accepted[2]));
-    t.connection.send(read("request-1", "request-1", "Silver kites rise.")); await t.settle();
+    t.connection.send(read("request-1", "request-1", "Silver kites rise.")); await until(c, () => t.seen.some(e => e.type === "error" && e.code === "IDEMPOTENCY_CONFLICT"));
     const conflicts = t.seen.filter(e => e.type === "error" && e.code === "IDEMPOTENCY_CONFLICT");
     c.assert(conflicts.length === 1 && conflicts[0].type === "error" && conflicts[0].phase === "admit" && conflicts[0].retry === "never");
     c.assert(t.backend.calls.length === 2); await t.finish();
@@ -412,7 +425,8 @@ export const engineCases: Record<string, Case> = {
     c.assert(t.seen.filter(e => e.type === "error").length === 1);
   },
   "TIME-02": async c => {
-    const t = setup(c, [audio()]); t.connection.send(read()); await t.settle(1); await t.finish();
+    // L181: decoded sample duration requires observed audio, not one fake tick.
+    const t = setup(c, [audio()]); t.connection.send(read()); await until(c, () => t.seen.some(e => e.type === "duration" && e.final)); await t.finish();
     success(c, t.seen, "request-1", 1, t.backend.calls);
     c.assert(!t.seen.some(e => e.type === "error"));
     const pieces = t.seen.filter(e => e.type === "piece_ready"); c.assert(pieces.length === 1);

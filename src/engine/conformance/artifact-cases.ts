@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { Case, CaseContext } from "./runner";
 import type { BackendStep, Json } from "./binding";
 import type { Message } from "../messages/messages";
-import { setup, success, interrupted } from "./engine-cases";
+import { setup, success, interrupted, until } from "./engine-cases";
 import { pcmAudio } from "./fake-backend";
 const text = "Amber rafts float. Violet cranes glide. Golden otters swim.";
 const read = (id: string) => ({ protocol: "nl.engine/1", type: "narrate", request_id: id, idempotency_key: id, use: "read", input: { text, format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces", lookahead: 3 });
@@ -46,7 +46,7 @@ function fixture(c: CaseContext, steps = [...script(), ...script(1), ...script(2
     const a = t.seen.find(e => e.type === "accepted" && e.request_id === id); c.assert(a?.type === "accepted");
     if (a?.type !== "accepted") return;
     for (const p of pieces().filter(p => p.session_id === a.session_id)) for (const edge of ["spawned", "first_sample", "exited"]) t.connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: p.session_id, player_instance_id: `artifact-player-${p.index}`, control_epoch: p.index + 1, piece_index: p.index, edge, t_mono_ms: c.clock.now(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: p.start_ms + p.duration_ms } } : {}) });
-    await t.settle(); success(c, t.seen, id, 3, t.backend.calls); outcome(id);
+    await until(c, () => t.seen.some(e => e.type === "outcome" && e.session_id === a.session_id)); success(c, t.seen, id, 3, t.backend.calls); outcome(id);
   };
   return { ...t, pieces, release, check, complete, outcome, released, store };
 }
@@ -58,6 +58,7 @@ async function endings(c: CaseContext) {
     const count = end === "failure" ? 2 : (end === "stop" || end === "shutdown") ? 2 : 3;
     for (let i = 0; i < 12 && t.pieces().length < count; i++) await t.settle(1);
     c.assert(t.pieces().length === count); t.check();
+    if (end === "stop" || end === "shutdown") await until(c, () => t.backend.calls.length === count + 1);
     // Arm the final playback edge, keeping the terminal out of the trace until release.
     if (end === "completed" || end === "stop") for (const p of t.pieces()) for (const edge of ["spawned", "first_sample", ...(p.index < count - 1 ? ["exited"] : [])])
       t.connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: p.session_id, player_instance_id: `end-${p.index}`, control_epoch: p.index + 1, piece_index: p.index, edge, t_mono_ms: c.clock.now(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: p.start_ms + p.duration_ms } } : {}) });
@@ -78,12 +79,20 @@ export const artifactCases: Record<string, Case> = {
   "SHUT-01": async c => {
     for (const mode of ["partial", "generated", "multiple", "stuck", "now", "mixed"]) {
       const stuck = mode === "stuck" || mode === "now" || mode === "mixed";
-      const steps = mode === "mixed" ? [{ ...script()[0], latency_ms: 10000 }, { ...script(1)[0], latency_ms: 10000, late_after_cancel: true }] : stuck ? [{ ...script()[0], latency_ms: 10000, late_after_cancel: true }] : mode === "partial" ? script().slice(0, 2) : mode === "multiple" ? [script()[0], script(1)[0], script()[1], script(1)[1]] : script();
+      const steps = mode === "mixed" ? [{ ...script()[0], latency_ms: 10000, late_after_cancel: true }, { ...script(1)[0], latency_ms: 10000, late_after_cancel: true }] : stuck ? [{ ...script()[0], latency_ms: 10000, late_after_cancel: true }] : mode === "partial" ? script().slice(0, 2) : mode === "multiple" ? [...script(), ...script(1)] : script();
       const traceStart = c.trace.length;
-      const t = fixture(c, steps); t.connection.send(read("shutdown-one"));
+      const t = fixture(c, []), synthesize = t.backend.synthesizeRequest.bind(t.backend), counts = new Map<number, number>();
+      t.backend.synthesizeRequest = (request, signal) => {
+        const index = request && typeof request === "object" && !Array.isArray(request) ? Number(request.piece_index) : 0;
+        const ordinal = counts.get(index) ?? 0; counts.set(index, ordinal + 1);
+        t.backend.script([mode === "multiple" ? script(ordinal)[index] : steps[t.backend.calls.length]]);
+        return synthesize(request, signal);
+      };
+      t.connection.send(read("shutdown-one"));
       if (mode === "multiple" || mode === "mixed") t.connection.send(read("shutdown-two"));
-      for (let i = 0; i < (mode === "generated" ? 12 : 3); i++) await t.settle(1);
+      await until(c, () => mode === "generated" ? t.pieces().length === 3 : mode === "partial" ? t.pieces().length === 1 : t.backend.calls.length >= 1); // L76/430: serial synthesis is allowed.
       if (mode === "multiple") {
+        await until(c, () => t.seen.some(e => e.type === "accepted"));
         const first = t.seen.find(e => e.type === "accepted"); c.assert(first?.type === "accepted");
         if (first?.type === "accepted") t.connection.send({ ...read("shutdown-queued"), start: { after_session: first.session_id } });
       }
@@ -93,8 +102,8 @@ export const artifactCases: Record<string, Case> = {
       const deadline = c.clock.now() + (mode === "now" ? 0 : 30);
       const pending = t.connection.shutdown(deadline).then(() => { done = true; }, () => { rejected = true; });
       await t.settle(); t.check();
+      await until(c, () => t.seen.filter(e => e.type === "outcome").length === expectedCount && t.seen.filter(e => e.type === "accepted").length === expectedCount);
       const end = t.connection.events[Symbol.asyncIterator]().next().then(r => { ended = r.done === true; });
-      await t.settle();
       const outcomes = t.seen.filter(e => e.type === "outcome");
       c.assert(outcomes.length === expectedCount);
       const raw = c.trace.slice(traceStart);
@@ -108,7 +117,8 @@ export const artifactCases: Record<string, Case> = {
         if (accepted?.type === "accepted") t.outcome(accepted.request_id);
         c.assert(JSON.stringify(out.missing_piece_indices) === JSON.stringify([0, 1, 2].filter(i => !pieces.some(p => p.index === i))));
       }
-      if (mode === "stuck" || mode === "mixed") { c.assert(!done); await t.settle(29); c.assert(!done); await t.settle(1); }
+      if (mode === "stuck" || mode === "mixed") { c.assert(!done); await t.settle(deadline - c.clock.now() - 1); c.assert(!done); await t.settle(1); }
+      await until(c, () => ended);
       c.assert(done && !rejected && ended); await pending; await end; t.check();
       const length = c.trace.length;
       for (const p of t.pieces()) { await t.release(p); await t.release(p); }
@@ -127,16 +137,16 @@ export const artifactCases: Record<string, Case> = {
       t.store.set = (handle, bytes) => {
         const result = set(handle, bytes); let remaining = offset;
         const end = () => {
-          if (remaining--) { queueMicrotask(end); return; }
+          if (remaining > 0) { remaining--; queueMicrotask(end); return; }
           const accepted = t.seen.find(e => e.type === "accepted");
-          if (accepted?.type !== "accepted") return;
+          if (accepted?.type !== "accepted") { c.clock.schedule(1, end); return; } // L114: admission may still be in transit.
           for (const edge of ["spawned", "first_sample", "exited"]) t.connection.send({ protocol: "nl.engine/1", type: "player_feedback", session_id: accepted.session_id, player_instance_id: "terminal-player", control_epoch: 1, piece_index: 0, edge, t_mono_ms: c.clock.now(), ...(edge === "exited" ? { exit: { status: "completed", stopped_at_ms: 31 } } : {}) });
           void t.connection.shutdown(c.clock.now());
         };
         queueMicrotask(end); return result;
       };
       t.connection.send({ ...read("shutdown-terminal"), input: { text: "Copper boats drift.", format: "plain" } });
-      await t.settle(); await t.settle(2); const outcomes = t.seen.filter(e => e.type === "outcome"); c.assert(outcomes.length === 1);
+      await until(c, () => t.seen.some(e => e.type === "outcome")); const outcomes = t.seen.filter(e => e.type === "outcome"); c.assert(outcomes.length === 1);
       const out = outcomes[0];
       if (out.heard) { completed++; c.assert(out.playback.reason === "completed" && out.generation.status === "committed"); }
       else c.assert(out.playback.reason === "shutdown" && out.generation.status === "interrupted");
@@ -145,17 +155,19 @@ export const artifactCases: Record<string, Case> = {
     c.assert(completed > 0);
   },
   "ART-01": async c => {
+    // L545/114: a delivered prefix may include more than the next awaited piece.
     const t = fixture(c); t.connection.send(read("artifact-first"));
     for (let n = 1; n <= 3; n++) {
-      for (let i = 0; i < 8 && t.pieces().length < n; i++) await t.settle(1);
-      c.assert(t.pieces().length === n); t.check();
-      if (n === 2) { await t.release(t.pieces()[0]); c.assert(t.pieces().length === 2); t.check(); }
+      await until(c, () => t.pieces().length >= n); // L545: observe the requested prefix.
+      c.assert(t.pieces().length >= n); t.check();
+      if (n === 2) { await t.release(t.pieces()[0]); c.assert(t.pieces().length >= 2); t.check(); }
     }
     await t.complete("artifact-first"); t.check();
     t.connection.send(read("artifact-second")); await t.complete("artifact-second"); t.check();
     t.connection.send(read("artifact-stop"));
-    for (let i = 0; i < 8 && t.pieces().length < 7; i++) await t.settle(1);
+    await until(c, () => t.pieces().length >= 7); // L545: wait for the third read's first piece.
     c.assert(t.pieces().length === 7);
+    await until(c, () => t.backend.calls.length === 8); // L425: cancel an actually started call.
     const p = t.pieces()[6];
     t.connection.send({ protocol: "nl.engine/1", type: "control", command_id: "artifact-stop", session_id: p.session_id, op: "stop", args: { scope: "session", reason: "stop" } });
     await t.settle(3); interrupted(c, t.seen, "artifact-stop", 1, "cancelled", t.backend.calls); t.outcome("artifact-stop"); t.check();
@@ -176,10 +188,10 @@ export const artifactCases: Record<string, Case> = {
     c.assert(t.connection.resolve!(b.artifact.handle, a.artifact.lease_id).kind === "expired"); t.check();
     const before = c.trace.length; await t.release(a); c.assert(c.trace.length === before); t.check();
     const expired = async (lease_id: string, known: boolean) => {
-      const start = c.trace.length;
-      t.connection.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id }); await t.settle();
-      c.assert(c.trace.length === start + 1);
-      const e = t.seen.at(-1); c.assert(e?.type === "error");
+      const start = t.seen.filter(e => e.type === "error").length;
+      t.connection.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id }); await until(c, () => t.seen.filter(e => e.type === "error").length > start);
+      c.assert(t.seen.filter(e => e.type === "error").length === start + 1); // L353: unrelated session events may interleave.
+      const e = t.seen.filter(e => e.type === "error").at(-1); c.assert(e?.type === "error");
       if (e?.type !== "error") return;
       c.assert(e.code === "ARTIFACT_EXPIRED" && e.phase === "retain" && e.retry === "never" && e.session_id === undefined && e.request_id === undefined);
       c.assert(JSON.stringify(e.details) === (known ? JSON.stringify({ lease_id }) : undefined));

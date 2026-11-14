@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Binding } from "../../src/engine/conformance/binding";
+import type { Binding, Json } from "../../src/engine/conformance/binding";
 import engine from "../../src/engine/conformance/engine-binding";
 import { runCase, cases } from "../../src/engine/conformance/runner";
 
@@ -18,3 +18,26 @@ for (const id of ["PAUSE-01e", "PAUSE-02e", "PAUSE-03e"]) {
     expect((await runCase(id, delayedAck, cases[id])).result).toBe("pass");
   });
 }
+
+for (const owner of ["f5", "ask"] as const) test(`PAUSE-02e catches a direct ${owner} park carried into the next read`, async () => {
+  const carriesPark: Binding = { name: `carry-${owner}`, create(host) {
+    const connection = engine.create(host);
+    let parked: Json | undefined, carry = false;
+    return { ...connection, send(message) {
+      if (message && typeof message === "object" && !Array.isArray(message) && message.type === "control") {
+        if (message.op === "pause" && message.args && typeof message.args === "object" && !Array.isArray(message.args)) parked = message.args.owner;
+        if (message.command_id === "park-stop") carry = parked === owner;
+      }
+      connection.send(message);
+    }, events: (async function* () {
+      for await (const event of connection.events) {
+        if (carry && event.type === "accepted" && event.request_id === "next-read") {
+          carry = false;
+          connection.send({ protocol: "nl.engine/1", type: "control", session_id: event.session_id, command_id: "invented-carry", op: "pause", args: { owner } });
+        }
+        yield event;
+      }
+    })() };
+  } };
+  expect((await runCase("PAUSE-02e", carriesPark, cases["PAUSE-02e"])).result).toBe("fail");
+});

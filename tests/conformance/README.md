@@ -385,7 +385,7 @@ a zero-delay timer armed after the turn; this engine's exact microtask counts
 belong to its unit suite. Backend calls and abort listeners run after the turn;
 the reducer fences a stop before the deferred abort fires.
 
-`chooseEngine` (selection) and `observe` (diagnostic) are supplied through
+the voices table (selection) and `observe` (diagnostic) are supplied through
 `createEngine` options and still run inside `send`; neither is reachable through
 a public door today. The coming `./engine` door must not expose `observe` (owed
 to that slice). The planner also runs synchronously as a pure request decision.
@@ -417,3 +417,9 @@ synthetic preset. The synthesize half of ENG-01, per-segment failure fallback,
 XTTS/F5 cascade limits, mode rates and auto-slow remain owed.
 `broken-eng-01` serves a mandated clone using Edge; `broken-sub-01` hides the
 substitution flag. Their receipts pin ENG-01 and SUB-01 respectively.
+
+The six scheduling controls in `conforming.test.ts` run every active row in an
+isolated process with the real preload: timer start, two/eight extra microtasks,
+serial backend calls, timer abort, and ordered events delayed by 1 ms. A 1500 ms
+child watchdog bounds hangs; case progress uses only the fake clock. These
+controls cover finite scheduling delays, not arbitrary engine latency.

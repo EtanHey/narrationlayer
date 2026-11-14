@@ -1,6 +1,6 @@
 import type { Case, CaseContext } from "./runner";
 import type { BackendStep, Json } from "./binding";
-import { setup, success, interrupted, assertBackendCalls } from "./engine-cases";
+import { setup, success, interrupted, assertBackendCalls, until } from "./engine-cases";
 import { pcmAudio } from "./fake-backend";
 type Rig = ReturnType<typeof setup>;
 const sentences = ["Amber rafts float.", "Violet cranes glide.", "Golden otters swim.", "Copper boats drift.", "Silver herons wade.", "Crimson foxes rest.", "Indigo hares leap.", "Ivory kites turn.", "Scarlet sails rise."];
@@ -65,9 +65,9 @@ export const pacingCases: Record<string, Case> = {
   "PACE-02": async c => {
     for (const early of [false, true]) {
     const t = setup(c, Array.from({ length: 16 }, audio));
-    t.connection.send(read("queue-first", 6)); await tick(t, 1);
+    t.connection.send(read("queue-first", 6)); await until(c, () => t.seen.some(e => e.type === "accepted"));
     const first = sid(c, t, "queue-first");
-    t.connection.send(read("queue-second", 5, { start: { after_session: first } })); await tick(t, 1);
+    t.connection.send(read("queue-second", 5, { start: { after_session: first } })); await until(c, () => t.seen.filter(e => e.type === "accepted").length === 2);
     const second = sid(c, t, "queue-second");
     t.connection.send(read("queue-third", 5, { start: { after_session: second } })); await tick(t);
     const third = sid(c, t, "queue-third");
@@ -97,7 +97,7 @@ export const pacingCases: Record<string, Case> = {
     }
     for (const ending of ["stop", "failure"]) {
       const u = setup(c, [{ ...audio(), latency_ms: 5, ...(ending === "failure" ? { result: { kind: "error", code: "invented failure" } as const } : {}) }, audio()]);
-      u.connection.send(read(`predecessor-${ending}`, 6)); await tick(u, 1);
+      u.connection.send(read(`predecessor-${ending}`, 6)); await until(c, () => u.backend.calls.length === 1 && u.seen.some(e => e.type === "accepted"));
       const prior = sid(c, u, `predecessor-${ending}`);
       u.connection.send(read(`dependent-${ending}`, 1, { start: { after_session: prior } }));
       if (ending === "stop") stop(u, prior);
@@ -119,7 +119,7 @@ export const pacingCases: Record<string, Case> = {
   "CTRL-01": async c => {
     const t = setup(c, [audio(), audio()]); t.connection.send(read("receipt-first", 1)); await tick(t);
     const id = sid(c, t, "receipt-first"), acks = () => t.seen.filter(e => e.type === "control_ack");
-    stop(t, id, "cmd-1"); await tick(t, 1); const original = acks().at(-1); c.assert(original?.outcome === "accept");
+    stop(t, id, "cmd-1"); await until(c, () => acks().some(e => e.command_id === "cmd-1") && t.seen.some(e => e.type === "outcome")); const original = acks().at(-1); c.assert(original?.outcome === "accept");
     const beforeReplay = c.trace.length; stop(t, id, "cmd-1"); await tick(t, 1); c.assert(c.trace.length === beforeReplay + 1 && JSON.stringify(acks().at(-1)) === JSON.stringify(original));
     const args: Record<string, Json> = { scope: "session", reason: "stop" };
     const conflicts = [
