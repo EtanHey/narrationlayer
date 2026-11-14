@@ -5,6 +5,7 @@ import { parseEvent, parseRequest } from "../../src/engine/messages/parser";
 
 import { projectStructuredSpeech } from "../../src/text/voicelayer/structured-speech";
 import { structuredReadDisplay } from "../../src/text/voicelayer/structured-display";
+import pauseFixtures from "./fixtures/pause-parity.json";
 import * as cutter from "../../src/plan/synthesis-units";
 
 const engine = { family: "edge", profile_revision: "fixture-v1", voice: "synthetic" };
@@ -34,7 +35,11 @@ function partition(result: ReturnType<typeof read>) {
     expect(piece.word_start).toBe(cursor);
     for (const segment of piece.segments) {
       expect(segment.word_start).toBe(cursor);
-      const spoken = requests[index].text.match(/\S+/gu) ?? [];
+      const requestText = requests[index].text;
+      const originalText = plan.display_document.text.slice(plan.words[segment.word_start].display[0], plan.words[segment.word_end - 1].display[1]).replace(/\s+/gu, " ");
+      const spoken = originalText.match(/\S+/gu) ?? [];
+      const expected = segment.kind === "heading" ? (originalText.endsWith(":") ? `${originalText.slice(0, -1)}.` : /[.!?…。！？]["'”’)\]]*$/u.test(originalText) ? originalText : `${originalText}.`) : originalText;
+      expect(requestText).toBe(expected);
       const covered = chunks.slice(chunkIndex, chunkIndex + spoken.length);
       expect(covered.map(chunk => chunk[0])).toEqual(spoken);
       const start = covered[0].index, end = covered.at(-1)!.index + covered.at(-1)![0].length;
@@ -66,7 +71,7 @@ test("WORD-01 local half: words equal displayTokens with UTF-16 offsets", () => 
   }
 });
 test("PLAN-01 and PLAN-D5: small remainders join; whole small units stand", () => {
-  expect(read("# Bud\n\nOne two three four five.", 14).requests.map(r => r.text)).toEqual(["Bud", "One two three four five."]);
+  expect(read("# Bud\n\nOne two three four five.", 14).requests.map(r => r.text)).toEqual(["Bud.", "One two three four five."]);
   expect(read("One two three four five six.", 14).requests.map(r => r.text)).toEqual(["One two three", "four five six."]);
 });
 test("PLAN-02 and PLAN-D4: later fitting phrase mark wins over colon; internal cuts have no pause", () => {
@@ -77,7 +82,7 @@ test("PLAN-02 and PLAN-D4: later fitting phrase mark wins over colon; internal c
 });
 test("PLAN-03 first fixture: headings and items stay whole; only long sentence cuts", () => {
   const { plan, requests } = read(shapes);
-  expect(requests.slice(0, 8).map(r => r.text)).toEqual(["Orchard notes", "Apples.", "Gather ripe pears.",
+  expect(requests.slice(0, 8).map(r => r.text)).toEqual(["Orchard notes.", "Apples.", "Gather ripe pears.",
     "Gather six ripe pears for breakfast.", "Label: keep these ripe apples safely.", "Run fruit_check before storing apples.",
     "Visit the orchard before dawn.", "Visit link before dawn."]);
   expect(requests.length).toBeGreaterThan(9);
@@ -102,7 +107,7 @@ test("plain format: markup and URLs stay literal", () => {
   const text = "# Literal heading\n- **literal item** at https://example.test";
   const result = read(text, 400, "plain");
   expect(result.plan.display_document.text).toBe(text);
-  expect(result.requests.map(r => r.text).join(" ")).toBe(text.replace(/\n/g, " "));
+  expect(result.requests.map(r => r.text)).toEqual(["# Literal heading.", "- **literal item** at https://example.test"]);
   expect(result.plan.display_document.blocks.map(b => b && typeof b === "object" && !Array.isArray(b) ? b.kind : undefined)).toEqual(["heading", "list-item"]);
   partition(result);
 });
@@ -153,7 +158,7 @@ test("pause placement follows blank lines and directly following headings", () =
     ["# Fruit\n\nTail.", [1000, 0]], ["- Green pear\n\nTail.", [1000, 0]],
     ["Fruit grows.\n# Tree\nTail.", [600, 900, 0]], ["Fruit grows.\n- Green pear\nTail.", [550, 450, 0]],
     ["| Fruit | Color |\n|---|---|\n| Plum | Purple |\nTail.", [550, 550, 0]],
-    ["Before.\n```ts\nconst fruit = 3;\n```\nAfter.", [550, 550, 0]],
+    ["Before.\n```ts\nconst fruit = 3;\n```\nAfter.", [550, 0, 0]],
   ] satisfies [string, number[]][]) expect(read(text).plan.pieces.map(p => p.segments[0].pause_after_ms)).toEqual(expected);
 });
 test("heading levels pin 900 750 and 800 pauses", () => {
@@ -187,4 +192,19 @@ test("plan identity and engine pick only declared fields", () => {
   const widerIdentity = { ...identity, type: "alien", extra: "discard" }, widerEngine = { ...engine, extra: "discard" };
   const result = read("Green fruit grows.", 60, "markdown", false, { identity: widerIdentity, engine: widerEngine });
   expect(result.plan.type).toBe("plan"); expect(result.plan).not.toHaveProperty("extra"); expect(result.plan.engine).toEqual(engine);
+});
+
+test("pause parity: VoiceLayer reference boundaries on invented documents", () => {
+  expect(pauseFixtures.length).toBeGreaterThanOrEqual(40);
+  for (const fixture of pauseFixtures) {
+    const result = read(fixture.text, 100000, fixture.format === "plain" ? "plain" : "markdown");
+    expect(result.plan.pieces.map(piece => piece.segments[0].pause_after_ms)).toEqual(fixture.pauses);
+    partition(result);
+  }
+  const bold = read("**Branches**\nLeaves.");
+  expect(bold.plan.pieces[0].segments[0].kind).toBe("heading");
+  expect(bold.requests[0].text).toBe("Branches.");
+  expect(bold.plan.display_document.text).toBe("Branches\nLeaves.");
+  expect(read("# Branches:\nLeaves.").requests[0].text).toBe("Branches.");
+  expect(read("# Branches!\nLeaves.").requests[0].text).toBe("Branches!");
 });

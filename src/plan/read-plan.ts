@@ -7,6 +7,10 @@ import { planSynthesisUnits, type SynthesisSourceUnit } from "./synthesis-units"
 
 // VoiceLayer tts.ts:3673 decorates the whole read with its existing 400-char layout budget.
 const DISPLAY_BUDGET = 400;
+// VoiceLayer prosody.ts:99,391: only a terminal mark earns the sentence pause.
+const TERMINAL = /[.!?…。！？]["'”’)\]]*$/u;
+// VL prosody.ts:395: heading intonation changes only the request, never document words.
+const headingText = (text: string) => text.endsWith(":") ? `${text.slice(0, -1)}.` : TERMINAL.test(text) ? text : `${text}.`;
 type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
 export class ReadPlanError extends Error {
   constructor(readonly code: "EMPTY_INPUT" | "DISPLAY_UNAVAILABLE" | "CHUNK_MISMATCH" | "CUTTER_REJECTED", options?: ErrorOptions) {
@@ -34,7 +38,7 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
   const pause = (ms: number) => { const last = units.at(-1); if (last) last.pause_after_ms = Math.max(last.pause_after_ms, ms); };
   // VL prosody.ts:140,199,201: blank lines and following headings raise the preceding pause.
   // Use projection blocks, not the display builder's budget-dependent runs.
-  for (const block of projection.blocks) {
+  for (const [blockIndex, block] of projection.blocks.entries()) {
     if (block.kind === "separator") pause(1000);
     if (block.kind === "heading") pause(600);
     while (rangeIndex < projection.ranges.length && projection.ranges[rangeIndex].source.end <= block.source.start) rangeIndex++;
@@ -63,15 +67,45 @@ function sourceUnits(projection: StructuredSpeech): LocatedUnit[] {
     } else {
       // VL prosody.ts:229-252 treats code/table as prose. Sentence segmentation
       // flattens CR/LF without changing UTF-16 offsets (:284-288).
-      const flat = text.replace(/[\r\n]/g, " ");
-      // Only whitespace boundaries preserve document words. Unspaced CJK sentences
-      // stay one unit/request, possibly over the engine cap (one display word).
-      const starts = [...segmenter.segment(flat)].map(sentence => sentence.index)
-        .filter(at => at === 0 || /\s/u.test(flat[at - 1]));
-      starts.forEach((at, index) => {
-        const slice = text.slice(at, starts[index + 1] ?? text.length);
-        if (slice.trim()) units.push({ kind: "sentence", text: slice, speech_start: speech_start + at, pause_after_ms: 550 });
-      });
+      const prose = (start: number, end: number) => {
+        const text = projection.speechText.slice(start, end), flat = text.replace(/[\r\n]/g, " ");
+        // Whitespace boundaries preserve words; unspaced CJK stays one possibly over-cap unit.
+        const starts = [...segmenter.segment(flat)].map(sentence => sentence.index)
+          .filter(at => at === 0 || /\s/u.test(flat[at - 1]));
+        starts.forEach((at, index) => {
+          const slice = text.slice(at, starts[index + 1] ?? text.length);
+          if (slice.trim()) units.push({ kind: "sentence", text: slice, speech_start: start + at,
+            pause_after_ms: TERMINAL.test(slice.trim()) ? 550 : 0 });
+        });
+      };
+      let cursor = speech_start, mappingIndex = rangeIndex, structuralLine = true;
+      const speechAt = (offset: number) => {
+        while (mappingIndex < projection.ranges.length && projection.ranges[mappingIndex].source.end <= offset) mappingIndex++;
+        const range = projection.ranges[mappingIndex];
+        return !range ? projection.speechText.length : range.kind === "identity"
+          ? range.speech.start + Math.max(0, offset - range.source.start) : range.speech.start;
+      };
+      // VL prosody.ts:231-245: only paragraph-initial bold/label runs are structural.
+      for (const line of raw.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/g)) {
+        const lineText = line[0].replace(/[\r\n]+$/, "");
+        if (!lineText.trim() || block.kind !== "paragraph" || !structuralLine) continue;
+        const bold = /^(\*\*|__)(?=\S)[^\n]*?\S\1[ \t]*$/.test(lineText) && !/:[*_]*\s*$/.test(lineText);
+        if (!bold) {
+          const label = lineText.trimStart().match(/^(\*\*|__)([^*_\n]*?\S)\1(:?)(?=[ \t]+\S)/);
+          structuralLine = !!label && (label[2].endsWith(":") || label[3] === ":");
+          continue;
+        }
+        const start = speechAt(block.source.start + line.index), stop = speechAt(block.source.start + line.index + lineText.length);
+        prose(cursor, start); pause(600);
+        const heading = projection.speechText.slice(start, stop);
+        if (heading.trim()) units.push({ kind: "heading", text: heading, speech_start: start, pause_after_ms: 800 });
+        cursor = stop;
+      }
+      prose(cursor, end);
+      // VL prosody.ts:250-251: a colon before the next list earns listIntro=600.
+      let next = blockIndex + 1;
+      while (projection.blocks[next]?.kind === "separator") next++;
+      if (/:\s*$/.test(raw) && projection.blocks[next]?.kind === "list-item") pause(600);
     }
   }
   if (units.length) units[units.length - 1].pause_after_ms = 0; // VL prosody.ts:398
@@ -130,5 +164,5 @@ export function planRead({ request, limits, identity, engine, first_piece_raw = 
   if (cursor !== words.length) throw new ReadPlanError("CHUNK_MISMATCH");
   const blocks = display.blocks.map(block => json.read(block, "$.display_document.blocks"));
   return { plan: { type: "plan", session_id: identity.session_id, attempt_id: identity.attempt_id, display_document: { ...display, blocks }, words, pieces, engine: { family: engine.family, profile_revision: engine.profile_revision, voice: engine.voice } },
-    requests: cut.map((piece, piece_index) => ({ piece_index, text: piece.segments[0].text })) };
+    requests: cut.map((piece, piece_index) => ({ piece_index, text: piece.segments[0].kind === "heading" ? headingText(piece.segments[0].text) : piece.segments[0].text })) };
 }

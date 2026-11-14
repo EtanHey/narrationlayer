@@ -1,0 +1,442 @@
+[
+  {
+    "shape": "heading-extra",
+    "text": "# Orchard 0\nTail.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-extra",
+    "text": "# Orchard 1\nTail.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-extra",
+    "text": "# Orchard 2\nTail.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-extra",
+    "text": "# Orchard 3\nTail.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-extra",
+    "text": "# Orchard 4\nTail.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-extra",
+    "text": "# Orchard 5\nTail.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-extra",
+    "text": "# Orchard 6\nTail.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-extra",
+    "text": "# Orchard 7\nTail.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-1-direct",
+    "text": "# Tree\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-1-blank",
+    "text": "# Tree\n\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "heading-2-direct",
+    "text": "## Tree\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      750,
+      0
+    ]
+  },
+  {
+    "shape": "heading-2-blank",
+    "text": "## Tree\n\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "heading-3-direct",
+    "text": "### Tree\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      750,
+      0
+    ]
+  },
+  {
+    "shape": "heading-3-blank",
+    "text": "### Tree\n\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "heading-4-direct",
+    "text": "#### Tree\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "heading-4-blank",
+    "text": "#### Tree\n\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "heading-5-direct",
+    "text": "##### Tree\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "heading-5-blank",
+    "text": "##### Tree\n\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "heading-6-direct",
+    "text": "###### Tree\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "heading-6-blank",
+    "text": "###### Tree\n\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "setext",
+    "text": "Tree\n===\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "setext",
+    "text": "Tree\n---\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      750,
+      0
+    ]
+  },
+  {
+    "shape": "list",
+    "text": "- Red fruit\n- Green leaf\nTail.",
+    "format": "markdown",
+    "pauses": [
+      450,
+      450,
+      0
+    ]
+  },
+  {
+    "shape": "nested",
+    "text": "- Red fruit\n  - Green leaf\nTail.",
+    "format": "markdown",
+    "pauses": [
+      450,
+      450,
+      0
+    ]
+  },
+  {
+    "shape": "task",
+    "text": "- [x] wash four green apples today\nTail.",
+    "format": "markdown",
+    "pauses": [
+      450,
+      0
+    ]
+  },
+  {
+    "shape": "number-inline",
+    "text": "2. Red fruit\nTail.",
+    "format": "markdown",
+    "pauses": [
+      450,
+      0
+    ]
+  },
+  {
+    "shape": "unterminated-list",
+    "text": "Fruit ripens\n- Green leaf",
+    "format": "markdown",
+    "pauses": [
+      0,
+      0
+    ]
+  },
+  {
+    "shape": "terminal-list",
+    "text": "Fruit ripens.\n- Green leaf",
+    "format": "markdown",
+    "pauses": [
+      550,
+      0
+    ]
+  },
+  {
+    "shape": "paragraph-blank",
+    "text": "Fruit ripens.\n\nLeaves fall.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      0
+    ]
+  },
+  {
+    "shape": "bold-after-item",
+    "text": "- Red fruit\n**Tree**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      600,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-initial",
+    "text": "**Tree**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-underscore",
+    "text": "__Tree__\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-consecutive",
+    "text": "**Tree**\n**Leaf**\nTail.",
+    "format": "markdown",
+    "pauses": [
+      800,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-late",
+    "text": "Fruit ripens\n**Leaf**\nTail.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "bold-after-blank",
+    "text": "Fruit ripens\n\n**Leaf**\nTail.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "bold-colon-only",
+    "text": "**Tree:**\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      0
+    ]
+  },
+  {
+    "shape": "list-intro",
+    "text": "Gather:\n- Red fruit\nTail.",
+    "format": "markdown",
+    "pauses": [
+      600,
+      450,
+      0
+    ]
+  },
+  {
+    "shape": "list-intro-blank",
+    "text": "Gather:\n\n- Red fruit\nTail.",
+    "format": "markdown",
+    "pauses": [
+      1000,
+      450,
+      0
+    ]
+  },
+  {
+    "shape": "quote",
+    "text": "> Fruit ripens.\n- Green leaf",
+    "format": "markdown",
+    "pauses": [
+      550,
+      0
+    ]
+  },
+  {
+    "shape": "emphasis-inline",
+    "text": "Fruit **ripens**\n- Green leaf",
+    "format": "markdown",
+    "pauses": [
+      0,
+      0
+    ]
+  },
+  {
+    "shape": "heading-colon",
+    "text": "# Tree:\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "heading-terminal",
+    "text": "# Tree!\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "plain-bold",
+    "text": "**Tree**\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      800,
+      0
+    ]
+  },
+  {
+    "shape": "plain-heading",
+    "text": "# Tree\nLeaf.",
+    "format": "plain",
+    "pauses": [
+      900,
+      0
+    ]
+  },
+  {
+    "shape": "plain-list-intro",
+    "text": "Gather:\n- Red fruit\nTail.",
+    "format": "plain",
+    "pauses": [
+      600,
+      450,
+      0
+    ]
+  },
+  {
+    "shape": "hebrew",
+    "text": "# עץ\nעלה ירוק.\n- פרי",
+    "format": "markdown",
+    "pauses": [
+      900,
+      550,
+      0
+    ]
+  },
+  {
+    "shape": "cjk",
+    "text": "猫は寝ます。犬は走ります。\n- 葉",
+    "format": "markdown",
+    "pauses": [
+      550,
+      0
+    ]
+  },
+  {
+    "shape": "unterminated-heading",
+    "text": "Fruit ripens\n# Tree\nLeaf.",
+    "format": "markdown",
+    "pauses": [
+      600,
+      900,
+      0
+    ]
+  }
+]
