@@ -98,9 +98,9 @@ export const artifactCases: Record<string, Case> = {
       }
       const expectedCount = mode === "multiple" ? 3 : mode === "mixed" ? 2 : 1;
       t.check();
-      let done = false, rejected = false, ended = false;
+      let done = false, doneAt = -1, rejected = false, ended = false;
       const deadline = c.clock.now() + (mode === "now" ? 0 : 30);
-      const pending = t.connection.shutdown(deadline).then(() => { done = true; }, () => { rejected = true; });
+      const pending = t.connection.shutdown(deadline).then(() => { done = true; doneAt = c.clock.now(); }, () => { rejected = true; });
       await t.settle(); t.check();
       await until(c, () => t.seen.filter(e => e.type === "outcome").length === expectedCount && t.seen.filter(e => e.type === "accepted").length === expectedCount);
       const end = t.connection.events[Symbol.asyncIterator]().next().then(r => { ended = r.done === true; });
@@ -118,7 +118,7 @@ export const artifactCases: Record<string, Case> = {
         c.assert(JSON.stringify(out.missing_piece_indices) === JSON.stringify([0, 1, 2].filter(i => !pieces.some(p => p.index === i))));
       }
       if (mode === "stuck" || mode === "mixed") { c.assert(!done); await t.settle(deadline - c.clock.now() - 1); c.assert(!done); await t.settle(1); }
-      await until(c, () => ended);
+      await until(c, () => ended); c.assert(doneAt <= deadline);
       c.assert(done && !rejected && ended); await pending; await end; t.check();
       const length = c.trace.length;
       for (const p of t.pieces()) { await t.release(p); await t.release(p); }

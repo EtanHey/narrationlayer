@@ -242,3 +242,5 @@ test("ID-04 rejects a replay acceptance duplicated after its first count check",
   } };
   expect((await runCase("ID-04", binding, engineCases["ID-04"])).result).toBe("fail");
 });
+
+test("SHUT-LATE: late deadline with held stream matches its exact fail-set", () => proof("SHUT-LATE"));
