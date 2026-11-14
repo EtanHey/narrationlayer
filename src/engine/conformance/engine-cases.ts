@@ -1,3 +1,4 @@
+import { privacyCases } from "./privacy-cases";
 import { pacingCases } from "./pacing-cases";
 import { artifactCases } from "./artifact-cases";
 import { negotiationCases } from "./negotiation-cases";
@@ -145,6 +146,7 @@ function textFree(c: CaseContext, text: string) {
   for (let i = 0; i <= text.length - 8; i++) c.assert(!raw.includes(text.slice(i, i + 8)));
 }
 export const engineCases: Record<string, Case> = {
+  ...privacyCases,
   "BIND-01": async c => {
     for (const reenter of [false, true]) {
       const backend = new ScriptedBackend(c.clock);

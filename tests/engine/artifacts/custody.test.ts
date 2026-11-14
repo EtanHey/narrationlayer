@@ -271,3 +271,15 @@ test("shutdown: positive Infinity schedules no timer and waits for settlement", 
   let done = false; const pending = t.engine.shutdown(Infinity).then(() => { done = true; }); await microtasks();
   expect(done).toBe(false); expect(scheduled).toBe(0); release(); await pending; expect(done).toBe(true);
 });
+
+test("privacy: engine custody after a canary read contains no read-text snippet", async () => {
+  const text = "Zephyrine quillwort marbles the lanternfish harbour. Obsidian thimbleweed outruns nine velvet cormorants.";
+  const t = shutdownEngine(); t.backend.script([0, 1].map(() => ({ latency_ms: 1, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(24) } })));
+  t.engine.send({ protocol: "nl.engine/1", type: "narrate", request_id: "privacy-custody", idempotency_key: "privacy-custody", use: "read", input: { text, format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+  for (let i = 0; i < 8; i++) { await t.clock.advance(1); await microtasks(); }
+  expect(t.events.filter(e => e.type === "piece_ready")).toHaveLength(2);
+  expect(t.engine.custody().live).toHaveLength(2);
+  for (const value of [t.engine.custody(), (await t.engine.shutdown(t.clock.now()), t.engine.custody())])
+    for (let i = 0; i + 8 <= text.length; i++) expect(JSON.stringify(value)).not.toContain(text.slice(i, i + 8));
+  t.backend.assertDrained();
+});
