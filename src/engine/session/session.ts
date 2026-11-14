@@ -50,6 +50,8 @@ export function createEngineSession<Audio>(options: {
   }
   function step(input: Input<"host">) {
     options.observe?.input?.(structuredClone(input));
+    const id = "identity" in input ? input.identity.session_id : "session_id" in input ? input.session_id : input.kind === "control" ? input.command.session_id : undefined;
+    const wasRunning = id !== undefined && state.sessions[id]?.generation === "running";
     const result = reduce(state, input);
     state = result.state;
     for (const effect of result.effects) {
@@ -60,17 +62,28 @@ export function createEngineSession<Audio>(options: {
         else pump(effect.identity.session_id);
       }
     }
-    pumpAll();
+    if (id !== undefined) {
+      pump(id);
+      if (wasRunning && state.sessions[id]?.generation !== "running") pumpDependents(id);
+    }
   }
-  function pumpAll() {
-    for (const id of Object.keys(state.sessions)) pump(id);
+  function pumpDependents(id: string) {
+    if (closed) return;
+    for (const session of Object.values(state.sessions)) {
+      const start = session.request.start;
+      if (start && typeof start === "object" && start.after_session === id) pump(session.session_id);
+    }
   }
   function pump(id: string) {
-    const session = state.sessions[id];
+    const session = Object.hasOwn(state.sessions, id) ? state.sessions[id] : undefined;
+    if (!session) return;
     if (closed || aborts.has(id) || session.generation !== "running" || session.fenced) {
       if (session.generation !== "running") requests.delete(id);
       return;
     }
+    const start = session.request.start;
+    // The pure rule releases logical generation; this handle gates physical settlement.
+    if (start && typeof start === "object" && aborts.has(start.after_session)) return;
     if (session.delivered.length !== session.plan.pieces.length
       && nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) return;
     const abort = new AbortController();
@@ -141,7 +154,8 @@ export function createEngineSession<Audio>(options: {
     } finally {
       aborts.delete(identity.session_id);
       if (state.sessions[identity.session_id].generation !== "running") requests.delete(identity.session_id);
-      pumpAll();
+      pump(identity.session_id);
+      pumpDependents(identity.session_id);
     }
   }
   return {

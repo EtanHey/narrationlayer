@@ -236,6 +236,11 @@ function pacing(lookahead = 1) {
         expect(index).toBeDefined(); predicted.push(index!);
       }
       expect(predicted).toEqual(calls.map(c => c.index));
+      while (pos < h.inputs.length) state = reduce(state, h.inputs[pos++]).state;
+      // At these quiescent checkpoints no eligible call may be missing either.
+      for (const session of Object.values(state.sessions)) {
+        expect(nextSynthesisIndex(session, session.request.lookahead ?? lookahead, state.sessions)).toBeUndefined();
+      }
     },
   };
 }
@@ -316,6 +321,7 @@ test("pacing function table: terminal, fenced, complete, cursor, negative and qu
   let state = initialState(1, "host"); for (const i of h.inputs) state = reduce(state, i).state;
   const base = state.sessions["session-1-1"];
   for (const [s, limit, expected] of [
+    ...[NaN, Infinity, -Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1].map(limit => [{ ...base, delivered: [{}, {}] as typeof base.delivered }, limit, undefined] satisfies [typeof base, number, undefined]),
     [base, 0, 0], [base, -2, 0], [{ ...base, generation: "committed" as const }, 2, undefined],
     [{ ...base, fenced: true }, 2, undefined], [{ ...base, plan: { ...base.plan, pieces: [] } }, 2, undefined],
     [{ ...base, delivered: [{}] as typeof base.delivered }, 0, 1],
@@ -367,4 +373,19 @@ test("shutdown pending synthesis: late resolve and rejection emit nothing and ne
       settle(); await h.tick(); expect(h.events()).toHaveLength(count); expect(h.publicationCalls).toBe(0); expect(errors).toEqual([]);
     } finally { process.off("unhandledRejection", onError); }
   }
+});
+
+test("PACE-02 physical: abort-ignoring predecessor settles before the waiter synthesizes zero", async () => {
+  const h = pacing(), synthesize = h.backend.synthesizeRequest;
+  let settle!: () => void, first = true;
+  h.backend.synthesizeRequest = (r, signal) => {
+    const audio = synthesize(r, signal);
+    if (!first) return audio;
+    first = false;
+    return new Promise(resolve => { settle = () => { void audio.then(resolve); }; });
+  };
+  h.session.send(request); h.session.send(queued); h.stop(); await h.tick();
+  expect(h.indices()).toEqual([0]); expect(h.indices("session-1-2")).toEqual([]);
+  settle(); await h.tick(); expect(h.indices("session-1-2")).toEqual([0]);
+  expect(h.events().filter(e => e.type === "piece_ready" && e.session_id === "session-1-1")).toEqual([]); h.replay();
 });

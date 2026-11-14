@@ -14,6 +14,6 @@ export function nextSynthesisIndex(session: SessionState, lookahead: number, ses
   }
   // Contract L76 counts pieces past the playing piece; lead ruling: minimum 1
   // avoids waiting for a spawn of unsynthesized audio. S1b owns parser bounds.
-  if (index > session.current.piece_index + Math.max(1, lookahead)) return;
+  if (index > session.current.piece_index + Math.max(1, Number.isSafeInteger(lookahead) ? lookahead : 1)) return;
   return index;
 }
