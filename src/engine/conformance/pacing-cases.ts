@@ -110,11 +110,13 @@ export const pacingCases: Record<string, Case> = {
       c.assert(outcomes.length === 1 && outcomes[0].generation.status === "committed" && outcomes[0].playback.reason === "completed");
       assertBackendCalls(c, u.seen, u.backend.calls, dependent, pieces(u, dependent));
     }
-    const unknown = setup(c, []); unknown.connection.send(read("unknown-predecessor", 3, { start: { after_session: "session-1-99" } })); await tick(unknown, 30);
-    const waiting = sid(c, unknown, "unknown-predecessor");
-    c.assert(unknown.seen.some(e => e.type === "plan" && e.session_id === waiting) && pieces(unknown, waiting).length === 0 && unknown.backend.calls.length === 0);
-    stop(unknown, waiting); await tick(unknown); await unknown.finish(); c.assert(unknown.backend.peak <= 1);
-    c.assert(unknown.seen.filter(e => e.type === "outcome" && e.session_id === waiting).length === 1);
+    const unknown = setup(c, []);
+    unknown.connection.send(read("unknown-predecessor", 3, { start: { after_session: "session-1-99" } }));
+    await until(c, () => unknown.seen.some(e => e.type === "error"));
+    await unknown.finish();
+    c.assert(unknown.backend.calls.length === 0 && unknown.seen.filter(e => e.type !== "welcome").length === 1);
+    c.assert(unknown.seen.some(e => e.type === "error" && e.code === "INVALID_REQUEST" && e.phase === "admit" && e.request_id === "unknown-predecessor" && !("session_id" in e)));
+
   },
   "CTRL-01": async c => {
     const t = setup(c, [audio(), audio()]); t.connection.send(read("receipt-first", 1)); await tick(t);

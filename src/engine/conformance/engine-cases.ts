@@ -322,6 +322,7 @@ export const engineCases: Record<string, Case> = {
       for (let i = 0; i < (failed ? 2 : 3); i++) {
         const requested = records.filter(e => e.piece_index === i && e.edge === "synthesis_requested"), ready = records.filter(e => e.piece_index === i && e.edge === "audio_ready");
         c.assert(requested.length === 1 && ready.length === (failed && i === 1 ? 0 : 1));
+        c.assert(requested.every(r => r.t_mono_ms <= (t.observed.get(r) ?? -1)));
         const piece = pieces[i], r = ready[0];
         if (piece) c.assert(r?.edge === "audio_ready" && r.session_id === piece.session_id && requested[0].session_id === piece.session_id && requested[0].seq < r.seq && r.t_mono_ms >= requested[0].t_mono_ms + script[i].latency_ms && r.t_mono_ms <= (t.observed.get(r) ?? -1) && r.duration_ms === piece.duration_ms && r.sample_count === piece.artifact.sample_count && r.first_audible_offset_ms >= 0 && r.first_audible_offset_ms <= piece.duration_ms && requested[0].edge === "synthesis_requested" && requested[0].chars === piece.spoken_text.length && requested[0].segment_index === 0);
       }

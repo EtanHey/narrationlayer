@@ -301,14 +301,19 @@ test("PACE-02: wait for exact predecessor terminal, prefetch only zero until fir
     await h.tick(); expect(h.indices("session-1-2")).toEqual([0, 1]); h.replay();
   }
 });
-test("PACE-02: finished at admission starts zero; unknown identity waits until stopped", async () => {
+test("PACE-02: finished at admission starts zero; unknown identity is refused", async () => {
   const h = pacing(); h.session.send({ ...request, lookahead: 4 }); await h.tick();
   h.session.send(queued); await h.tick(); expect(h.indices("session-1-2")).toEqual([0]);
-  h.session.send({ ...queued, request_id: "req-three", idempotency_key: "key-three", start: { after_session: "unknown" } });
-  await h.tick(); expect(h.indices("session-1-3")).toEqual([]);
-  h.session.send({ protocol: "nl.engine/1", type: "control", command_id: "stop-three", session_id: "session-1-3", op: "stop", args: { scope: "session", reason: "stop" } });
-  await h.tick(); expect(h.indices("session-1-3")).toEqual([]);
-  expect(h.events().filter(e => e.type === "outcome" && e.session_id === "session-1-3")).toHaveLength(1); h.replay();
+  for (const predecessor of ["unknown", "__proto__", "constructor"]) {
+    const before = h.events().length, calls = h.indices().length;
+    h.session.send({ ...queued, request_id: "req-three", idempotency_key: "key-three", start: { after_session: predecessor } });
+    await h.tick();
+    expect(h.events().slice(before)).toMatchObject([{ type: "error", code: "INVALID_REQUEST", phase: "admit", request_id: "req-three" }]);
+    expect(h.events().slice(before)).toHaveLength(1);
+    expect(h.indices()).toHaveLength(calls);
+    expect(h.inputs.filter(i => i.kind === "accept")).toHaveLength(2);
+  }
+  h.replay();
 });
 test("fence while parked: a stop on a parked read ends it with no further backend call", async () => {
   const h = pacing(); h.session.send(request); await h.tick(); h.stop();
