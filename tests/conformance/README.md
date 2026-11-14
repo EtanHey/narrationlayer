@@ -132,7 +132,7 @@ Production diagnostics use the host's private per-install key (§2.6).
 Registry: contract draft 0.2 SHA-256
 `95dc426432d015c60c91c139583cd45ae2dc477eb9b8889ff1498c78720ef617`,
 PLAN-v4/errata 0.3. Stage A: 62 engine, 40 host, 2 joint, 2 host-supplied; 18
-stage-B rows. CONF-01/02/03/04 active; active.json stays append-only. expectEvent
+stage-B rows. CONF-01/02/03/04 and PLAN-LAT-01, ORDER-01, ERR-01, ID-03, ID-04, TIME-02 active; active.json stays append-only. expectEvent
 asserts a required element; bare iteration does not declare an expected end.
 
 Every case using ScriptedBackend, ScriptedSpawn or ScriptedPlayer must call
@@ -140,3 +140,21 @@ each fake's `assertDrained()` at its end. `pending` counts unused steps (and
 backend requests still awaiting delivery). A late-after-cancel step waits for
 abort, then delivers after its latency; without abort, draining fails explicitly.
 S1b, the next slice writing cases, owns automatic runner drain enforcement.
+
+The engine binding composes the real session, read planner and publication. It
+uses invented in-memory PCM and an in-memory artifact port, a fixed synthetic
+Edge engine choice, and package version `0.0.0-conformance`. An absent ports
+object gets an empty scripted backend, sufficient for the hello-only probe.
+The probe now sends a schema-valid hello (client, binding and stage; no version
+object). Null and harness-only bindings fail all six engine cases, so their
+entry exit is now 1; their CONF verdicts retain their original meaning.
+
+ORDER-01 covers stage-A natural completion via host feedback and the terminal
+fence; its lease-backed timing_update exception remains owed to S7. Engine
+selection, durable artifacts and live leases remain owed to S7. TIME-02 covers
+piece and word times and any duration/audio_ready events present; S4b supplies
+those additional events. Stage-A player feedback is synthetic; no player runs.
+Lifecycle is intentionally unadvertised until implemented by S4b, despite being
+required by the eventual contract. Required-capability/version negotiation and
+an unconditional session gate remain S1b work. The optional gate refuses a
+second valid hello as INVALID_REQUEST; malformed hello keeps parser refusals.

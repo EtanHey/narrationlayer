@@ -28,6 +28,7 @@ export interface Publication<Audio> {
  * outgoing queue (transport), including its closed flag and pending iterator readers. */
 export function createEngineSession<Audio>(options: {
   owner_epoch: number;
+  welcome?: Pick<Message<"welcome">, "package_version" | "protocol_minor" | "caps" | "engines">;
   limits: Limits;
   planner: ReadPlanner;
   clock: Clock;
@@ -39,7 +40,7 @@ export function createEngineSession<Audio>(options: {
   const requests = new Map<string, readonly { piece_index: number; text: string }[]>();
   const aborts = new Map<string, AbortController>();
   const queue: Event[] = [], readers: ((result: IteratorResult<Event>) => void)[] = [];
-  let closed = false;
+  let closed = false, negotiated = !options.welcome;
   const events: AsyncIterable<Event> = { [Symbol.asyncIterator]() { return { next(): Promise<IteratorResult<Event>> {
     const value = queue.shift();
     if (value) return Promise.resolve({ done: false, value });
@@ -175,6 +176,12 @@ export function createEngineSession<Audio>(options: {
         refuse(parsed.error.code, request_id); return;
       }
       const value = parsed.value;
+      if (options.welcome && value.type === "hello") {
+        if (negotiated) { refuse("INVALID_REQUEST"); return; }
+        emit({ ...structuredClone(options.welcome), protocol: "nl.engine/1", type: "welcome", owner_epoch: options.owner_epoch, limits: structuredClone(options.limits) }, false);
+        negotiated = true; return;
+      }
+      if (!negotiated) { refuse("NOT_NEGOTIATED", value.type === "narrate" ? value.request_id : undefined); return; }
       if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
       else if (value.type === "control" && value.op === "stop") {
         const current = state.sessions[value.session_id]?.current;

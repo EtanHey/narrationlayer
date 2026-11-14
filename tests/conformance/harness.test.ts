@@ -29,7 +29,7 @@ test("report schema and complete denominator pinned; reversed order identical", 
   // The supported entry owns the green snapshot; direct imports fail closed.
   expect(canonical(await runConformance(binding, { reverse: true }))).toBe(canonical(report));
   expect(report.rows.filter(r => r.result === "pass").map(r => r.id)).toEqual(["CONF-02"]);
-  expect(report.inactive_engine).toBe(58);
+  expect(report.inactive_engine).toBe(52);
 });
 test("missing case, early stream end and zero assertions are red", async () => {
   expect((await runCase("probe", binding)).result).toBe("fail");
@@ -50,7 +50,7 @@ test("wall waits and duration reads fail, including swallowed violations; restor
 });
 test("nondeterministic binding fails exactly its reviewed fail-set", async () => {
   const report = await runConformance(broken);
-  expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual([...failSet, "CONF-03", "CONF-04"]);
+  expect(report.rows.filter(r => r.result === "fail").map(r => r.id)).toEqual([...failSet, "CONF-03", "CONF-04"].sort());
 });
 test("only literal true assertions pass at runtime; implementation typos fail validation", async () => {
   for (const value of [1, "yes", Promise.resolve(false)]) {

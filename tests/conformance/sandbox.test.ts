@@ -14,7 +14,7 @@ test("hosted macOS requires containment", async () => {
     env: { ...process.env, NL_CONFORMANCE_REQUIRE_CONTAINMENT: "1" }, stdout: "pipe", stderr: "pipe",
   });
   const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
-  expect(err).toBe(""); expect(code).toBe(0); expect(JSON.parse(out).containment).toBe("macos-sandbox");
+  expect(err).toBe(""); expect(code).toBe(1); expect(JSON.parse(out).containment).toBe("macos-sandbox");
 });
 const macTest = process.platform === "darwin" ? test : test.skip;
 for (const route of ["tcp", "udp", "unix", "dns", "bun-spawn", "node-spawn", "execSync", "worker-spawn"]) {
