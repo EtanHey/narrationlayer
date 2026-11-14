@@ -7,12 +7,13 @@ import { planRead } from "../../plan/read-plan";
 /** Host owns backend selection, byte custody and time; this factory owns their composition. */
 export function createEngine(options: {
   clock: Clock; backend: Backend<{ bytes: Uint8Array; timings: unknown }>;
-  artifacts: ArtifactPort & Pick<ReturnType<typeof createArtifactStore>, "resolve" | "minted" | "releaseFromHost">; owner_epoch: number; limits: Limits;
+  artifacts: ArtifactPort & Pick<ReturnType<typeof createArtifactStore>, "resolve" | "minted" | "releaseFromHost" | "shutdown" | "custody">; owner_epoch: number; limits: Limits;
   package_version: string;
+  observe?: Parameters<typeof createEngineSession>[0]["observe"];
   engines: Message<"welcome">["engines"];
   chooseEngine(request: Message<"narrate">): Message<"plan">["engine"];
 }) {
-  return { ...createEngineSession({ ...options,
+  const session = createEngineSession({ ...options,
     // Stage-A player edges belong to the host.
     welcome: { package_version: options.package_version, protocol_minor: 0,
       caps: ["read", "speak", "ask_prompt", "display_document", "word_timing", "artifacts", "lifecycle"], engines: options.engines },
@@ -24,5 +25,10 @@ export function createEngine(options: {
       return planRead({ request, identity, engine, max_chars: capability.max_chars ?? Number.MAX_SAFE_INTEGER });
     } },
     publication: createPublication(options.artifacts),
-  }), resolve: (handle: string, lease_id: string) => options.artifacts.resolve(handle, lease_id) };
+  });
+  return { ...session, custody: () => options.artifacts.custody(),
+    shutdown(deadline: number) {
+      options.artifacts.shutdown();
+      return session.shutdown(deadline);
+    }, resolve: (handle: string, lease_id: string) => options.artifacts.resolve(handle, lease_id) };
 }

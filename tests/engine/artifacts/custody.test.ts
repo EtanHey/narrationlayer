@@ -1,3 +1,4 @@
+import { createEngine } from "../../../src/engine/core/engine";
 import { hello } from "../../../src/engine/conformance/engine-cases";
 import { expect, test } from "bun:test";
 import { createArtifactStore } from "../../../src/engine/artifacts/store";
@@ -13,8 +14,8 @@ test(name, async () => {
     const scenarios = [
       { mode: "complete", target: -1, offset: 0 },
       ...Array.from({ length: count }, (_, target) => [
-        ...Array.from({ length: 13 }, (_, offset) => ({ mode: "stop", target, offset })),
-        ...["failure", "refuse", "invalid", "shutdown"].map(mode => ({ mode, target, offset: 0 })),
+        ...Array.from({ length: 13 }, (_, offset) => ["stop", "shutdown"].map(mode => ({ mode, target, offset }))).flat(),
+        ...["failure", "refuse", "invalid"].map(mode => ({ mode, target, offset: 0 })),
       ]).flat(),
     ];
     for (const { mode, target, offset } of scenarios) {
@@ -162,4 +163,108 @@ test("release: a session without an artifact store refuses INVALID_REQUEST", asy
   const c = createEngineSession({ owner_epoch: 1, clock: new FakeClock(), backend: { async synthesizeRequest() { throw Error("unused"); } }, planner: { plan() { throw Error("unused"); } }, publication: { async piece() { throw Error("unused"); }, async commit() {} }, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 1, aligner_reap_ms: 50 } });
   const stream = c.events[Symbol.asyncIterator](); c.send(hello); await stream.next(); c.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: "lease:1:1" });
   expect((await stream.next()).value).toMatchObject({ type: "error", code: "INVALID_REQUEST" }); await c.shutdown(0);
+});
+
+test("shutdown: settlement leaves no unnamed lease at every publication offset", async () => {
+  for (const mode of ["put", "stop", "release", "failure"]) for (let offset = 0; offset < 16; offset++) for (const deadline of [0, 100]) {
+    const clock = new FakeClock(), store = createArtifactStore(new Map(), 1);
+    const backend = new ScriptedBackend(clock); backend.script([{ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(24) } }]);
+    const { createEngine } = await import("../../../src/engine/core/engine");
+    let shutdown: Promise<void> | undefined;
+    const terminals: Message<"outcome">[] = [];
+    const engine = createEngine({ clock, backend, observe: { event(e) { if (e.type === "outcome") terminals.push(e); } }, artifacts: { ...store, async put(...args) {
+      const receipt = await store.put(...args);
+      arm(receipt.lease_id);
+      for (let i = 0; i < 8; i++) await Promise.resolve(); // Hold the stored receipt in flight.
+      return receipt;
+    } }, owner_epoch: 1, package_version: "0", limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 },
+      engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], chooseEngine: () => ({ family: "edge", voice: "synthetic", profile_revision: "1" }) });
+    function arm(lease_id?: string) {
+      let turns = offset;
+      const interrupt = () => { if (turns--) queueMicrotask(interrupt); else {
+        if (mode === "stop") engine.send({ protocol: "nl.engine/1", type: "control", command_id: "shutdown-stop", session_id: "session-1-1", op: "stop", args: { scope: "session", reason: "stop" } });
+        if (mode === "release" && lease_id) engine.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id });
+        shutdown = engine.shutdown(deadline).then(() => {
+          if (deadline > 0) expect(store.leases("session-1-1").map(l => l.lease_id)).toEqual(terminals.flatMap(e => e.artifacts.map(a => a.lease_id)));
+        });
+      } };
+      queueMicrotask(interrupt);
+    }
+    if (mode === "failure") backend.synthesizeRequest = () => { arm(); return Promise.reject(Error("synthetic failure")); };
+    const events: Event[] = []; let ended = false;
+    const collect = (async () => { for await (const event of engine.events) { expect(ended).toBe(false); events.push(event); } ended = true; })();
+    engine.send(hello); engine.send({ protocol: "nl.engine/1", type: "narrate", request_id: "shutdown-offset", idempotency_key: "shutdown-offset", use: "read", input: { text: "Copper boats drift.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+    await clock.advance(1); for (let i = 0; i < 128; i++) await Promise.resolve();
+    expect(shutdown).toBeDefined(); await shutdown; await collect; expect(ended).toBe(true);
+    const before = events.length; await clock.advance(50); expect(events.length).toBe(before);
+  }
+});
+
+test("shutdown: pending deletes retry once outside the call and custody preserves named leases", async () => {
+  const bytes = new Map<string, Uint8Array>(); let fail = true, deletes = 0;
+  const store = createArtifactStore({ has: h => bytes.has(h), get: h => bytes.get(h), set: (h, b) => bytes.set(h, b), delete(h) { deletes++; if (fail) throw Error("synthetic storage refusal"); bytes.delete(h); } }, 1);
+  const id = { owner_epoch: 1, session_id: "custody-session", attempt_id: "custody-attempt", piece_id: "custody-piece" }, signal = new AbortController().signal;
+  const a = await store.put(new Uint8Array([1]), id, signal), b = await store.put(new Uint8Array([2]), id, signal);
+  store.releaseFromHost(a.lease_id); for (let i = 0; i < 8; i++) await Promise.resolve();
+  expect(store.custody()).toEqual({ live: [{ lease_id: b.lease_id, handle: b.handle, session_id: id.session_id, piece_id: id.piece_id }], pending_delete: [a.handle] });
+  fail = false; store.shutdown(); expect(deletes).toBe(1);
+  await expect(store.put(new Uint8Array([3]), id, signal)).rejects.toMatchObject({ code: "shutdown" });
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+  expect(deletes).toBe(2); expect(store.custody().pending_delete).toEqual([]); expect(store.resolve(b.handle, b.lease_id)).toEqual({ kind: "resolved", bytes: new Uint8Array([2]) });
+  store.releaseFromHost(b.lease_id); expect(store.resolve(b.handle, b.lease_id).kind).toBe("expired");
+  for (let i = 0; i < 8; i++) await Promise.resolve(); expect(bytes.size).toBe(0);
+});
+
+function shutdownEngine() {
+  const clock = new FakeClock(), backend = new ScriptedBackend(clock), bytes = new Map<string, Uint8Array>(), events: Event[] = [];
+  let failDelete = false;
+  const store = createArtifactStore({ has: h => bytes.has(h), get: h => bytes.get(h), set: (h, b) => bytes.set(h, b), delete(h) { if (failDelete) throw Error("synthetic refusal"); return bytes.delete(h); } }, 1);
+  const engine = createEngine({ clock, backend, artifacts: store, owner_epoch: 1, package_version: "0", observe: { event(e) { events.push(e); } },
+    limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 }, engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], chooseEngine: () => ({ family: "edge", voice: "synthetic", profile_revision: "1" }) });
+  engine.send(hello);
+  const read = (id: string) => engine.send({ protocol: "nl.engine/1", type: "narrate", request_id: id, idempotency_key: id, use: "read", input: { text: "Copper boats drift.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+  return { engine, clock, backend, bytes, events, read, failDelete(value: boolean) { failDelete = value; } };
+}
+const microtasks = async () => { for (let i = 0; i < 128; i++) await Promise.resolve(); };
+test("shutdown: engine custody pins live and pending handles through every release", async () => {
+  for (const fail of [false, true]) {
+    const t = shutdownEngine(); t.backend.script([{ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(24) } }]);
+    t.read("engine-custody"); await t.clock.advance(1); await microtasks();
+    const pieces = t.events.filter(e => e.type === "piece_ready"); expect(pieces).toHaveLength(1);
+    const live = pieces.map(p => ({ lease_id: p.artifact.lease_id, handle: p.artifact.handle, session_id: p.session_id, piece_id: p.piece_id }));
+    expect(t.engine.custody()).toEqual({ live, pending_delete: [] });
+    await t.engine.shutdown(100); expect(t.engine.custody()).toEqual({ live, pending_delete: [] });
+    expect(t.engine.custody().live.map(({ session_id, ...a }) => a)).toEqual(t.events.filter(e => e.type === "outcome").flatMap(e => e.artifacts));
+    t.failDelete(fail); t.engine.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: live[0].lease_id }); await microtasks();
+    expect(t.engine.custody()).toEqual({ live: [], pending_delete: fail ? [live[0].handle] : [] });
+  }
+
+});
+test("shutdown: mixed settlement custody property keeps the deadline at every offset", async () => {
+  for (let offset = 0; offset < 16; offset++) {
+    const t = shutdownEngine(); let release!: () => void, calls = 0;
+    t.backend.synthesizeRequest = (_request, signal) => new Promise((resolve, reject) => {
+      if (++calls === 1) signal.addEventListener("abort", () => reject(Error("synthetic abort")), { once: true });
+      else release = () => resolve(pcmAudio(24));
+    });
+    t.read("mixed-settles"); t.read("mixed-stuck");
+    for (let i = 0; i < offset; i++) await Promise.resolve();
+    let done = false; const pending = t.engine.shutdown(30).then(() => { done = true; }); await microtasks();
+    expect(done).toBe(false); expect(t.events.filter(e => e.type === "outcome")).toHaveLength(2);
+    await t.clock.advance(29); await microtasks(); expect(done).toBe(false);
+    await t.clock.advance(1); await microtasks(); expect(done).toBe(true); await pending;
+    expect(t.engine.custody()).toEqual({ live: [], pending_delete: [] }); release(); await microtasks();
+  }
+});
+for (const deadline of [NaN, -Infinity]) test(`shutdown: deadline ${deadline} resolves immediately without rejection`, async () => {
+  const t = shutdownEngine(); let release!: () => void;
+  t.backend.synthesizeRequest = () => new Promise(resolve => { release = () => resolve(pcmAudio(24)); }); t.read("nonfinite-now");
+  await expect(t.engine.shutdown(deadline)).resolves.toBeUndefined(); expect(t.clock.now()).toBe(0); release(); await microtasks();
+});
+test("shutdown: positive Infinity schedules no timer and waits for settlement", async () => {
+  const t = shutdownEngine(); let release!: () => void, scheduled = 0;
+  t.backend.synthesizeRequest = () => new Promise(resolve => { release = () => resolve(pcmAudio(24)); }); t.read("nonfinite-wait");
+  t.clock.schedule = () => { scheduled++; throw Error("unexpected timer"); };
+  let done = false; const pending = t.engine.shutdown(Infinity).then(() => { done = true; }); await microtasks();
+  expect(done).toBe(false); expect(scheduled).toBe(0); release(); await pending; expect(done).toBe(true);
 });

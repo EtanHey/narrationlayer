@@ -154,3 +154,61 @@ for (const wrong of ["other-lease", "noop", "ignore-handle", "echo", "stale-outc
     expect((await runCase(id, binding, engineCases[id])).result).toBe("fail");
   });
 }
+
+for (const wrong of ["delete", "stream", "late-error", "early", "stuck", "cancelled", "queued", "sync-delete"]) test(`shutdown: own wrong engine ${wrong} is caught`, async () => {
+  const binding = { name: `own-shutdown-${wrong}`, create(host: Parameters<typeof engine.create>[0]) {
+    const c = engine.create(host); let closed = false;
+    return { ...c,
+      send(message: Json) {
+        if ((closed || wrong === "sync-delete") && message && typeof message === "object" && !Array.isArray(message) && message.type === "artifact_release") {
+          if (wrong === "late-error") late?.({ done: false, value: { protocol: "nl.engine/1", type: "error", code: "ARTIFACT_EXPIRED" } });
+          if (wrong === "sync-delete") host.store.delete("invented-sync-delete");
+        }
+        c.send(message);
+      },
+      shutdown(deadline: number) {
+        closed = true;
+        if (wrong === "early") { host.clock.schedule(1, () => { void c.shutdown(deadline); }); return Promise.resolve(); }
+        const p = c.shutdown(deadline);
+        if (wrong === "delete") host.store.clear();
+        return wrong === "stuck" ? new Promise<void>(() => {}) : p;
+      },
+      events: (async function* () {
+        for await (const e of c.events) {
+          if (wrong === "queued" && e.type === "outcome" && e.session_id === "session-1-3") continue;
+          yield wrong === "cancelled" && e.type === "outcome" && e.generation.status === "interrupted" ? { ...e, generation: { status: "cancelled" } } : e;
+        }
+        if (wrong === "stream") await new Promise(() => {});
+        if (wrong === "late-error") yield await new Promise<Json>(resolve => { late = r => resolve(r.value); });
+      })(),
+    };
+  } };
+  let late: ((r: { done: false; value: Json }) => void) | undefined;
+  expect((await runCase(wrong === "sync-delete" ? "ART-01" : "SHUT-01", binding, engineCases[wrong === "sync-delete" ? "ART-01" : "SHUT-01"])).result).toBe("fail");
+});
+test("SHUT-01: old shutdown reason and dropped late release fail exactly its committed row", () => proof("SHUT-01"));
+
+for (const wrong of ["clear-on-release", "ending-delete", "late-lifecycle"]) test(`shutdown round 1: reviewer wrong engine ${wrong} is caught`, async () => {
+  const binding = { name: wrong, create(host: Parameters<typeof engine.create>[0]) {
+    const c = engine.create(host), pieces = new Map<string, Message<"piece_ready">>(), counts = new Map<string, number>(), plans = new Map<string, number>(), ended = new Set<string>(); let closed = false, cleared = false;
+    return { ...c, shutdown(deadline: number) { closed = true; return c.shutdown(deadline); }, send(message: Json) {
+      if (message && typeof message === "object" && !Array.isArray(message) && message.type === "artifact_release" && typeof message.lease_id === "string") {
+        if (wrong === "clear-on-release" && closed && !cleared) { cleared = true; host.store.clear(); }
+        const p = pieces.get(message.lease_id);
+        if (wrong === "ending-delete" && p && counts.get(p.session_id) === plans.get(p.session_id) && !ended.has(p.session_id)) host.store.delete(p.artifact.handle);
+      }
+      c.send(message);
+    }, events: (async function* () { for await (const e of c.events) {
+      if (e.type === "plan") plans.set(e.session_id, e.pieces.length);
+      if (e.type === "piece_ready") { pieces.set(e.artifact.lease_id, e); counts.set(e.session_id, (counts.get(e.session_id) ?? 0) + 1); }
+      if (e.type === "outcome") ended.add(e.session_id);
+      yield e;
+      if (wrong === "late-lifecycle" && e.type === "outcome" && e.playback.reason === "shutdown") {
+        for (let i = 0; i < 3; i++) await Promise.resolve();
+        yield { protocol: "nl.engine/1", type: "lifecycle", owner_epoch: 1, seq: 999, edge: "synthesis_requested", session_id: e.session_id, piece_index: 0, segment_index: 0, chars: 1, kind: "sentence", t_mono_ms: 0 };
+      }
+    } })() };
+  } };
+  const id = wrong === "ending-delete" ? "ART-01" : "SHUT-01";
+  expect((await runCase(id, binding, engineCases[id])).result).toBe("fail");
+});

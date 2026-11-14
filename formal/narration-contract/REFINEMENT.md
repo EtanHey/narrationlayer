@@ -213,3 +213,11 @@ outcome receipts; generation and playback coverage still use all delivered piece
 The existing alphabet does not include artifact_release; custody offset tests
 exercise releases before and after outcomes across two sessions, including
 same-turn release followed by stop, final exited feedback or shutdown.
+
+## S7b-2 shutdown
+
+Reducer SHA-256: `efe6e0cd67d1f5389054eb78edcec9cc709b7001eaa22202bf498454ce3b0d1c`.
+
+S7b-2 adds a shutdown input: complete delivered coverage commits, otherwise
+interrupted; playback ends as shutdown only when no earlier terminal was accepted. The bounded alphabet still omits this
+input; custody offset tests and SHUT-01 exercise it, not the model alphabet.

@@ -13,7 +13,7 @@
     "obligation": "send validates and enqueues synchronously without I/O and returns before a microtask runs.",
     "state": "owed",
     "case_ids": ["BIND-01"],
-    "evidence": "BIND-01 is inactive on base 42cb5b44; tests/engine/session/session.test.ts: send never awaits: unresolved synthesis returns accepted synchronously proves synchronous return only, and tests/engine/artifacts/custody.test.ts: release: same-turn release then stop excludes the lease with zero synchronous deletes proves deferred byte deletion; session pump can still call the backend synchronously, so a general no-host-port proof is owed."
+    "evidence": "BIND-01 is inactive on base 42cb5b44; tests/engine/session/session.test.ts: send never awaits: unresolved synthesis returns accepted synchronously proves synchronous return only, and tests/engine/artifacts/custody.test.ts: release: same-turn release then stop excludes the lease with zero synchronous deletes proves deferred byte deletion; session pump can still call the backend synchronously, so a general no-host-port proof is owed. ART-01 also checks that byte-port calls stay outside send and synchronous shutdown."
   },
   {
     "id": "events-not-reentrant",
@@ -51,8 +51,8 @@
     "id": "shutdown-deadline",
     "contract_line": 430,
     "obligation": "shutdown(deadline) ends sessions with shutdown outcomes and retains leases through the host archive flush.",
-    "state": "owed",
+    "state": "proved",
     "case_ids": ["SHUT-01"],
-    "evidence": "SHUT-01 is inactive; session shutdown ignores its deadline and uses cancel, while tests/engine/artifacts/store.test.ts: D7: shutdown keeps leases and allows their release, refuses new puts proves only store custody."
+    "evidence": "SHUT-01 is active and checks shutdown outcomes, deadline-now and mixed settlement at the host-clock deadline, retained bytes and post-shutdown releases; tests/engine/artifacts/custody.test.ts: shutdown: mixed settlement custody property keeps the deadline at every offset and shutdown: engine custody pins live and pending handles through every release pin the engine deadline and custody surface. BACKEND_DRAIN_UNKNOWN at an unsettled deadline and physical drain remain owed."
   }
 ]

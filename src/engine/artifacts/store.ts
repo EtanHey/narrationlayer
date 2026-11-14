@@ -42,6 +42,7 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
       const prefix = `lease:${owner_epoch}:`, suffix = lease_id.slice(prefix.length), n = Number(suffix);
       return lease_id.startsWith(prefix) && Number.isSafeInteger(n) && n > 0 && n <= next && String(n) === suffix;
     },
+    custody() { return { live: [...live.values()].map(({ lease_id, handle, session_id, piece_id }) => ({ lease_id, handle, session_id, piece_id })), pending_delete: [...pending] }; },
     pendingDeletes() { return [...pending]; },
     releaseFromHost(lease_id: string): { kind: "released" | "expired" } {
       const entry = live.get(lease_id);
@@ -72,6 +73,12 @@ export function createArtifactStore(port: BytePort, owner_epoch: number) {
       check(signal); // No await: abort before commit leaves it open; after commit cannot unseal it.
       sealed.add(attempt(identity));
     },
-    shutdown() { closed = true; },
+    shutdown() {
+      if (closed) return;
+      closed = true;
+      queueMicrotask(() => { for (const handle of pending) {
+        try { port.delete(handle); pending.delete(handle); } catch { /* Retain for the host drain. */ }
+      } });
+    },
   } satisfies ArtifactPort & Record<string, unknown>;
 }

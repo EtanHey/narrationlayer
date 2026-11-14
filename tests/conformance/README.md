@@ -330,3 +330,11 @@ sentence splitter's own rules. These are not implemented by these cases.
 The owed sentence-splitter rules include plain text beginning with a spaced dash:
 `read()` rejects that shape before boundary comparison. PLAN-D4 now also reads
 dash fixtures in markdown and an attached hyphen at a later cut in plain text.
+
+SHUT-01 covers partial and generated reads, two concurrent reads and a queued
+read, shutdown outcomes, retained bytes, late releases, closed-stream silence,
+and absolute fake-clock deadlines with an unresponsive backend. ART-01 records
+byte-port calls inside send/shutdown and rejects any synchronous call.
+Still owed: BACKEND_DRAIN_UNKNOWN when settlement misses the deadline; physical
+status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
+(BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).

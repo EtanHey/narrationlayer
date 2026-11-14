@@ -199,7 +199,7 @@ for (const bits of [32, 64]) test(`first audible: float ${bits}-bit NaN and infi
 const canary = "Zirconium lanterns orbit velvet asteroids";
 async function lifecycleRead(failSecond = false, stopFirst = false, decrease = false, failStore = false) {
   let now = 0, calls = 0;
-  const events: Event[] = [], clock = { monotonic: () => now, schedule: () => () => {} };
+  const events: Event[] = [], clock = { now: () => now, monotonic: () => now, schedule: () => () => {} };
   const rates = [24000, 48000, 24000], lengths = [12, 24, 36];
   const publication = createPublication({ async put() { now += 11; if (failStore) throw Error("synthetic publication failure"); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, release() { return { kind: "released" }; }, async commit() {} });
   const publish = publication.piece;

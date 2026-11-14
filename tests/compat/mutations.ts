@@ -13,6 +13,8 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
+  { kind: "named-test", name: "shutdown-reason", file: "src/engine/reducer/session.ts", before: 's.playback = "shutdown"', after: 's.playback = "cancel"', testFile: "tests/conformance/engine-binding.test.ts", testName: "engine binding: the packaged entry passes the active cases under containment" },
+  { kind: "named-test", name: "shutdown-release", file: "src/engine/session/session.ts", before: 'options.artifacts?.releaseFromHost(parsed.value.lease_id);', after: ';', testFile: "tests/conformance/engine-binding.test.ts", testName: "engine binding: the packaged entry passes the active cases under containment" },
   { kind: "named-test", name: "engine-reach-blocking-call", file: "src/plan/synthesis-units.ts", before: "const MIN_SYNTHESIS_WORDS = 3;", after: "const MIN_SYNTHESIS_WORDS = 3;\nconst blocked = () => existsSync(\"synthetic\");", testFile: "tests/architecture/engine-reach.test.ts", testName: "engine reach: nothing the engine imports can block" },
   { kind: "named-test", name: "artifact-released-outcome", file: "src/engine/reducer/session.ts", before: "!s.released_leases?.includes(p.artifact.lease_id)", after: "true", testFile: "tests/engine/artifacts/custody.test.ts", testName: "custody: release offsets preserve exactly the remaining delivered leases" },
   { kind: "conformance-case", name: "artifact-expired-silent", file: "src/engine/session/session.ts", before: 'result.kind === "expired"', after: 'false', binding: "src/engine/conformance/engine-binding.ts", caseId: "ART-04" },

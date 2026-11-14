@@ -10,6 +10,7 @@ export interface ReadPlanner {
   plan(request: Message<"narrate">, limits: Limits, identity: Identity): { plan: Plan; requests: readonly { piece_index: number; text: string }[] };
 }
 export interface Clock {
+  now(): number;
   monotonic(): number;
   schedule(ms: number, callback: () => void): () => void;
 }
@@ -41,9 +42,11 @@ export function createEngineSession<Audio>(options: {
 }) {
   let state = initialState(options.owner_epoch, "host"), counter = 0;
   const requests = new Map<string, readonly { piece_index: number; text: string }[]>();
+  const runs = new Set<Promise<void>>();
+  let shutdownPromise: Promise<void> | undefined;
   const aborts = new Map<string, AbortController>();
   const queue: Event[] = [], readers: ((result: IteratorResult<Event>) => void)[] = [];
-  let closed = false, negotiated = false;
+  let closed = false, shuttingDown = false, negotiated = false;
   const events: AsyncIterable<Event> = { [Symbol.asyncIterator]() { return { next(): Promise<IteratorResult<Event>> {
     const value = queue.shift();
     if (value) return Promise.resolve({ done: false, value });
@@ -51,6 +54,7 @@ export function createEngineSession<Audio>(options: {
     return new Promise(resolve => readers.push(resolve));
   } }; } };
   function emit(event: Event, replay: boolean) {
+    if (closed) return;
     const copy = structuredClone(event), reader = readers.shift();
     if (reader) reader({ done: false, value: copy }); else queue.push(copy);
     options.observe?.event?.(structuredClone(event), replay);
@@ -84,7 +88,7 @@ export function createEngineSession<Audio>(options: {
   function pump(id: string) {
     const session = Object.hasOwn(state.sessions, id) ? state.sessions[id] : undefined;
     if (!session) return;
-    if (closed || aborts.has(id) || session.generation !== "running" || session.fenced) {
+    if (closed || shuttingDown || aborts.has(id) || session.generation !== "running" || session.fenced) {
       if (session.generation !== "running") requests.delete(id);
       return;
     }
@@ -95,7 +99,11 @@ export function createEngineSession<Audio>(options: {
       && nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) return;
     const abort = new AbortController();
     aborts.set(id, abort);
-    void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort);
+    let finish!: () => void;
+    const pending = new Promise<void>(resolve => { finish = resolve; });
+    runs.add(pending); // Register before invoking a host backend that can call shutdown.
+    void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort)
+      .then(() => { runs.delete(pending); finish(); }, () => { runs.delete(pending); finish(); });
   }
   // §2.5: reducer owns contract phase/retry selection for every refusal code.
   function refuse(code: Extract<Input<"host">, { kind: "refuse" }>["code"], request_id?: string) {
@@ -183,7 +191,12 @@ export function createEngineSession<Audio>(options: {
   return {
     events,
     send(message: unknown): void {
-      if (closed) return;
+      if (closed) {
+        const parsed = parseRequest(message, options.limits);
+        if (parsed.ok && parsed.value.type === "artifact_release" && hasDeliveredLease(state, parsed.value.lease_id))
+          options.artifacts?.releaseFromHost(parsed.value.lease_id);
+        return;
+      }
       if (!negotiated) {
         const result = negotiate(message, { ...structuredClone(options.welcome), protocol: "nl.engine/1", type: "welcome", owner_epoch: options.owner_epoch, limits: structuredClone(options.limits) });
         if (result.ok) { negotiated = true; emit(result.value, false); }
@@ -223,12 +236,22 @@ export function createEngineSession<Audio>(options: {
         refuse("INVALID_REQUEST");
       }
     },
-    async shutdown(_deadline: number): Promise<void> {
-      // Owed to S7: shutdown reason (currently cancel) and deadline enforcement (currently immediate).
-      if (closed) return;
+    shutdown(deadline: number): Promise<void> {
+      if (shutdownPromise) return shutdownPromise;
+      // Block pumping, but publish every outcome before closing the event stream.
+      shuttingDown = true;
+      const active = [...runs];
+      for (const session of Object.values(state.sessions)) if (!session.outcome)
+        step({ kind: "shutdown", session_id: session.session_id });
       closed = true;
-      for (const session of Object.values(state.sessions)) if (!session.outcome) step({ kind: "stop", session_id: session.session_id, reason: "cancel" });
       for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
+      shutdownPromise = new Promise<void>(resolve => {
+        const remaining = deadline - options.clock.now();
+        if (!(remaining > 0)) { resolve(); return; }
+        const cancel = Number.isFinite(remaining) ? options.clock.schedule(remaining, resolve) : () => {};
+        void Promise.allSettled(active).then(() => { cancel(); resolve(); });
+      });
+      return shutdownPromise;
     },
   };
 }
