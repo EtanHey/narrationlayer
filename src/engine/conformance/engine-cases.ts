@@ -187,11 +187,14 @@ export const engineCases: Record<string, Case> = {
       c.assert(seen.filter(e => e.type === "accepted" && e.request_id === "bind-first").length === 1);
       c.assert(seen.filter(e => e.type === "plan").length === (reenter ? 2 : 1));
       if (reenter) {
-        const plan = seen.findIndex(e => e.type === "plan");
+        const first = seen.find(e => e.type === "accepted" && e.request_id === "bind-first");
+        const plan = seen.findIndex(e => e.type === "plan" && first?.type === "accepted" && e.session_id === first.session_id);
+        const outcome = seen.findIndex(e => e.type === "outcome" && first?.type === "accepted" && e.session_id === first.session_id);
         const ack = seen.findIndex(e => e.type === "control_ack");
         const second = seen.findIndex(e => e.type === "accepted" && e.request_id === "bind-second");
-        // Lines 114/116: queued plan precedes the inner stop ack, then admission.
-        c.assert(plan >= 0 && ack > plan && second > ack);
+        // Line 114 orders events within one session; no line orders its plan against a control_ack.
+        c.assert(plan >= 0 && ack >= 0 && second > ack);
+        if (outcome >= 0) c.assert(outcome > plan);
       } else {
         const accepted = seen.find(e => e.type === "accepted"); c.assert(accepted?.type === "accepted");
         if (accepted?.type === "accepted") send({ protocol: "nl.engine/1", type: "control", command_id: "bind-stop", session_id: accepted.session_id, op: "stop", args: { scope: "session", reason: "stop" } });

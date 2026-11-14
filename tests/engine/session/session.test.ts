@@ -521,6 +521,7 @@ test("send: re-entering consumer starts two calls and fires two aborts", async (
   expect(calls).toBe(2); await h.session.shutdown(0);
   for (let i = 0; i < 64; i++) await Promise.resolve();
   expect(aborts).toBe(2); await collect;
+  expect(consumed.findIndex(e => e.type === "control_ack")).toBeGreaterThan(consumed.findIndex(e => e.type === "plan"));
 });
 
 test("send: settled run does not fire a deferred abort listener", async () => {
