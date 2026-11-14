@@ -207,9 +207,13 @@ and publication evidence, not player, binding-level or live acceptance.
 
 ## S7b-1 lease release
 
-Reducer SHA-256: `69ede0401b395d097babc68bdfcbbd324f14c4b39f290dfe17d16b7fbbb5eb73`.
+Reducer SHA-256: `46d624df39adf1b427a8aac003e65063e52a87777075841e86d79585f5346735`.
 ART-01 exercises I06 at the points it lists; I06 stays design-level: released delivered leases are excluded from subsequent
 outcome receipts; generation and playback coverage still use all delivered pieces.
 The existing alphabet does not include artifact_release; custody offset tests
 exercise releases before and after outcomes across two sessions, including
 same-turn release followed by stop, final exited feedback or shutdown.
+
+S7b-2 adds a shutdown input: complete delivered coverage commits, otherwise
+interrupted; playback ends as shutdown. The bounded alphabet still omits this
+input; custody offset tests and SHUT-01 exercise it, not the model alphabet.

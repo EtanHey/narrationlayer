@@ -9,6 +9,7 @@
     "api": "public re-exports only; nothing inside the repo imports it"
   },
   "files": {
+    "src/engine/conformance/broken-shut-01.ts": { "layer": 5, "area": "surfaces", "owner": "P2.S7b2" },
     "src/engine/artifacts/store.ts": { "layer": 3, "area": "pipelines", "owner": "P2.S7a" },
     "src/plan/read-plan.ts": { "layer": 1, "area": "plan", "owner": "P2.S3p2" },
     "src/engine/publication/decoded.ts": { "layer": 2, "area": "audio", "owner": "P2.S4a" },

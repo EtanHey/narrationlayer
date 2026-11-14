@@ -13,8 +13,8 @@ test(name, async () => {
     const scenarios = [
       { mode: "complete", target: -1, offset: 0 },
       ...Array.from({ length: count }, (_, target) => [
-        ...Array.from({ length: 13 }, (_, offset) => ({ mode: "stop", target, offset })),
-        ...["failure", "refuse", "invalid", "shutdown"].map(mode => ({ mode, target, offset: 0 })),
+        ...Array.from({ length: 13 }, (_, offset) => ["stop", "shutdown"].map(mode => ({ mode, target, offset }))).flat(),
+        ...["failure", "refuse", "invalid"].map(mode => ({ mode, target, offset: 0 })),
       ]).flat(),
     ];
     for (const { mode, target, offset } of scenarios) {
@@ -162,4 +162,54 @@ test("release: a session without an artifact store refuses INVALID_REQUEST", asy
   const c = createEngineSession({ owner_epoch: 1, clock: new FakeClock(), backend: { async synthesizeRequest() { throw Error("unused"); } }, planner: { plan() { throw Error("unused"); } }, publication: { async piece() { throw Error("unused"); }, async commit() {} }, welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] }, limits: { max_chars: { read: 100, speak: 100, ask_prompt: 100 }, lookahead: 1, aligner_reap_ms: 50 } });
   const stream = c.events[Symbol.asyncIterator](); c.send(hello); await stream.next(); c.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id: "lease:1:1" });
   expect((await stream.next()).value).toMatchObject({ type: "error", code: "INVALID_REQUEST" }); await c.shutdown(0);
+});
+
+test("shutdown: settlement leaves no unnamed lease at every publication offset", async () => {
+  for (const mode of ["put", "stop", "release", "failure"]) for (let offset = 0; offset < 16; offset++) for (const deadline of [0, 100]) {
+    const clock = new FakeClock(), store = createArtifactStore(new Map(), 1);
+    const backend = new ScriptedBackend(clock); backend.script([{ latency_ms: 1, late_after_cancel: false, result: { kind: "audio", ...pcmAudio(24) } }]);
+    const { createEngine } = await import("../../../src/engine/core/engine");
+    let shutdown: Promise<void> | undefined;
+    const terminals: Message<"outcome">[] = [];
+    const engine = createEngine({ clock, backend, observe: { event(e) { if (e.type === "outcome") terminals.push(e); } }, artifacts: { ...store, async put(...args) {
+      const receipt = await store.put(...args);
+      arm(receipt.lease_id);
+      for (let i = 0; i < 8; i++) await Promise.resolve(); // Hold the stored receipt in flight.
+      return receipt;
+    } }, owner_epoch: 1, package_version: "0", limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 50 },
+      engines: [{ family: "edge", max_chars: 120, legacy: false, clone: false, timing: "none", cancel: "abort_only", available: true }], chooseEngine: () => ({ family: "edge", voice: "synthetic", profile_revision: "1" }) });
+    function arm(lease_id?: string) {
+      let turns = offset;
+      const interrupt = () => { if (turns--) queueMicrotask(interrupt); else {
+        if (mode === "stop") engine.send({ protocol: "nl.engine/1", type: "control", command_id: "shutdown-stop", session_id: "session-1-1", op: "stop", args: { scope: "session", reason: "stop" } });
+        if (mode === "release" && lease_id) engine.send({ protocol: "nl.engine/1", type: "artifact_release", lease_id });
+        shutdown = engine.shutdown(deadline).then(() => {
+          if (deadline > 0) expect(store.leases("session-1-1").map(l => l.lease_id)).toEqual(terminals.flatMap(e => e.artifacts.map(a => a.lease_id)));
+        });
+      } };
+      queueMicrotask(interrupt);
+    }
+    if (mode === "failure") backend.synthesizeRequest = () => { arm(); return Promise.reject(Error("synthetic failure")); };
+    const events: Event[] = []; let ended = false;
+    const collect = (async () => { for await (const event of engine.events) { expect(ended).toBe(false); events.push(event); } ended = true; })();
+    engine.send(hello); engine.send({ protocol: "nl.engine/1", type: "narrate", request_id: "shutdown-offset", idempotency_key: "shutdown-offset", use: "read", input: { text: "Copper boats drift.", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+    await clock.advance(1); for (let i = 0; i < 128; i++) await Promise.resolve();
+    expect(shutdown).toBeDefined(); await shutdown; await collect; expect(ended).toBe(true);
+    const before = events.length; await clock.advance(50); expect(events.length).toBe(before);
+  }
+});
+
+test("shutdown: pending deletes retry once outside the call and custody preserves named leases", async () => {
+  const bytes = new Map<string, Uint8Array>(); let fail = true, deletes = 0;
+  const store = createArtifactStore({ has: h => bytes.has(h), get: h => bytes.get(h), set: (h, b) => bytes.set(h, b), delete(h) { deletes++; if (fail) throw Error("synthetic storage refusal"); bytes.delete(h); } }, 1);
+  const id = { owner_epoch: 1, session_id: "custody-session", attempt_id: "custody-attempt", piece_id: "custody-piece" }, signal = new AbortController().signal;
+  const a = await store.put(new Uint8Array([1]), id, signal), b = await store.put(new Uint8Array([2]), id, signal);
+  store.releaseFromHost(a.lease_id); for (let i = 0; i < 8; i++) await Promise.resolve();
+  expect(store.custody()).toEqual({ live: [{ lease_id: b.lease_id, handle: b.handle, session_id: id.session_id, piece_id: id.piece_id }], pending_delete: [a.handle] });
+  fail = false; store.shutdown(); expect(deletes).toBe(1);
+  await expect(store.put(new Uint8Array([3]), id, signal)).rejects.toMatchObject({ code: "shutdown" });
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+  expect(deletes).toBe(2); expect(store.custody().pending_delete).toEqual([]); expect(store.resolve(b.handle, b.lease_id)).toEqual({ kind: "resolved", bytes: new Uint8Array([2]) });
+  store.releaseFromHost(b.lease_id); expect(store.resolve(b.handle, b.lease_id).kind).toBe("expired");
+  for (let i = 0; i < 8; i++) await Promise.resolve(); expect(bytes.size).toBe(0);
 });

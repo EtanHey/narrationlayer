@@ -89,7 +89,7 @@ export function success(c: CaseContext, seen: Event[], request_id: string, count
   return { own, plans, pieces, records, durations, outcomes };
 }
 // These fixtures have exactly one attempted call without a delivered piece.
-export function interrupted(c: CaseContext, seen: Event[], request_id: string, delivered: number, generation: "failed" | "cancelled", calls: readonly Json[]) {
+export function interrupted(c: CaseContext, seen: Event[], request_id: string, delivered: number, generation: "failed" | "cancelled" | "interrupted", calls: readonly Json[]) {
   const accepted = seen.filter(e => e.type === "accepted").filter(e => e.request_id === request_id);
   c.assert(accepted.length === 1);
   const own = seen.filter(e => "session_id" in e && e.session_id === accepted[0].session_id);
@@ -238,7 +238,7 @@ export const engineCases: Record<string, Case> = {
         const request = backend.calls[i];
         c.assert(request !== null && typeof request === "object" && !Array.isArray(request) && request.text === texts[i]);
         c.assert(plan >= 0 && outcome > plan);
-        interrupted(c, seen, `request-${i + 1}`, 0, "cancelled", backend.calls);
+        interrupted(c, seen, `request-${i + 1}`, 0, "interrupted", backend.calls);
       }
       backend.assertDrained(); player.assertDrained(); spawn.assertDrained();
     }

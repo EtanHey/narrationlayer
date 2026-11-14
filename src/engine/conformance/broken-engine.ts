@@ -19,7 +19,7 @@ export function brokenEngine(rule: string): Binding {
           if (event.type === "error" && ((rule === "NEG-01" && event.code === "UNSUPPORTED_VERSION") || (rule === "NEG-02" && event.code === "MISSING_CAPABILITY") || (rule === "NEG-03" && event.code === "NOT_NEGOTIATED"))) { yield { ...event, retry: "new_request" }; continue; }
           if (rule === "PLAN-LAT-01" && event.type === "plan") { held.push(event); continue; }
           if (held.length && event.type === "lifecycle") { held.push(event); continue; }
-          if (held.length && !(event.type === "outcome" && event.playback.reason === "cancel")) { yield* held; held = []; }
+          if (held.length && !(event.type === "outcome" && (event.playback.reason === "cancel" || event.playback.reason === "shutdown"))) { yield* held; held = []; }
           if (rule === "ERR-01" && event.type === "error" && event.code === "SYNTH_FAILED" && plan?.pieces.length === 1) continue;
           if (rule === "ID-04" && event.type === "accepted") { firstSession ??= event.session_id; yield { ...event, session_id: plan?.pieces.length === 1 ? firstSession : event.session_id }; continue; }
           if (rule === "TIME-02" && event.type === "piece_ready" && plan?.pieces.length === 1) { yield { ...event, duration_ms: event.duration_ms * 3 }; continue; }

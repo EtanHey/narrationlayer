@@ -50,7 +50,7 @@ function harness(epoch = 1, source = units, lookahead = 2) {
 }
 afterEach(async () => {
   for (const h of active.splice(0)) {
-    await h.session.shutdown(100);
+    await h.session.shutdown(0);
     const wire: Event[] = h.consumed ?? [];
     for await (const event of h.session.events) wire.push(event);
     let state = initialState(h.epoch, "host");
@@ -314,7 +314,7 @@ test("shutdown while parked: no unhandled rejection, no event after the outcome"
   const h = pacing(), errors: unknown[] = [], onError = (e: unknown) => { errors.push(e); };
   process.on("unhandledRejection", onError);
   try {
-    h.session.send(request); h.session.send(queued); await h.tick(); await h.session.shutdown(100);
+    h.session.send(request); h.session.send(queued); await h.tick(); await h.session.shutdown(0);
     const count = h.events().length; h.feedback("spawned", 1); await h.tick();
     expect(h.events()).toHaveLength(count); expect(h.indices()).toEqual([0, 1]);
     expect(h.indices("session-1-2")).toEqual([]); expect(errors).toEqual([]); h.replay();
@@ -365,7 +365,7 @@ test("paced wire order: eager consumer matches observer, one outcome and no even
   const drain = (async () => { for await (const event of h.session.events) wire.push(event); })();
   h.session.send(request); await h.tick();
   for (let i = 0; i < 5; i++) { h.feedback("spawned", i); h.feedback("first_sample", i); h.feedback("exited", i); await h.tick(); }
-  const count = h.events().length; await h.session.shutdown(100); await drain;
+  const count = h.events().length; await h.session.shutdown(0); await drain;
   expect(wire).toEqual(h.events()); expect(wire).toHaveLength(count);
   expect(wire.filter(e => e.type === "outcome")).toHaveLength(1);
   expect(wire.at(-1)?.type).toBe("outcome");
@@ -378,7 +378,11 @@ test("shutdown pending synthesis: late resolve and rejection emit nothing and ne
     const errors: unknown[] = [], onError = (e: unknown) => { errors.push(e); };
     process.on("unhandledRejection", onError);
     try {
-      h.session.send(request); await h.session.shutdown(100); const count = h.events().length;
+      h.session.send(request); let done = false;
+      const shutdown = h.session.shutdown(h.clock.now() + 100).then(() => { done = true; });
+      for (let i = 0; i < 32; i++) await Promise.resolve(); expect(done).toBe(false);
+      await h.clock.advance(99); expect(done).toBe(false); await h.clock.advance(1); await shutdown;
+      const count = h.events().length;
       settle(); await h.tick(); expect(h.events()).toHaveLength(count); expect(h.publicationCalls).toBe(0); expect(errors).toEqual([]);
     } finally { process.off("unhandledRejection", onError); }
   }

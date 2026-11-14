@@ -18,6 +18,7 @@ type Authority = "host" | "engine";
 export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; sessions: Record<string, SessionState>; admissions: Record<string, { session_id: string; accepted: Message<"accepted"> }> };
 export type Input<A extends Authority = Authority> =
   | (A extends "engine" ? { kind: "reanchor"; session_id: string; reason: "restart" | "speed"; target: Current } : never)
+  | { kind: "shutdown"; session_id: string }
   | { kind: "artifact_release"; lease_id: string }
   | { kind: "admit"; request: Message<"narrate"> }
   | ({ kind: "refuse"; code: RefusalCode } & Pick<Message<"error">, "message" | "request_id">)
@@ -136,7 +137,11 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     const ack: Message<"control_ack"> = { protocol: "nl.engine/1", type: "control_ack", owner_epoch: engine.owner_epoch, seq: engine.seq + 1, command_id: c.command_id, outcome: answer, control_epoch: s.current.control_epoch, ...(reason ? { reason } : {}), ...(stale ? { current: s.current } : {}) };
     emit(ack); if (!previous) s.receipts = [...s.receipts, { command: structuredClone(c), ack: structuredClone(ack) }].slice(-32);
   } else if (!s.outcome) { // Domain generation terminal below fences late backend delivery (I03).
-    if (input.kind === "stop") stop(input.reason);
+    if (input.kind === "shutdown") {
+      s.generation = s.delivered.length === s.plan.pieces.length ? "committed" : "interrupted";
+      s.playback = "shutdown"; s.fenced = true;
+      effects.push({ kind: "backend", identity, op: "cancel" });
+    } else if (input.kind === "stop") stop(input.reason);
     else if (input.kind === "reanchor") {
       anchor(input.target);
     } else {

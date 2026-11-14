@@ -275,3 +275,11 @@ major, including 01, fatally as UNSUPPORTED_VERSION; NEG-03 refuses malformed
 protocol strings as INVALID_REQUEST, keeps the binding open and proves recovery.
 This is the engine's two-step rule and the lead's amended ruling 50; the first
 version of the follow-up brief's exact-string rule was wrong.
+
+SHUT-01 covers partial and generated reads, two concurrent reads and a queued
+read, shutdown outcomes, retained bytes, late releases, closed-stream silence,
+and absolute fake-clock deadlines with an unresponsive backend. ART-01 records
+byte-port calls inside send/shutdown and rejects any synchronous call.
+Still owed: BACKEND_DRAIN_UNKNOWN when settlement misses the deadline; physical
+status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
+(BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).
