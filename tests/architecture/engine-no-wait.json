@@ -29,7 +29,7 @@
     "obligation": "The engine and every module in its static import reach contain no synchronous spawn or filesystem call.",
     "state": "proved",
     "case_ids": [],
-    "evidence": "tests/architecture/engine-reach.test.ts: engine reach: nothing the engine imports can block checks every static dependency, including type-only imports, refuses unapproved externals and loaders, and pins 23 files; independent backend or player modules outside that reach are not covered."
+    "evidence": "tests/architecture/engine-reach.test.ts: engine reach: nothing the engine imports can block checks every static dependency, including type-only imports, refuses unapproved externals and loaders, and pins 24 files; independent backend or player modules outside that reach are not covered."
   },
   {
     "id": "no-sync-io-host-modules",

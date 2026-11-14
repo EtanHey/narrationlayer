@@ -34,7 +34,7 @@ export function createEngine(options: {
       // No declared cap means whole sentences; the cutter requires a positive safe integer.
       return { ...planRead({ request, identity, engine, max_chars: capability.max_chars ?? Number.MAX_SAFE_INTEGER }), selection };
     } },
-    publication: createPublication(options.artifacts),
+    publication: createPublication(options.artifacts, options.log),
   });
   return { ...session, custody: () => {
       try { return host.call("artifacts.custody", () => options.artifacts.custody()); }

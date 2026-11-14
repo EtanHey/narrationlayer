@@ -254,3 +254,10 @@ test("first audible: 10 s 24 kHz silence scan timing", () => {
   expect(firstAudibleOffsetMs(b)).toBe(10000);
   console.log(`first audible 10s 24kHz silence wall_ms=${(performance.now() - start).toFixed(3)}`);
 });
+
+test("BIND-03: publication cleanup release preserves the original abort", async () => {
+  const abort = new AbortController(), logs: unknown[] = [];
+  const publication = createPublication({ async put() { abort.abort("synthetic abort"); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, release() { throw TypeError("synthetic fault text"); }, async commit() {} }, entry => { logs.push(entry); });
+  await expect(publication.piece(pcmAudio(20), { owner_epoch: 1, session_id: "synthetic", attempt_id: "synthetic", index: 0, piece_id: "synthetic", prefix: [], synthesis_ms: 1, spoken_text: "Copper boats drift", words, segments: 1, rate: "+0%", engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" } }, abort.signal)).rejects.toBe("synthetic abort");
+  expect(logs).toEqual([{ callback: "artifacts.release", error_name: "TypeError" }]); // R102(a),103
+});
