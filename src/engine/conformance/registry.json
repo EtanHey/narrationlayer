@@ -313,7 +313,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": false,
+    "owed": "R104: Needs a publication-fault seam, designed with ART-02/ART-03 (S7h); unit-tested only."
   },
   {
     "id": "GEN-03h",
@@ -369,7 +370,8 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S3b",
-    "active": false
+    "active": false,
+    "owed": "R105: Moves to reconnect binding BIND-02, stage B; reducer predicate covered by unit tests and reducer-I02."
   },
   {
     "id": "ID-03",
@@ -923,7 +925,7 @@
     "side": "engine",
     "stage": "A",
     "owner_slice": "S6",
-    "active": false
+    "active": true
   },
   {
     "id": "SPK-05h",
