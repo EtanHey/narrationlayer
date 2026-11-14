@@ -1,5 +1,5 @@
 import { json } from "../engine/messages/schema";
-import type { Limits, Message } from "../engine/messages/messages";
+import type { Message } from "../engine/messages/messages";
 import { displayTokens } from "../text/voicelayer/display-tokens";
 import { structuredReadDisplay } from "../text/voicelayer/structured-display";
 import { projectStructuredSpeech, type StructuredSpeech } from "../text/voicelayer/structured-speech";
@@ -160,9 +160,9 @@ function sourceUnits(projection: StructuredSpeech, markdown = true): LocatedUnit
 }
 
 /** Pure request-to-plan projection; engine selection and pronunciation belong to callers/later slices. */
-export function planRead({ request, limits, identity, engine, first_piece_raw = false }: {
+export function planRead({ request, max_chars, identity, engine, first_piece_raw = false }: {
   request: Message<"narrate">;
-  limits: Limits;
+  max_chars: number;
   identity: Pick<Message<"plan">, "session_id" | "attempt_id">;
   engine: Plan["engine"];
   first_piece_raw?: boolean;
@@ -177,7 +177,7 @@ export function planRead({ request, limits, identity, engine, first_piece_raw = 
   const units = sourceUnits(projection, request.input.format === "markdown");
   const positions = units.map(unit => ({ chunks: [...unit.text.matchAll(/\S+/gu)], used: 0 }));
   let cut: ReturnType<typeof planSynthesisUnits>;
-  try { cut = planSynthesisUnits({ units, max_chars: limits.max_chars[request.use], first_piece_raw }); }
+  try { cut = planSynthesisUnits({ units, max_chars, first_piece_raw }); }
   catch (cause) { throw new ReadPlanError("CUTTER_REJECTED", { cause }); }
   let cursor = 0;
   const pieces: Plan["pieces"] = cut.map((piece, index) => {
