@@ -4,6 +4,7 @@ import type { Event, Limits, Message } from "../messages/messages";
 type Identity = Pick<Message<"accepted">, "owner_epoch" | "session_id" | "attempt_id">;
 type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
 type Piece = Omit<Message<"piece_ready">, "protocol" | "owner_epoch" | "seq">;
+/** Returned plans and requests become engine-owned; the session detaches them before storage. */
 export interface ReadPlanner {
   plan(request: Message<"narrate">, limits: Limits, identity: Identity): { plan: Plan; requests: readonly { piece_index: number; text: string }[] };
 }
@@ -14,7 +15,8 @@ export interface Clock {
 export interface Backend<Audio> {
   synthesizeRequest(request: { piece_index: number; text: string }, signal: AbortSignal): Promise<Audio>;
 }
-/** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio. */
+/** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio.
+ * Returned receipts become engine-owned; the session detaches them before storage. */
 export interface Publication<Audio> {
   piece(audio: Audio, context: Identity & { index: number; piece_id: string; start_ms: number; synthesis_ms: number; spoken_text: string }, signal: AbortSignal): Promise<Piece>;
   commit(identity: Identity, signal: AbortSignal): Promise<void>;
@@ -78,13 +80,14 @@ export function createEngineSession<Audio>(options: {
     };
     let prepared: ReturnType<ReadPlanner["plan"]>;
     try {
-      prepared = options.planner.plan(structuredClone(request), structuredClone(options.limits), identity);
+      const planned = options.planner.plan(structuredClone(request), structuredClone(options.limits), identity);
+      prepared = { plan: structuredClone(planned.plan), requests: structuredClone(planned.requests) };
       const checked = parseEvent({ ...prepared.plan, protocol: "nl.engine/1", owner_epoch: state.owner_epoch, seq: state.seq + 1 });
       if (!checked.ok || checked.value?.type !== "plan"
         || prepared.plan.session_id !== identity.session_id || prepared.plan.attempt_id !== identity.attempt_id
         || prepared.requests.length !== prepared.plan.pieces.length
         || prepared.requests.some((r, i) => r.piece_index !== prepared.plan.pieces[i].index)) throw new Error("invalid plan");
-      requests.set(identity.session_id, structuredClone(prepared.requests));
+      requests.set(identity.session_id, prepared.requests);
     } catch {
       requests.delete(identity.session_id);
       refuse("INVALID_REQUEST", request.request_id);
@@ -117,7 +120,7 @@ export function createEngineSession<Audio>(options: {
           synthesis_ms: options.clock.monotonic() - started, spoken_text: request.text,
         }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.
-        step({ kind: "backend", identity, result: { kind: "piece", piece: delivered } });
+        step({ kind: "backend", identity, result: { kind: "piece", piece: structuredClone(delivered) } });
         const updated = state.sessions[identity.session_id];
         if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
       }
@@ -132,7 +135,7 @@ export function createEngineSession<Audio>(options: {
       if (closed) return;
       const parsed = parseRequest(message, options.limits);
       if (!parsed.ok) {
-        const request_id = message !== null && typeof message === "object" && "request_id" in message && typeof message.request_id === "string" ? message.request_id : undefined;
+        const request_id = message !== null && typeof message === "object" && "type" in message && message.type === "narrate" && "request_id" in message && typeof message.request_id === "string" && message.request_id.length >= 3 && message.request_id.length <= 128 ? message.request_id : undefined;
         refuse(parsed.error.code, request_id); return;
       }
       const value = parsed.value;

@@ -72,7 +72,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
   if (input.kind === "admit" || input.kind === "accept" && Object.hasOwn(engine.admissions, input.request.idempotency_key)) {
     const k = input.request.idempotency_key, receipt = Object.hasOwn(engine.admissions, k) ? engine.admissions[k] : undefined;
     if (!receipt) return { state, effects: [{ kind: "plan", request: input.request }] };
-    if (key(engine.sessions[receipt.session_id].request) === key(input.request)) return { state, effects: [{ kind: "replay", event: receipt.accepted }] };
+    if (key(engine.sessions[receipt.session_id].request) === key(input.request)) return { state, effects: [{ kind: "replay", event: structuredClone(receipt.accepted) }] };
     emit({ type: "error", code: "IDEMPOTENCY_CONFLICT", phase: "admit", retry: "never", message: "idempotency key reused", request_id: input.request.request_id });
     return result();
   }
@@ -90,7 +90,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
     return result();
   }
   function reject(code: "STALE_EPOCH" | "UNKNOWN_SESSION") {
-    emit({ type: "error", code, phase: input.kind === "feedback" ? "deliver" : "control", retry: code === "STALE_EPOCH" ? "after_resync" : "never", message: code, session_id, ...(found ? { details: { current: found.current } } : {}) });
+    emit({ type: "error", code, phase: input.kind === "feedback" ? "deliver" : "control", retry: code === "STALE_EPOCH" ? "after_resync" : "never", message: code, session_id, ...(found ? { details: { current: (touched?.after ?? found).current } } : {}) });
   }
   if (!found) {
     // Foreign asynchronous jobs are dropped (I02); addressed commands get UNKNOWN_SESSION.
@@ -110,7 +110,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
   if (input.kind === "control") {
     const c = input.command, previous = s.receipts.find(r => r.command.command_id === c.command_id);
     // Contract L158: replay the first answer without allocating another seq.
-    if (previous && key(previous.command) === key(c)) return { state, effects: [{ kind: "replay", event: previous.ack }] };
+    if (previous && key(previous.command) === key(c)) return { state, effects: [{ kind: "replay", event: structuredClone(previous.ack) }] };
     const stale = c.op !== "stop" && ((c.expected_control_epoch !== undefined && c.expected_control_epoch !== s.current.control_epoch) || (c.player_instance_id !== undefined && c.player_instance_id !== s.current.player_instance_id) || (engine.epoch_authority === "host" && input.target.control_epoch < s.current.control_epoch));
     let answer: "accept" | "noop" | "reject" = "accept", reason: string | undefined;
     if (previous) { answer = "reject"; reason = "command id reused"; }
