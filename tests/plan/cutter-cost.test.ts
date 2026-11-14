@@ -39,15 +39,15 @@ test("cutter cost: the cuts are unchanged", () => {
 test("cutter cost: planning time grows linearly with one long sentence", () => {
   const inputs = [10_000, 40_000].map(n => Array.from({ length: n },
     (_, i) => `word${i % 11 === 10 ? "," : ""}`).join(" "));
-  for (const text of inputs) plan(text, 150);
+  for (let warmup = 0; warmup < 3; warmup++) for (const text of inputs) plan(text, 150);
   const samples: number[][] = inputs.map(() => []);
-  for (let run = 0; run < 5; run++) {
+  for (let run = 0; run < 7; run++) {
     inputs.forEach((text, i) => {
       const start = performance.now();
       plan(text, 150);
       samples[i].push(performance.now() - start);
     });
   }
-  const [small, large] = samples.map(times => times.sort((a, b) => a - b)[2]);
+  const [small, large] = samples.map(times => times.sort((a, b) => a - b)[3]);
   expect(large / small).toBeLessThan(6);
 });
