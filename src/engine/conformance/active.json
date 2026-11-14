@@ -29,6 +29,7 @@
   "PLAN-D4",
   "PLAN-D5",
   "PLAN-LAT-01",
+  "PRIV-01e",
   "SESS-01",
   "SHUT-01",
   "SUB-01",
@@ -36,5 +37,6 @@
   "TIME-02",
   "VER-01",
   "VER-02e",
-  "WORD-02"
+  "WORD-02",
+  "BIND-01"
 ]

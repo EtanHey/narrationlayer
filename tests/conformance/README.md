@@ -339,6 +339,59 @@ Still owed: BACKEND_DRAIN_UNKNOWN when settlement misses the deadline; physical
 status other than unknown; SYNTH_TIMEOUT (BIND-01), throwing host callbacks
 (BIND-03), retain_artifact, host CUST-01/ART-02/ART-03 and reconnect (BIND-02).
 
+PRIV-01e observes raw events (including unknown fields and object keys), never
+parser projections. A unique 8-character-run set from a 105-character invented
+canary detects partial leaks. Only `plan.display_document.text`, its `blocks`,
+`plan.words[].text`, and `piece_ready.spoken_text` are removed from event copies.
+The input text and resolved audio bytes are text-bearing too; timing word indices
+are not. Plain display text and words must match the submitted document.
+Twenty-seven fresh connections cover completion, markdown and its five shapes,
+backend failure, over-limit and invalid refusals, conflict, opaque host ids and
+metadata, unknown controls, a live stop, shutdown, queuing, release twice,
+repeated hello, pre-hello narrate, a second read that fails, an identical retry,
+speak, ask_prompt, a wrong protocol, and stale player feedback.
+Each scenario wraps all five console methods and stdout/stderr writes, confirms
+seven observable routes, and restores them in finally. This covers writes through
+these JavaScript methods during the scenario in this process; independently
+captured native descriptors and other processes are outside that observation.
+The report uses fd 3, separately. Unit coverage checks engine-level custody,
+which the conformance connection does not expose. The wrong synthesis-error
+engine leaks long-input snippets and fails exactly PRIV-01e; shared null/network/spawn/broken receipts gain that
+row because they cannot supply the required read plans. PLAN-LAT-01, ART-04
+SESS-01 and SHUT-01 wrong-engine receipts also gain PRIV-01e: they respectively
+omit a second read, miss the repeated release refusal, omit the unknown-session
+refusal, and report the old shutdown reason.
+PRIV-01h still owes host adapter logs. HASH-01 stays inactive: the engine writes
+no hash to a log, a lifecycle record, a diagnostic or an error today; when it writes one to a journal it must be keyed: nothing to test
+yet. Fleet journal and telemetry are absent from this engine and remain owed.
+
+The parent scans each complete child stdout/stderr pipe with the case-folded
+canary run test before accepting its report, including saved references and late
+writes; it marks PRIV-01e red and emits only a row/stream diagnostic for a leaking
+stream. The active registry controls whether this check applies. The real engine
+produces zero bytes on both child streams in both orders on both Bun versions.
+
+Owed or out of scope: `plan.display_document.blocks` remains stripped whole, as
+the contract explicitly identifies its blocks as text-bearing.
+Transformations beyond case folding (such as reversal, base64 and splitting
+characters across fields) remain outside this row's eight-character-run rule.
+BIND-01 proves that no host port starting work, touching storage or arming a timer
+runs inside `send` or synchronous `shutdown`. This engine's event iterator returns
+native promises, so no consumer callback runs inside `send`. BIND-01's depth
+counters cannot fail through the runner: it wraps every binding's events in an
+async generator, a hop that hides a synchronous-thenable engine from every case.
+This is a limit of the proof. Its fake clock also permits
+a zero-delay timer armed after the turn; this engine's exact microtask counts
+belong to its unit suite. Backend calls and abort listeners run after the turn;
+the reducer fences a stop before the deferred abort fires.
+
+`chooseEngine` (selection) and `observe` (diagnostic) are supplied through
+`createEngine` options and still run inside `send`; neither is reachable through
+a public door today. The coming `./engine` door must not expose `observe` (owed
+to that slice). The planner also runs synchronously as a pure request decision.
+Clock reads (`now` and `monotonic`) are not wrapped: a read is not I/O under line
+425. The bounded synthesis timeout remains owed. BIND-01 does not catch deferring
+the whole `send`; other conformance rows cover that fault.
 ENG-01 now covers admission: missing or unavailable mandated clones refuse before
 acceptance or backend work, with an available-clone positive control (Q67).
 SUB-01 covers announce, Hebrew converse and missing-profile substitutions on

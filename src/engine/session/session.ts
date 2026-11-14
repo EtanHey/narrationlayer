@@ -70,7 +70,10 @@ export function createEngineSession<Audio>(options: {
       if (effect.kind === "emit" || effect.kind === "replay") emit(effect.event.type === "error" && details ? { ...effect.event, details } : effect.event, effect.kind === "replay");
       else if (effect.kind === "plan") plan(effect.request);
       else if (effect.kind === "backend") {
-        if (effect.op === "cancel") aborts.get(effect.identity.session_id)?.abort();
+        if (effect.op === "cancel") {
+          const id = effect.identity.session_id, abort = aborts.get(id);
+          if (abort) queueMicrotask(() => { if (aborts.get(id) === abort) abort.abort(); });
+        }
         else pump(effect.identity.session_id);
       }
     }
@@ -103,8 +106,10 @@ export function createEngineSession<Audio>(options: {
     let finish!: () => void;
     const pending = new Promise<void>(resolve => { finish = resolve; });
     runs.add(pending); // Register before invoking a host backend that can call shutdown.
-    void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort)
-      .then(() => { runs.delete(pending); finish(); }, () => { runs.delete(pending); finish(); });
+    queueMicrotask(() => {
+      void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort)
+        .then(() => { runs.delete(pending); finish(); }, () => { runs.delete(pending); finish(); });
+    });
   }
   // §2.5: reducer owns contract phase/retry selection for every refusal code.
   function refuse(code: Extract<Input<"host">, { kind: "refuse" }>["code"], request_id?: string) {
@@ -249,10 +254,12 @@ export function createEngineSession<Audio>(options: {
       closed = true;
       for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
       shutdownPromise = new Promise<void>(resolve => {
-        const remaining = deadline - options.clock.now();
-        if (!(remaining > 0)) { resolve(); return; }
-        const cancel = Number.isFinite(remaining) ? options.clock.schedule(remaining, resolve) : () => {};
-        void Promise.allSettled(active).then(() => { cancel(); resolve(); });
+        queueMicrotask(() => {
+          const remaining = deadline - options.clock.now();
+          if (!(remaining > 0)) { resolve(); return; }
+          const cancel = Number.isFinite(remaining) ? options.clock.schedule(remaining, resolve) : () => {};
+          void Promise.allSettled(active).then(() => { cancel(); resolve(); });
+        });
       });
       return shutdownPromise;
     },

@@ -11,17 +11,17 @@
     "id": "send-no-io",
     "contract_line": 425,
     "obligation": "send validates and enqueues synchronously without I/O and returns before a microtask runs.",
-    "state": "owed",
+    "state": "proved",
     "case_ids": ["BIND-01"],
-    "evidence": "BIND-01 is inactive on base 42cb5b44; tests/engine/session/session.test.ts: send never awaits: unresolved synthesis returns accepted synchronously proves synchronous return only, and tests/engine/artifacts/custody.test.ts: release: same-turn release then stop excludes the lease with zero synchronous deletes proves deferred byte deletion; session pump can still call the backend synchronously, so a general no-host-port proof is owed. ART-01 also checks that byte-port calls stay outside send and synchronous shutdown."
+    "evidence": "BIND-01 shared probe proves that no host port starting work, touching storage or arming a timer runs inside send or synchronous shutdown. tests/engine/session/session.test.ts: send: no host port that starts work or touches storage runs before return; send: narrate then stop in the same turn starts no backend; send: abort fires after the stop decision and after return pin this engine. The voices table is data passed once at createEngine; selection is a pure function and nothing of the host's runs for it. observe (diagnostic) is supplied through createEngine options and still runs inside send; it is not reachable through a public door today. The coming ./engine door must not expose observe (owed to that slice)."
   },
   {
     "id": "events-not-reentrant",
     "contract_line": 426,
     "obligation": "Events are delivered asynchronously and never re-enter send.",
-    "state": "owed",
+    "state": "proved",
     "case_ids": ["BIND-01"],
-    "evidence": "BIND-01 is inactive; no test proves non-reentrancy, and session emit currently invokes observe.event inline."
+    "evidence": "This engine's event iterator returns native promises, so no consumer callback runs inside send. BIND-01's depth counters cannot fail through the runner: it wraps every binding's events in an async generator, a hop that hides a synchronous-thenable engine from every case. This is a limit of the proof. Queued-event order and contiguous seq are also checked. The voices table is data passed once at createEngine; selection is a pure function and nothing of the host's runs for it. observe (diagnostic) is supplied through createEngine options and still runs inside send; it is not reachable through a public door today. The coming ./engine door must not expose observe (owed to that slice)."
   },
   {
     "id": "no-sync-io-engine-reach",
@@ -45,7 +45,7 @@
     "obligation": "Every exposed await has a bounded timeout ending in SYNTH_TIMEOUT or an interrupted generation.",
     "state": "owed",
     "case_ids": ["BIND-01"],
-    "evidence": "BIND-01 is inactive; synthesis timeout enforcement is not implemented, and the session awaits backend synthesis and publication without a timeout."
+    "evidence": "BIND-01 proves its first two clauses; its bounded synthesis timeout and SYNTH_TIMEOUT clause remains owed."
   },
   {
     "id": "host-throws",
