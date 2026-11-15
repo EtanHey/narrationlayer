@@ -16,7 +16,7 @@ function tone(hz: number, seconds = 1) {
   h.write("data", 36); h.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([h, pcm]);
 }
-async function fixture(failures: number, seconds = 1) {
+async function fixture(failures: number, seconds = 1, vary = false) {
   await mkdir("docs.local/w92-tests", { recursive: true });
   const dir = path.resolve(await mkdtemp("docs.local/w92-tests/case-"));
   let calls = 0;
@@ -28,7 +28,7 @@ async function fixture(failures: number, seconds = 1) {
     calls++;
     // No failing take may have reached the cache before a subsequent request.
     expect(await readdir(cacheDir)).toEqual([]);
-    return Response.json({ audio_b64: tone(calls <= failures ? 400 : 180, seconds).toString("base64") });
+    return Response.json({ audio_b64: tone(calls <= failures ? 400 : vary ? 180 + calls : 180, seconds).toString("base64") });
   } });
   const args: LocalTtsRenderOptions = { text: "Hello moon.", output: path.join(dir, "out.wav"),
     sampleRate: 24000, resolved: { daemonUrl: `http://127.0.0.1:${server.port}`, referenceClip: "synthetic.wav", referenceText: "Synthetic reference." },
@@ -192,3 +192,34 @@ test("whole-take mismatch retries and rejects cached words before publication", 
     expect(f.calls()).toBe(3);
   } finally { await f.close(); }
 });
+
+for (const [name, counts, selected] of [
+  ["identical failures keep earliest", [1, 1, 1], 0],
+  ["middle attempt has fewer edits", [2, 1, 2], 1],
+] as const) {
+  test(`word retry fallback: ${name}`, async () => {
+    const f = await fixture(0, 1, true);
+    const takes: Buffer[] = [];
+    f.args.keepPiecesDir = path.join(f.dir, "kept");
+    f.args.recogniseTake = async wav => {
+      const index = takes.length;
+      const bytes = await readFile(wav);
+      takes.push(bytes);
+      return [{ word: counts[index] === 2 ? "Goodbye" : "Hello", start: 0, end: 0.3 },
+        { word: "sun", start: 0.3, end: 0.6 }];
+    };
+    try {
+      await renderLocalTts(f.args);
+      expect(f.calls()).toBe(3);
+      expect(await readFile(f.args.output)).toEqual(takes[selected]);
+      expect(await readdir(f.args.cacheDir)).toEqual([]);
+      const r = await receipt(f.args.output);
+      expect(r.takeChecks.gaveUp).toBe(false);
+      expect(r.takeChecks.wordMatch).toMatchObject({ pass: false, keptBest: true,
+        attempts: counts.map((editCount, i) => ({ source: "render", attempt: i + 1, editCount })) });
+      expect(r.cacheEnabled).toBe(false);
+      expect(await readFile(path.join(f.args.keepPiecesDir!, "piece-000.wav"))).toEqual(takes[selected]);
+      expect(await Bun.file(path.join(f.args.keepPiecesDir!, "pieces.json")).exists()).toBe(true);
+    } finally { await f.close(); }
+  });
+}

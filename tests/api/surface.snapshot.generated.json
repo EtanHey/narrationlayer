@@ -1,11 +1,11 @@
 {
-  "sha256": "a2ca970ae29c2a3f6fd1d12351f2b1b01d96e102bcf058b1834bb559c2e5c728",
+  "sha256": "7ff1fbb9f2ebcb33d2c5da88816a4cd1fc4c180d8050b9cf5a5298a2683c1063",
   "files": {
     "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
     "src/api/index.d.ts": "2ef9e7c362d29d143ca8e7cddc25661804824709f32186c1f41ed0267d9e5d43",
     "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
     "src/core/render-types.d.ts": "2917a9ecd2d5107d4d8a8a01aa27be8fa2cdd609c1feb0c6ffc0f6ddf77da119",
-    "src/pipelines/local-tts/take-cache.d.ts": "acd14687eb2335dd8668c14a279a93da54360b02fc49a2fc7f3f661da42d9240",
+    "src/pipelines/local-tts/take-cache.d.ts": "17fd0f58745c870438ca509c355ff4563fb4569871583e47810e2282cf6bc562",
     "src/plan/breathing.d.ts": "2739c58b646df90a7fb04e7bf3699292ddfd41a8cc201d751ebf7f7a60d27099",
     "src/plan/index.d.ts": "b6db6bbd829aa332fd16a7484a2aa2e5b676e3a8c1e3eab19dfb0e24a4801d47",
     "src/plan/utterances.d.ts": "14f6b4ad810911a23fb7e26665c90541004e954958936a5b8469adb2941693c8",
@@ -180,7 +180,7 @@
     },
     "TakeCheckReceipt": {
       "kind": "type",
-      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface TakeCheckReceipt {\n    wordMatch?: {\n        pass: boolean;\n        setting: string;\n        edits: {\n            kind: string;\n            sentIndex: number;\n            recognisedIndex: number;\n            start: number | null;\n            end: number | null;\n        }[];\n    };\n    pitchNote?: \"not judged: shorter than one window\";\n    attempts: number;\n    failures: {\n        source: \"cache\" | \"render\";\n        attempt: number;\n        reason: string;\n    }[];\n    gaveUp: boolean;\n}"
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface TakeCheckReceipt {\n    wordMatch?: {\n        keptBest?: boolean;\n        attempts: {\n            source: \"cache\" | \"render\";\n            attempt: number;\n            editCount: number | null;\n        }[];\n        pass: boolean;\n        setting: string;\n        edits: {\n            kind: string;\n            sentIndex: number;\n            recognisedIndex: number;\n            start: number | null;\n            end: number | null;\n        }[];\n    };\n    pitchNote?: \"not judged: shorter than one window\";\n    attempts: number;\n    failures: {\n        source: \"cache\" | \"render\";\n        attempt: number;\n        reason: string;\n    }[];\n    gaveUp: boolean;\n}"
     },
     "TeleprompterPayload": {
       "kind": "type",

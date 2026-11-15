@@ -33,6 +33,7 @@ import { findProfile, qwenConfigFromProfile, warnIfNonAcceptedProfile } from "..
 import { prepareSpeechChannels as prepareDefaultChannels, type TermRule, type SpeechChannels } from "../src/text-normalize.js";
 import { clearTakeCacheReceipt } from "../src/pipelines/local-tts/take-cache.js";
 import { RunnerFailure, TakeCheckError } from "../src/pipelines/local-tts/failure.js";
+import type { WordCheckSetting } from "../src/quality/take-checks.js";
 import { renderLocalTts, type LocalTtsRenderResult } from "../src/pipelines/local-tts/index.js";
 
 export {
@@ -55,6 +56,8 @@ interface Args {
   takeChecks?: boolean;
   pitchCeilingHz?: number;
   takeRetries?: number;
+  wordCheckSetting?: WordCheckSetting;
+  wordDictionary?: string;
   text?: string;
   output?: string;
   reference?: string;
@@ -101,6 +104,15 @@ function parseArgs(argv: string[]): Args {
     switch (name) {
       case "--take-checks":
         args.takeChecks = true;
+        break;
+      case "--word-check-setting": {
+        const setting = takeValue();
+        if (setting !== "a" && setting !== "b" && setting !== "c" && setting !== "d") fail("--word-check-setting must be a, b, c or d");
+        args.wordCheckSetting = setting;
+        break;
+      }
+      case "--word-dictionary":
+        args.wordDictionary = takeValue();
         break;
       case "--pitch-ceiling":
         args.pitchCeilingHz = Number(takeValue());
@@ -165,7 +177,7 @@ function parseArgs(argv: string[]): Args {
     fail("--take-checks requires a positive --pitch-ceiling");
   if (args.takeRetries !== undefined && (!Number.isSafeInteger(args.takeRetries) || args.takeRetries < 0 || args.takeRetries > 10))
     fail("--take-retries must be an integer from 0 to 10");
-  if (!args.takeChecks && (args.pitchCeilingHz !== undefined || args.takeRetries !== undefined))
+  if (!args.takeChecks && (args.pitchCeilingHz !== undefined || args.takeRetries !== undefined || args.wordCheckSetting !== undefined || args.wordDictionary !== undefined))
     fail("--pitch-ceiling and --take-retries require --take-checks");
   return args;
 }
@@ -183,9 +195,11 @@ Required:
                            OR a direct path to a reference .wav clip.
 
 Options:
-  --take-checks              Check pitch on cached and fresh takes; retry failures.
+  --take-checks              Check pitch and rank word matches on cached and fresh takes.
   --pitch-ceiling <hz>        Required voice ceiling with --take-checks.
   --take-retries <count>      Retries after the first render (default 2; range 0..10).
+  --word-check-setting <a|b|c|d>  Word tolerance (default a); kept-best fallback after retries.
+  --word-dictionary <path>    Common-word dictionary for b/c (default /usr/share/dict/words).
   --reference-text <string>  Reference transcript (overrides profile ref text)
   --role <host|expert>       Informational; passed by AfterCode. No engine effect.
   --sample-rate <hz>         Output sample rate (default 24000)
@@ -359,7 +373,10 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
       authToken,
       cacheDir: path.resolve(expandHome(args.cacheDir ?? "~/.narrationlayer/tts-cache")),
       cache: args.cache,
-      takeChecks: args.takeChecks ? { pitchCeilingHz: args.pitchCeilingHz!, retries: args.takeRetries ?? 2 } : undefined,
+      takeChecks: args.takeChecks ? { pitchCeilingHz: args.pitchCeilingHz!, retries: args.takeRetries ?? 2,
+      wordCheckSetting: args.wordCheckSetting,
+      commonWords: args.wordCheckSetting === "b" || args.wordCheckSetting === "c"
+        ? new Set((await readFile(args.wordDictionary ?? "/usr/share/dict/words", "utf8")).split(/\r?\n/).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ""))) : undefined } : undefined,
       refreshCache: args.refreshCache,
       keepPiecesDir: args.keepPieces === undefined ? undefined : path.resolve(expandHome(args.keepPieces)),
       timeoutMs: args.timeoutMs,

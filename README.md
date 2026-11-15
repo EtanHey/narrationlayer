@@ -82,7 +82,11 @@ digits, and Levenshtein distance at most one when both words have at least six l
 No missing/extra-word allowance is applied. Spelling tolerance can also hide a genuine
 one-letter substitution. Every `--take-checks` attempt, including cache hits and short
 takes with unjudged pitch, checks the whole spoken text with whisper-cli after pitch
-acceptance; mismatches use the bounded retry loop. Recognition errors fail without a
+acceptance; mismatches use the bounded retry loop. At the retry bound, the runner publishes the
+pitch-passing take with the fewest word edits (ties keep the earliest). The receipt
+records `wordMatch.keptBest: true` and each attempt's edit count; this take is never
+written to the take cache, so rebuilding tries again. Pitch give-up still throws.
+Recognition errors fail without a
 retry or publication. This requires a Whisper model; `NARRATIONLAYER_WHISPER_BINARY`
 can override the binary, and `NARRATIONLAYER_WHISPER_MODEL` the model. Audio bytes,
 pauses and the render version are unchanged.
@@ -96,7 +100,12 @@ the recognized token is common; (d) judges only deletions and insertions. Settin
 from that normalized dictionary, camelCase, containing digits, or capitalized within
 a sentence. These alternatives filter the same alignment; ignored substitutions stay
 in `ignoredEdits`. The pipeline API accepts `takeChecks.wordCheckSetting` and, for
-(b)/(c), `takeChecks.commonWords`. The page-corpus comparison did **not** meet the
+(b)/(c), `takeChecks.commonWords`. The page build can use `bun bin/local-tts-runner.ts --text "..." --output out.wav
+--reference <profile> --take-checks --pitch-ceiling <hz> --take-retries 2
+--word-check-setting a` (plus its auth/profile flags). The runner also accepts
+`--word-dictionary <path>` for (b)/(c). `check-take` remains a diagnostic that exits 1
+on word mismatches; runner publication uses the keep-best rule.
+The page-corpus comparison did **not** meet the
 15% acceptance gate for any setting; retain opt-in use pending review of its failure
 rate. Setting (a) retains the greatest detection coverage, not a claim of corpus
 acceptance.

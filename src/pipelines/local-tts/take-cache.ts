@@ -135,6 +135,8 @@ export async function clearTakeCacheReceipt(output: string): Promise<void> {
 
 export interface TakeCheckReceipt {
   wordMatch?: {
+    keptBest?: boolean;
+    attempts: { source: "cache" | "render"; attempt: number; editCount: number | null }[];
     pass: boolean;
     setting: string;
     edits: { kind: string; sentIndex: number; recognisedIndex: number; start: number | null; end: number | null }[];
