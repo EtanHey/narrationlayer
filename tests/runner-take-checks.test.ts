@@ -199,7 +199,7 @@ for (const [name, counts, selected] of [
 ] as const) {
   test(`word retry fallback: ${name}`, async () => {
     const f = await fixture(0, 1, true);
-    const takes: Buffer[] = [];
+    const takes: Buffer<ArrayBuffer>[] = [];
     f.args.keepPiecesDir = path.join(f.dir, "kept");
     f.args.recogniseTake = async wav => {
       const index = takes.length;
@@ -227,7 +227,7 @@ for (const [name, counts, selected] of [
 for (const pitchFirst of [false, true]) {
   test(`best word take survives final pitch rejection (first pitch failure: ${pitchFirst})`, async () => {
     const f = await fixture(pitchFirst ? 1 : 0, 1, true);
-    const takes: Buffer[] = [];
+    const takes: Buffer<ArrayBuffer>[] = [];
     f.args.recogniseTake = async wav => {
       takes.push(await readFile(wav));
       if (pitchFirst || takes.length === 2) f.args.takeChecks!.pitchCeilingHz = 100;
