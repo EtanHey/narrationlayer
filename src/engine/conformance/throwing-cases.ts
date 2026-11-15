@@ -43,9 +43,23 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       c.assert(t.seen.filter(e => e.type === "outcome" && e.session_id === accepted.session_id).length === 1); // R100: thrown outcome still terminal.
     }
     await complete("fault-read"); c.assert(thrown);
+    const failed = t.seen.find(e => e.type === "accepted" && e.request_id === "fault-read");
+    c.assert(failed?.type === "accepted");
+    const errors = t.seen.filter(e => e.type === "error" && e.session_id === failed?.session_id);
+    if (["monotonic", "schedule", "store.has", "store.set"].includes(fault)) {
+      c.assert(errors.some(e => e.type === "error" && e.code === "HOST_CALLBACK_FAILED"
+        && e.phase === (fault.startsWith("store.") ? "deliver" : "synthesize") && e.retry === "new_request"));
+    } else if (fault === "backend" || fault === "rejection") {
+      c.assert(errors.some(e => e.type === "error" && e.code === "SYNTH_FAILED" && e.phase === "synthesize"));
+    } else c.assert(errors.length === 0); // Includes a throwing logger and class (c) resolve.
+
     if (t.backend.pending === 0) t.backend.script([step]); // L429/558, R90: either backend/bound order is valid.
     t.connection.send(read("healthy-read")); await until(c, () => t.seen.filter(e => e.type === "accepted").length === 2 && t.seen.some(e => e.type === "piece_ready" && e.session_id === t.seen.filter(e => e.type === "accepted")[1]?.session_id));
-    await complete("healthy-read"); await t.finish();
+    await complete("healthy-read");
+    const healthy = t.seen.find(e => e.type === "accepted" && e.request_id === "healthy-read");
+    c.assert(!t.seen.some(e => e.type === "error" && e.session_id === healthy?.session_id));
+    c.assert(t.seen.some(e => e.type === "outcome" && e.session_id === healthy?.session_id && e.generation.status === "committed"));
+    await t.finish();
     c.assert(logs.length > 0); c.assert(!JSON.stringify(logs).includes("Copper boats drift.")); // R103
   }
   c.assert(trapState.violations.filter(v => v.kind === "exit").length === exits); // Harness owns rejection recording.
