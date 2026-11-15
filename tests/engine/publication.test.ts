@@ -1,3 +1,5 @@
+import { createArtifactStore, ArtifactStoreError } from "../../src/engine/artifacts/store";
+import { HostFault } from "../../src/engine/host-callbacks";
 import { hello } from "../../src/engine/conformance/engine-cases";
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
@@ -260,4 +262,18 @@ test("BIND-03: publication cleanup release preserves the original abort", async 
   const publication = createPublication({ async put() { abort.abort("synthetic abort"); return { handle: "synthetic", lease_id: "synthetic", format: "wav" }; }, release() { throw TypeError("synthetic fault text"); }, async commit() {} }, entry => { logs.push(entry); });
   await expect(publication.piece(pcmAudio(20), { owner_epoch: 1, session_id: "synthetic", attempt_id: "synthetic", index: 0, piece_id: "synthetic", prefix: [], synthesis_ms: 1, spoken_text: "Copper boats drift", words, segments: 1, rate: "+0%", engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" } }, abort.signal)).rejects.toBe("synthetic abort");
   expect(logs).toEqual([{ callback: "artifacts.release", error_name: "TypeError" }]); // R102(a),103
+});
+
+for (const fault of [false, true]) test(`Q103: publication preserves typed refusal versus byte-port fault, throw=${fault}`, async () => {
+  const store = createArtifactStore({ has() { if (fault) throw TypeError("synthetic private fault"); return true; }, get() { return undefined; }, set() {}, delete() {} }, 1);
+  const publication = createPublication(store);
+  let failure: unknown;
+  try {
+    await publication.piece(pcmAudio(20), { owner_epoch: 1, session_id: "synthetic", attempt_id: "synthetic", index: 0, piece_id: "synthetic", prefix: [], synthesis_ms: 1, spoken_text: "Copper boats drift", words, segments: 1, rate: "+0%", engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" } }, new AbortController().signal);
+  } catch (error) { failure = error; }
+  expect(failure).toBeInstanceOf(ArtifactStoreError);
+  if (!(failure instanceof ArtifactStoreError)) throw Error("missing typed failure");
+  expect(failure.code).toBe(fault ? "storage" : "collision");
+  if (fault) expect(failure.cause).toMatchObject({ callback: "store.has" });
+  expect(failure.cause instanceof HostFault).toBe(fault);
 });

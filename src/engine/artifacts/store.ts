@@ -8,7 +8,7 @@ export interface BytePort {
   delete(handle: string): unknown;
 }
 export class ArtifactStoreError extends Error {
-  constructor(readonly code: "collision" | "sealed" | "shutdown" | "storage" | "aborted" | "owner") { super(`artifact ${code}`); }
+  constructor(readonly code: "collision" | "sealed" | "shutdown" | "storage" | "aborted" | "owner", options?: ErrorOptions) { super(`artifact ${code}`, options); }
 }
 /** Synchronous byte port; hosts resolve player paths outside this module.
  * Host must enforce one live store per byte port and owner epoch; restart/reconnect uses a new epoch. */
@@ -36,8 +36,8 @@ export function createArtifactStore(port: BytePort, owner_epoch: number, log?: H
         live.set(lease_id, { owner_epoch, session_id: identity.session_id, attempt_id: identity.attempt_id, piece_id: identity.piece_id, handle, lease_id });
         return { handle, lease_id, format: "wav" as const };
       } catch (error) {
-        if (writing) { try { host.call("store.delete", () => port.delete(handle)); } catch { throw new ArtifactStoreError("storage"); } }
-        throw error instanceof ArtifactStoreError ? error : new ArtifactStoreError("storage");
+        if (writing) { try { host.call("store.delete", () => port.delete(handle)); } catch { throw new ArtifactStoreError("storage", { cause: error }); } }
+        throw error instanceof ArtifactStoreError ? error : new ArtifactStoreError("storage", { cause: error });
       }
     },
     minted(lease_id: string): boolean {

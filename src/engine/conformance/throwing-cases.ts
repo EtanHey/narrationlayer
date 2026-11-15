@@ -30,9 +30,12 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
     const step = { latency_ms: 1, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(100, 1000, 300) } };
     const t = setup(c, [step]); c.binding.create = create; armed = true;
     t.connection.send(read("fault-read")); // R102: a throw cannot escape send.
+    const parallel = fault === "monotonic" || fault === "schedule";
+    if (parallel) t.connection.send(read("parallel-read"));
     await until(c, () => t.seen.some(e => e.type === "piece_ready" || e.type === "outcome"));
     async function complete(id: string) {
       const accepted = t.seen.find(e => e.type === "accepted" && e.request_id === id); c.assert(accepted?.type === "accepted"); if (accepted?.type !== "accepted") return;
+      await until(c, () => t.seen.some(e => (e.type === "piece_ready" || e.type === "outcome") && e.session_id === accepted.session_id));
       for (const piece of t.seen.filter(e => e.type === "piece_ready" && e.session_id === accepted.session_id)) {
         if (piece.type !== "piece_ready") continue;
         if (fault === "store.get" && id === "fault-read") t.connection.resolve?.(piece.artifact.handle, piece.artifact.lease_id);
@@ -53,8 +56,14 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       c.assert(errors.some(e => e.type === "error" && e.code === "SYNTH_FAILED" && e.phase === "synthesize"));
     } else c.assert(errors.length === 0); // Includes a throwing logger and class (c) resolve.
 
+    if (parallel) {
+      await complete("parallel-read");
+      const other = t.seen.find(e => e.type === "accepted" && e.request_id === "parallel-read");
+      c.assert(t.seen.some(e => e.type === "outcome" && e.session_id === other?.session_id && e.generation.status === "committed"));
+      c.assert(!t.seen.some(e => e.type === "error" && e.session_id === other?.session_id));
+    }
     if (t.backend.pending === 0) t.backend.script([step]); // L429/558, R90: either backend/bound order is valid.
-    t.connection.send(read("healthy-read")); await until(c, () => t.seen.filter(e => e.type === "accepted").length === 2 && t.seen.some(e => e.type === "piece_ready" && e.session_id === t.seen.filter(e => e.type === "accepted")[1]?.session_id));
+    t.connection.send(read("healthy-read")); await until(c, () => t.seen.filter(e => e.type === "accepted").length === (parallel ? 3 : 2) && t.seen.some(e => e.type === "piece_ready" && e.session_id === t.seen.find(e => e.type === "accepted" && e.request_id === "healthy-read")?.session_id));
     await complete("healthy-read");
     const healthy = t.seen.find(e => e.type === "accepted" && e.request_id === "healthy-read");
     c.assert(!t.seen.some(e => e.type === "error" && e.session_id === healthy?.session_id));

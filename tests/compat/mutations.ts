@@ -13,7 +13,7 @@ export type MutationRow = Anchor & (
   | { kind: "conformance-case"; binding: string; caseId: string }
 );
 export const cases: MutationRow[] = [
-  { kind: "conformance-case", name: "host-required-failure-code", file: "src/engine/session/session.ts", before: 'code: "HOST_CALLBACK_FAILED", phase: callback', after: 'code: "SYNTH_FAILED", phase: callback', binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-03" },
+  { kind: "conformance-case", name: "host-required-failure-code", file: "src/engine/session/session.ts", before: 'code: "HOST_CALLBACK_FAILED", phase: error.callback', after: 'code: "SYNTH_FAILED", phase: error.callback', binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-03" },
   { kind: "conformance-case", name: "host-logger-throw-escapes", file: "src/engine/host-callbacks.ts", before: 'try { void Promise.resolve(log?.({ callback, error_name })).catch(() => {}); } catch { /* R103: logging cannot break the host. */ }', after: 'log?.({ callback, error_name });', binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-03" },
   { kind: "conformance-case", name: "host-emit-guard-removed", file: "src/engine/session/session.ts", before: 'host.ignore("observe.event",', after: 'host.call("observe.event",', binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-03" },
   { kind: "named-test", name: "host-log-message-leak", file: "src/engine/host-callbacks.ts", before: 'log?.({ callback, error_name })', after: 'log?.({ callback, error_name, message: error instanceof Error ? error.message : String(error) })', testFile: "tests/engine/session/session.test.ts", testName: "N4: accept observer failure is logged without becoming a planner refusal" },

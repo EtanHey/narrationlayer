@@ -490,8 +490,8 @@ The same engine then serves a fresh read to one completed outcome. The harness
 records unhandled rejections; no case installs a process-global handler.
 The throwing observer is `observe.event`, the existing diagnostic callback,
 not a second event transport. Planner faults remain admission refusals.
-Owed: VoiceLayer adoption and shape confirmation of the optional `log` port,
-and its decision whether host synthesis faults need a distinct error code.
+Q103 approves the finite optional `log` port and `HOST_CALLBACK_FAILED`;
+VoiceLayer adoption remains owed. The 0.4 erratum below records phases and typed refusals.
 
 SPK-05e (L282/L532, PLAN-v4 L46) stops via a read that has delivered audio,
 with all_speech reaching another read whose synthesis is in flight. The
@@ -520,6 +520,10 @@ without a logger the engine writes nothing. Class (a) observers, cancels, delete
 releases and minted diagnostics log and carry on. Class (c) shutdown clock faults
 still take the deadline path; resolve/custody preserve their typed failed results.
 Planner refusal and invalid publication receipts retain their existing behavior.
+The collision ruling keeps typed `ArtifactStoreError` refusals as `SYNTH_FAILED`;
+a byte-port throw wrapped by a storage error preserves its host origin and becomes
+`HOST_CALLBACK_FAILED` in phase `deliver`. The broken ERR-01 binding now also
+fails BIND-03 because BIND-03 independently checks backend failures remain visible.
 BIND-03 checks host versus backend codes, throwing logger containment, and a
 healthy subsequent session. Mutation rows `host-required-failure-code` and
 `host-logger-throw-escapes` pin these obligations.
