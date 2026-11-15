@@ -15,7 +15,10 @@ export type SessionState = Identity & {
   current: Current; job_epoch: number; previous: Pick<Current, "player_instance_id" | "piece_index"> | null; receipts: Receipt[];
 };
 type RefusalCode = Extract<Message<"error">["code"], "INVALID_REQUEST" | "INPUT_TOO_LONG" | "VOICE_UNAVAILABLE" | "NOT_NEGOTIATED" | "UNSUPPORTED_VERSION" | "MISSING_CAPABILITY" | "ARTIFACT_EXPIRED">;
-type SynthesisError = Pick<Message<"error">, "message"> & { code: "SYNTH_FAILED" | "SYNTH_TIMEOUT" | "ENGINE_UNAVAILABLE" | "VOICE_UNAVAILABLE" };
+type SynthesisError = Pick<Message<"error">, "message"> & (
+  | { code: "SYNTH_FAILED" | "SYNTH_TIMEOUT" | "ENGINE_UNAVAILABLE" | "VOICE_UNAVAILABLE" }
+  | { code: "HOST_CALLBACK_FAILED"; phase: "synthesize" | "deliver" }
+);
 type Authority = "host" | "engine";
 export type State<A extends Authority = Authority> = { owner_epoch: number; epoch_authority: A; seq: number; session_seqs: Record<string, number>; sessions: Record<string, SessionState>; admissions: Record<string, { session_id: string; accepted: Message<"accepted"> }> };
 export type Input<A extends Authority = Authority> =
@@ -235,7 +238,7 @@ export function reduce(state: State, input: Input): { state: State; effects: Eff
         } else if (input.result.kind === "commit") {
           // I04 / Seal + Commit: complete coverage for N planned pieces.
           if (s.delivered.length === s.plan.pieces.length) s.generation = "committed";
-        } else { const { code, message } = input.result.error; emit({ type: "error", code, message, phase: "synthesize", retry: "new_request", session_id }); s.generation = "failed"; if (code === "SYNTH_TIMEOUT") s.synthesis_reason = "synth_timeout"; s.fenced = true; if (s.playback === null) s.playback = s.delivered.length === 0 ? "synth_failed" : "speech_failed"; }
+        } else { const { code, message } = input.result.error; emit({ type: "error", code, message, phase: input.result.error.code === "HOST_CALLBACK_FAILED" ? input.result.error.phase : "synthesize", retry: "new_request", session_id }); s.generation = "failed"; if (code === "SYNTH_TIMEOUT") s.synthesis_reason = "synth_timeout"; s.fenced = true; if (s.playback === null) s.playback = s.delivered.length === 0 ? "synth_failed" : "speech_failed"; }
       } else {
         const f = input.feedback;
         if (s.playback !== null) return { state, effects: [] }; // I01: EOF before publication still locks playback.

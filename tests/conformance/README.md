@@ -490,8 +490,8 @@ The same engine then serves a fresh read to one completed outcome. The harness
 records unhandled rejections; no case installs a process-global handler.
 The throwing observer is `observe.event`, the existing diagnostic callback,
 not a second event transport. Planner faults remain admission refusals.
-Owed: VoiceLayer adoption and shape confirmation of the optional `log` port,
-and its decision whether host synthesis faults need a distinct error code.
+Q103 approves the finite optional `log` port and `HOST_CALLBACK_FAILED`;
+VoiceLayer adoption remains owed. The 0.4 erratum below records phases and typed refusals.
 
 SPK-05e (L282/L532, PLAN-v4 L46) stops via a read that has delivered audio,
 with all_speech reaching another read whose synthesis is in flight. The
@@ -503,3 +503,29 @@ SPK-05h still owes the host's no-audio fence. GEN-03e stays inactive under
 ruling 104: a publication-fault seam is designed with ART-02/ART-03 (S7h).
 ID-02 stays inactive under ruling 105: it moves to reconnect binding BIND-02,
 stage B; unit tests and reducer-I02 cover the reducer predicate today.
+
+### Q103 host-callback erratum (0.4, adopted 2026-11-15)
+
+Required host callbacks now end only their session with `HOST_CALLBACK_FAILED`
+and retry `new_request`. Clock reads/schedules use phase `synthesize`: they bound
+and measure synthesis, including a waiting predecessor. Required host artifact put/commit
+and byte-store faults use `deliver`: they make synthesized audio available
+to the host. Publication is engine-owned: its own audio, sample-count and timing
+validation errors remain `SYNTH_FAILED` in phase `synthesize`. Faults are wrapped
+only at host-port boundaries, not around the publication module. The failed-generation/outcome path is unchanged. Backend throws and
+rejections remain `SYNTH_FAILED`, including clone fallback rules.
+
+The optional `log({callback, error_name})` port uses finite callback identifiers
+and the error-name allowlist `TypeError`, `RangeError`, `Error`, `NonError`.
+No message, stack or request text is passed. Logger throws/rejections are swallowed;
+without a logger the engine writes nothing. Class (a) observers, cancels, deletes,
+releases and minted diagnostics log and carry on. Class (c) shutdown clock faults
+still take the deadline path; resolve/custody preserve their typed failed results.
+Planner refusal and invalid publication receipts retain their existing behavior.
+The collision ruling keeps typed `ArtifactStoreError` refusals as `SYNTH_FAILED`;
+a byte-port throw wrapped by a storage error preserves its host origin and becomes
+`HOST_CALLBACK_FAILED` in phase `deliver`. The broken ERR-01 binding now also
+fails BIND-03 because BIND-03 independently checks backend failures remain visible.
+BIND-03 checks host versus backend codes, throwing logger containment, and a
+healthy subsequent session. Mutation rows `host-required-failure-code` and
+`host-logger-throw-escapes` pin these obligations.

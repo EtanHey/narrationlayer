@@ -241,3 +241,14 @@ the whole mutation driver supplies sensitivity and restored-pass evidence.
 No new model-level or host/player acceptance is claimed.
 
 S7c-2 / ruling 91: a matching backend failure with `SYNTH_TIMEOUT` uses the existing SynthesisFailure transition and I01 terminal locks. It records generation reason `synth_timeout`; the host-clock timer and deferred abort are session-level proofs in BIND-01, not modeled timer liveness.
+
+## S7g / Q103 host-callback diagnostics
+
+`HOST_CALLBACK_FAILED` maps like `SYNTH_FAILED` to the existing failed-generation
+terminal: `SynthesisFailure` while generating, or `PublishFailure` for final
+publication, both through `EndGeneration`. Wire error codes and the diagnostic
+phases `synthesize` and `deliver` are not model fields; `s.failure` classifies the
+abstract synthesis/publication transition, not the wire phase. No action or model
+variable changes. Generation failure, fencing, first-terminal playback preservation
+and the I01-I04 guards are unchanged. The reducer diff adds only the error type
+and diagnostic phase selection; the source hash is synchronized on that basis.

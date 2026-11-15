@@ -1,4 +1,5 @@
-import { hostCallbacks, type HostLog } from "../host-callbacks";
+import { ArtifactStoreError } from "../artifacts/store";
+import { hostCallbacks, HostFault, type HostLog } from "../host-callbacks";
 import { createHash } from "node:crypto";
 import type { Message } from "../messages/messages";
 import { decodePcm, firstAudibleOffsetMs } from "./decoded";
@@ -19,6 +20,14 @@ export interface ArtifactPort {
 /** Layer 3 composes the independent layer-2 audio and timing leaves; no session or conformance imports. */
 export function createPublication(artifacts: ArtifactPort, log?: HostLog) {
   const host = hostCallbacks(log);
+  function portFailure(callback: "artifacts.put" | "artifacts.commit", error: unknown): never {
+    if (error instanceof ArtifactStoreError) {
+      if (error.cause instanceof HostFault) throw error.cause;
+      throw error; // The port's own typed refusal, not a host callback throw.
+    }
+    host.report(callback, error);
+    throw new HostFault(callback);
+  }
   return {
     async piece(audio: { bytes: Uint8Array; timings: unknown }, context: PublicationContext, signal: AbortSignal): Promise<PublishedPiece> {
       signal.throwIfAborted();
@@ -29,7 +38,7 @@ export function createPublication(artifacts: ArtifactPort, log?: HostLog) {
       const sha256 = createHash("sha256").update(bytes).digest("hex");
       let stored: Awaited<ReturnType<ArtifactPort["put"]>>;
       try { stored = await artifacts.put(bytes, { owner_epoch: context.owner_epoch, session_id: context.session_id, attempt_id: context.attempt_id, piece_id: context.piece_id }, signal); }
-      catch (error) { host.report("artifacts.put", error); throw error; }
+      catch (error) { portFailure("artifacts.put", error); }
       try {
         signal.throwIfAborted();
         return { type: "piece_ready", session_id: context.session_id, attempt_id: context.attempt_id, index: context.index, piece_id: context.piece_id,
@@ -40,6 +49,9 @@ export function createPublication(artifacts: ArtifactPort, log?: HostLog) {
       } catch (error) { host.ignore("artifacts.release", () => artifacts.release(stored.lease_id)); throw error; }
     },
     release: artifacts.release.bind(artifacts),
-    commit: artifacts.commit.bind(artifacts),
+    async commit(identity: Parameters<ArtifactPort["commit"]>[0], signal: AbortSignal) {
+      try { await artifacts.commit(identity, signal); }
+      catch (error) { portFailure("artifacts.commit", error); }
+    },
   };
 }

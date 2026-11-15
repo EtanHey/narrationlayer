@@ -1,3 +1,4 @@
+import type { Message } from "../messages/messages";
 import type { Case } from "./runner";
 import type { Binding } from "./binding";
 import { setup, until } from "./engine-cases";
@@ -28,11 +29,14 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       return create(wrapped);
     };
     const step = { latency_ms: 1, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(100, 1000, 300) } };
-    const t = setup(c, [step]); c.binding.create = create; armed = true;
+    const parallel = fault === "monotonic" || fault === "schedule";
+    const t = setup(c, parallel ? [step, step] : [step]); c.binding.create = create; armed = true;
     t.connection.send(read("fault-read")); // R102: a throw cannot escape send.
+    if (parallel) t.connection.send(read("parallel-read"));
     await until(c, () => t.seen.some(e => e.type === "piece_ready" || e.type === "outcome"));
     async function complete(id: string) {
-      const accepted = t.seen.find(e => e.type === "accepted" && e.request_id === id); c.assert(accepted?.type === "accepted"); if (accepted?.type !== "accepted") return;
+      const accepted = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === id); c.assert(accepted?.type === "accepted"); if (accepted?.type !== "accepted") return;
+      await until(c, () => t.seen.some(e => (e.type === "piece_ready" || e.type === "outcome") && e.session_id === accepted.session_id));
       for (const piece of t.seen.filter(e => e.type === "piece_ready" && e.session_id === accepted.session_id)) {
         if (piece.type !== "piece_ready") continue;
         if (fault === "store.get" && id === "fault-read") t.connection.resolve?.(piece.artifact.handle, piece.artifact.lease_id);
@@ -43,9 +47,33 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       c.assert(t.seen.filter(e => e.type === "outcome" && e.session_id === accepted.session_id).length === 1); // R100: thrown outcome still terminal.
     }
     await complete("fault-read"); c.assert(thrown);
+    if (parallel) await complete("parallel-read");
+    // No synthesis order is promised across sessions: identify the one-shot fault by its event.
+    const failed = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && (parallel
+      ? t.seen.some(error => error.type === "error" && error.session_id === e.session_id && error.code === "HOST_CALLBACK_FAILED")
+      : e.request_id === "fault-read"));
+    c.assert(failed?.type === "accepted");
+    if (!failed) return;
+    const errors = t.seen.filter(e => e.type === "error" && e.session_id === failed?.session_id);
+    if (["monotonic", "schedule", "store.has", "store.set"].includes(fault)) {
+      c.assert(errors.some(e => e.type === "error" && e.code === "HOST_CALLBACK_FAILED"
+        && e.phase === (fault.startsWith("store.") ? "deliver" : "synthesize") && e.retry === "new_request"));
+    } else if (fault === "backend" || fault === "rejection") {
+      c.assert(errors.some(e => e.type === "error" && e.code === "SYNTH_FAILED" && e.phase === "synthesize"));
+    } else c.assert(errors.length === 0); // Includes a throwing logger and class (c) resolve.
+
+    if (parallel) {
+      const other = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.session_id !== failed.session_id);
+      c.assert(t.seen.some(e => e.type === "outcome" && e.session_id === other?.session_id && e.generation.status === "committed"));
+      c.assert(!t.seen.some(e => e.type === "error" && e.session_id === other?.session_id));
+    }
     if (t.backend.pending === 0) t.backend.script([step]); // L429/558, R90: either backend/bound order is valid.
-    t.connection.send(read("healthy-read")); await until(c, () => t.seen.filter(e => e.type === "accepted").length === 2 && t.seen.some(e => e.type === "piece_ready" && e.session_id === t.seen.filter(e => e.type === "accepted")[1]?.session_id));
-    await complete("healthy-read"); await t.finish();
+    t.connection.send(read("healthy-read")); await until(c, () => t.seen.filter(e => e.type === "accepted").length === (parallel ? 3 : 2) && t.seen.some(e => e.type === "piece_ready" && e.session_id === t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === "healthy-read")?.session_id));
+    await complete("healthy-read");
+    const healthy = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === "healthy-read");
+    c.assert(!t.seen.some(e => e.type === "error" && e.session_id === healthy?.session_id));
+    c.assert(t.seen.some(e => e.type === "outcome" && e.session_id === healthy?.session_id && e.generation.status === "committed"));
+    await t.finish();
     c.assert(logs.length > 0); c.assert(!JSON.stringify(logs).includes("Copper boats drift.")); // R103
   }
   c.assert(trapState.violations.filter(v => v.kind === "exit").length === exits); // Harness owns rejection recording.

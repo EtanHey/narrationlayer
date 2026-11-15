@@ -689,7 +689,7 @@ for (const method of ["monotonic", "schedule"] as const) test(`BIND-03: throwing
   h.clock[method] = () => { throw new Error(request.input.text); };
   expect(() => h.session.send(request)).not.toThrow(); await turn();
   Reflect.set(h.clock, method, original); await h.tick();
-  expect(h.events()).toContainEqual(expect.objectContaining({ type: "error", code: "SYNTH_FAILED", phase: "synthesize" }));
+  expect(h.events()).toContainEqual(expect.objectContaining({ type: "error", code: "HOST_CALLBACK_FAILED", phase: "synthesize" }));
   h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
   expect(h.events().filter(e => e.type === "piece_ready")).toHaveLength(1);
 });
@@ -701,11 +701,11 @@ for (const method of ["now", "schedule"] as const) test(`BIND-03: shutdown ${met
   expect(h.logs).toEqual([{ callback: `clock.${method}`, error_name: "RangeError" }]); // R102(c),103
 });
 
-for (const callback of ["piece", "commit"] as const) test(`BIND-03: rejected publication ${callback} is logged and contained`, async () => {
+for (const callback of ["piece", "commit"] as const) test(`publication: internal ${callback} failure stays SYNTH_FAILED`, async () => {
   const h = harness(1, units.slice(0, 1)), original = h.publication[callback]; h.script(2);
   Reflect.set(h.publication, callback, () => Promise.reject(new Error(request.input.text)));
   h.session.send(request); await h.tick(); Reflect.set(h.publication, callback, original);
-  expect(h.logs).toContainEqual({ callback: `publication.${callback}`, error_name: "Error" }); // R102(b),103
+  expect(h.logs).toEqual([]); // Publication is engine-owned; only host-port boundaries log callback faults.
   expect(h.events()).toContainEqual(expect.objectContaining({ type: "error", code: "SYNTH_FAILED", phase: "synthesize" }));
   h.session.send({ ...request, request_id: "req-two", idempotency_key: "key-two" }); await h.tick();
   expect(h.events().filter(e => e.type === "accepted")).toHaveLength(2);
@@ -739,6 +739,6 @@ test("BIND-03: waiting bound clock fault fails only the waiter", async () => {
   expect(() => h.session.send({ ...request, request_id: "waiter-fault", idempotency_key: "waiter-fault", start: { after_session: "session-1-1" } })).not.toThrow();
   expect(h.events().filter(e => e.type === "error")).toEqual([]); await turn(); // R102(b): after send.
   expect(faulted).toBe(true); expect(h.logs).toContainEqual({ callback: "clock.schedule", error_name: "Error" });
-  expect(h.events().filter(e => e.type === "error")).toMatchObject([{ code: "SYNTH_FAILED", phase: "synthesize", session_id: "session-1-2" }]);
+  expect(h.events().filter(e => e.type === "error")).toMatchObject([{ code: "HOST_CALLBACK_FAILED", phase: "synthesize", session_id: "session-1-2" }]);
   expect(h.events().filter(e => e.type === "outcome")).toMatchObject([{ session_id: "session-1-1", playback: { reason: "stop_preparing" } }, { session_id: "session-1-2", generation: { status: "failed" }, playback: { reason: "synth_failed" } }]);
 });

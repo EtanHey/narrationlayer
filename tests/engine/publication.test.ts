@@ -1,3 +1,5 @@
+import { createArtifactStore, ArtifactStoreError } from "../../src/engine/artifacts/store";
+import { HostFault } from "../../src/engine/host-callbacks";
 import { hello } from "../../src/engine/conformance/engine-cases";
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
@@ -261,3 +263,43 @@ test("BIND-03: publication cleanup release preserves the original abort", async 
   await expect(publication.piece(pcmAudio(20), { owner_epoch: 1, session_id: "synthetic", attempt_id: "synthetic", index: 0, piece_id: "synthetic", prefix: [], synthesis_ms: 1, spoken_text: "Copper boats drift", words, segments: 1, rate: "+0%", engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" } }, abort.signal)).rejects.toBe("synthetic abort");
   expect(logs).toEqual([{ callback: "artifacts.release", error_name: "TypeError" }]); // R102(a),103
 });
+
+for (const fault of [false, true]) test(`Q103: publication preserves typed refusal versus byte-port fault, throw=${fault}`, async () => {
+  const store = createArtifactStore({ has() { if (fault) throw TypeError("synthetic private fault"); return true; }, get() { return undefined; }, set() {}, delete() {} }, 1);
+  const publication = createPublication(store);
+  let failure: unknown;
+  try {
+    await publication.piece(pcmAudio(20), { owner_epoch: 1, session_id: "synthetic", attempt_id: "synthetic", index: 0, piece_id: "synthetic", prefix: [], synthesis_ms: 1, spoken_text: "Copper boats drift", words, segments: 1, rate: "+0%", engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" } }, new AbortController().signal);
+  } catch (error) { failure = error; }
+  if (fault) expect(failure).toMatchObject({ callback: "store.has" });
+  else expect(failure).toMatchObject({ code: "collision" });
+  expect(failure instanceof HostFault).toBe(fault);
+  expect(failure instanceof ArtifactStoreError).toBe(!fault);
+});
+
+for (const fault of ["malformed WAV", "timing validation", "artifact put", "artifact commit"] as const)
+  test(`Q103: origin determines error code for ${fault}`, async () => {
+    const clock = new FakeClock(), events: Event[] = [], logs: unknown[] = [];
+    const store = createArtifactStore(new Map(), 1);
+    const publication = createPublication({ ...store,
+      ...(fault === "artifact put" ? { async put() { throw TypeError("synthetic port fault"); } } : {}),
+      ...(fault === "artifact commit" ? { async commit() { throw TypeError("synthetic port fault"); } } : {}),
+    }, entry => { logs.push(entry); });
+    const audio = pcmAudio(20);
+    const session = createEngineSession({ owner_epoch: 1, synthesis_timeout_ms: 10000,
+      welcome: { package_version: "0.0.0-test", protocol_minor: 0, caps: ["lifecycle"], engines: [] },
+      limits: { max_chars: { read: 1000, speak: 1000, ask_prompt: 1000 }, lookahead: 3, aligner_reap_ms: 100 },
+      clock, planner, publication, backend: { async synthesizeRequest() {
+        return { bytes: fault === "malformed WAV" ? new Uint8Array([1, 2, 3, 4]) : audio.bytes,
+          timings: fault === "timing validation" ? { get words() { throw RangeError("synthetic timing fault"); } } : null };
+      } }, observe: { event(event) { events.push(event); } }, log: entry => { logs.push(entry); },
+    });
+    session.send(hello);
+    session.send({ protocol: "nl.engine/1", type: "narrate", request_id: "origin-request", idempotency_key: "origin-key", use: "read", input: { text: "Copper boats drift", format: "plain" }, voice: { profile: "synthetic", require_clone: false, fallback: "none" }, delivery: "pieces" });
+    for (let i = 0; i < 40; i++) await clock.advance(1);
+    await session.shutdown(100);
+    const host = fault.startsWith("artifact");
+    expect(events.filter(e => e.type === "error")).toMatchObject([{ code: host ? "HOST_CALLBACK_FAILED" : "SYNTH_FAILED", phase: host ? "deliver" : "synthesize", retry: "new_request" }]);
+    expect(events.filter(e => e.type === "outcome")).toMatchObject([{ generation: { status: "failed" } }]);
+    if (!host) expect(events.some(e => e.type === "error" && e.code === "HOST_CALLBACK_FAILED")).toBe(false);
+  });

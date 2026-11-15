@@ -124,7 +124,7 @@ export function createEngineSession<Audio>(options: {
     });
   }
   function failHost(identity: Identity) {
-    queueMicrotask(() => step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_FAILED", message: "host callback failed" } } }));
+    queueMicrotask(() => step({ kind: "backend", identity, result: { kind: "failure", error: { code: "HOST_CALLBACK_FAILED", phase: "synthesize", message: "host callback failed" } } }));
   }
   function pump(id: string) {
     const session = Object.hasOwn(state.sessions, id) ? state.sessions[id] : undefined;
@@ -187,15 +187,13 @@ export function createEngineSession<Audio>(options: {
     } });
   }
   async function run(identity: Identity, abort: AbortController) {
-    let callback = "";
     try {
       // §2 L114: strict prefix, one synthesis in flight; parked reads hold no timer.
       while (state.sessions[identity.session_id].generation === "running") {
         const session = state.sessions[identity.session_id], index = session.delivered.length;
         const piece = session.plan.pieces[index];
         if (!piece) {
-          callback = "publication.commit";
-          await options.publication.commit(identity, abort.signal); callback = "";
+          await options.publication.commit(identity, abort.signal);
           step({ kind: "backend", identity, result: { kind: "commit" } }); break;
         }
         if (nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) break;
@@ -239,7 +237,6 @@ export function createEngineSession<Audio>(options: {
         } finally { cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout); }
         const ready = host.call("clock.monotonic", () => options.clock.monotonic());
         abort.signal.throwIfAborted();
-        callback = "publication.piece";
         const delivered = await options.publication.piece(audio, {
           ...identity, index: piece.index, piece_id: piece.piece_id,
           prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
@@ -247,7 +244,7 @@ export function createEngineSession<Audio>(options: {
           // Engine selection owes the resolved profile/mode rate when the request omits it.
           engine, substituted, fallback_reason, timing: substituted ? options.welcome.engines.find(e => e.family === engine.family)?.timing : undefined, segments: piece.segments.length, rate,
           synthesis_ms: ready - started, spoken_text: request.text,
-        }, abort.signal); callback = "";
+        }, abort.signal);
         // §3 L282: stop during publication still goes through the attempt fence.
         try {
           const { known_ms, first_audible_offset_ms, ...receipt } = structuredClone(delivered);
@@ -262,9 +259,10 @@ export function createEngineSession<Audio>(options: {
         if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
       }
     } catch (error) {
-      if (callback && !(error instanceof HostFault)) host.report(callback, error);
       // §2.5 L220: reducer emits a text-free error and the one terminal outcome.
-      step({ kind: "backend", identity, result: { kind: "failure", error: { code: error instanceof SynthesisFailure ? error.code : "SYNTH_FAILED", message: "synthesis or publication failed" } } });
+      step({ kind: "backend", identity, result: { kind: "failure", error: error instanceof HostFault && error.callback !== "backend.synthesizeRequest"
+        ? { code: "HOST_CALLBACK_FAILED", phase: error.callback.startsWith("clock.") ? "synthesize" : "deliver", message: "host callback failed" }
+        : { code: error instanceof SynthesisFailure ? error.code : "SYNTH_FAILED", message: "synthesis failed" } } });
     } finally {
       aborts.delete(identity.session_id);
       if (state.sessions[identity.session_id].generation !== "running") requests.delete(identity.session_id);
