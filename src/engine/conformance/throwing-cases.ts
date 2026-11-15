@@ -47,8 +47,13 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       c.assert(t.seen.filter(e => e.type === "outcome" && e.session_id === accepted.session_id).length === 1); // R100: thrown outcome still terminal.
     }
     await complete("fault-read"); c.assert(thrown);
-    const failed = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === "fault-read");
+    if (parallel) await complete("parallel-read");
+    // No synthesis order is promised across sessions: identify the one-shot fault by its event.
+    const failed = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && (parallel
+      ? t.seen.some(error => error.type === "error" && error.session_id === e.session_id && error.code === "HOST_CALLBACK_FAILED")
+      : e.request_id === "fault-read"));
     c.assert(failed?.type === "accepted");
+    if (!failed) return;
     const errors = t.seen.filter(e => e.type === "error" && e.session_id === failed?.session_id);
     if (["monotonic", "schedule", "store.has", "store.set"].includes(fault)) {
       c.assert(errors.some(e => e.type === "error" && e.code === "HOST_CALLBACK_FAILED"
@@ -58,8 +63,7 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
     } else c.assert(errors.length === 0); // Includes a throwing logger and class (c) resolve.
 
     if (parallel) {
-      await complete("parallel-read");
-      const other = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === "parallel-read");
+      const other = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.session_id !== failed.session_id);
       c.assert(t.seen.some(e => e.type === "outcome" && e.session_id === other?.session_id && e.generation.status === "committed"));
       c.assert(!t.seen.some(e => e.type === "error" && e.session_id === other?.session_id));
     }
