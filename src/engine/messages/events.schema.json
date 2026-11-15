@@ -1921,6 +1921,7 @@
             "VOICE_UNAVAILABLE",
             "ENGINE_UNAVAILABLE",
             "SYNTH_FAILED",
+            "HOST_CALLBACK_FAILED",
             "SYNTH_TIMEOUT",
             "STALE_EPOCH",
             "UNKNOWN_SESSION",

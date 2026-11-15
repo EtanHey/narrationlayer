@@ -503,3 +503,23 @@ SPK-05h still owes the host's no-audio fence. GEN-03e stays inactive under
 ruling 104: a publication-fault seam is designed with ART-02/ART-03 (S7h).
 ID-02 stays inactive under ruling 105: it moves to reconnect binding BIND-02,
 stage B; unit tests and reducer-I02 cover the reducer predicate today.
+
+### Q103 host-callback erratum (0.4, adopted 2026-11-15)
+
+Required host callbacks now end only their session with `HOST_CALLBACK_FAILED`
+and retry `new_request`. Clock reads/schedules use phase `synthesize`: they bound
+and measure synthesis, including a waiting predecessor. Publication piece/commit
+and their artifact writes use `deliver`: they make synthesized audio available
+to the host. The failed-generation/outcome path is unchanged. Backend throws and
+rejections remain `SYNTH_FAILED`, including clone fallback rules.
+
+The optional `log({callback, error_name})` port uses finite callback identifiers
+and the error-name allowlist `TypeError`, `RangeError`, `Error`, `NonError`.
+No message, stack or request text is passed. Logger throws/rejections are swallowed;
+without a logger the engine writes nothing. Class (a) observers, cancels, deletes,
+releases and minted diagnostics log and carry on. Class (c) shutdown clock faults
+still take the deadline path; resolve/custody preserve their typed failed results.
+Planner refusal and invalid publication receipts retain their existing behavior.
+BIND-03 checks host versus backend codes, throwing logger containment, and a
+healthy subsequent session. Mutation rows `host-required-failure-code` and
+`host-logger-throw-escapes` pin these obligations.
