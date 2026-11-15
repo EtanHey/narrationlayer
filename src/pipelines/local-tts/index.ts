@@ -1,6 +1,7 @@
 import { writeFile, mkdir, stat, rename, copyFile, cp, mkdtemp, rm, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
 import { pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
@@ -287,17 +288,28 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       let wordFailed = false;
       if (!reason) {
         try {
+          const spoken = await readFile(`${output}.spoken.txt`, "utf8");
+          if (!/[a-z0-9]/i.test(spoken)) {
+            wordAttempts.push({ source, attempt: evidence.attempts, editCount: null });
+            evidence.wordMatch = { pass: true, setting: checks.wordCheckSetting ?? "a", attempts: wordAttempts,
+              edits: [], note: "not judged: no Latin-script words", model: "not-run" };
+          } else {
+          const modelPath = path.join(os.homedir(), ".cache/whisper/ggml-large-v3-turbo.bin");
+          if (!args.recogniseTake && !existsSync(modelPath)) throw new Error(`take checks require model: ${modelPath}`);
           const words = args.recogniseTake ? await args.recogniseTake(output)
-            : (await runWhisperCliWordTimings(output, { output_directory: stage })).words;
-          const wordMatch = wordMismatches(await readFile(`${output}.spoken.txt`, "utf8"), words,
+            : (await runWhisperCliWordTimings(output, { output_directory: stage, whisper_model: modelPath })).words;
+          const wordMatch = wordMismatches(spoken, words,
             { setting: checks.wordCheckSetting, commonWords: checks.commonWords });
           wordAttempts.push({ source, attempt: evidence.attempts, editCount: wordMatch.edits.length });
           wordFailed = !wordMatch.pass;
           evidence.wordMatch = { pass: wordMatch.pass, setting: wordMatch.setting, attempts: wordAttempts,
+            model: args.recogniseTake ? "injected-recognizer" : "ggml-large-v3-turbo.bin",
             edits: wordMatch.edits.map(({ kind, sentIndex, recognisedIndex, start, end }) => ({ kind, sentIndex, recognisedIndex, start, end })) };
           if (!wordMatch.pass) reason = `word-mismatch:${JSON.stringify(wordMatch.edits.map(({ kind, sentIndex, start, end }) => ({ kind, sentIndex, start, end })))}`;
-        } catch {
-          throw new TakeCheckError("word check execution failed; no retry performed");
+          }
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "unknown recognition error";
+          throw new TakeCheckError(`word check execution failed; no retry performed: ${detail}`);
         }
       }
       if (pitchFailed) wordAttempts.push({ source, attempt: evidence.attempts, editCount: null });
@@ -312,7 +324,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           if (existsSync(pieces)) await cp(pieces, path.join(stage, "best-pieces"), { recursive: true });
         }
       }
-      if (wordFailed && best && evidence.attempts >= checks.retries + 1) {
+      if (reason && best && evidence.attempts >= checks.retries + 1) {
         await copyFile(path.join(stage, "best.wav"), output);
         await copyFile(path.join(stage, "best.spoken.txt"), `${output}.spoken.txt`);
         if (pieces) {

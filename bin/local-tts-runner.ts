@@ -178,7 +178,7 @@ function parseArgs(argv: string[]): Args {
   if (args.takeRetries !== undefined && (!Number.isSafeInteger(args.takeRetries) || args.takeRetries < 0 || args.takeRetries > 10))
     fail("--take-retries must be an integer from 0 to 10");
   if (!args.takeChecks && (args.pitchCeilingHz !== undefined || args.takeRetries !== undefined || args.wordCheckSetting !== undefined || args.wordDictionary !== undefined))
-    fail("--pitch-ceiling and --take-retries require --take-checks");
+    fail("--pitch-ceiling, --take-retries, --word-check-setting and --word-dictionary require --take-checks");
   return args;
 }
 

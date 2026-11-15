@@ -85,10 +85,15 @@ takes with unjudged pitch, checks the whole spoken text with whisper-cli after p
 acceptance; mismatches use the bounded retry loop. At the retry bound, the runner publishes the
 pitch-passing take with the fewest word edits (ties keep the earliest). The receipt
 records `wordMatch.keptBest: true` and each attempt's edit count; this take is never
-written to the take cache, so rebuilding tries again. Pitch give-up still throws.
+written to the take cache, so rebuilding tries again. Pitch give-up throws only when no pitch-passing take exists; a final pitch rejection
+still publishes an earlier usable best take. Non-Latin-only spoken text skips word
+judging with `wordMatch.note: "not judged: no Latin-script words"`.
 Recognition errors fail without a
 retry or publication. This requires a Whisper model; `NARRATIONLAYER_WHISPER_BINARY`
-can override the binary, and `NARRATIONLAYER_WHISPER_MODEL` the model. Audio bytes,
+can override the binary for all Whisper callers. Take checks pin
+`~/.cache/whisper/ggml-large-v3-turbo.bin`, record its name in the receipt, and fail
+with its expected path when missing; they do not use the general model fallback
+or `NARRATIONLAYER_WHISPER_MODEL`. Audio bytes,
 pauses and the render version are unchanged.
 
 `check-take --word-check-setting a|b|c|d` selects alternatives: (b) additionally

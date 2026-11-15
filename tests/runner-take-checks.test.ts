@@ -16,7 +16,7 @@ function tone(hz: number, seconds = 1) {
   h.write("data", 36); h.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([h, pcm]);
 }
-async function fixture(failures: number, seconds = 1, vary = false) {
+async function fixture(failures: number, seconds = 1, vary = false, text = "Hello moon.") {
   await mkdir("docs.local/w92-tests", { recursive: true });
   const dir = path.resolve(await mkdtemp("docs.local/w92-tests/case-"));
   let calls = 0;
@@ -24,13 +24,13 @@ async function fixture(failures: number, seconds = 1, vary = false) {
   await mkdir(cacheDir);
   const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
     const body: unknown = await req.json();
-    expect(body).toEqual(expect.objectContaining({ text: normalizeForSpeech("Hello moon.") }));
+    expect(body).toEqual(expect.objectContaining({ text: normalizeForSpeech(text) }));
     calls++;
     // No failing take may have reached the cache before a subsequent request.
     expect(await readdir(cacheDir)).toEqual([]);
     return Response.json({ audio_b64: tone(calls <= failures ? 400 : vary ? 180 + calls : 180, seconds).toString("base64") });
   } });
-  const args: LocalTtsRenderOptions = { text: "Hello moon.", output: path.join(dir, "out.wav"),
+  const args: LocalTtsRenderOptions = { text, output: path.join(dir, "out.wav"),
     sampleRate: 24000, resolved: { daemonUrl: `http://127.0.0.1:${server.port}`, referenceClip: "synthetic.wav", referenceText: "Synthetic reference." },
     cacheDir, cache: true, authToken: "synthetic", timeoutMs: 10000, prepareSpeechChannels,
     recogniseTake: async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon", start: 0.3, end: 0.6 }],
@@ -223,3 +223,50 @@ for (const [name, counts, selected] of [
     } finally { await f.close(); }
   });
 }
+
+for (const pitchFirst of [false, true]) {
+  test(`best word take survives final pitch rejection (first pitch failure: ${pitchFirst})`, async () => {
+    const f = await fixture(pitchFirst ? 1 : 0, 1, true);
+    const takes: Buffer[] = [];
+    f.args.recogniseTake = async wav => {
+      takes.push(await readFile(wav));
+      if (pitchFirst || takes.length === 2) f.args.takeChecks!.pitchCeilingHz = 100;
+      return [{ word: "Hello", start: 0, end: 0.3 }, { word: "sun", start: 0.3, end: 0.6 }];
+    };
+    try {
+      await renderLocalTts(f.args);
+      expect(f.calls()).toBe(3);
+      expect(await readFile(f.args.output)).toEqual(takes[0]);
+      const r = await receipt(f.args.output);
+      expect(r.takeChecks.wordMatch.keptBest).toBe(true);
+      expect(r.takeChecks.wordMatch.attempts.map((a: { editCount: number | null }) => a.editCount))
+        .toEqual(pitchFirst ? [null, 1, null] : [1, 1, null]);
+      expect(await readdir(f.args.cacheDir)).toEqual([]);
+    } finally { await f.close(); }
+  });
+}
+test("recognizer rejection retains the cause, publishes nothing and does not retry", async () => {
+  const f = await fixture(0);
+  f.args.recogniseTake = async () => { throw new Error("recognizer unavailable"); };
+  try {
+    await expect(renderLocalTts(f.args)).rejects.toThrow("no retry performed: recognizer unavailable");
+    expect(f.calls()).toBe(1);
+    expect(await Bun.file(f.args.output).exists()).toBe(false);
+    expect(await readdir(f.args.cacheDir)).toEqual([]);
+  } finally { await f.close(); }
+});
+test("non-Latin spoken text skips recognition with an explicit receipt note", async () => {
+  const f = await fixture(0, 1, false, "שלום ירח");
+  f.args.recogniseTake = async () => { throw new Error("must not be called"); };
+  try {
+    await renderLocalTts(f.args);
+    expect(f.calls()).toBe(1);
+    expect((await receipt(f.args.output)).takeChecks.wordMatch).toMatchObject({
+      note: "not judged: no Latin-script words", model: "not-run", edits: [] });
+  } finally { await f.close(); }
+});
+test("word flags require take-checks and name the flags in the error", () => {
+  const run = Bun.spawnSync([process.execPath, "bin/local-tts-runner.ts", "--word-check-setting", "a"]);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr.toString()).toContain("--word-check-setting and --word-dictionary require --take-checks");
+});
