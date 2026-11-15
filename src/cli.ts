@@ -4,6 +4,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+import { readFile } from "node:fs/promises";
 import { checkTake } from "./quality/check-take.js";
 
 import { getDataDir, getStatus } from "./job-store.js";
@@ -269,7 +270,11 @@ export async function main() {
       const voice = flagValue(args, "--voice");
       const ceiling = Number(flagValue(args, "--pitch-ceiling"));
       if (!payload || !sent || !words || !voice) throw new Error("check-take requires wav, sent, words, voice and pitch-ceiling");
-      const verdict = await checkTake(payload, sent, words, voice, ceiling);
+      const setting = flagValue(args, "--word-check-setting") ?? "a";
+      if (setting !== "a" && setting !== "b" && setting !== "c" && setting !== "d") throw new Error("word-check-setting must be a, b, c or d");
+      const commonWords = setting === "b" || setting === "c"
+        ? new Set((await readFile(flagValue(args, "--word-dictionary") ?? "/usr/share/dict/words", "utf8")).split(/\r?\n/).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ""))) : undefined;
+      const verdict = await checkTake(payload, sent, words, voice, ceiling, { setting, commonWords });
       printJson(verdict);
       if (!verdict.pass) process.exitCode = 1;
       break;

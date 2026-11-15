@@ -1,8 +1,10 @@
-import { writeFile, mkdir, stat, rename, copyFile, mkdtemp, rm, readFile } from "node:fs/promises";
+import { writeFile, mkdir, stat, rename, copyFile, cp, mkdtemp, rm, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { spawnSync } from "node:child_process";
-import { pitchRunaway } from "../../quality/take-checks.js";
+import { runWhisperCliWordTimings } from "../../word-timings.js";
+import { pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
 import type { SpeechChannels, TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
@@ -23,7 +25,8 @@ export interface ResolvedLocalTtsVoice extends CacheKeyParams {
 }
 
 export interface LocalTtsRenderOptions {
-  takeChecks?: { pitchCeilingHz: number; retries: number };
+  takeChecks?: { pitchCeilingHz: number; retries: number; wordCheckSetting?: WordCheckSetting; commonWords?: ReadonlySet<string> };
+  recogniseTake?: (wav: string) => Promise<readonly RecognisedWord[]>;
   text: string;
   output: string;
   sampleRate: number;
@@ -239,7 +242,7 @@ async function renderUnchecked(args: LocalTtsRenderOptions, store = true): Promi
   return { kind: "rendered", cacheKey, bytes: info.size, atempoNote, breathingNote, loudnessNote, cacheNote, piecesNote };
 }
 
-/** Opt-in checks stage each complete take; only an accepted take may be published or frozen. */
+/** Pitch is a gate; word mismatches rank bounded retries without freezing a rejected take. */
 export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<LocalTtsRenderResult> {
   const checks = args.takeChecks;
   if (!checks) return renderUnchecked(args);
@@ -254,13 +257,16 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
   const pieces = args.keepPiecesDir === undefined ? undefined : path.join(stage, "pieces");
   let refresh = args.refreshCache;
   let key = "";
+  const wordAttempts: { source: "cache" | "render"; attempt: number; editCount: number | null }[] = [];
+  let best: { count: number; result: LocalTtsRenderResult; source: "cache" | "render";
+    wordMatch: NonNullable<TakeCheckReceipt["wordMatch"]>; pitchNote: TakeCheckReceipt["pitchNote"] } | undefined;
   try {
     for (;;) {
       // The existing synthesis path sends a fresh request; the backend supplies variance (no seed API).
-      const result = await renderUnchecked({ ...args, output, keepPiecesDir: pieces,
+      let result = await renderUnchecked({ ...args, output, keepPiecesDir: pieces,
         cache: args.cache && !refresh && evidence.attempts === 0 && evidence.failures.length === 0, refreshCache: false }, false);
       key = result.cacheKey;
-      const source = result.kind === "cache-hit" ? "cache" : "render";
+      let source: "cache" | "render" = result.kind === "cache-hit" ? "cache" : "render";
       if (source === "render") evidence.attempts++;
       const pitch = (() => {
         try {
@@ -276,10 +282,65 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       })();
       const tooShort = pitch.windows.length === 0;
       if (tooShort) evidence.pitchNote = "not judged: shorter than one window";
-      const reason = tooShort ? undefined : pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
+      else delete evidence.pitchNote;
+      let reason = tooShort ? undefined : pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
+      const pitchFailed = reason !== undefined;
+      let wordFailed = false;
       if (!reason) {
+        try {
+          const spoken = await readFile(`${output}.spoken.txt`, "utf8");
+          if (!/[a-z0-9]/i.test(spoken)) {
+            wordAttempts.push({ source, attempt: evidence.attempts, editCount: null });
+            evidence.wordMatch = { pass: true, setting: checks.wordCheckSetting ?? "a", attempts: wordAttempts,
+              edits: [], note: "not judged: no Latin-script words", model: "not-run" };
+          } else {
+          const modelPath = path.join(os.homedir(), ".cache/whisper/ggml-large-v3-turbo.bin");
+          if (!args.recogniseTake && !existsSync(modelPath)) throw new Error(`take checks require model: ${modelPath}`);
+          const words = args.recogniseTake ? await args.recogniseTake(output)
+            : (await runWhisperCliWordTimings(output, { output_directory: stage, whisper_model: modelPath })).words;
+          const wordMatch = wordMismatches(spoken, words,
+            { setting: checks.wordCheckSetting, commonWords: checks.commonWords });
+          wordAttempts.push({ source, attempt: evidence.attempts, editCount: wordMatch.edits.length });
+          wordFailed = !wordMatch.pass;
+          evidence.wordMatch = { pass: wordMatch.pass, setting: wordMatch.setting, attempts: wordAttempts,
+            model: args.recogniseTake ? "injected-recognizer" : "ggml-large-v3-turbo.bin",
+            edits: wordMatch.edits.map(({ kind, sentIndex, recognisedIndex, start, end }) => ({ kind, sentIndex, recognisedIndex, start, end })) };
+          if (!wordMatch.pass) reason = `word-mismatch:${JSON.stringify(wordMatch.edits.map(({ kind, sentIndex, start, end }) => ({ kind, sentIndex, start, end })))}`;
+          }
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "unknown recognition error";
+          throw new TakeCheckError(`word check execution failed; no retry performed: ${detail}`);
+        }
+      }
+      if (pitchFailed) wordAttempts.push({ source, attempt: evidence.attempts, editCount: null });
+      if (reason) evidence.failures.push({ source, attempt: evidence.attempts, reason });
+      if (wordFailed && evidence.wordMatch && (!best || evidence.wordMatch.edits.length < best.count)) {
+        best = { count: evidence.wordMatch.edits.length, result, source,
+          wordMatch: evidence.wordMatch, pitchNote: evidence.pitchNote };
+        await copyFile(output, path.join(stage, "best.wav"));
+        await copyFile(`${output}.spoken.txt`, path.join(stage, "best.spoken.txt"));
+        if (pieces) {
+          await rm(path.join(stage, "best-pieces"), { recursive: true, force: true });
+          if (existsSync(pieces)) await cp(pieces, path.join(stage, "best-pieces"), { recursive: true });
+        }
+      }
+      if (reason && best && evidence.attempts >= checks.retries + 1) {
+        await copyFile(path.join(stage, "best.wav"), output);
+        await copyFile(path.join(stage, "best.spoken.txt"), `${output}.spoken.txt`);
+        if (pieces) {
+          await rm(pieces, { recursive: true, force: true });
+          if (existsSync(path.join(stage, "best-pieces"))) await cp(path.join(stage, "best-pieces"), pieces, { recursive: true });
+        }
+        result = best.result; source = best.source;
+        evidence.wordMatch = { ...best.wordMatch, keptBest: true, attempts: wordAttempts };
+        if (best.pitchNote) evidence.pitchNote = best.pitchNote;
+        else delete evidence.pitchNote;
+        reason = undefined;
+      }
+      if (!reason) {
+        const cacheAccepted = args.cache && !evidence.wordMatch?.keptBest;
         const cachePath = path.join(args.cacheDir, `${key}.wav`);
-        if (args.cache && source === "render") {
+        if (cacheAccepted && source === "render") {
           await mkdir(args.cacheDir, { recursive: true });
           const tmp = `${cachePath}.tmp-${process.pid}`;
           await copyFile(output, tmp);
@@ -291,14 +352,13 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
         const keptPieces = args.keepPiecesDir === undefined ? undefined : source === "cache"
           ? { dir: args.keepPiecesDir, count: 0, skipped: PIECES_ON_HIT }
           : { dir: args.keepPiecesDir, count: JSON.parse(await readFile(path.join(args.keepPiecesDir, "pieces.json"), "utf8")).pieces.length };
-        await writeTakeCacheReceipt(args.output, key, { cacheEnabled: args.cache,
-          refreshed: args.refreshCache, keptPieces, takeChecks: evidence });
+        await writeTakeCacheReceipt(args.output, key, { cacheEnabled: cacheAccepted,
+          refreshed: args.refreshCache && cacheAccepted, keptPieces, takeChecks: evidence });
         const pitchNote = evidence.pitchNote ? ` pitch=${evidence.pitchNote}` : "";
         return result.kind === "cache-hit" ? { ...result, cachePath, piecesNote: result.piecesNote + pitchNote }
-          : { ...result, cacheNote: args.cache ? ` cache checked->frozen key=${key}` : "",
+          : { ...result, cacheNote: cacheAccepted ? ` cache checked->frozen key=${key}` : evidence.wordMatch?.keptBest ? " cache skipped: kept best word-mismatch take" : "",
             piecesNote: (keptPieces ? ` pieces=${keptPieces.count} kept in ${args.keepPiecesDir}` : "") + pitchNote };
       }
-      evidence.failures.push({ source, attempt: evidence.attempts, reason });
       if (pieces) await rm(pieces, { recursive: true, force: true });
       if (evidence.attempts >= checks.retries + 1) {
         evidence.gaveUp = true;
