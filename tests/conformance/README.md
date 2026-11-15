@@ -508,9 +508,11 @@ stage B; unit tests and reducer-I02 cover the reducer predicate today.
 
 Required host callbacks now end only their session with `HOST_CALLBACK_FAILED`
 and retry `new_request`. Clock reads/schedules use phase `synthesize`: they bound
-and measure synthesis, including a waiting predecessor. Publication piece/commit
-and their artifact writes use `deliver`: they make synthesized audio available
-to the host. The failed-generation/outcome path is unchanged. Backend throws and
+and measure synthesis, including a waiting predecessor. Required host artifact put/commit
+and byte-store faults use `deliver`: they make synthesized audio available
+to the host. Publication is engine-owned: its own audio, sample-count and timing
+validation errors remain `SYNTH_FAILED` in phase `synthesize`. Faults are wrapped
+only at host-port boundaries, not around the publication module. The failed-generation/outcome path is unchanged. Backend throws and
 rejections remain `SYNTH_FAILED`, including clone fallback rules.
 
 The optional `log({callback, error_name})` port uses finite callback identifiers

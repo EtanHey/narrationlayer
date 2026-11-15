@@ -29,9 +29,9 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       return create(wrapped);
     };
     const step = { latency_ms: 1, late_after_cancel: false, result: { kind: "audio" as const, ...pcmAudio(100, 1000, 300) } };
-    const t = setup(c, [step]); c.binding.create = create; armed = true;
-    t.connection.send(read("fault-read")); // R102: a throw cannot escape send.
     const parallel = fault === "monotonic" || fault === "schedule";
+    const t = setup(c, parallel ? [step, step] : [step]); c.binding.create = create; armed = true;
+    t.connection.send(read("fault-read")); // R102: a throw cannot escape send.
     if (parallel) t.connection.send(read("parallel-read"));
     await until(c, () => t.seen.some(e => e.type === "piece_ready" || e.type === "outcome"));
     async function complete(id: string) {

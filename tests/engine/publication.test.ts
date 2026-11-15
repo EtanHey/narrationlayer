@@ -271,11 +271,10 @@ for (const fault of [false, true]) test(`Q103: publication preserves typed refus
   try {
     await publication.piece(pcmAudio(20), { owner_epoch: 1, session_id: "synthetic", attempt_id: "synthetic", index: 0, piece_id: "synthetic", prefix: [], synthesis_ms: 1, spoken_text: "Copper boats drift", words, segments: 1, rate: "+0%", engine: { family: "synthetic", voice: "synthetic", profile_revision: "1" } }, new AbortController().signal);
   } catch (error) { failure = error; }
-  expect(failure).toBeInstanceOf(ArtifactStoreError);
-  if (!(failure instanceof ArtifactStoreError)) throw Error("missing typed failure");
-  expect(failure.code).toBe(fault ? "storage" : "collision");
-  if (fault) expect(failure.cause).toMatchObject({ callback: "store.has" });
-  expect(failure.cause instanceof HostFault).toBe(fault);
+  if (fault) expect(failure).toMatchObject({ callback: "store.has" });
+  else expect(failure).toMatchObject({ code: "collision" });
+  expect(failure instanceof HostFault).toBe(fault);
+  expect(failure instanceof ArtifactStoreError).toBe(!fault);
 });
 
 for (const fault of ["malformed WAV", "timing validation", "artifact put", "artifact commit"] as const)

@@ -3,7 +3,7 @@ export type HostCallback = "observe.event" | "observe.input" | "clock.now" | "cl
   | "clock.schedule" | "clock.cancel" | "backend.synthesizeRequest" | "publication.piece"
   | "publication.commit" | "publication.release" | "artifacts.put" | "artifacts.release"
   | "artifacts.releaseFromHost" | "artifacts.minted" | "artifacts.resolve" | "artifacts.custody"
-  | "artifacts.shutdown" | "store.has" | "store.set" | "store.get" | "store.delete";
+  | "artifacts.commit" | "artifacts.shutdown" | "store.has" | "store.set" | "store.get" | "store.delete";
 export type HostErrorName = "TypeError" | "RangeError" | "Error" | "NonError";
 export type HostLog = (entry: { callback: HostCallback; error_name: HostErrorName }) => void;
 export class HostFault extends Error { constructor(readonly callback: HostCallback) { super("host callback failed"); } }
