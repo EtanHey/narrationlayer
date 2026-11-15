@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { firstWordOmitted, pitchRunaway } from "../src/quality/take-checks.js";
+import { firstWordOmitted, pitchRunaway, wordMismatches } from "../src/quality/take-checks.js";
 
 const word = (word: string) => ({ word, start: 0, end: 0.2 });
 test("first word: presence, omission, empty recognition, case and punctuation", () => {
@@ -84,8 +84,8 @@ test("real CLI emits JSON and exit codes on synthetic WAVs", () => {
   mkdirSync(dir, { recursive: true });
   writeFileSync(`${dir}/sent`, "Hello moon");
   writeFileSync(`${dir}/words.json`, JSON.stringify([word("Hello"), word("moon")]));
-  for (const [high, omitted] of [[false, false], [true, false], [false, true]]) {
-    writeFileSync(`${dir}/words.json`, JSON.stringify(omitted ? [word("moon")] : [word("Hello"), word("moon")]));
+  for (const [high, omitted, substituted] of [[false, false, false], [true, false, false], [false, true, false], [false, false, true]]) {
+    writeFileSync(`${dir}/words.json`, JSON.stringify(omitted ? [word("moon")] : [word("Hello"), word(substituted ? "sun" : "moon")]));
     const samples = tone(high), pcm = Buffer.alloc(samples.length * 2);
     samples.forEach((v, i) => pcm.writeInt16LE(Math.round(v * 32767), i * 2));
     const header = Buffer.alloc(44);
@@ -95,8 +95,8 @@ test("real CLI emits JSON and exit codes on synthetic WAVs", () => {
     header.write("data", 36); header.writeUInt32LE(pcm.length, 40);
     writeFileSync(`${dir}/tone.wav`, Buffer.concat([header, pcm]));
     const run = Bun.spawnSync([process.execPath, "src/cli.ts", "check-take", `${dir}/tone.wav`, "--sent", `${dir}/sent`, "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300"]);
-    expect(run.exitCode).toBe(high || omitted ? 1 : 0);
-    expect(JSON.parse(run.stdout.toString()).pass).toBe(!high && !omitted);
+    expect(run.exitCode).toBe(high || omitted || substituted ? 1 : 0);
+    expect(JSON.parse(run.stdout.toString()).pass).toBe(!high && !omitted && !substituted);
   }
   const base = [process.execPath, "src/cli.ts", "check-take", `${dir}/tone.wav`, "--sent", `${dir}/sent`, "--words", `${dir}/words.json`, "--voice", "synthetic"];
   expect(Bun.spawnSync(base).exitCode).toBe(2);
@@ -105,4 +105,59 @@ test("real CLI emits JSON and exit codes on synthetic WAVs", () => {
   const unreadable = [...base]; unreadable[3] = `${dir}/missing.wav`;
   expect(Bun.spawnSync([...unreadable, "--pitch-ceiling", "300"]).exitCode).toBe(2);
 
+});
+
+const recognised = (text: string) => text.split(" ").map((word, index) => ({ word, start: index * 0.3, end: (index + 1) * 0.3 }));
+for (const [name, sent, heard, kind, index] of [
+  ["missing first", "Hello silver moon", "silver moon", "deletion", 0],
+  ["missing middle", "Hello silver moon", "Hello moon", "deletion", 1],
+  ["extra leading", "Hello moon", "Oh Hello moon", "insertion", 0],
+  ["repeated word", "Hello silver moon", "Hello silver silver moon", "insertion", 1],
+  ["short substitution", "Put it here", "Put it there", "substitution", 2],
+] as const) {
+  test(`whole take rejects ${name}`, () => {
+    const result = wordMismatches(sent, recognised(heard));
+    expect(result.pass).toBe(false);
+    expect(result.edits).toHaveLength(1);
+    expect(result.edits[0].kind).toBe(kind);
+    if (kind !== "insertion") expect(result.edits[0].sentIndex).toBe(index);
+    if (kind === "deletion") expect(result.edits[0].start).toBeNull();
+    else expect(result.edits[0].end).toBeGreaterThan(result.edits[0].start!);
+  });
+}
+for (const [sent, heard] of [
+  ["Hello, moon!", "HELLO moon"],
+  ["25 moons", "twenty five moons"],
+  ["twenty five moons", "25 moons"],
+  ["BrainBar is ready", "brain bar is ready"],
+  ["brain bar is ready", "BrainBar is ready"],
+  ["We don't stop", "We do not stop"],
+  ["We do not stop", "We don't stop"],
+  ["A colourful lantern", "A colorful lantern"],
+]) {
+  test(`whole take tolerates ${sent} / ${heard}`, () => {
+    expect(wordMismatches(sent, recognised(heard)).pass).toBe(true);
+  });
+}
+test("whole take fails empty recognition and does not sum arbitrary number words", () => {
+  expect(wordMismatches("Hello moon", []).pass).toBe(false);
+  expect(wordMismatches("3 moons", recognised("one two moons")).pass).toBe(false);
+  expect(wordMismatches("Well done", recognised("we will done")).pass).toBe(false);
+  expect(wordMismatches("Hello moon", recognised("Hello moon moon")).pass).toBe(false);
+  expect(wordMismatches("BrainBar", recognised("brain bar"), { tolerance: false }).pass).toBe(false);
+});
+
+test("word-check settings retain evidence for ignored substitutions", () => {
+  const commonWords = new Set(["a", "the", "moon", "sun", "cat"]);
+  const options = { commonWords };
+  expect(wordMismatches("HyperBar", recognised("HiperCar"), { ...options, setting: "a" }).pass).toBe(false);
+  expect(wordMismatches("HyperBar", recognised("HiperCar"), { ...options, setting: "b" }).pass).toBe(true);
+  expect(wordMismatches("a cat", recognised("uh cat"), { ...options, setting: "b" }).pass).toBe(false);
+  const relaxed = wordMismatches("a cat", recognised("uh cat"), { ...options, setting: "c" });
+  expect(relaxed.pass).toBe(true);
+  expect(relaxed.ignoredEdits).toHaveLength(1);
+  expect(wordMismatches("moon", recognised("sun"), { ...options, setting: "c" }).pass).toBe(false);
+  expect(wordMismatches("moon", recognised("sun"), { setting: "d" }).pass).toBe(true);
+  expect(wordMismatches("a moon", recognised("moon"), { setting: "d" }).pass).toBe(false);
+  expect(() => wordMismatches("a", recognised("a"), { setting: "b" })).toThrow("dictionary");
 });

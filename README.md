@@ -71,6 +71,37 @@ Use `--json` with `doctor`, `create-job`, `render`, `bakeoff-create`,
 
 Run `narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz>` after synthesis and recognition (ffmpeg required). It prints a JSON verdict and exits 0 on pass, 1 for a failing take, or 2 for usage, input or decode errors. Supply spoken text and an array of `{word, start, end}` recognition records. The first-word screen lowercases and removes everything except ASCII letters and digits, skips leading symbol-only tokens, searches only the first three recognised tokens, accepts a word split across consecutive tokens, and matches English number words to digits in either direction (up to three tokens). This screens recognition rather than proving an acoustic omission. The build supplies each voice's pitch ceiling from that voice's controls; there is no global default. Pitch uses a dependency-free YIN difference estimator at 8 kHz, 64 ms frames, 10 ms hop, 65–450 Hz and threshold 0.2. Only full nonoverlapping one-second windows with at least ten voiced frames are judged; skipped windows have a null median. JSON reports all full windows and those above the ceiling. No judged windows fails the combined verdict. Octave and recognition errors remain possible; the build owns regeneration.
 
+The JSON also includes `wordMatch`: a whole-take, token-level edit alignment with
+zero-based sent/recognised positions, deletion/insertion/substitution evidence and
+recognition times (null for a deletion, which names a boundary). Any remaining edit
+fails `pass`. Empty recognition fails. This is an English/Latin-script recognition
+screen; recognition can repair an audible defect and make it invisible to this check.
+Setting (a), the default, tolerates case/punctuation, exact split/join groups of up to
+three tokens, explicit apostrophe contractions, English integer words through 99 versus
+digits, and Levenshtein distance at most one when both words have at least six letters.
+No missing/extra-word allowance is applied. Spelling tolerance can also hide a genuine
+one-letter substitution. Every `--take-checks` attempt, including cache hits and short
+takes with unjudged pitch, checks the whole spoken text with whisper-cli after pitch
+acceptance; mismatches use the bounded retry loop. Recognition errors fail without a
+retry or publication. This requires a Whisper model; `NARRATIONLAYER_WHISPER_BINARY`
+can override the binary, and `NARRATIONLAYER_WHISPER_MODEL` the model. Audio bytes,
+pauses and the render version are unchanged.
+
+`check-take --word-check-setting a|b|c|d` selects alternatives: (b) additionally
+ignores jargon substitutions with character edit distance / maximum length <= 0.5;
+(c) also ignores common-word substitutions unless both tokens have 4+ letters or
+the recognized token is common; (d) judges only deletions and insertions. Settings
+(b)/(c) require `--word-dictionary <newline-delimited-file>` (default
+`/usr/share/dict/words`); a missing dictionary is an input error. Jargon means absent
+from that normalized dictionary, camelCase, containing digits, or capitalized within
+a sentence. These alternatives filter the same alignment; ignored substitutions stay
+in `ignoredEdits`. The pipeline API accepts `takeChecks.wordCheckSetting` and, for
+(b)/(c), `takeChecks.commonWords`. The page-corpus comparison did **not** meet the
+15% acceptance gate for any setting; retain opt-in use pending review of its failure
+rate. Setting (a) retains the greatest detection coverage, not a claim of corpus
+acceptance.
+
+
 ## MCP
 
 Starts a stdio MCP server in `src/mcp-server.ts` exposing:

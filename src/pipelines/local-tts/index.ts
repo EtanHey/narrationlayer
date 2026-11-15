@@ -2,7 +2,8 @@ import { writeFile, mkdir, stat, rename, copyFile, mkdtemp, rm, readFile } from 
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { pitchRunaway } from "../../quality/take-checks.js";
+import { runWhisperCliWordTimings } from "../../word-timings.js";
+import { pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
 import type { SpeechChannels, TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
@@ -23,7 +24,8 @@ export interface ResolvedLocalTtsVoice extends CacheKeyParams {
 }
 
 export interface LocalTtsRenderOptions {
-  takeChecks?: { pitchCeilingHz: number; retries: number };
+  takeChecks?: { pitchCeilingHz: number; retries: number; wordCheckSetting?: WordCheckSetting; commonWords?: ReadonlySet<string> };
+  recogniseTake?: (wav: string) => Promise<readonly RecognisedWord[]>;
   text: string;
   output: string;
   sampleRate: number;
@@ -276,7 +278,20 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       })();
       const tooShort = pitch.windows.length === 0;
       if (tooShort) evidence.pitchNote = "not judged: shorter than one window";
-      const reason = tooShort ? undefined : pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
+      let reason = tooShort ? undefined : pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
+      if (!reason) {
+        try {
+          const words = args.recogniseTake ? await args.recogniseTake(output)
+            : (await runWhisperCliWordTimings(output, { output_directory: stage })).words;
+          const wordMatch = wordMismatches(await readFile(`${output}.spoken.txt`, "utf8"), words,
+            { setting: checks.wordCheckSetting, commonWords: checks.commonWords });
+          evidence.wordMatch = { pass: wordMatch.pass, setting: wordMatch.setting,
+            edits: wordMatch.edits.map(({ kind, sentIndex, recognisedIndex, start, end }) => ({ kind, sentIndex, recognisedIndex, start, end })) };
+          if (!wordMatch.pass) reason = `word-mismatch:${JSON.stringify(wordMatch.edits.map(({ kind, sentIndex, start, end }) => ({ kind, sentIndex, start, end })))}`;
+        } catch {
+          throw new TakeCheckError("word check execution failed; no retry performed");
+        }
+      }
       if (!reason) {
         const cachePath = path.join(args.cacheDir, `${key}.wav`);
         if (args.cache && source === "render") {

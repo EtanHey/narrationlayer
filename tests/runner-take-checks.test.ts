@@ -33,6 +33,7 @@ async function fixture(failures: number, seconds = 1) {
   const args: LocalTtsRenderOptions = { text: "Hello moon.", output: path.join(dir, "out.wav"),
     sampleRate: 24000, resolved: { daemonUrl: `http://127.0.0.1:${server.port}`, referenceClip: "synthetic.wav", referenceText: "Synthetic reference." },
     cacheDir, cache: true, authToken: "synthetic", timeoutMs: 10000, prepareSpeechChannels,
+    recogniseTake: async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon", start: 0.3, end: 0.6 }],
     takeChecks: { pitchCeilingHz: 300, retries: 2 } };
   return { args, dir, calls: () => calls, async close() { server.stop(true); await rm(dir, { recursive: true, force: true }); } };
 }
@@ -45,7 +46,7 @@ test("failed takes retry fresh requests, publish only the passing take and keep 
     await renderLocalTts(f.args);
     expect(f.calls()).toBe(3);
     const r = await receipt(f.args.output);
-    expect(r.takeChecks).toEqual({ attempts: 3, failures: [1, 2].map(attempt => ({ source: "render", attempt, reason: "pitch-over-ceiling" })), gaveUp: false });
+    expect(r.takeChecks).toMatchObject({ attempts: 3, failures: [1, 2].map(attempt => ({ source: "render", attempt, reason: "pitch-over-ceiling" })), gaveUp: false });
     const frozen = path.join(f.args.cacheDir, `${r.cacheKey}.wav`);
     expect(await readFile(frozen)).toEqual(await readFile(f.args.output));
     expect(await readFile(path.join(f.args.keepPiecesDir, "piece-000.wav"))).toEqual(await readFile(f.args.output));
@@ -85,7 +86,7 @@ test("old rejected cache hit is checked, then remade even with zero retries", as
       f.args.resolved.daemonUrl = `http://127.0.0.1:${server.port}`;
       await renderLocalTts(f.args);
       const r = await receipt(f.args.output);
-      expect(r.takeChecks).toEqual({ attempts: 1, failures: [{ source: "cache", attempt: 0, reason: "pitch-over-ceiling" }], gaveUp: false });
+      expect(r.takeChecks).toMatchObject({ attempts: 1, failures: [{ source: "cache", attempt: 0, reason: "pitch-over-ceiling" }], gaveUp: false });
       expect(await readFile(f.args.output)).toEqual(good);
       expect(await readFile(cached)).toEqual(good);
     } finally { server.stop(true); }
@@ -139,7 +140,7 @@ test("a 0.6 s take passes without retry and reports pitch not judged", async () 
   try {
     await renderLocalTts(f.args);
     expect(f.calls()).toBe(1);
-    expect((await receipt(f.args.output)).takeChecks).toEqual({ attempts: 1, failures: [], gaveUp: false,
+    expect((await receipt(f.args.output)).takeChecks).toMatchObject({ attempts: 1, failures: [], gaveUp: false,
       pitchNote: "not judged: shorter than one window" });
     expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
     expect(f.calls()).toBe(1);
@@ -169,5 +170,25 @@ test("CLI give-up preserves the previous WAV, spoken text and receipt byte for b
     for (const [i, file] of files.entries()) expect(await readFile(file)).toEqual(previous[i]!);
     expect(await readdir(f.args.cacheDir)).toEqual([]);
     expect((await readdir(f.dir)).some(n => n.includes(".checks-"))).toBe(false);
+  } finally { await f.close(); }
+});
+
+test("whole-take mismatch retries and rejects cached words before publication", async () => {
+  const f = await fixture(0);
+  let checks = 0;
+  f.args.recogniseTake = async () => ++checks < 3
+    ? [{ word: "Hello", start: 0, end: 0.3 }, { word: "sun", start: 0.3, end: 0.6 }]
+    : [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon", start: 0.3, end: 0.6 }];
+  try {
+    await renderLocalTts(f.args);
+    expect(f.calls()).toBe(3);
+    const r = await receipt(f.args.output);
+    expect(r.takeChecks.failures).toHaveLength(2);
+    expect(r.takeChecks.failures[0].reason).toContain("word-mismatch:");
+    expect(r.takeChecks.failures[0].reason).toContain("substitution");
+    await renderLocalTts(f.args);
+    expect(checks).toBe(4);
+    expect((await receipt(f.args.output)).takeChecks.wordMatch).toMatchObject({ pass: true, setting: "a", edits: [] });
+    expect(f.calls()).toBe(3);
   } finally { await f.close(); }
 });

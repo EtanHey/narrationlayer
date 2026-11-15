@@ -48,6 +48,125 @@ export function firstWordOmitted(sent: string, recognised: readonly RecognisedWo
   return { omitted: !found, recognisedCount: recognised.length };
 }
 
+export type WordCheckSetting = "a" | "b" | "c" | "d";
+export type WordCheckOptions = { tolerance?: boolean; setting?: WordCheckSetting; commonWords?: ReadonlySet<string> };
+
+export type WordEdit = {
+  kind: "deletion" | "insertion" | "substitution";
+  sentIndex: number;
+  recognisedIndex: number;
+  sent: string[];
+  recognised: string[];
+  // A deletion has no recognised interval; its position is the boundary before recognisedIndex.
+  start: number | null;
+  end: number | null;
+};
+
+const CONTRACTIONS: Record<string, string> = {
+  cant: "cannot", wont: "willnot", dont: "donot", doesnt: "doesnot",
+  didnt: "didnot", isnt: "isnot", arent: "arenot", wasnt: "wasnot",
+  werent: "werenot", couldnt: "couldnot", wouldnt: "wouldnot",
+  shouldnt: "shouldnot", havent: "havenot", hasnt: "hasnot", hadnt: "hadnot",
+  im: "iam", youre: "youare", were: "weare", theyre: "theyare",
+  ive: "ihave", youve: "youhave", weve: "wehave", theyve: "theyhave",
+  ill: "iwill", youll: "youwill", well: "wewill", theyll: "theywill",
+  its: "itis", thats: "thatis", theres: "thereis", lets: "letus",
+};
+
+function spellingDistance(a: string, b: string): number {
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(row[j - 1] + 1, previous[j] + 1, previous[j - 1] + Number(a[i - 1] !== b[j - 1]));
+    }
+    previous = row;
+  }
+  return previous[b.length];
+}
+
+function canonicalWord(word: string): string {
+  const token = normalize(word);
+  // Expand only a written apostrophe: e.g. ordinary "well" must not become "we will".
+  return /['’]/.test(word) ? CONTRACTIONS[token] ?? token : token;
+}
+
+function validNumber(tokens: string[]): number | null {
+  // Keep the existing number helper, but do not equate arbitrary sums such as "one two" and "3".
+  if (tokens.length === 1) return numberValue(tokens);
+  if (tokens.length === 2 && (NUMBER_WORDS[tokens[0]] ?? 0) >= 20
+    && (NUMBER_WORDS[tokens[0]] ?? 0) % 10 === 0
+    && (NUMBER_WORDS[tokens[1]] ?? 0) > 0 && (NUMBER_WORDS[tokens[1]] ?? 10) < 10) return numberValue(tokens);
+  return null;
+}
+
+/** Whole-take token edit alignment. Positions are zero-based; tolerance:false keeps only case/punctuation folding. */
+export function wordMismatches(sent: string, recognised: readonly RecognisedWord[], options: WordCheckOptions = {}) {
+  const setting = options.setting ?? "a";
+  if ((setting === "b" || setting === "c") && !options.commonWords) throw new Error("settings b/c require a common-word dictionary");
+  const expected = (sent.match(/[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi) ?? []);
+  const raw = recognised.flatMap((item, index) =>
+    (item.word.match(/[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi) ?? []).map(word => ({ ...item, word, index })));
+  if (!expected.length) throw new Error("sent text needs nonempty Latin-script words");
+  const tolerant = options.tolerance !== false;
+  type Step = { i: number; j: number; kind: WordEdit["kind"] | "match" };
+  const cells: { cost: number; step: Step | null }[][] = Array.from({ length: expected.length + 1 }, () =>
+    Array.from({ length: raw.length + 1 }, () => ({ cost: Infinity, step: null })));
+  cells[0][0].cost = 0;
+  for (let i = 0; i <= expected.length; i++) {
+    for (let j = 0; j <= raw.length; j++) {
+      const update = (ni: number, nj: number, cost: number, kind: Step["kind"]) => {
+        if (cells[i][j].cost + cost < cells[ni][nj].cost) {
+          cells[ni][nj] = { cost: cells[i][j].cost + cost, step: { i, j, kind } };
+        }
+      };
+      for (let a = 1; a <= Math.min(tolerant ? 3 : 1, expected.length - i); a++) {
+        for (let b = 1; b <= Math.min(tolerant ? 3 : 1, raw.length - j); b++) {
+          const left = expected.slice(i, i + a), right = raw.slice(j, j + b).map(w => w.word);
+          const l = left.map(tolerant ? canonicalWord : normalize).join("");
+          const r = right.map(tolerant ? canonicalWord : normalize).join("");
+          const n = validNumber(left.flatMap(w => w.split("-")).map(normalize)), m = validNumber(right.flatMap(w => w.split("-")).map(normalize));
+          const match = l === r || (tolerant && n !== null && n === m)
+            || (tolerant && a === 1 && b === 1 && Math.min(l.length, r.length) >= 6 && spellingDistance(l, r) <= 1);
+          if (match) update(i + a, j + b, 0, "match");
+        }
+      }
+      if (i < expected.length && j < raw.length) update(i + 1, j + 1, 1, "substitution");
+      if (i < expected.length) update(i + 1, j, 1, "deletion");
+      if (j < raw.length) update(i, j + 1, 1, "insertion");
+    }
+  }
+  const edits: WordEdit[] = [];
+  let i = expected.length, j = raw.length;
+  while (i || j) {
+    const step = cells[i][j].step;
+    if (!step) throw new Error("unreachable alignment cell");
+    if (step.kind !== "match") {
+      edits.push({ kind: step.kind, sentIndex: step.i, recognisedIndex: raw[step.j]?.index ?? recognised.length,
+        sent: expected.slice(step.i, i), recognised: raw.slice(step.j, j).map(w => w.word),
+        start: step.j < j ? raw[step.j].start : null, end: step.j < j ? raw[j - 1].end : null });
+    }
+    i = step.i; j = step.j;
+  }
+  const matches = [...sent.matchAll(/[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi)];
+  const classified = edits.reverse().map(edit => {
+    const token = edit.sent[0] ?? "", heard = edit.recognised[0] ?? "";
+    const prefix = sent.slice(0, matches[edit.sentIndex]?.index ?? sent.length);
+    const midSentence = edit.sentIndex > 0 && !/[.!?]\s*$/.test(prefix);
+    const jargon = (options.commonWords ? !options.commonWords.has(normalize(token)) : false)
+      || /[a-z][A-Z]|[0-9]/.test(token) || (midSentence && /^[A-Z]/.test(token));
+    const l = normalize(token), r = normalize(heard);
+    const jargonVariant = jargon && spellingDistance(l, r) / Math.max(l.length, r.length, 1) <= 0.5;
+    const commonVariant = !jargon && !(l.length >= 4 && r.length >= 4 || options.commonWords?.has(r));
+    const ignored = edit.kind === "substitution" && (setting === "d"
+      || (setting !== "a" && jargonVariant) || (setting === "c" && commonVariant));
+    return { ...edit, tokenClass: jargon ? "jargon" : "common", ignored };
+  });
+  const rejected = classified.filter(edit => !edit.ignored);
+  return { pass: rejected.length === 0 && raw.length > 0, setting, sentCount: expected.length,
+    recognisedCount: raw.length, edits: rejected, ignoredEdits: classified.filter(edit => edit.ignored) };
+}
+
 function median(values: number[]): number | null {
   if (!values.length) return null;
   values.sort((a, b) => a - b);
