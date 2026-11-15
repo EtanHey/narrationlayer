@@ -1,3 +1,4 @@
+import type { Message } from "../messages/messages";
 import type { Case } from "./runner";
 import type { Binding } from "./binding";
 import { setup, until } from "./engine-cases";
@@ -34,7 +35,7 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
     if (parallel) t.connection.send(read("parallel-read"));
     await until(c, () => t.seen.some(e => e.type === "piece_ready" || e.type === "outcome"));
     async function complete(id: string) {
-      const accepted = t.seen.find(e => e.type === "accepted" && e.request_id === id); c.assert(accepted?.type === "accepted"); if (accepted?.type !== "accepted") return;
+      const accepted = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === id); c.assert(accepted?.type === "accepted"); if (accepted?.type !== "accepted") return;
       await until(c, () => t.seen.some(e => (e.type === "piece_ready" || e.type === "outcome") && e.session_id === accepted.session_id));
       for (const piece of t.seen.filter(e => e.type === "piece_ready" && e.session_id === accepted.session_id)) {
         if (piece.type !== "piece_ready") continue;
@@ -46,7 +47,7 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
       c.assert(t.seen.filter(e => e.type === "outcome" && e.session_id === accepted.session_id).length === 1); // R100: thrown outcome still terminal.
     }
     await complete("fault-read"); c.assert(thrown);
-    const failed = t.seen.find(e => e.type === "accepted" && e.request_id === "fault-read");
+    const failed = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === "fault-read");
     c.assert(failed?.type === "accepted");
     const errors = t.seen.filter(e => e.type === "error" && e.session_id === failed?.session_id);
     if (["monotonic", "schedule", "store.has", "store.set"].includes(fault)) {
@@ -58,14 +59,14 @@ export const throwingCases: Record<string, Case> = { "BIND-03": async c => {
 
     if (parallel) {
       await complete("parallel-read");
-      const other = t.seen.find(e => e.type === "accepted" && e.request_id === "parallel-read");
+      const other = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === "parallel-read");
       c.assert(t.seen.some(e => e.type === "outcome" && e.session_id === other?.session_id && e.generation.status === "committed"));
       c.assert(!t.seen.some(e => e.type === "error" && e.session_id === other?.session_id));
     }
     if (t.backend.pending === 0) t.backend.script([step]); // L429/558, R90: either backend/bound order is valid.
-    t.connection.send(read("healthy-read")); await until(c, () => t.seen.filter(e => e.type === "accepted").length === (parallel ? 3 : 2) && t.seen.some(e => e.type === "piece_ready" && e.session_id === t.seen.find(e => e.type === "accepted" && e.request_id === "healthy-read")?.session_id));
+    t.connection.send(read("healthy-read")); await until(c, () => t.seen.filter(e => e.type === "accepted").length === (parallel ? 3 : 2) && t.seen.some(e => e.type === "piece_ready" && e.session_id === t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === "healthy-read")?.session_id));
     await complete("healthy-read");
-    const healthy = t.seen.find(e => e.type === "accepted" && e.request_id === "healthy-read");
+    const healthy = t.seen.find((e): e is Message<"accepted"> => e.type === "accepted" && e.request_id === "healthy-read");
     c.assert(!t.seen.some(e => e.type === "error" && e.session_id === healthy?.session_id));
     c.assert(t.seen.some(e => e.type === "outcome" && e.session_id === healthy?.session_id && e.generation.status === "committed"));
     await t.finish();

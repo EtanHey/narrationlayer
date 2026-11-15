@@ -187,18 +187,15 @@ export function createEngineSession<Audio>(options: {
       audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 0, duration_ms: 0,
     } });
   }
-  async function callPublication<T>(callback: "publication.piece" | "publication.commit", run: () => Promise<T>): Promise<T> {
-    try { return await run(); }
-    catch (error) {
-      // Q103: typed store refusals are synthesis results; byte-port throws retain their origin.
-      if (error instanceof ArtifactStoreError) {
-        if (error.cause instanceof HostFault) throw error.cause;
-        throw error;
-      }
-      if (error instanceof HostFault) throw error;
-      host.report(callback, error);
-      throw new HostFault(callback);
+  function publicationFailure(callback: "publication.piece" | "publication.commit", error: unknown): never {
+    // Q103: typed store refusals are synthesis results; byte-port throws retain their origin.
+    if (error instanceof ArtifactStoreError) {
+      if (error.cause instanceof HostFault) throw error.cause;
+      throw error;
     }
+    if (error instanceof HostFault) throw error;
+    host.report(callback, error);
+    throw new HostFault(callback);
   }
   async function run(identity: Identity, abort: AbortController) {
     try {
@@ -207,7 +204,8 @@ export function createEngineSession<Audio>(options: {
         const session = state.sessions[identity.session_id], index = session.delivered.length;
         const piece = session.plan.pieces[index];
         if (!piece) {
-          await callPublication("publication.commit", () => options.publication.commit(identity, abort.signal));
+          try { await options.publication.commit(identity, abort.signal); }
+          catch (error) { publicationFailure("publication.commit", error); }
           step({ kind: "backend", identity, result: { kind: "commit" } }); break;
         }
         if (nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) break;
@@ -251,14 +249,16 @@ export function createEngineSession<Audio>(options: {
         } finally { cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout); }
         const ready = host.call("clock.monotonic", () => options.clock.monotonic());
         abort.signal.throwIfAborted();
-        const delivered = await callPublication("publication.piece", () => options.publication.piece(audio, {
+        let delivered: PublishedPiece;
+        try { delivered = await options.publication.piece(audio, {
           ...identity, index: piece.index, piece_id: piece.piece_id,
           prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
           words: structuredClone(session.plan.words.slice(piece.word_start, piece.word_end)),
           // Engine selection owes the resolved profile/mode rate when the request omits it.
           engine, substituted, fallback_reason, timing: substituted ? options.welcome.engines.find(e => e.family === engine.family)?.timing : undefined, segments: piece.segments.length, rate,
           synthesis_ms: ready - started, spoken_text: request.text,
-        }, abort.signal));
+        }, abort.signal); }
+        catch (error) { publicationFailure("publication.piece", error); }
         // §3 L282: stop during publication still goes through the attempt fence.
         try {
           const { known_ms, first_audible_offset_ms, ...receipt } = structuredClone(delivered);
