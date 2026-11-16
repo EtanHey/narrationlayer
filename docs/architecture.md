@@ -124,6 +124,14 @@ one is passed, and renders each segment with the job's renderer. For
 `renderJob` then writes the manifest and status and the DONE or FAILED marker
 (`src/job-store.ts`).
 
+Local runner breathing profiles can set `colon_pause_seconds` independently of
+`comma_pause_seconds` and `sentence_pause_seconds`. When any pause is configured,
+breathing is enabled; its defaults are 0.35 s for colons, 0.22 s for commas and
+0.55 s for sentences. A colon splits only when followed by whitespace, so times
+and URLs stay intact. A zero colon pause disables colon splitting. The final
+piece always has zero trailing pause. The job planner's punctuation policy is
+unchanged.
+
 Runner path: `bin/local-tts-runner.ts` (`main`, public as `runLocalTtsCli`)
 resolves argv, profiles and auth, then calls `renderLocalTts`
 (`src/pipelines/local-tts/index.ts`) to render one text to one WAV. The pipeline

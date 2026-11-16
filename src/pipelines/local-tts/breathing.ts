@@ -19,6 +19,7 @@ export async function applyBreathingInPlace(opts: {
   spokenText: string;
   sentencePad: number;
   commaPad: number;
+  colonPad?: number;
   daemonUrl: string;
   authToken: string;
   referenceClip: string;
@@ -34,6 +35,7 @@ export async function applyBreathingInPlace(opts: {
     opts.spokenText,
     opts.sentencePad,
     opts.commaPad,
+    opts.colonPad,
   ));
   // Nothing to interleave: 0 or 1 piece => leave the whole-segment WAV untouched.
   if (pieces.length < 2) {

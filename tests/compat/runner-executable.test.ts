@@ -5,7 +5,7 @@ import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import { LOCAL_TTS_RENDER_VERSION } from "../../src/pipelines/local-tts/take-cache.js";
 import corpus from "./fixtures/corpus.json";
-import { fixture, spawnChecked, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, type Mode, runnerArgs as argsFor, compatProfile as profile } from "./harness.js";
+import { fixture, spawnChecked, golden, wrappers, runner, argvLog, stderrClass, digest, stableArgv, assertRootProfile, repo, tool, defaultsProfile, measureWav, type Mode, runnerArgs as argsFor, compatProfile as profile } from "./harness.js";
 const exists = (file: string) => access(file).then(() => true, () => false);
 test("runner executable goldens: direct reference, named profile, cache, real tool argv", async () => {
   const f = await fixture();
@@ -182,3 +182,28 @@ test("stderr timeout classification requires the exact abort diagnostic", () => 
     expect(stderrClass(stderr)).toBe(stderr);
   }
 });
+
+
+test("runner resolves colon pause profiles into real PCM silence and distinct cache entries", async () => {
+  const f = await fixture();
+  try {
+    const text = "Label: value, continues.";
+    const keys: string[] = [];
+    for (const colon of [undefined, 0.7, 0]) {
+      await defaultsProfile(f, { sentence_pause_seconds: 0.5, comma_pause_seconds: 0,
+        ...(colon === undefined ? {} : { colon_pause_seconds: colon }) });
+      const output = path.join(f.root, "colon.wav");
+      const start = f.requests.length;
+      const result = await runner(f, ["--text", text, "--output", output, "--reference", "compat-defaults",
+        "--cache-dir", path.join(f.root, "cache"), "--keep-pieces", path.join(f.root, `pieces-${colon}`)]);
+      expect(result.code, result.stderr).toBe(0);
+      const pieces = colon === 0 ? 1 : 2;
+      expect(f.requests.length - start).toBe(pieces === 1 ? 1 : 3);
+      const pcm = await measureWav(output);
+      expect(pcm.samples).toBe(pieces * 4800 + Math.round((colon ?? 0.35) * 24000));
+      const receipt = JSON.parse(await readFile(`${output}.cache.json`, "utf8"));
+      expect(keys).not.toContain(receipt.cacheKey);
+      keys.push(receipt.cacheKey);
+    }
+  } finally { await f.close(); }
+}, 30000);

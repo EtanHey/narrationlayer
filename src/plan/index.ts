@@ -1,6 +1,6 @@
 import type { NarrationPacingConfig } from "../core/render-types.js";
 import { planNarrationUtterances, type PlannedUtterance } from "./utterances.js";
-import { splitForBreathing } from "./breathing.js";
+import { DEFAULT_COLON_PAUSE_SECONDS, splitForBreathing } from "./breathing.js";
 
 export interface Piece {
   text: string;
@@ -13,8 +13,8 @@ export function utterancesV1(text: string, config: NarrationPacingConfig = {}): 
 }
 
 /** breathing-v1: the runner planner, with its original pad arguments. */
-export function breathingV1(text: string, sentencePad: number, commaPad: number): Piece[] {
-  return splitForBreathing(text, sentencePad, commaPad).map(piece => ({ text: piece.text, pauseAfterSeconds: piece.padAfterSeconds }));
+export function breathingV1(text: string, sentencePad: number, commaPad: number, colonPad = DEFAULT_COLON_PAUSE_SECONDS): Piece[] {
+  return splitForBreathing(text, sentencePad, commaPad, colonPad).map(piece => ({ text: piece.text, pauseAfterSeconds: piece.padAfterSeconds }));
 }
 
 export function toPlannedUtterances(pieces: Piece[]): PlannedUtterance[] {

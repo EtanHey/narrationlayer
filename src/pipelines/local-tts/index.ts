@@ -10,6 +10,7 @@ import type { SpeechChannels, TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
 import { RunnerFailure, TakeCheckError } from "./failure.js";
+import { DEFAULT_COLON_PAUSE_SECONDS } from "../../plan/breathing.js";
 import { applyBreathingInPlace } from "./breathing.js";
 import { loudnessNormalizeInPlace } from "./loudness.js";
 import { computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
@@ -73,6 +74,7 @@ async function renderUnchecked(args: LocalTtsRenderOptions, store = true): Promi
     atempo: resolved.atempo,
     sentencePauseSeconds: resolved.sentencePauseSeconds,
     commaPauseSeconds: resolved.commaPauseSeconds,
+    colonPauseSeconds: resolved.colonPauseSeconds,
     takeChecks: args.takeChecks,
   };
   const cacheKey = computeContentHashKey({
@@ -142,16 +144,19 @@ async function renderUnchecked(args: LocalTtsRenderOptions, store = true): Promi
   let piecesKept: number | undefined;
   if (
     resolved.sentencePauseSeconds !== undefined ||
-    resolved.commaPauseSeconds !== undefined
+    resolved.commaPauseSeconds !== undefined ||
+    resolved.colonPauseSeconds !== undefined
   ) {
     const sentencePad = resolved.sentencePauseSeconds ?? 0.55;
     const commaPad = resolved.commaPauseSeconds ?? 0.22;
+    const colonPad = resolved.colonPauseSeconds ?? DEFAULT_COLON_PAUSE_SECONDS;
     const breath = await applyBreathingInPlace({
       output,
       sampleRate: args.sampleRate,
       spokenText,
       sentencePad,
       commaPad,
+      colonPad,
       daemonUrl: resolved.daemonUrl,
       authToken,
       referenceClip: resolved.referenceClip,
@@ -166,7 +171,7 @@ async function renderUnchecked(args: LocalTtsRenderOptions, store = true): Promi
     });
     breathingApplied = breath.applied;
     breathingNote = breath.applied
-      ? ` breathing=${breath.pieces}pc(sent=${sentencePad}s,comma=${commaPad}s)`
+      ? ` breathing=${breath.pieces}pc(sent=${sentencePad}s,comma=${commaPad}s,colon=${colonPad}s)`
       : ` breathing=skipped(${breath.pieces}pc)`;
   }
 

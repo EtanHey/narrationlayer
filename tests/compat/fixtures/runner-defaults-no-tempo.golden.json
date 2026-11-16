@@ -67,11 +67,12 @@
         "params": {
           "sentencePauseSeconds": 0.41,
           "commaPauseSeconds": 0.17
-        }
+        },
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "20eee6bd5717bd4ce4e55ab50b8b8821d72f67a7f20284af135b2ad2215d5341",
+        "cacheKey": "fe71304c264debd1162f7b2736b5c7caccf09e8a13d0839de9b7f0d5d69097d3",
         "cacheEnabled": true
       },
       "pieces": [
@@ -98,7 +99,7 @@
       ],
       "exit": 0,
       "stderr": "ok",
-      "breathingNote": " breathing=3pc(sent=0.41s,comma=0.17s)"
+      "breathingNote": " breathing=3pc(sent=0.41s,comma=0.17s,colon=0.35s)"
     }
   ],
   "argv": [

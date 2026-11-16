@@ -1,13 +1,13 @@
 {
-  "sha256": "0fca3faeb7de51c67345635e8aa7eda070219fb3c24cc502b3a6a02d1abccf16",
+  "sha256": "75c2204c7760e13c8aba3fccfd47215964d4a23aa1b26a5dd0f793c126881207",
   "files": {
     "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
     "src/api/index.d.ts": "2ef9e7c362d29d143ca8e7cddc25661804824709f32186c1f41ed0267d9e5d43",
     "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
-    "src/core/render-types.d.ts": "2917a9ecd2d5107d4d8a8a01aa27be8fa2cdd609c1feb0c6ffc0f6ddf77da119",
-    "src/pipelines/local-tts/take-cache.d.ts": "290155db4a3adb25a9eed42e87fb9530f42de0e5174a3acf24d92937113936a0",
-    "src/plan/breathing.d.ts": "2739c58b646df90a7fb04e7bf3699292ddfd41a8cc201d751ebf7f7a60d27099",
-    "src/plan/index.d.ts": "b6db6bbd829aa332fd16a7484a2aa2e5b676e3a8c1e3eab19dfb0e24a4801d47",
+    "src/core/render-types.d.ts": "1c84ddb3185ca0968b125829ecc3088963d1198330d2570fe5757c09cd9c5e60",
+    "src/pipelines/local-tts/take-cache.d.ts": "2378f3448929027a6eb872e52a5b35047f65c372a832a4cb6969c359c2573aca",
+    "src/plan/breathing.d.ts": "4a802c3e7c6277dcb73935854024b0d39f27b5d79ef9cb6d078c6332aceda89c",
+    "src/plan/index.d.ts": "63e7034174142b2227221aaba9d655a1f5d27d81836bc1cc5e7744d6e66a6dea",
     "src/plan/utterances.d.ts": "14f6b4ad810911a23fb7e26665c90541004e954958936a5b8469adb2941693c8",
     "src/profiles.d.ts": "e796d269216e1197deec9d0c04fee297433a34042ec4fc660cccd1df3d48c872",
     "src/schema.d.ts": "2617a03e8be28866be4bc854a89a8766d29731e352e21439753f529851e9e512",
@@ -24,11 +24,11 @@
     },
     "breathingV1": {
       "kind": "value",
-      "declaration": "// src/plan/index.d.ts\nexport declare function breathingV1(text: string, sentencePad: number, commaPad: number): Piece[];"
+      "declaration": "// src/plan/index.d.ts\nexport declare function breathingV1(text: string, sentencePad: number, commaPad: number, colonPad?: number): Piece[];"
     },
     "CacheKeyParams": {
       "kind": "type",
-      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface CacheKeyParams {\n    takeChecks?: {\n        pitchCeilingHz: number;\n        retries: number;\n    };\n    eqHighshelfHz?: number;\n    eqHighshelfGainDb?: number;\n    loudnessTargetDb?: number;\n    atempo?: number;\n    sentencePauseSeconds?: number;\n    commaPauseSeconds?: number;\n}"
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface CacheKeyParams {\n    takeChecks?: {\n        pitchCeilingHz: number;\n        retries: number;\n    };\n    eqHighshelfHz?: number;\n    eqHighshelfGainDb?: number;\n    loudnessTargetDb?: number;\n    atempo?: number;\n    sentencePauseSeconds?: number;\n    commaPauseSeconds?: number;\n    colonPauseSeconds?: number;\n}"
     },
     "clearTakeCacheReceipt": {
       "kind": "value",
@@ -212,7 +212,7 @@
     },
     "VoiceLayerQwen3Config": {
       "kind": "type",
-      "declaration": "// src/core/render-types.d.ts\nexport interface VoiceLayerQwen3Config extends NarrationPacingConfig {\n    profile_id?: string;\n    profile_version?: string;\n    reference_clip_sha?: string;\n    model?: string;\n    narrationlayer_commit?: string;\n    daemon_url?: string;\n    auth_token?: string;\n    auth_token_file?: string;\n    reference_clip?: string;\n    reference_text?: string;\n    reference_text_path?: string;\n    reference_clips?: string[];\n    lora_adapter_path?: string;\n    lora_scale?: number;\n    timeout_ms?: number;\n    timing_backend?: \"none\" | \"whisper-cli\";\n    whisper_binary?: string;\n    whisper_model?: string;\n    trim_silence?: boolean;\n    silence_threshold_db?: number;\n    eq_highshelf_hz?: number;\n    eq_highshelf_gain_db?: number;\n    loudness_target_db?: number;\n    atempo?: number;\n    silence_padding_seconds?: number;\n    repair_word_timings?: boolean;\n    max_chunk_duration_seconds?: number;\n    max_chunk_seconds_per_word?: number;\n    max_chunk_retries?: number;\n    audio_duration_probe?: (audioPath: string) => Promise<number | undefined>;\n    audio_postprocessor?: (args: {\n        inputPath: string;\n        outputPath: string;\n    }) => Promise<void>;\n    audio_assembler?: (args: {\n        chunks: AudioAssemblyChunk[];\n        outputPath: string;\n    }) => Promise<void>;\n    word_timing_provider?: (args: {\n        audioPath: string;\n        script: string;\n        durationSeconds: number;\n    }) => Promise<WordTiming[] | WordTimingResult>;\n}"
+      "declaration": "// src/core/render-types.d.ts\nexport interface VoiceLayerQwen3Config extends NarrationPacingConfig {\n    colon_pause_seconds?: number;\n    profile_id?: string;\n    profile_version?: string;\n    reference_clip_sha?: string;\n    model?: string;\n    narrationlayer_commit?: string;\n    daemon_url?: string;\n    auth_token?: string;\n    auth_token_file?: string;\n    reference_clip?: string;\n    reference_text?: string;\n    reference_text_path?: string;\n    reference_clips?: string[];\n    lora_adapter_path?: string;\n    lora_scale?: number;\n    timeout_ms?: number;\n    timing_backend?: \"none\" | \"whisper-cli\";\n    whisper_binary?: string;\n    whisper_model?: string;\n    trim_silence?: boolean;\n    silence_threshold_db?: number;\n    eq_highshelf_hz?: number;\n    eq_highshelf_gain_db?: number;\n    loudness_target_db?: number;\n    atempo?: number;\n    silence_padding_seconds?: number;\n    repair_word_timings?: boolean;\n    max_chunk_duration_seconds?: number;\n    max_chunk_seconds_per_word?: number;\n    max_chunk_retries?: number;\n    audio_duration_probe?: (audioPath: string) => Promise<number | undefined>;\n    audio_postprocessor?: (args: {\n        inputPath: string;\n        outputPath: string;\n    }) => Promise<void>;\n    audio_assembler?: (args: {\n        chunks: AudioAssemblyChunk[];\n        outputPath: string;\n    }) => Promise<void>;\n    word_timing_provider?: (args: {\n        audioPath: string;\n        script: string;\n        durationSeconds: number;\n    }) => Promise<WordTiming[] | WordTimingResult>;\n}"
     },
     "WhisperTimingOptions": {
       "kind": "type",

@@ -238,6 +238,7 @@ async function resolveReference(args: Args): Promise<{
   atempo?: number;
   sentencePauseSeconds?: number;
   commaPauseSeconds?: number;
+  colonPauseSeconds?: number;
 }> {
   const ref = args.reference;
   if (!ref)
@@ -337,6 +338,7 @@ async function resolveReference(args: Args): Promise<{
     atempo: cfg.atempo,
     sentencePauseSeconds: cfg.sentence_pause_seconds,
     commaPauseSeconds: cfg.comma_pause_seconds,
+    colonPauseSeconds: cfg.colon_pause_seconds,
   };
 }
 

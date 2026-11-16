@@ -22,11 +22,12 @@
         "spokenText": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m; version version one point two runs three times faster.",
         "referenceClip": "$FIXTURE/reference.wav",
         "referenceText": "Synthetic reference.",
-        "params": {}
+        "params": {},
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "482070a98590215925852ed2714742ec677b6a452083e5e2bb1b59946508fe6f",
+        "cacheKey": "1943b897d9e3250f540eb0d3fafc5d5119bb6cfe7c3a6497641f0a7b11ce9850",
         "cacheEnabled": true
       },
       "pieces": [
@@ -108,11 +109,12 @@
           "loudnessTargetDb": -20,
           "atempo": 1,
           "commaPauseSeconds": 0.22
-        }
+        },
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "0ff8bb9ab0811ac2ac86d94be9e3ea4a3c8d670781a2135f9a22e8ff7f3ec713",
+        "cacheKey": "127d48b5eba775dd48b191efd5c45b614817a77d851b193bd1409d36df9bc3f7",
         "cacheEnabled": true
       },
       "pieces": [
@@ -158,11 +160,12 @@
         "spokenText": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.\n- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
         "referenceClip": "$FIXTURE/reference.wav",
         "referenceText": "Synthetic reference.",
-        "params": {}
+        "params": {},
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "dfcf6cb3d7e7223bc893975cc26f0bf6345c46b571683de86ddef3f28ce2c577",
+        "cacheKey": "138fe6ddbff011eff432154ab9ce8b599524c6c80613e3005f253d278e873091",
         "cacheEnabled": true
       },
       "pieces": [
@@ -295,11 +298,12 @@
           "loudnessTargetDb": -20,
           "atempo": 1,
           "commaPauseSeconds": 0.22
-        }
+        },
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "9ee2223037e3a8e1ae20a1f9e346426e694f0020e084c5e3e7ae342e6bebc2da",
+        "cacheKey": "17c249cf9fc896de7b4ba71a3a7745a88d9384069f96c10917435b26f7cc30c5",
         "cacheEnabled": true
       },
       "pieces": [
@@ -357,11 +361,12 @@
         "spokenText": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
         "referenceClip": "$FIXTURE/reference.wav",
         "referenceText": "Synthetic reference.",
-        "params": {}
+        "params": {},
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "dcfe2cb62c01cce982c72dee7447064f6bc7303195a0c29894979513df8d70de",
+        "cacheKey": "2c1ff56383bd9f1d1ddc12a2471ad6edcb8fecb1befc817af8a6d516f4aa31b0",
         "cacheEnabled": true
       },
       "pieces": [
@@ -371,7 +376,7 @@
         },
         {
           "text": "with enough words to cross the planning boundary",
-          "padAfterSeconds": 0.22
+          "padAfterSeconds": 0.35
         },
         {
           "text": "every reader can follow the sequence (including the parenthetical detail)",
@@ -477,11 +482,12 @@
           "loudnessTargetDb": -20,
           "atempo": 1,
           "commaPauseSeconds": 0.22
-        }
+        },
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "9629ea38fec907649829cb4d0588795ab4c9cbc07d4633eec4d0fc4a99195e12",
+        "cacheKey": "e09168f39c69642a9cc762d1c0d9dfd999b24e6e1b5db21939e7fdd7c0b5fb6e",
         "cacheEnabled": true
       },
       "pieces": [
@@ -491,7 +497,7 @@
         },
         {
           "text": "with enough words to cross the planning boundary",
-          "padAfterSeconds": 0.22
+          "padAfterSeconds": 0.35
         },
         {
           "text": "every reader can follow the sequence (including the parenthetical detail)",
@@ -535,11 +541,12 @@
         "spokenText": "Hello, reader: wait; go — now! Really? Yes (certainly).",
         "referenceClip": "$FIXTURE/reference.wav",
         "referenceText": "Synthetic reference.",
-        "params": {}
+        "params": {},
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "0746cbe142732efab466253b38b73812bdc9225d3964f0791d7b54a3c9e5a3e0",
+        "cacheKey": "3b872f80b988944c2b8aa5147255e8fd9e2828ea44557ccea9704c55812f10a7",
         "cacheEnabled": true
       },
       "pieces": [
@@ -549,7 +556,7 @@
         },
         {
           "text": "reader",
-          "padAfterSeconds": 0.22
+          "padAfterSeconds": 0.35
         },
         {
           "text": "wait",
@@ -706,11 +713,12 @@
           "loudnessTargetDb": -20,
           "atempo": 1,
           "commaPauseSeconds": 0.22
-        }
+        },
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "e01dd238034ff15d98fc67469f921b82bad5af3d1780125190b82271c4383ac4",
+        "cacheKey": "92d616f6d686d45f1efb51bb3353fcd9647ee91e5c215e4f008202bca6b347f9",
         "cacheEnabled": true
       },
       "pieces": [
@@ -720,7 +728,7 @@
         },
         {
           "text": "reader",
-          "padAfterSeconds": 0.22
+          "padAfterSeconds": 0.35
         },
         {
           "text": "wait",
@@ -776,11 +784,12 @@
         "spokenText": "Hello",
         "referenceClip": "$FIXTURE/reference.wav",
         "referenceText": "Synthetic reference.",
-        "params": {}
+        "params": {},
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "1d1d1f97f28695575a9a17e61ee8b5fc2b2f67393b4174339618e3a22b1aa7f3",
+        "cacheKey": "d7fd315e8b4ff21df94c484030839eb42f3aacf03a707284371c2ff810879074",
         "cacheEnabled": true
       },
       "pieces": [
@@ -832,11 +841,12 @@
           "loudnessTargetDb": -20,
           "atempo": 1,
           "commaPauseSeconds": 0.22
-        }
+        },
+        "renderVersion": 2
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "32e7f9de96bcf8f35db6738b275ff73d6152a4c1b276928e246f9ecc8d626e2b",
+        "cacheKey": "7cffe3da686ef5639496af7826d56b0649bc9493085f346897459fa46a6b1070",
         "cacheEnabled": true
       },
       "pieces": [
@@ -1477,7 +1487,7 @@
         "-i",
         "anullsrc=channel_layout=mono:sample_rate=24000",
         "-t",
-        "0.22",
+        "0.35",
         "-ac",
         "1",
         "-ar",
@@ -1749,7 +1759,7 @@
         "-i",
         "anullsrc=channel_layout=mono:sample_rate=24000",
         "-t",
-        "0.22",
+        "0.35",
         "-ac",
         "1",
         "-ar",
