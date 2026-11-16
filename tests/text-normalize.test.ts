@@ -223,7 +223,26 @@ test("shadcn respelling is bounded and supports the UI library spelling", () => 
     .toBe("Try shad C N U I with shad C N, then shadcnish and preshadcn.");
 });
 
-test("runner word check accepts the respelled synthesis text", async () => {
+test("shadcn/ui has a speech alias that keeps the following word aligned", async () => {
+  const { prepareSpeechChannels, deriveSpeechAliases } = await import("../src/text-normalize.js");
+  const { normalizeWordTimingsForScript } = await import("../src/word-timing-repair.js");
+  const display = "Try shadcn/ui today now.";
+  const spoken = prepareSpeechChannels(display).synthInput;
+  const aliases = deriveSpeechAliases(display, spoken);
+  expect(aliases).toContainEqual({ term: "shadcn/ui", spoken: "shad C N U I" });
+  const words = spoken.split(/\s+/).map((word, i) => ({ index: i, word, start: i * 0.3, end: i * 0.3 + 0.25 }));
+  const repaired = normalizeWordTimingsForScript(display, words, 2.4, aliases);
+  expect(repaired.words.find(word => word.word === "today")?.start).toBeCloseTo(1.8);
+});
+
+test("shadcn domains retain spoken dots after respelling", () => {
+  expect(normalizeForSpeech("Visit shadcn.com and ui.shadcn.com today."))
+    .toBe("Visit shad C N dot com and ui dot shad C N dot com today.");
+  expect(normalizeForSpeech("https://ui.shadcn.com/docs"))
+    .toBe("https://ui dot shad C N dot com/docs");
+});
+
+test("runner word check regression guard accepts the respelled synthesis text", async () => {
   const { prepareSpeechChannels } = await import("../src/text-normalize.js");
   const { wordMismatches } = await import("../src/quality/take-checks.js");
   const display = "Our tiny robot uses shadcn today.";
