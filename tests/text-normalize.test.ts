@@ -208,3 +208,38 @@ test("initialism speech aliases retain the authored multiword phrase", async () 
   const { deriveSpeechAliases } = await import("../src/text-normalize.js");
   expect(deriveSpeechAliases("Read P R now", "Read pull request now")).toContainEqual({ term: "P R", spoken: "pull request" });
 });
+
+test("shadcn is respelled for synthesis while authored display text is retained", async () => {
+  const { prepareSpeechChannels, deriveSpeechAliases } = await import("../src/text-normalize.js");
+  const display = "Our paper robot uses ShAdCn beside a silver notebook.";
+  const channels = prepareSpeechChannels(display);
+  expect(channels.displayText).toBe(display);
+  expect(channels.synthInput).toBe("Our paper robot uses shad C N beside a silver notebook.");
+  expect(deriveSpeechAliases(display, channels.synthInput)).toContainEqual({ term: "ShAdCn", spoken: "shad C N" });
+});
+
+test("shadcn respelling is bounded and supports the UI library spelling", () => {
+  expect(normalizeForSpeech("Try SHADCN/UI with shadcn, then shadcnish and preshadcn."))
+    .toBe("Try shad C N U I with shad C N, then shadcnish and preshadcn.");
+});
+
+test("runner word check accepts the respelled synthesis text", async () => {
+  const { prepareSpeechChannels } = await import("../src/text-normalize.js");
+  const { wordMismatches } = await import("../src/quality/take-checks.js");
+  const display = "Our tiny robot uses shadcn today.";
+  const spoken = prepareSpeechChannels(display).synthInput;
+  const words = "Our tiny robot uses shad C N today.".split(/\s+/)
+    .map((word, i) => ({ word, start: i * 0.2, end: (i + 1) * 0.2 }));
+  expect(wordMismatches(spoken, words, { setting: "a" }).pass).toBe(true);
+  // A different pronunciation must still fail the same word check.
+  const wrong = words.map(w => ({ ...w, word: w.word === "shad" ? "shadgeny" : w.word }));
+  expect(wordMismatches(spoken, wrong, { setting: "a" }).pass).toBe(false);
+});
+
+test("shadcn normalization changes the frozen-take cache identity", async () => {
+  const { computeContentHashKey } = await import("../src/pipelines/local-tts/take-cache.js");
+  const display = "A wooden robot uses shadcn today.";
+  const identity = { referenceClip: "/invented/reference.wav", referenceText: "Silver lanterns glow.", params: {} };
+  expect(computeContentHashKey({ ...identity, spokenText: normalizeForSpeech(display) }))
+    .not.toBe(computeContentHashKey({ ...identity, spokenText: display }));
+});

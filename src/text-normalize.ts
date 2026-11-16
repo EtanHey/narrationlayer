@@ -42,6 +42,8 @@ export const TERM_MAP: TermRule[] = [
   // entries above, so substrings (e.g. "supabased", "nextjs-config") are safe.
   // `Next.js` MUST precede the general DOTTED_RULE so it isn't split into
   // "next dot js".
+  { term: "shadcn/ui", spoken: "shad C N U I" },
+  { term: "shadcn", spoken: "shad C N" },
   { term: "Next.js", spoken: "next jay ess" },
   { term: "Supabase", spoken: "sooper base" },
   { term: "Twilio", spoken: "twi lee oh" },
