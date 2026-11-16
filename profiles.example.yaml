@@ -30,6 +30,7 @@ profiles:
       min_utterance_words: 3
       sentence_pause_seconds: 0.65
       comma_pause_seconds: 0.25
+      # Any pause key (even colon_pause_seconds: 0) enables breathing; omitted sentence/comma keys default to 0.55/0.22 s.
       # Local runner: independent colon pause when breathing is enabled (default 0.35).
       colon_pause_seconds: 0.35
       trim_silence: true

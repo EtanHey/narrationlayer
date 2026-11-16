@@ -1,3 +1,6 @@
+/** Default colon pad for the local runner when breathing is enabled. */
+export const DEFAULT_COLON_PAUSE_SECONDS = 0.35;
+
 /**
  * Split normalized speech text into pieces on sentence-ending punctuation (. ? !)
  * and long pauses (em-dash / semicolon / colon), tagging each piece with the pause
@@ -9,7 +12,7 @@ export function splitForBreathing(
   text: string,
   sentencePad: number,
   commaPad: number,
-  colonPad = 0.35,
+  colonPad = DEFAULT_COLON_PAUSE_SECONDS,
 ): Array<{ text: string; padAfterSeconds: number }> {
   const pieces: Array<{ text: string; padAfterSeconds: number }> = [];
   const sentenceEnders = new Set([".", "?", "!"]);
