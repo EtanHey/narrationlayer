@@ -348,7 +348,7 @@
             },
             {
               "text": "with enough words to cross the planning boundary",
-              "padAfterSeconds": 0.22
+              "padAfterSeconds": 0.35
             },
             {
               "text": "every reader can follow the sequence (including the parenthetical detail)",
@@ -365,7 +365,11 @@
           "commaPad": 0,
           "output": [
             {
-              "text": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+              "text": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary",
+              "padAfterSeconds": 0.35
+            },
+            {
+              "text": "every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
               "padAfterSeconds": 0
             }
           ]
@@ -380,7 +384,7 @@
             },
             {
               "text": "with enough words to cross the planning boundary",
-              "padAfterSeconds": 0.12
+              "padAfterSeconds": 0.35
             },
             {
               "text": "every reader can follow the sequence (including the parenthetical detail)",
@@ -455,7 +459,7 @@
             },
             {
               "text": "reader",
-              "padAfterSeconds": 0.22
+              "padAfterSeconds": 0.35
             },
             {
               "text": "wait",
@@ -484,7 +488,11 @@
           "commaPad": 0,
           "output": [
             {
-              "text": "Hello, reader: wait; go — now!",
+              "text": "Hello, reader",
+              "padAfterSeconds": 0.35
+            },
+            {
+              "text": "wait; go — now!",
               "padAfterSeconds": 0.55
             },
             {
@@ -507,7 +515,7 @@
             },
             {
               "text": "reader",
-              "padAfterSeconds": 0.12
+              "padAfterSeconds": 0.35
             },
             {
               "text": "wait",
@@ -996,7 +1004,7 @@
           "output": [
             {
               "text": "First clause",
-              "padAfterSeconds": 0.22
+              "padAfterSeconds": 0.35
             },
             {
               "text": "second clause",
@@ -1013,7 +1021,11 @@
           "commaPad": 0,
           "output": [
             {
-              "text": "First clause: second clause; third clause.",
+              "text": "First clause",
+              "padAfterSeconds": 0.35
+            },
+            {
+              "text": "second clause; third clause.",
               "padAfterSeconds": 0
             }
           ]
@@ -1024,7 +1036,7 @@
           "output": [
             {
               "text": "First clause",
-              "padAfterSeconds": 0.12
+              "padAfterSeconds": 0.35
             },
             {
               "text": "second clause",
@@ -2166,7 +2178,7 @@
           "output": [
             {
               "text": "A",
-              "padAfterSeconds": 0.22
+              "padAfterSeconds": 0.35
             },
             {
               "text": "b",
@@ -2191,7 +2203,11 @@
           "commaPad": 0,
           "output": [
             {
-              "text": "A: b; c, d — e.",
+              "text": "A",
+              "padAfterSeconds": 0.35
+            },
+            {
+              "text": "b; c, d — e.",
               "padAfterSeconds": 0
             }
           ]
@@ -2202,7 +2218,7 @@
           "output": [
             {
               "text": "A",
-              "padAfterSeconds": 0.12
+              "padAfterSeconds": 0.35
             },
             {
               "text": "b",

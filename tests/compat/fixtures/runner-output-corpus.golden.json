@@ -63,7 +63,7 @@
         "sampleRate": 24000,
         "bitsPerSample": 16
       },
-      "samples": 35040,
+      "samples": 38160,
       "rmsDb": -19.6
     },
     {
@@ -85,8 +85,8 @@
         "sampleRate": 24000,
         "bitsPerSample": 16
       },
-      "samples": 81120,
-      "rmsDb": -19.6
+      "samples": 84240,
+      "rmsDb": -19.5
     },
     {
       "run": "corpus[4] direct",

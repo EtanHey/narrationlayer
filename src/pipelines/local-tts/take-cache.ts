@@ -15,6 +15,7 @@ export interface CacheKeyParams {
   atempo?: number;
   sentencePauseSeconds?: number;
   commaPauseSeconds?: number;
+  colonPauseSeconds?: number;
 }
 
 /**
@@ -31,7 +32,7 @@ export interface CacheKeyParams {
  * history lives in
  * `tests/compat/fixtures/take-cache-render-versions.json`.
  */
-export const LOCAL_TTS_RENDER_VERSION: number = 1;
+export const LOCAL_TTS_RENDER_VERSION: number = 2;
 
 /**
  * Compute the content-hash freeze key (sha256, hex) for a synth request. The key is
@@ -69,6 +70,7 @@ export function computeContentHashKey(input: {
     atempo: p.atempo,
     sentencePauseSeconds: p.sentencePauseSeconds,
     commaPauseSeconds: p.commaPauseSeconds,
+    colonPauseSeconds: p.colonPauseSeconds,
     ...(p.takeChecks ? { takeChecks: { pitchCeilingHz: p.takeChecks.pitchCeilingHz, retries: p.takeChecks.retries } } : {}),
   };
   // JSON.stringify drops undefined values, so absent params don't perturb the key.

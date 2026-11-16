@@ -145,7 +145,7 @@ export async function compatProfile(f: Fixture) {
   await writeFile(path.join(f.root, "profiles.yaml"), `profiles:\n  - id: compat-voice\n    accepted: true\n    renderer: voicelayer-qwen3\n    profile_version: synthetic-v1\n    render:\n      reference_clip: ${f.root}/reference.wav\n      reference_text: Profile text.\n      daemon_url: ${f.url}\n      auth_token_file: ${f.root}/auth\n      model: synthetic-model\n      comma_pause_seconds: 0.22\n      eq_highshelf_hz: 4000\n      eq_highshelf_gain_db: 0\n      atempo: 1\n      loudness_target_db: -20\n`);
 }
 export const defaultsText = "First clause, second clause. Last sentence.";
-export type DefaultsRender = { sentence_pause_seconds?: number; comma_pause_seconds?: number; atempo?: number };
+export type DefaultsRender = { colon_pause_seconds?: number; sentence_pause_seconds?: number; comma_pause_seconds?: number; atempo?: number };
 export const defaultsCases: { name: string; render: DefaultsRender; params: Record<string, number>; sentence: number; comma: number }[] = [
   { name: "sentence-only", render: { sentence_pause_seconds: 0.41, atempo: 1 }, params: { atempo: 1, sentencePauseSeconds: 0.41 }, sentence: 0.41, comma: 0.22 },
   { name: "comma-only", render: { comma_pause_seconds: 0.17, atempo: 1 }, params: { atempo: 1, commaPauseSeconds: 0.17 }, sentence: 0.55, comma: 0.17 },

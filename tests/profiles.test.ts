@@ -306,3 +306,11 @@ test("Qwen3 profiles surface voice-SSOT provenance fields", async () => {
     rmSync(profileDir, { recursive: true, force: true });
   }
 });
+
+
+test("profile resolves an independent colon pause including zero", () => {
+  for (const seconds of [0, 0.7]) {
+    const [profile] = parseProfilesYaml(`profiles:\n  - id: colon-reader\n    render:\n      colon_pause_seconds: ${seconds}\n`);
+    expect(qwenConfigFromProfile(profile).colon_pause_seconds).toBe(seconds);
+  }
+});

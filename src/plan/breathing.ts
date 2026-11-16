@@ -2,17 +2,18 @@
  * Split normalized speech text into pieces on sentence-ending punctuation (. ? !)
  * and long pauses (em-dash / semicolon / colon), tagging each piece with the pause
  * (seconds) that should FOLLOW it. Sentence-enders => sentencePad; comma/clause
- * separators (, ; : —) => commaPad. The final piece carries no trailing pad (0).
+ * separators (, ; —) => commaPad; a colon followed by whitespace => colonPad. The final piece carries no trailing pad (0).
  * Exported for tests. A piece with no detectable terminator keeps the text intact.
  */
 export function splitForBreathing(
   text: string,
   sentencePad: number,
   commaPad: number,
+  colonPad = 0.35,
 ): Array<{ text: string; padAfterSeconds: number }> {
   const pieces: Array<{ text: string; padAfterSeconds: number }> = [];
   const sentenceEnders = new Set([".", "?", "!"]);
-  const clauseEnders = new Set([";", ":", "—", ","]);
+  const clauseEnders = new Set([";", "—", ","]);
   const closingAfterSentence = new Set([
     '"',
     "'",
@@ -54,6 +55,12 @@ export function splitForBreathing(
         pushPiece(end, end, sentencePad);
         i = pieceStart - 1;
       }
+      continue;
+    }
+
+    if (ch === ":" && colonPad > 0 && i + 1 < text.length && /\s/.test(text[i + 1])) {
+      pushPiece(i, i + 1, colonPad);
+      i = pieceStart - 1;
       continue;
     }
 

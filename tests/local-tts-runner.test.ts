@@ -491,3 +491,34 @@ catch (error) { process.stderr.write("caught: " + error.message + "\\n"); proces
     expect(existsSync(path.join(dir, "out.wav"))).toBe(false);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }, 30000);
+
+
+test("colon breathing has its own default even with comma pauses disabled", () => {
+  for (const comma of [0, 0.2]) {
+    expect(splitForBreathing("A label: the value.", 0.5, comma)).toEqual([
+      { text: "A label", padAfterSeconds: 0.35 },
+      { text: "the value.", padAfterSeconds: 0 },
+    ]);
+  }
+  expect(splitForBreathing("A label: the value, continues.", 0.5, 0)).toEqual([
+    { text: "A label", padAfterSeconds: 0.35 },
+    { text: "the value, continues.", padAfterSeconds: 0 },
+  ]);
+  for (const text of ["Label:next", "Meet at 10:30", "Visit https://example.test/path", "Final label:"]) {
+    expect(splitForBreathing(text, 0.5, 0.2)).toEqual([{ text, padAfterSeconds: 0 }]);
+  }
+});
+
+
+test("colon pause override controls splitting and the cache key", () => {
+  expect(splitForBreathing("Label: value.", 0.5, 0, 0.7)).toEqual([
+    { text: "Label", padAfterSeconds: 0.7 }, { text: "value.", padAfterSeconds: 0 },
+  ]);
+  expect(splitForBreathing("Label: value.", 0.5, 0, 0)).toEqual([
+    { text: "Label: value.", padAfterSeconds: 0 },
+  ]);
+  const key = (colonPauseSeconds: number) => computeContentHashKey({
+    ...baseKeyInput, params: { ...baseKeyInput.params, colonPauseSeconds },
+  });
+  expect(key(0.35)).not.toBe(key(0.7));
+});

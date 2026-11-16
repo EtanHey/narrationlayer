@@ -21,6 +21,7 @@ export interface WordTimingResult {
 }
 
 export interface VoiceLayerQwen3Config extends NarrationPacingConfig {
+  colon_pause_seconds?: number;
   profile_id?: string;
   profile_version?: string;
   reference_clip_sha?: string;
