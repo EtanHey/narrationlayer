@@ -42,6 +42,11 @@ export const TERM_MAP: TermRule[] = [
   // entries above, so substrings (e.g. "supabased", "nextjs-config") are safe.
   // `Next.js` MUST precede the general DOTTED_RULE so it isn't split into
   // "next dot js".
+  // Domains and `shadcn/ui` precede `shadcn`: dot and slash are term boundaries.
+  { term: "ui.shadcn.com", spoken: "ui dot shad C N dot com" },
+  { term: "shadcn.com", spoken: "shad C N dot com" },
+  { term: "shadcn/ui", spoken: "shad C N U I" },
+  { term: "shadcn", spoken: "shad C N" },
   { term: "Next.js", spoken: "next jay ess" },
   { term: "Supabase", spoken: "sooper base" },
   { term: "Twilio", spoken: "twi lee oh" },
@@ -108,7 +113,7 @@ interface SpeechAliasToken {
 }
 
 function speechAliasTokens(text: string): SpeechAliasToken[] {
-  return (String(text).match(/[\p{L}\p{N}]+(?:[._'’@-][\p{L}\p{N}]+)*/gu) ?? [])
+  return (String(text).match(/[\p{L}\p{N}]+(?:[./_'’@-][\p{L}\p{N}]+)*/gu) ?? [])
     .map((word) => ({
       word,
       comparable: word.toLocaleLowerCase("en-US").replace(/[^\p{L}\p{N}]+/gu, ""),
