@@ -51,9 +51,8 @@ const SCALES: Readonly<Record<string, number>> = { billion: 1e9, million: 1e6, t
 const ORDINAL_SCALES: Readonly<Record<string, string>> = { hundredth: "hundred", thousandth: "thousand", millionth: "million", billionth: "billion" };
 
 function cardinal(tokens: readonly string[]): number | null {
-  if (tokens.length === 1 && /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(tokens[0])) {
+  if (tokens.length === 1 && /^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(tokens[0])) {
     const literal = tokens[0].replaceAll(",", "");
-    if (literal.includes(".") && literal.replace(".", "").length > 15) return null;
     const n = Number(literal);
     return Number.isFinite(n) && n <= Number.MAX_SAFE_INTEGER ? n : null;
   }
@@ -108,12 +107,17 @@ function numberKey(input: readonly string[]): string | null {
     tokens = tokens.slice(0, -1);
   }
   const point = tokens.indexOf("point");
-  let n = cardinal(tokens);
+  // Decimal identity is textual: 18.10 is distinct from 18.1 (versions and dropped zeros).
+  if (tokens.length === 1 && /^(?:\d+|\d{1,3}(?:,\d{3})+)\.\d+$/.test(tokens[0])) {
+    const [whole, fraction] = tokens[0].replaceAll(",", "").split(".");
+    return `cardinal:${whole.replace(/^0+(?=\d)/, "")}.${fraction}:${unit}`;
+  }
+  const n = cardinal(tokens);
   if (point > 0) {
     const whole = cardinal(tokens.slice(0, point));
     const digits = tokens.slice(point + 1).map(t => SMALL.indexOf(t));
     if (whole !== null && Number.isInteger(whole) && digits.length && `${whole}${digits.join("")}`.length <= 15 && digits.every(d => d >= 0 && d <= 9)) {
-      n = Number(`${whole}.${digits.join("")}`);
+      return `cardinal:${whole}.${digits.join("")}:${unit}`;
     }
   }
   if (n !== null) return `cardinal:${n}:${unit}`;
@@ -131,7 +135,8 @@ export function transcriptionNumbers(tokens: readonly string[]): Map<string, num
       if (key !== null) {
         spans.set(key, length);
         // Whisper sometimes emits bare digits for spoken dollars (builder regression).
-        // Require a digit literal on the other side; do not drop arbitrary spoken units.
+        // Symmetric: "four dollars" / bare "4" passes in either direction.
+        // Require a digit literal on the other side; "$4" / spoken "four" still fails.
         if (/^cardinal:[^:]+:dollar$/.test(key)) spans.set(key.replace(/:dollar$/, ":digit-dollar"), length);
         if (length === 1 && /^\d[\d,.]*$/.test(tokens[start])) {
           spans.set(key.replace(/:$/, ":digit-dollar"), length);
@@ -140,4 +145,9 @@ export function transcriptionNumbers(tokens: readonly string[]): Map<string, num
     }
     return spans;
   });
+}
+
+/** Literal matching guards numeric spans, while mixed letter-digit names keep compound matching. */
+export function isTranscriptionNumberSpan(tokens: readonly string[]): boolean {
+  return numberKey(tokens) !== null || tokens.every(token => /^[0-9.,+%$-]+$/.test(token));
 }

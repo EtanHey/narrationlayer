@@ -1,4 +1,4 @@
-import { TRANSCRIPTION_TOKEN, transcriptionNumbers, transcriptionSpelling } from "./transcription-equivalence.js";
+import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, transcriptionNumbers, transcriptionSpelling } from "./transcription-equivalence.js";
 
 export type RecognisedWord = { word: string; start: number; end: number };
 
@@ -125,8 +125,14 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
           const l = left.map(tolerant ? canonicalWord : normalize).join("");
           const r = right.map(tolerant ? canonicalWord : normalize).join("");
           // Numbers and units must use their parsed keys, never concatenation or fuzzy spelling.
-          const numeric = [...left, ...right].some(w => /[0-9$%]/.test(w));
-          const match = l === r && (!numeric || left.join(" ").toLowerCase() === right.join(" ").toLowerCase());
+          const tokens = [...left, ...right];
+          const mixedName = tokens.some(w => /[a-z]/i.test(w) && /[0-9]/.test(w));
+          const numeric = tokens.some(w => /[0-9$%]/.test(w)) && !mixedName
+            || tokens.some(w => /^[$%]$|^[+-]\d/.test(w))
+            || (isTranscriptionNumberSpan(left) && isTranscriptionNumberSpan(right));
+          const match = (l === r && (!numeric || left.join(" ").toLowerCase() === right.join(" ").toLowerCase()))
+            || (tolerant && a === 1 && b === 1 && !/[0-9]/.test(left[0] + right[0])
+              && Math.min(l.length, r.length) >= 6 && spellingDistance(l, r) <= 1);
           if (match) update(i + a, j + b, 0, "match");
         }
       }

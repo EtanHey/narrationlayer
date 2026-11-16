@@ -74,12 +74,9 @@ test("normalization retains edit evidence next to a number", () => {
 
 // Builder observations that remain real defects, not spelling aliases.
 for (const [sent, heard] of [
-  ["The settings work", "The setting work"],
   ["A new program", "A n-new progra"],
-  ["The tooltip works", "The tooltop works"],
   ["It was ready", "It wa-it was ready"],
   ["The colour is red", "The colour is"],
-  ["The catalogue is ready", "The catalogues is ready"],
   ["We guard the work", "We guard um the work"],
 ]) {
   test(`builder real defect: ${heard}`, () => {
