@@ -1,3 +1,5 @@
+import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, transcriptionNumbers, transcriptionSpelling } from "./transcription-equivalence.js";
+
 export type RecognisedWord = { word: string; start: number; end: number };
 
 // Step-1 exact-token normalization; this screen is for Latin-script recognition.
@@ -88,27 +90,20 @@ function spellingDistance(a: string, b: string): number {
 function canonicalWord(word: string): string {
   const token = normalize(word);
   // Expand only a written apostrophe: e.g. ordinary "well" must not become "we will".
-  return /['’]/.test(word) ? CONTRACTIONS[token] ?? token : token;
-}
-
-function validNumber(tokens: string[]): number | null {
-  // Keep the existing number helper, but do not equate arbitrary sums such as "one two" and "3".
-  if (tokens.length === 1) return numberValue(tokens);
-  if (tokens.length === 2 && (NUMBER_WORDS[tokens[0]] ?? 0) >= 20
-    && (NUMBER_WORDS[tokens[0]] ?? 0) % 10 === 0
-    && (NUMBER_WORDS[tokens[1]] ?? 0) > 0 && (NUMBER_WORDS[tokens[1]] ?? 10) < 10) return numberValue(tokens);
-  return null;
+  return /['’]/.test(word) ? CONTRACTIONS[token] ?? token : transcriptionSpelling(token);
 }
 
 /** Whole-take token edit alignment. Positions are zero-based; tolerance:false keeps only case/punctuation folding. */
 export function wordMismatches(sent: string, recognised: readonly RecognisedWord[], options: WordCheckOptions = {}) {
   const setting = options.setting ?? "a";
   if ((setting === "b" || setting === "c") && !options.commonWords) throw new Error("settings b/c require a common-word dictionary");
-  const expected = (sent.match(/[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi) ?? []);
+  const expected = (sent.match(TRANSCRIPTION_TOKEN) ?? []);
   const raw = recognised.flatMap((item, index) =>
-    (item.word.match(/[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi) ?? []).map(word => ({ ...item, word, index })));
+    (item.word.match(TRANSCRIPTION_TOKEN) ?? []).map(word => ({ ...item, word, index })));
   if (!expected.length) throw new Error("sent text needs nonempty Latin-script words");
   const tolerant = options.tolerance !== false;
+  const expectedNumbers = tolerant ? transcriptionNumbers(expected) : [];
+  const heardNumbers = tolerant ? transcriptionNumbers(raw.map(w => w.word)) : [];
   type Step = { i: number; j: number; kind: WordEdit["kind"] | "match" };
   const cells: { cost: number; step: Step | null }[][] = Array.from({ length: expected.length + 1 }, () =>
     Array.from({ length: raw.length + 1 }, () => ({ cost: Infinity, step: null })));
@@ -120,14 +115,24 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
           cells[ni][nj] = { cost: cells[i][j].cost + cost, step: { i, j, kind } };
         }
       };
+      for (const [key, length] of expectedNumbers[i] ?? []) {
+        const heardLength = heardNumbers[j]?.get(key);
+        if (heardLength !== undefined) update(i + length, j + heardLength, 0, "match");
+      }
       for (let a = 1; a <= Math.min(tolerant ? 3 : 1, expected.length - i); a++) {
         for (let b = 1; b <= Math.min(tolerant ? 3 : 1, raw.length - j); b++) {
           const left = expected.slice(i, i + a), right = raw.slice(j, j + b).map(w => w.word);
           const l = left.map(tolerant ? canonicalWord : normalize).join("");
           const r = right.map(tolerant ? canonicalWord : normalize).join("");
-          const n = validNumber(left.flatMap(w => w.split("-")).map(normalize)), m = validNumber(right.flatMap(w => w.split("-")).map(normalize));
-          const match = l === r || (tolerant && n !== null && n === m)
-            || (tolerant && a === 1 && b === 1 && Math.min(l.length, r.length) >= 6 && spellingDistance(l, r) <= 1);
+          // Numbers and units must use their parsed keys, never concatenation or fuzzy spelling.
+          const tokens = [...left, ...right];
+          const mixedName = tokens.some(w => /[a-z]/i.test(w) && /[0-9]/.test(w));
+          const numeric = tokens.some(w => /[0-9$%]/.test(w)) && !mixedName
+            || tokens.some(w => /^[$%]$|^[+-]\d/.test(w))
+            || (isTranscriptionNumberSpan(left) && isTranscriptionNumberSpan(right));
+          const match = (l === r && (!numeric || left.join(" ").toLowerCase() === right.join(" ").toLowerCase()))
+            || (tolerant && a === 1 && b === 1 && !/[0-9]/.test(left[0] + right[0])
+              && Math.min(l.length, r.length) >= 6 && spellingDistance(l, r) <= 1);
           if (match) update(i + a, j + b, 0, "match");
         }
       }
@@ -148,7 +153,7 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
     }
     i = step.i; j = step.j;
   }
-  const matches = [...sent.matchAll(/[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi)];
+  const matches = [...sent.matchAll(TRANSCRIPTION_TOKEN)];
   const classified = edits.reverse().map(edit => {
     const token = edit.sent[0] ?? "", heard = edit.recognised[0] ?? "";
     const prefix = sent.slice(0, matches[edit.sentIndex]?.index ?? sent.length);
