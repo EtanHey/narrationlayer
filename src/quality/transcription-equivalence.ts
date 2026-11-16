@@ -1,0 +1,143 @@
+// Explicit transcription aliases, never edit-distance or general suffix guessing.
+const SPELLINGS: Readonly<Record<string, string>> = Object.fromEntries([
+  ["colour", "color"], ["colours", "colors"], ["colourful", "colorful"],
+  ["behaviour", "behavior"], ["behaviours", "behaviors"],
+  ["catalogue", "catalog"], ["catalogues", "catalogs"],
+  ["recogniser", "recognizer"], ["recognisers", "recognizers"],
+  ["centre", "center"], ["centres", "centers"], ["licence", "license"], ["licences", "licenses"],
+  ...["organis", "recognis", "normalis", "optimis", "summaris", "realis", "authoris", "analys"]
+    .flatMap(stem => ["e", "es", "ed", "ing", "ation", "ations"].map(ending => {
+      const uk = stem + ending;
+      return [uk, stem.slice(0, -1) + "z" + ending];
+    })),
+]);
+
+export function transcriptionSpelling(word: string): string {
+  return SPELLINGS[word] ?? word;
+}
+
+// Preserve units and signs before punctuation folding; only explicit numeric aliases may consume them.
+export const TRANSCRIPTION_TOKEN = /\$|%|[+-]\d+(?:,\d{3})*(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:st|nd|rd|th)?|[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi;
+const SMALL = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split(" ");
+const TENS = "twenty thirty forty fifty sixty seventy eighty ninety".split(" ");
+const ORDINALS = "zeroth first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth".split(" ");
+const ORDINAL_TENS = "twentieth thirtieth fortieth fiftieth sixtieth seventieth eightieth ninetieth".split(" ");
+
+function underHundred(tokens: readonly string[]): number | null {
+  if (tokens.length === 1) {
+    const small = SMALL.indexOf(tokens[0]);
+    if (small >= 0) return small;
+    const tens = TENS.indexOf(tokens[0]);
+    return tens < 0 ? null : (tens + 2) * 10;
+  }
+  if (tokens.length === 2) {
+    const tens = TENS.indexOf(tokens[0]), units = SMALL.indexOf(tokens[1]);
+    if (tens >= 0 && units > 0 && units < 10) return (tens + 2) * 10 + units;
+  }
+  return null;
+}
+
+function underThousand(tokens: readonly string[]): number | null {
+  if (tokens[1] !== "hundred") return underHundred(tokens);
+  const units = tokens[0] === "a" ? 1 : SMALL.indexOf(tokens[0]);
+  if (units < 1 || units > 9) return null;
+  if (tokens.length === 2) return units * 100;
+  const rest = tokens.slice(tokens[2] === "and" ? 3 : 2);
+  const tail = underHundred(rest);
+  return tail !== null && tail > 0 ? units * 100 + tail : null;
+}
+
+const SCALES: Readonly<Record<string, number>> = { billion: 1e9, million: 1e6, thousand: 1e3 };
+const ORDINAL_SCALES: Readonly<Record<string, string>> = { hundredth: "hundred", thousandth: "thousand", millionth: "million", billionth: "billion" };
+
+function cardinal(tokens: readonly string[]): number | null {
+  if (tokens.length === 1 && /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(tokens[0])) {
+    const literal = tokens[0].replaceAll(",", "");
+    if (literal.includes(".") && literal.replace(".", "").length > 15) return null;
+    const n = Number(literal);
+    return Number.isFinite(n) && n <= Number.MAX_SAFE_INTEGER ? n : null;
+  }
+  let total = 0, start = 0, previousScale = Infinity;
+  for (let i = 0; i < tokens.length; i++) {
+    const scale = SCALES[tokens[i]];
+    if (scale === undefined) continue;
+    const group = tokens.slice(start, i);
+    const value = group.length === 1 && group[0] === "a" ? 1 : underThousand(group);
+    if (scale >= previousScale || value === null || value === 0) return null;
+    total += value * scale;
+    previousScale = scale;
+    start = i + 1;
+  }
+  if (start === tokens.length) return total;
+  const tail = tokens.slice(start + (start > 0 && tokens[start] === "and" ? 1 : 0));
+  const value = underThousand(tail);
+  if (value !== null) return total + value;
+  // Unambiguous two-part years only: nineteen ninety-nine, twenty twenty-six.
+  if (start === 0 && (tokens[0] === "nineteen" || tokens[0] === "twenty")) {
+    const year = underHundred(tokens.slice(1));
+    if (year !== null && year >= 10) return (tokens[0] === "nineteen" ? 1900 : 2000) + year;
+  }
+  return null;
+}
+
+function ordinal(tokens: readonly string[]): number | null {
+  const last = tokens.at(-1);
+  if (!last) return null;
+  if (tokens.length === 1 && /^(?:\d+|\d{1,3}(?:,\d{3})+)(st|nd|rd|th)$/.test(last)) {
+    const n = Number(last.slice(0, -2).replaceAll(",", ""));
+    const suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th");
+    return last.endsWith(suffix) && Number.isSafeInteger(n) ? n : null;
+  }
+  const small = ORDINALS.indexOf(last), tens = ORDINAL_TENS.indexOf(last);
+  const replacement = small >= 0 ? SMALL[small] : tens >= 0 ? TENS[tens]
+    : ORDINAL_SCALES[last];
+  return replacement === undefined ? null : cardinal([...tokens.slice(0, -1), replacement]);
+}
+
+/** Bounded numeric phrase key; units and ordinal/cardinal identity are significant. */
+function numberKey(input: readonly string[]): string | null {
+  let tokens = input.flatMap(word => word.toLowerCase().split("-"));
+  let unit = "";
+  if (tokens[0] === "$") { unit = "dollar"; tokens = tokens.slice(1); }
+  if (tokens.slice(-2).join(" ") === "per cent") tokens = [...tokens.slice(0, -2), "percent"];
+  const last = tokens.at(-1);
+  if (last === "dollars" || last === "dollar" || last === "%" || last === "percent") {
+    const suffix = last === "%" || last === "percent" ? "percent" : "dollar";
+    if (unit) return null;
+    unit = suffix;
+    tokens = tokens.slice(0, -1);
+  }
+  const point = tokens.indexOf("point");
+  let n = cardinal(tokens);
+  if (point > 0) {
+    const whole = cardinal(tokens.slice(0, point));
+    const digits = tokens.slice(point + 1).map(t => SMALL.indexOf(t));
+    if (whole !== null && Number.isInteger(whole) && digits.length && `${whole}${digits.join("")}`.length <= 15 && digits.every(d => d >= 0 && d <= 9)) {
+      n = Number(`${whole}.${digits.join("")}`);
+    }
+  }
+  if (n !== null) return `cardinal:${n}:${unit}`;
+  const o = ordinal(tokens);
+  return o !== null && !unit ? `ordinal:${o}` : null;
+}
+
+/** Index numeric spans once, retaining original token boundaries for edit evidence. */
+export function transcriptionNumbers(tokens: readonly string[]): Map<string, number>[] {
+  return tokens.map((_, start) => {
+    const spans = new Map<string, number>();
+    // Twelve original tokens covers ordinary compound numbers; never scan an unbounded phrase.
+    for (let length = 1; length <= Math.min(12, tokens.length - start); length++) {
+      const key = numberKey(tokens.slice(start, start + length));
+      if (key !== null) {
+        spans.set(key, length);
+        // Whisper sometimes emits bare digits for spoken dollars (builder regression).
+        // Require a digit literal on the other side; do not drop arbitrary spoken units.
+        if (/^cardinal:[^:]+:dollar$/.test(key)) spans.set(key.replace(/:dollar$/, ":digit-dollar"), length);
+        if (length === 1 && /^\d[\d,.]*$/.test(tokens[start])) {
+          spans.set(key.replace(/:$/, ":digit-dollar"), length);
+        }
+      }
+    }
+    return spans;
+  });
+}
