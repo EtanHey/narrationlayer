@@ -596,3 +596,21 @@ test("backend timings align to authored words and pass narration timing gate", a
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+
+test("pronunciation hints send spoken words and repair job timings to display words", async () => {
+  const dataDir = createTempDir();
+  try {
+    const result = await renderSegment("hint", { title: "Hint", script: "We live{say:liv} here." }, {
+      artifactsDir: dataDir, dataDir, jobId: "hint-job", voiceProfile: "neutral-reader",
+      fetch: async (_url, init) => {
+        expect(JSON.parse(String(init?.body)).text).toBe("We liv here.");
+        return new Response(JSON.stringify({ audio_b64: Buffer.from("invented audio").toString("base64"),
+          words: [{word: "We", start: 0, end: .4}, {word: "liv", start: .5, end: .9}, {word: "here.", start: 1, end: 1.4}] }));
+      },
+    }, {auth_token: "invented-token", reference_clip: "/invented/reference.wav", reference_text: "Silver lanterns glow.", audio_duration_probe: async () => 1.5});
+    const words = await Bun.file(result.words_path).json();
+    expect(words.words.map((w: {word: string}) => w.word)).toEqual(["We", "live", "here."]);
+    expect(words.words[1].start).toBe(.5);
+  } finally { rmSync(dataDir, {recursive: true, force: true}); }
+});

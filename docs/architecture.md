@@ -275,3 +275,28 @@ A name computed at run time cannot be seen by a syntax rule.
 files and proves these refusals with synthetic trees; `engine-no-wait.json` in
 the same directory records the contract's no-wait obligations, current evidence
 and remaining debt, with registry case references checked by a shape test.
+
+
+## Per-word pronunciation hints
+
+Script authors can write `live{say:liv}` or `read{say:reed}` in prose.
+`prepareSpeechChannels` removes the mark from `displayText` and substitutes the
+respelling in `synthInput`. Unmarked occurrences retain their usual pronunciation.
+Both sides must be one alphabetic word (Unicode letters, with internal apostrophes
+allowed); phrases, spaces, nested marks, and marks in code or URLs are errors.
+The `{say` prefix is reserved, including incorrect casing and whitespace after
+`{`. A malformed reserved mark throws `Invalid pronunciation hint` before
+synthesis or teleprompter markup generation. This uses braces rather than
+Markdown links, emphasis or code delimiters.
+
+The local runner prepares these channels before its cache lookup and word check;
+its `.spoken.txt` records the exact synthesis input. The job renderer repairs
+recognized timings against the display channel with `deriveSpeechAliases`, and
+the teleprompter embeds that display channel for its script and estimated timing.
+Outside script builders must likewise use `prepareSpeechChannels(...).displayText`
+when displaying authored scripts instead of embedding the marked source verbatim.
+Explicit respellings bypass automatic pronunciation rules.
+
+`LOCAL_TTS_RENDER_VERSION` stays unchanged: this changes only marked scripts,
+whose spoken text already changes their cache key. It changes no cutting, pauses
+or ffmpeg chain (see CLAUDE.md Module rules and the cache-version rule above).

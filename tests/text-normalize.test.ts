@@ -262,3 +262,60 @@ test("shadcn normalization changes the frozen-take cache identity", async () => 
   expect(computeContentHashKey({ ...identity, spokenText: normalizeForSpeech(display) }))
     .not.toBe(computeContentHashKey({ ...identity, spokenText: display }));
 });
+
+
+test("explicit pronunciation hints preserve display and override only marked occurrences", async () => {
+  const { prepareSpeechChannels, deriveSpeechAliases } = await import("../src/text-normalize.js");
+  const marked = "The checks live{say:liv} here. We go live tomorrow. Every read{say:reed} costs.";
+  const channels = prepareSpeechChannels(marked);
+  expect(channels.displayText).toBe("The checks live here. We go live tomorrow. Every read costs.");
+  expect(channels.synthInput).toBe("The checks liv here. We go live tomorrow. Every reed costs.");
+  expect(normalizeForSpeech(marked)).toBe(channels.synthInput);
+  expect(deriveSpeechAliases(channels.displayText, channels.synthInput)).toEqual([
+    { term: "live", spoken: "liv" }, { term: "read", spoken: "reed" },
+  ]);
+  expect(prepareSpeechChannels("We live here and read daily.").displayText).toBe("We live here and read daily.");
+  expect(prepareSpeechChannels("cmux{say:mux}").synthInput).toBe("mux");
+});
+
+test("pronunciation hint aliases anchor displayed words to spoken timings and word checks", async () => {
+  const { prepareSpeechChannels, deriveSpeechAliases } = await import("../src/text-normalize.js");
+  const { normalizeWordTimingsForScript } = await import("../src/word-timing-repair.js");
+  const { wordMismatches } = await import("../src/quality/take-checks.js");
+  const channels = prepareSpeechChannels("We live{say:liv} here and read{say:reed} daily.");
+  const words = channels.synthInput.split(/\s+/).map((word, index) => ({index, word, start: index * .5, end: index * .5 + .4}));
+  const aligned = normalizeWordTimingsForScript(channels.displayText, words, 3, deriveSpeechAliases(channels.displayText, channels.synthInput));
+  expect(aligned.words.map(w => w.word)).toEqual(["We", "live", "here", "and", "read", "daily."]);
+  expect(aligned.words[1].start).toBe(.5);
+  expect(aligned.words[4].start).toBe(2);
+  expect(wordMismatches(channels.synthInput, words, {setting: "a"}).pass).toBe(true);
+  expect(wordMismatches(channels.displayText, words, {setting: "a"}).pass).toBe(false);
+});
+
+test("malformed or misplaced reserved hints fail before displaying or speaking markup", async () => {
+  const { prepareSpeechChannels } = await import("../src/text-normalize.js");
+  for (const text of ["live{say:}", "live{say:liv", "live{say liv}", "live{SAY:liv}", "live{ say:liv}", "live{say:two words}", "live {say:liv}", "{say:liv}", "live{say:liv}tail", "live{say:liv}{say:laiv}", "live{say:{liv}}", "`live{say:liv}`"]) {
+    expect(() => prepareSpeechChannels(text)).toThrow("Invalid pronunciation hint");
+    expect(() => normalizeForSpeech(text)).toThrow("Invalid pronunciation hint");
+  }
+});
+
+
+test("adjacent hints retain individual timing aliases and distinct cache keys", async () => {
+  const { prepareSpeechChannels, deriveSpeechAliases } = await import("../src/text-normalize.js");
+  const { computeContentHashKey } = await import("../src/pipelines/local-tts/take-cache.js");
+  const channels = prepareSpeechChannels("live{say:liv} read{say:reed}");
+  expect(deriveSpeechAliases(channels.displayText, channels.synthInput)).toEqual([
+    { term: "live", spoken: "liv" }, { term: "read", spoken: "reed" },
+  ]);
+  const identity = { referenceClip: "/invented/reference.wav", referenceText: "Silver lanterns glow.", params: {} };
+  expect(computeContentHashKey({ ...identity, spokenText: channels.synthInput }))
+    .not.toBe(computeContentHashKey({ ...identity, spokenText: channels.displayText }));
+});
+
+
+test("timing tokenization hides hints for fake and external-command renderers", async () => {
+  const { getWordsFromScript } = await import("../src/timing/script-words.js");
+  expect(getWordsFromScript("We live{say:liv} here.")).toEqual(["We", "live", "here."]);
+  expect(() => getWordsFromScript("We live{say:} here.")).toThrow("Invalid pronunciation hint");
+});

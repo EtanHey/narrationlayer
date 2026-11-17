@@ -158,6 +158,10 @@ export function deriveSpeechAliases(displayText: string, synthInput: string): Te
       const spoken = synthGap.map((token) => token.word).join(" ");
       addAlias(term, spoken);
     }
+    // Adjacent one-word respellings have no unchanged LCS anchor between them.
+    if (displayGap.length > 1 && displayGap.length === synthGap.length) {
+      displayGap.forEach((token, index) => addAlias(token.word, synthGap[index].word));
+    }
     displayGap = [];
     synthGap = [];
   };
@@ -287,12 +291,38 @@ function normalizeSpokenRules(text: string): string {
   return SPOKEN_RULES.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), text);
 }
 
+// Reserve the say prefix even when its delimiter or casing is wrong. Marks
+// inside code/URLs are rejected: those spans have their own literal semantics.
+function hintChannels(text: string, normalize: (text: string) => string): SpeechChannels {
+  const marker = /\{\s*say\b/gi;
+  const protectedSpans = [...text.matchAll(PROTECTED)];
+  let displayText = "";
+  let synthInput = "";
+  let cursor = 0;
+  for (const match of text.matchAll(marker)) {
+    const index = match.index;
+    const word = text.slice(cursor, index).match(/(?<![\p{L}\p{N}_'’/-])([\p{L}]+(?:['’][\p{L}]+)*)$/u);
+    const hint = text.slice(index).match(/^\{say:([\p{L}]+(?:['’][\p{L}]+)*)\}(?![\p{L}\p{N}_{}])/u);
+    if (!word || !hint || protectedSpans.some(span => index >= span.index && index < span.index + span[0].length)) {
+      throw new Error(`Invalid pronunciation hint at character ${index + 1}: expected word{say:respelling} in prose (one word each)`);
+    }
+    const wordStart = index - word[1].length;
+    const preceding = text.slice(cursor, wordStart);
+    displayText += preceding + word[1];
+    synthInput += normalize(preceding) + hint[1];
+    cursor = index + hint[0].length;
+  }
+  const tail = text.slice(cursor);
+  return { displayText: displayText + tail, synthInput: synthInput + normalize(tail) };
+}
+
 export function normalizeForSpeech(text: string, pronunciationRules: TermRule[] = []): string {
-  return normalizeLegacyCore(mapProse(text, normalizeSpokenRules), pronunciationRules);
+  return prepareSpeechChannels(text, pronunciationRules).synthInput;
 }
 
 export interface SpeechChannels { displayText: string; synthInput: string }
 
+// word{say:respelling} keeps word visible and sends only respelling to TTS.
 export function prepareSpeechChannels(displayText: string, pronunciationRules: TermRule[] = []): SpeechChannels {
-  return { displayText, synthInput: normalizeForSpeech(displayText, pronunciationRules) };
+  return hintChannels(displayText, text => normalizeLegacyCore(mapProse(text, normalizeSpokenRules), pronunciationRules));
 }
