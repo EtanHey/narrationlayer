@@ -19,7 +19,7 @@ test("runner executable goldens: direct reference, named profile, cache, real to
       const result = await runner(f, args);
       expect(result.code, result.stderr).toBe(0);
       const receipt = JSON.parse(await readFile(path.join(f.root, "out.wav.cache.json"), "utf8"));
-      const preimage = { spokenText: normalizeForSpeech(text), referenceClip: path.join(f.root, "reference.wav"), referenceText: "Synthetic reference.",
+      const preimage = { spokenText: normalizeForSpeech(text), referenceAudioSha256: digest(await readFile(path.join(f.root, "reference.wav"))), referenceText: "Synthetic reference.",
         ...(named ? { profileId: "compat-voice", profileVersion: "synthetic-v1", model: "synthetic-model" } : {}),
         params: named ? { eqHighshelfHz: 4000, eqHighshelfGainDb: 0, loudnessTargetDb: -20, atempo: 1, commaPauseSeconds: 0.22 } : {},
         // Version 1 is not hashed (the pre-version key); a raised render version is.
@@ -41,7 +41,7 @@ test("runner executable goldens: direct reference, named profile, cache, real to
       expect(hit.code).toBe(0); expect(stderrClass(hit.stderr)).toBe("cache HIT");
       expect(await readFile(path.join(f.root, "out.wav"))).toEqual(output);
       results.push({ referenceKind: named ? "profile" : "direct", requests: f.canonical(f.requests.slice(start)), spoken: await readFile(path.join(f.root, "out.wav.spoken.txt"), "utf8"),
-        // Verify the real path-dependent key above, then freeze its canonical preimage and digest.
+        // Verify the real content-based key above, then freeze its canonical preimage and digest.
         keyPreimage: f.canonical(preimage), receipt: { ...receipt, cacheKey: digest(JSON.stringify(f.canonical(preimage))) },
         pieces: splitForBreathing(normalizeForSpeech(text), 0.55, 0.22), format: JSON.parse(probe.stdout.toString()).streams, exit: result.code, stderr: stderrClass(result.stderr) });
     }

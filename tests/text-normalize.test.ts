@@ -258,7 +258,7 @@ test("runner word check regression guard accepts the respelled synthesis text", 
 test("shadcn normalization changes the frozen-take cache identity", async () => {
   const { computeContentHashKey } = await import("../src/pipelines/local-tts/take-cache.js");
   const display = "A wooden robot uses shadcn today.";
-  const identity = { referenceClip: "/invented/reference.wav", referenceText: "Silver lanterns glow.", params: {} };
+  const identity = { referenceAudioSha256: "a".repeat(64), referenceText: "Silver lanterns glow.", params: {} };
   expect(computeContentHashKey({ ...identity, spokenText: normalizeForSpeech(display) }))
     .not.toBe(computeContentHashKey({ ...identity, spokenText: display }));
 });
