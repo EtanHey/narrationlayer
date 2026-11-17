@@ -37,7 +37,7 @@ export type { AudioAssemblyChunk, ExternalCommandConfig, NarrationPacingConfig, 
 export type { ProfileSummary } from "../profiles.js";
 
 // Text: the spoken form of display text.
-export { deriveSpeechAliases, normalizeForSpeech, normalizeLegacy, prepareSpeechChannels, type SpeechChannels, type TermRule } from "../text-normalize.js";
+export { applyPronunciationHints, deriveSpeechAliases, normalizeForSpeech, normalizeLegacy, prepareSpeechChannels, type SpeechChannels, type TermRule } from "../text-normalize.js";
 
 // Planning: the one piece type and its two policies.
 export { breathingV1, utterancesV1, type Piece } from "../plan/index.js";

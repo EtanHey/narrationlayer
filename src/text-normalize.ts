@@ -125,8 +125,11 @@ function speechAliasTokens(text: string): SpeechAliasToken[] {
  * Derive only the lexical spans changed by deterministic speech preprocessing.
  * These aliases let STT timing stay anchored to the actual synth transcript
  * while display words keep the original authored tokens.
+ * Pass authored hint marks here so adjacent hints retain explicit aliases.
  */
 export function deriveSpeechAliases(displayText: string, synthInput: string): TermRule[] {
+  const hintedRules: TermRule[] = [];
+  displayText = hintChannels(displayText, text => text, "spoken", rule => hintedRules.push(rule)).displayText;
   const display = speechAliasTokens(displayText);
   const synth = speechAliasTokens(synthInput);
   const lengths = Array.from({ length: display.length + 1 }, () =>
@@ -158,10 +161,6 @@ export function deriveSpeechAliases(displayText: string, synthInput: string): Te
       const spoken = synthGap.map((token) => token.word).join(" ");
       addAlias(term, spoken);
     }
-    // Adjacent one-word respellings have no unchanged LCS anchor between them.
-    if (displayGap.length > 1 && displayGap.length === synthGap.length) {
-      displayGap.forEach((token, index) => addAlias(token.word, synthGap[index].word));
-    }
     displayGap = [];
     synthGap = [];
   };
@@ -189,6 +188,8 @@ export function deriveSpeechAliases(displayText: string, synthInput: string): Te
     }
     return prose;
   });
+  // Only authored hint marks authorize per-word aliases without an LCS anchor.
+  for (const rule of hintedRules) addAlias(rule.term, rule.spoken);
   return [...aliases.values()].sort((left, right) => right.term.length - left.term.length);
 }
 
@@ -294,7 +295,7 @@ function normalizeSpokenRules(text: string): string {
 // Reserve the say prefix even when its delimiter or casing is wrong. Marks
 // inside code/URLs are rejected: those spans have their own literal semantics.
 const HINT_PREFIX = /\{\s*say\b/gi;
-function hintChannels(text: string, normalize: (text: string) => string, hintOutput: "spoken" | "display" = "spoken"): SpeechChannels {
+function hintChannels(text: string, normalize: (text: string) => string, hintOutput: "spoken" | "display" = "spoken", onHint?: (rule: TermRule) => void): SpeechChannels {
   const protectedSpans = [...text.matchAll(PROTECTED)];
   let displayText = "";
   let synthInput = "";
@@ -310,10 +311,16 @@ function hintChannels(text: string, normalize: (text: string) => string, hintOut
     const preceding = text.slice(cursor, wordStart);
     displayText += preceding + word[1];
     synthInput += normalize(preceding) + (hintOutput === "display" ? word[1] : hint[1]);
+    onHint?.({ term: word[1], spoken: hint[1] });
     cursor = index + hint[0].length;
   }
   const tail = text.slice(cursor);
   return { displayText: displayText + tail, synthInput: synthInput + normalize(tail) };
+}
+
+/** Apply authored pronunciation hints around a caller's prose normalizer. */
+export function applyPronunciationHints(text: string, normalize: (text: string) => string): SpeechChannels {
+  return hintChannels(text, normalize);
 }
 
 // Recognition spells hinted words conventionally. Keep the persisted synthesis
@@ -331,5 +338,5 @@ export interface SpeechChannels { displayText: string; synthInput: string }
 
 // word{say:respelling} keeps word visible and sends only respelling to TTS.
 export function prepareSpeechChannels(displayText: string, pronunciationRules: TermRule[] = []): SpeechChannels {
-  return hintChannels(displayText, text => normalizeLegacyCore(mapProse(text, normalizeSpokenRules), pronunciationRules));
+  return applyPronunciationHints(displayText, text => normalizeLegacyCore(mapProse(text, normalizeSpokenRules), pronunciationRules));
 }

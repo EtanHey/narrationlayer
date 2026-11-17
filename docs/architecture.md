@@ -18,7 +18,7 @@ Renderers are adapter-based:
 ## Public surface
 
 `src/api/index.ts` is the package's front door: `package.json` `exports["."]`
-points at it. It holds named re-exports only: 21 runtime values and 35 types. A
+points at it. It holds named runtime and type re-exports only. A
 name is in it because it was meant for outside callers, or because a public
 declaration names it. No per-name inventory of outside callers exists, so which
 names an outside consumer really uses is not recorded here.
@@ -26,7 +26,7 @@ names an outside consumer really uses is not recorded here.
 | Group | Names |
 |---|---|
 | Jobs | `createJobFromFile`, `createJobFromPayload`, `renderJob`, `getStatusSummary`, `getJobResult`, `listJobIds`, `getDoctorSummary`, and the job, manifest, words and renderer-config types their signatures use |
-| Text | `normalizeForSpeech`, `normalizeLegacy`, `prepareSpeechChannels`, `deriveSpeechAliases`, `TermRule`, `SpeechChannels` |
+| Text | `normalizeForSpeech`, `normalizeLegacy`, `prepareSpeechChannels`, `applyPronunciationHints`, `deriveSpeechAliases`, `TermRule`, `SpeechChannels` |
 | Planning | `Piece`, `utterancesV1`, `breathingV1`, `NarrationPacingConfig`, `PauseStrategy` |
 | Word timing | `runWhisperCliWordTimings`, `normalizeWordTimingsForScript` and their option and result types |
 | Local TTS | `runLocalTtsCli` (the runner's `main`: reads `process.argv`, takes an optional speech-preparation callback, and ends the process: see the runner path below), `computeContentHashKey`, `writeTakeCacheReceipt`, `clearTakeCacheReceipt`, `CacheKeyParams`, `SpeechPreparation` |
@@ -301,7 +301,29 @@ recognized timings against the display channel with `deriveSpeechAliases`, and
 the teleprompter embeds that display channel for its script and estimated timing.
 Outside script builders must likewise use `prepareSpeechChannels(...).displayText`
 when displaying authored scripts instead of embedding the marked source verbatim.
-Explicit respellings bypass automatic pronunciation rules.
+Explicit respellings bypass automatic pronunciation rules and are sent exactly
+as written, including casing. The reserved literal `{say` also throws inside
+code spans and fences; this intentionally rejects previously valid literal text.
+
+Custom speech preparations must opt in with the public
+`applyPronunciationHints(text, normalize)` primitive. It applies their own prose
+normalizer around hints and returns the same display/synthesis split. For
+timing aliases, pass the authored text (with marks) to
+`deriveSpeechAliases(authoredText, synthInput)` and the cleaned display text to
+timing repair. Only explicit marks add per-word aliases for adjacent changes;
+unmarked alias derivation stays as on master.
+
+The golems audio-dashboard skill currently has its own speech preparation and
+embeds raw script text. Wiring that skill and its builders to this primitive is
+a separate golems PR; re-vendoring alone does not add hint support there.
+Until wired, that consumer must refuse hints instead of speaking/displaying
+their literal marks.
+
+`bin/narration-gate.ts` still runs its PRONUNCIATION check against raw authored
+scripts and built-in TERM_MAP rules. An explicit override such as
+`cmux{say:mux}` can therefore trip that check. Merely stripping the mark would
+leave cmux and still demand its default pronunciation; honoring per-occurrence
+override precedence in that separate check is deferred.
 
 `LOCAL_TTS_RENDER_VERSION` stays unchanged: this changes only marked scripts,
 whose spoken text already changes their cache key. It changes no cutting, pauses

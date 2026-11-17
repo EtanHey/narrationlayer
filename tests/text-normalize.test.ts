@@ -271,7 +271,7 @@ test("explicit pronunciation hints preserve display and override only marked occ
   expect(channels.displayText).toBe("The checks live here. We go live tomorrow. Every read costs.");
   expect(channels.synthInput).toBe("The checks liv here. We go live tomorrow. Every reed costs.");
   expect(normalizeForSpeech(marked)).toBe(channels.synthInput);
-  expect(deriveSpeechAliases(channels.displayText, channels.synthInput)).toEqual([
+  expect(deriveSpeechAliases(marked, channels.synthInput)).toEqual([
     { term: "live", spoken: "liv" }, { term: "read", spoken: "reed" },
   ]);
   expect(prepareSpeechChannels("We live here and read daily.").displayText).toBe("We live here and read daily.");
@@ -307,13 +307,31 @@ test("malformed or misplaced reserved hints fail before displaying or speaking m
 test("adjacent hints retain individual timing aliases and distinct cache keys", async () => {
   const { prepareSpeechChannels, deriveSpeechAliases } = await import("../src/text-normalize.js");
   const { computeContentHashKey } = await import("../src/pipelines/local-tts/take-cache.js");
-  const channels = prepareSpeechChannels("live{say:liv} read{say:reed}");
-  expect(deriveSpeechAliases(channels.displayText, channels.synthInput)).toEqual([
+  const marked = "live{say:liv} read{say:reed}";
+  const channels = prepareSpeechChannels(marked);
+  expect(deriveSpeechAliases(marked, channels.synthInput)).toEqual([
     { term: "live", spoken: "liv" }, { term: "read", spoken: "reed" },
   ]);
   const identity = { referenceAudioSha256: "a".repeat(64), referenceText: "Silver lanterns glow.", params: {} };
   expect(computeContentHashKey({ ...identity, spokenText: channels.synthInput }))
     .not.toBe(computeContentHashKey({ ...identity, spokenText: channels.displayText }));
+});
+
+test("unmarked encoded-path aliases remain identical to master", async () => {
+  const { deriveSpeechAliases, prepareSpeechChannels } = await import("../src/text-normalize.js");
+  const text = "%2e%2e%2fx";
+  expect(deriveSpeechAliases(text, prepareSpeechChannels(text).synthInput)).toEqual([
+    { term: "%2e%2e%2fx", spoken: "percent2e percent2e percent2fx" },
+  ]);
+  expect(deriveSpeechAliases("live read", "liv reed")).toEqual([]);
+});
+
+test("public hint primitive wraps custom normalization and sends respellings verbatim", async () => {
+  const { applyPronunciationHints, normalizeLegacy } = await import("../src/api/index.js");
+  expect(applyPronunciationHints("Live{say:liV} beside cmux.", normalizeLegacy)).toEqual({
+    displayText: "Live beside cmux.", synthInput: "liV beside see mux.",
+  });
+  expect(() => applyPronunciationHints("`{say}`", normalizeLegacy)).toThrow("Invalid pronunciation hint");
 });
 
 

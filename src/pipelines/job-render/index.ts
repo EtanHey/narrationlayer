@@ -172,7 +172,7 @@ export async function renderSegment(
   }
   const spokenText = await readFile(spokenPath, "utf8");
   if (returnedTimings.length > 0 && (displayText !== spokenText || (config.repair_word_timings ?? config.timing_backend === "whisper-cli"))) {
-    const repair = normalizeWordTimingsForScript(displayText, returnedTimings, measuredDuration, deriveSpeechAliases(displayText, spokenText));
+    const repair = normalizeWordTimingsForScript(displayText, returnedTimings, measuredDuration, deriveSpeechAliases(segment.script, spokenText));
     returnedTimings = repair.words;
     if (repair.estimated) {
       timingSource = "estimated";
