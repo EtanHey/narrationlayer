@@ -1,5 +1,6 @@
 import type { WordTiming } from "./schema.js";
 import { normalizeForSpeech } from "./text-normalize.js";
+import { TRANSCRIPTION_TOKEN, transcriptionNumberKeys } from "./text/transcription-equivalence.js";
 
 export interface WordTimingRepairResult {
   rawWords: WordTiming[];
@@ -156,14 +157,35 @@ function blockMatchCost(
 
   // A small fuzzy allowance handles common Whisper spelling variants while
   // keeping deletions/substitutions more expensive than exact split/merge matches.
+  // Spelling variants never change digits, so a block that gains or loses a number
+  // ("sample budget is" vs "sample budget is $500") is not a fuzzy match.
   const maxLen = Math.max(scriptNorm.length, timingNorm.length);
-  if (maxLen >= 5) {
+  if (maxLen >= 5 && scriptNorm.replace(/\D/g, "") === timingNorm.replace(/\D/g, "")) {
     const distance = editDistance(scriptNorm, timingNorm);
     if (distance <= 1 || distance / maxLen <= 0.18) {
       return 0.25 + distance / maxLen + 0.01 * (scriptCount + timingCount - 2);
     }
   }
   return null;
+}
+
+// Spoken numbers run longer than other blocks ("one hundred twenty-three dollars"); still bounded.
+const MAX_NUMBER_BLOCK = 8;
+
+/**
+ * Number-equivalence keys of every word block up to MAX_NUMBER_BLOCK words, by start index then length.
+ * Words are split with the take check's own tokenizer, so "$400" is ["$", "400"] and "dollars." is ["dollars"].
+ */
+function numberBlockKeys(words: readonly string[]): Array<Array<readonly string[]>> {
+  const parts = words.map((word) => word.match(TRANSCRIPTION_TOKEN) ?? []);
+  return words.map((_, start) => {
+    const byLength: Array<readonly string[]> = [[]];
+    for (let length = 1; length <= Math.min(MAX_NUMBER_BLOCK, words.length - start); length += 1) {
+      const tokens = parts.slice(start, start + length).flat();
+      byLength.push(tokens.length ? transcriptionNumberKeys(tokens) : []);
+    }
+    return byLength;
+  });
 }
 
 function maybeUpdate(cells: AlignmentCell[][], i: number, j: number, nextI: number, nextJ: number, cost: number, step: AlignmentStep) {
@@ -186,6 +208,8 @@ function alignmentSteps(
   const scriptNorms = scriptTokens.map(comparable);
   const timingNorms = timings.map((timing) => comparable(timing.word));
   const aliasSignatures = compileAliasSignatures(aliases);
+  const scriptNumbers = numberBlockKeys(scriptTokens);
+  const timingNumbers = numberBlockKeys(timings.map((timing) => timing.word));
   const scriptCount = scriptTokens.length;
   const timingCount = timings.length;
   const cells: AlignmentCell[][] = Array.from({ length: scriptCount + 1 }, () =>
@@ -228,6 +252,22 @@ function alignmentSteps(
           timingStart: j,
           timingCount: 1,
         });
+      }
+      // A spoken number and its written form ("four hundred dollars" / "$400") are one block
+      // that keeps the recognised span's boundaries. Priced like an alias, above an exact match.
+      for (let a = 1; i + a <= scriptCount && a < scriptNumbers[i].length; a += 1) {
+        const scriptKeys = scriptNumbers[i][a];
+        if (!scriptKeys.length) continue;
+        for (let b = 1; j + b <= timingCount && b < timingNumbers[j].length; b += 1) {
+          if (!timingNumbers[j][b].some((key) => scriptKeys.includes(key))) continue;
+          maybeUpdate(cells, i, j, i + a, j + b, 0.02 + 0.01 * (a + b - 2), {
+            kind: "match",
+            scriptStart: i,
+            scriptCount: a,
+            timingStart: j,
+            timingCount: b,
+          });
+        }
       }
       for (let a = 1; a <= maxScriptBlock && i + a <= scriptCount; a += 1) {
         const scriptNorm = scriptNorms.slice(i, i + a).join("");

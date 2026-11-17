@@ -125,23 +125,26 @@ function numberKey(input: readonly string[]): string | null {
   return o !== null && !unit ? `ordinal:${o}` : null;
 }
 
+/** Equivalence keys of the whole span (empty when it is not one number); two spans match when they share a key. */
+export function transcriptionNumberKeys(tokens: readonly string[]): string[] {
+  const key = numberKey(tokens);
+  if (key === null) return [];
+  const keys = new Set([key]);
+  // Whisper sometimes emits bare digits for spoken dollars (builder regression).
+  // Symmetric: "four dollars" / bare "4" passes in either direction.
+  // Require a digit literal on the other side; "$4" / spoken "four" still fails.
+  if (/^cardinal:[^:]+:dollar$/.test(key)) keys.add(key.replace(/:dollar$/, ":digit-dollar"));
+  if (tokens.length === 1 && /^\d[\d,.]*$/.test(tokens[0])) keys.add(key.replace(/:$/, ":digit-dollar"));
+  return [...keys];
+}
+
 /** Index numeric spans once, retaining original token boundaries for edit evidence. */
 export function transcriptionNumbers(tokens: readonly string[]): Map<string, number>[] {
   return tokens.map((_, start) => {
     const spans = new Map<string, number>();
     // Twelve original tokens covers ordinary compound numbers; never scan an unbounded phrase.
     for (let length = 1; length <= Math.min(12, tokens.length - start); length++) {
-      const key = numberKey(tokens.slice(start, start + length));
-      if (key !== null) {
-        spans.set(key, length);
-        // Whisper sometimes emits bare digits for spoken dollars (builder regression).
-        // Symmetric: "four dollars" / bare "4" passes in either direction.
-        // Require a digit literal on the other side; "$4" / spoken "four" still fails.
-        if (/^cardinal:[^:]+:dollar$/.test(key)) spans.set(key.replace(/:dollar$/, ":digit-dollar"), length);
-        if (length === 1 && /^\d[\d,.]*$/.test(tokens[start])) {
-          spans.set(key.replace(/:$/, ":digit-dollar"), length);
-        }
-      }
+      for (const key of transcriptionNumberKeys(tokens.slice(start, start + length))) spans.set(key, length);
     }
     return spans;
   });

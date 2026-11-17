@@ -1,4 +1,4 @@
-import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, transcriptionNumbers, transcriptionSpelling } from "./transcription-equivalence.js";
+import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, transcriptionNumbers, transcriptionSpelling } from "../text/transcription-equivalence.js";
 
 export type RecognisedWord = { word: string; start: number; end: number };
 
