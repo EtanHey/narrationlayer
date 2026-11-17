@@ -64,7 +64,7 @@ export type WordEdit = {
   end: number | null;
 };
 
-const CONTRACTIONS: Record<string, string> = {
+const CONTRACTIONS: Record<string, string | readonly [string, ...string[]]> = {
   cant: "cannot", wont: "willnot", dont: "donot", doesnt: "doesnot",
   didnt: "didnot", isnt: "isnot", arent: "arenot", wasnt: "wasnot",
   werent: "werenot", couldnt: "couldnot", wouldnt: "wouldnot",
@@ -72,7 +72,16 @@ const CONTRACTIONS: Record<string, string> = {
   im: "iam", youre: "youare", were: "weare", theyre: "theyare",
   ive: "ihave", youve: "youhave", weve: "wehave", theyve: "theyhave",
   ill: "iwill", youll: "youwill", well: "wewill", theyll: "theywill",
-  its: "itis", thats: "thatis", theres: "thereis", lets: "letus",
+  its: ["itis", "ithas"], thats: ["thatis", "thathas"], theres: ["thereis", "therehas"],
+  heres: ["hereis", "herehas"], whats: ["whatis", "whathas"], wheres: ["whereis", "wherehas"],
+  hows: ["howis", "howhas"], whos: ["whois", "whohas"],
+  hes: ["heis", "hehas"], shes: ["sheis", "shehas"],
+  hell: "hewill", shell: "shewill", itll: "itwill", thatll: "thatwill",
+  therell: "therewill", wholl: "whowill",
+  id: ["iwould", "ihad"], youd: ["youwould", "youhad"], hed: ["hewould", "hehad"],
+  shed: ["shewould", "shehad"], itd: ["itwould", "ithad"], wed: ["wewould", "wehad"],
+  theyd: ["theywould", "theyhad"], thatd: ["thatwould", "thathad"],
+  thered: ["therewould", "therehad"], whod: ["whowould", "whohad"], lets: "letus",
 };
 
 function spellingDistance(a: string, b: string): number {
@@ -87,10 +96,16 @@ function spellingDistance(a: string, b: string): number {
   return previous[b.length];
 }
 
-function canonicalWord(word: string): string {
+function canonicalWords(word: string): readonly [string, ...string[]] {
   const token = normalize(word);
   // Expand only a written apostrophe: e.g. ordinary "well" must not become "we will".
-  return /['’]/.test(word) ? CONTRACTIONS[token] ?? token : transcriptionSpelling(token);
+  const expansion = /['’]/.test(word) ? CONTRACTIONS[token] ?? token : transcriptionSpelling(token);
+  return typeof expansion === "string" ? [expansion] : expansion;
+}
+
+function canonicalSpans(words: readonly string[]): string[] {
+  return words.reduce<string[]>((spans, word) =>
+    spans.flatMap(span => canonicalWords(word).map(expansion => span + expansion)), [""]);
 }
 
 /** Whole-take token edit alignment. Positions are zero-based; tolerance:false keeps only case/punctuation folding. */
@@ -122,16 +137,19 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
       for (let a = 1; a <= Math.min(tolerant ? 3 : 1, expected.length - i); a++) {
         for (let b = 1; b <= Math.min(tolerant ? 3 : 1, raw.length - j); b++) {
           const left = expected.slice(i, i + a), right = raw.slice(j, j + b).map(w => w.word);
-          const l = left.map(tolerant ? canonicalWord : normalize).join("");
-          const r = right.map(tolerant ? canonicalWord : normalize).join("");
+          const l = left.map(w => tolerant ? canonicalWords(w)[0] : normalize(w)).join("");
+          const r = right.map(w => tolerant ? canonicalWords(w)[0] : normalize(w)).join("");
           // Numbers and units must use their parsed keys, never concatenation or fuzzy spelling.
           const tokens = [...left, ...right];
           const mixedName = tokens.some(w => /[a-z]/i.test(w) && /[0-9]/.test(w));
           const numeric = tokens.some(w => /[0-9$%]/.test(w)) && !mixedName
             || tokens.some(w => /^[$%]$|^[+-]\d/.test(w))
             || (isTranscriptionNumberSpan(left) && isTranscriptionNumberSpan(right));
-          const match = (l === r && (!numeric || left.join(" ").toLowerCase() === right.join(" ").toLowerCase()))
+          const equivalent = l === r || (tolerant && !numeric
+            && canonicalSpans(left).some(span => canonicalSpans(right).includes(span)));
+          const match = (equivalent && (!numeric || left.join(" ").toLowerCase() === right.join(" ").toLowerCase()))
             || (tolerant && a === 1 && b === 1 && !/[0-9]/.test(left[0] + right[0])
+              && !/['’]/.test(left[0] + right[0])
               && Math.min(l.length, r.length) >= 6 && spellingDistance(l, r) <= 1);
           if (match) update(i + a, j + b, 0, "match");
         }

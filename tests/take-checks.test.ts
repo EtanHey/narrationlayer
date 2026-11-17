@@ -108,6 +108,45 @@ test("real CLI emits JSON and exit codes on synthetic WAVs", () => {
 });
 
 const recognised = (text: string) => text.split(" ").map((word, index) => ({ word, start: index * 0.3, end: (index + 1) * 0.3 }));
+for (const [contracted, expansions] of [
+  ["Here's", ["Here is", "Here has"]], ["What's", ["What is", "What has"]],
+  ["Where's", ["Where is", "Where has"]], ["How's", ["How is", "How has"]],
+  ["Who's", ["Who is", "Who has"]], ["He's", ["He is", "He has"]],
+  ["She's", ["She is", "She has"]], ["It's", ["It is", "It has"]],
+  ["That's", ["That is", "That has"]], ["There's", ["There is", "There has"]],
+  ["He'll", ["He will"]], ["She'll", ["She will"]], ["It'll", ["It will"]],
+  ["That'll", ["That will"]], ["There'll", ["There will"]], ["Who'll", ["Who will"]],
+  ["I'd", ["I would", "I had"]], ["You'd", ["You would", "You had"]],
+  ["He'd", ["He would", "He had"]], ["She'd", ["She would", "She had"]],
+  ["It'd", ["It would", "It had"]], ["We'd", ["We would", "We had"]],
+  ["They'd", ["They would", "They had"]], ["That'd", ["That would", "That had"]],
+  ["There'd", ["There would", "There had"]], ["Who'd", ["Who would", "Who had"]],
+  ["They're", ["They are"]], ["We're", ["We are"]], ["You're", ["You are"]],
+  ["We've", ["We have"]], ["They've", ["They have"]], ["You'll", ["You will"]],
+  ["Couldn't", ["Could not"]], ["Wouldn't", ["Would not"]], ["Shouldn't", ["Should not"]],
+  ["Let's", ["Let us"]],
+] satisfies [string, string[]][]) {
+  for (const expanded of expansions) {
+    test(`contraction equivalence: ${contracted} / ${expanded}`, () => {
+      for (const spelling of [contracted, contracted.replace("'", "’")]) {
+        expect(wordMismatches(`${expanded} the plan`, recognised(`${spelling} the plan`)).pass).toBe(true);
+        expect(wordMismatches(`${spelling} the plan`, recognised(`${expanded} the plan`)).pass).toBe(true);
+        expect(wordMismatches(`${expanded} the plan`, recognised(`${spelling} the plan`), { tolerance: false }).pass).toBe(false);
+      }
+    });
+  }
+}
+test("contractions preserve different subjects, adjacent words and written apostrophes", () => {
+  for (const [sent, heard] of [
+    ["Here is", "There's"], ["Here's the plan", "There is the plan"],
+    ["Here is the clear plan", "Here's the plan"], ["Here's the clear plan", "Here is the plan"],
+    ["Here is the plan", "Heres the plan"], ["Let us go", "Lets go"],
+    ["He will go", "Hell go"], ["She has finished", "She finished"],
+    ["He would go", "He will go"], ["He'll go", "She'll go"], ["He'd go", "She'd go"],
+    ["Here is the plan", "Here's the extra plan"],
+  ]) expect(wordMismatches(sent, recognised(heard)).pass).toBe(false);
+});
+
 for (const [name, sent, heard, kind, index] of [
   ["missing first", "Hello silver moon", "silver moon", "deletion", 0],
   ["missing middle", "Hello silver moon", "Hello moon", "deletion", 1],
