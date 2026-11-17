@@ -1,3 +1,4 @@
+import { prepareSpeechChannels } from "./text-normalize.js";
 import type { RenderManifest, WordsFile } from "./schema.js";
 
 // Canonical, reusable teleprompter/playlist backbone. The V4 listen-through
@@ -117,6 +118,13 @@ export function teleprompterStyles(): string {
 }
 
 export function renderTeleprompterMarkup(payload: TeleprompterPayload): string {
+  const displayPayload = {
+    ...payload,
+    segments: payload.segments.map(segment => ({
+      ...segment,
+      script: prepareSpeechChannels(segment.script).displayText,
+    })),
+  };
   return `
       <div class="workbench">
         <section class="panel">
@@ -140,7 +148,7 @@ export function renderTeleprompterMarkup(payload: TeleprompterPayload): string {
           <div id="timing-status" class="timing-status"></div>
         </section>
       </div>
-  <script id="dashboard-data" type="application/json">${escapeScriptJson(payload)}</script>`;
+  <script id="dashboard-data" type="application/json">${escapeScriptJson(displayPayload)}</script>`;
 }
 
 export function teleprompterRuntimeScript(): string {

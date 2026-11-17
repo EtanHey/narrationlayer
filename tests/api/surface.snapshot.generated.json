@@ -1,8 +1,8 @@
 {
-  "sha256": "e4b0e445dec04b7982aba8828037653fc92b2e48b4a6e5b8803e7328d422689a",
+  "sha256": "2c411cb76be9cfa0f01ec7b90dd35da34fa5f53ba9b5b8dd51d5fb7e65f0f076",
   "files": {
     "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
-    "src/api/index.d.ts": "2ef9e7c362d29d143ca8e7cddc25661804824709f32186c1f41ed0267d9e5d43",
+    "src/api/index.d.ts": "2a693788db68ccce82f6df8e320e234ac7e1af97e4080354a98e74ffb90812f5",
     "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
     "src/core/render-types.d.ts": "1c84ddb3185ca0968b125829ecc3088963d1198330d2570fe5757c09cd9c5e60",
     "src/pipelines/local-tts/take-cache.d.ts": "dcd5931a4db900f244fc2af172cb59f0998c8b98f8742d39e1f000bc84903ab3",
@@ -13,11 +13,15 @@
     "src/schema.d.ts": "2617a03e8be28866be4bc854a89a8766d29731e352e21439753f529851e9e512",
     "src/service.d.ts": "6b83f9d77ef312bde23323e863f8f602163d676e5942c52d79e47d53ddddfd13",
     "src/teleprompter.d.ts": "dffeccecefebcbe6e356214890434509b8e6778f7aa3166a98859e309d482df7",
-    "src/text-normalize.d.ts": "ecf93cb2d8b2358aba439edbd889d97ba92b861603fbfdb2bc25439c1d7f2301",
+    "src/text-normalize.d.ts": "0598d5a12271eb19987d10db0090bc776ec55b41443ac7b32ad51cf9473ceebb",
     "src/word-timing-repair.d.ts": "7a162b0529b576290064a7d6ad2eb8288c5a7d64b7f527fba7a3c1e83f10f1c8",
     "src/word-timings.d.ts": "07dc6808604aaf646fffcf28a9ddecd4918ce5d53d137584bd895f2857dbb817"
   },
   "names": {
+    "applyPronunciationHints": {
+      "kind": "value",
+      "declaration": "// src/text-normalize.d.ts\nexport declare function applyPronunciationHints(text: string, normalize: (text: string) => string): SpeechChannels;"
+    },
     "AudioAssemblyChunk": {
       "kind": "type",
       "declaration": "// src/core/render-types.d.ts\nexport interface AudioAssemblyChunk {\n    audioPath: string;\n    pauseAfterSeconds: number;\n}"

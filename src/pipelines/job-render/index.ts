@@ -6,7 +6,7 @@ import { resolveWithinRoot } from "../../path-safety.js";
 import { assembleAudioWithSilence, trimAudioSilence, applyAudioEq, probeAudioDurationSeconds } from "../../audio.js";
 import { utterancesV1, toPlannedUtterances } from "../../plan/index.js";
 import type { RenderManifestSegment, TimingSource, WordsFile } from "../../schema.js";
-import { deriveSpeechAliases, normalizeForSpeech } from "../../text-normalize.js";
+import { deriveSpeechAliases, prepareSpeechChannels } from "../../text-normalize.js";
 import type { RenderSegmentOptions } from "../../renderers/types.js";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
 import { normalizeWordTimingsForScript } from "../../word-timing-repair.js";
@@ -21,7 +21,7 @@ export async function renderSegment(
   options: RenderSegmentOptions,
   config: VoiceLayerQwen3Config,
 ): Promise<RenderManifestSegment> {
-  const normalizedScript = normalizeForSpeech(segment.script);
+  const { displayText, synthInput: normalizedScript } = prepareSpeechChannels(segment.script);
   const daemonUrl = (config.daemon_url || "http://127.0.0.1:8880").replace(/\/+$/, "");
   const authToken = await loadAuthToken(config);
   if (!authToken) {
@@ -171,8 +171,8 @@ export async function renderSegment(
     }
   }
   const spokenText = await readFile(spokenPath, "utf8");
-  if (returnedTimings.length > 0 && (segment.script !== spokenText || (config.repair_word_timings ?? config.timing_backend === "whisper-cli"))) {
-    const repair = normalizeWordTimingsForScript(segment.script, returnedTimings, measuredDuration, deriveSpeechAliases(segment.script, spokenText));
+  if (returnedTimings.length > 0 && (displayText !== spokenText || (config.repair_word_timings ?? config.timing_backend === "whisper-cli"))) {
+    const repair = normalizeWordTimingsForScript(displayText, returnedTimings, measuredDuration, deriveSpeechAliases(segment.script, spokenText));
     returnedTimings = repair.words;
     if (repair.estimated) {
       timingSource = "estimated";
