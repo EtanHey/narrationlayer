@@ -52,19 +52,6 @@
       "reason": "Whitespace-followed colons receive an independent 0.35-second breathing pause, including profiles whose comma pause is zero; explicit colon pauses override it.",
       "previous": "7e9f3f390bb126a5d9fc231451fe509640dcd1492e4ca87e550f533eea7232dc",
       "cases": {
-        "runner/direct/826ce389210b": "c2b0a6adc6e3b87c7fdf7a9fbef9af85cfa2a74876ba34644b3393c4e8f1519a",
-        "runner/profile/1d26e49b801a": "be809a64266ce4b1678814d1f4f44376c3e7e8cdc5f3bb716b1232b2a75ff0ab",
-        "runner/direct/5e0f76f00ac0": "f6cf4a8db380a8f13e81f3ffb3b04f3931ec9ef3744a86f54396c2741455540a",
-        "runner/profile/2185b0212105": "2a8a55f4e86447ff48d333aa6fcae0905652177d3e169834a5eb1943e1cc8b36",
-        "runner/direct/78dcc1edee72": "0c4843b311300d402e0a154e8254f900962563759da993436df3d9dd04b0a0f3",
-        "runner/profile/bdd1d4ac2247": "a127f96b364736986d300eb75c101643a27b72ebd0f15c6308a51035b98a43f9",
-        "runner/direct/43ef5924b985": "1b191a6ba8900e131c79130ae13b69557f1d4ec29d8308daa9b5976d1717b2dc",
-        "runner/profile/984e9a947862": "23240ef52613f0ef77dfddcd5d57bc7e0c88e35feb4b45b315a0410e367e3f7a",
-        "runner/direct/d65decfdf35e": "7ede79ba41324e7a1f8496b3cb4dc4e4aefe721138b8192cdfc445fc585af132",
-        "runner/profile/c11844b88b7a": "1ba1377a08a92de0e6d7913818ced657ca515113b91a77fbf60c630362e67773",
-        "runner/profile/42563cc0e0a0": "7bdef634d214c10878bed25fd87357f7792eeadd8302e8d51b1cc9ebe8f5799a",
-        "runner/profile/c5c2b2db1edd": "8014bfdd1c04e03798816dd984c74cabc70aa21dc307ea013b1799649c301918",
-        "runner/profile/28f172f7e9ab": "d26d7507c4c6114df8a61d0edc79bc12fbb96e2e53cf90c6226da5ff7706ea34",
         "breathing/e60b602dcb79": "44406b1bfdd012ea0ca78f7d2c62228c891435906ae9ca78cee6df60158f0af9",
         "breathing/4751540d0886": "2f2c3d54730863e3b6e006fbe1d1a355eb3ad1fb5f231393a322088f255faf97",
         "breathing/2ac3961705b1": "281e6b9b9295f09e03a336d0309068df837037aa1a815a94440098a6a6350dff",
@@ -90,7 +77,20 @@
         "breathing/bf564276697f": "3aa68cf9a9a0d614b800941d2e1b5ba394a37508fdf27fd92b24f1704e42c132",
         "breathing/9991e122f03b": "30495719cc4671ee3c0fa1e1cb87c9003f9345b6fc080843b318b798ff28ee22",
         "breathing/03ddb586b7ed": "2f16feb7417d9a950d987b9cbc044c28ae65e44f4df12cec3679cf3196c7db60",
-        "breathing/56f2fcb5dc3d": "015b86e8fbfebd444f04ecb9475edf93530eec1521e43c19fbf62e2aa8df0623"
+        "breathing/56f2fcb5dc3d": "015b86e8fbfebd444f04ecb9475edf93530eec1521e43c19fbf62e2aa8df0623",
+        "runner/direct/164d71e37171": "c2b0a6adc6e3b87c7fdf7a9fbef9af85cfa2a74876ba34644b3393c4e8f1519a",
+        "runner/profile/1fec1ef5929e": "be809a64266ce4b1678814d1f4f44376c3e7e8cdc5f3bb716b1232b2a75ff0ab",
+        "runner/direct/d9e0f389d6eb": "f6cf4a8db380a8f13e81f3ffb3b04f3931ec9ef3744a86f54396c2741455540a",
+        "runner/profile/3ffbb0271692": "2a8a55f4e86447ff48d333aa6fcae0905652177d3e169834a5eb1943e1cc8b36",
+        "runner/direct/41820fd716fc": "0c4843b311300d402e0a154e8254f900962563759da993436df3d9dd04b0a0f3",
+        "runner/profile/4b4caa51e306": "a127f96b364736986d300eb75c101643a27b72ebd0f15c6308a51035b98a43f9",
+        "runner/direct/01fa4720ba75": "1b191a6ba8900e131c79130ae13b69557f1d4ec29d8308daa9b5976d1717b2dc",
+        "runner/profile/aa836dee9b4c": "23240ef52613f0ef77dfddcd5d57bc7e0c88e35feb4b45b315a0410e367e3f7a",
+        "runner/direct/7da71b013646": "7ede79ba41324e7a1f8496b3cb4dc4e4aefe721138b8192cdfc445fc585af132",
+        "runner/profile/fd252dd11a87": "1ba1377a08a92de0e6d7913818ced657ca515113b91a77fbf60c630362e67773",
+        "runner/profile/dea094de0159": "7bdef634d214c10878bed25fd87357f7792eeadd8302e8d51b1cc9ebe8f5799a",
+        "runner/profile/dfa47036c019": "8014bfdd1c04e03798816dd984c74cabc70aa21dc307ea013b1799649c301918",
+        "runner/profile/f480539aaa93": "d26d7507c4c6114df8a61d0edc79bc12fbb96e2e53cf90c6226da5ff7706ea34"
       }
     }
   ]

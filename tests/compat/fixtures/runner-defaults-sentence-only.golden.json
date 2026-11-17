@@ -59,7 +59,7 @@
       "spoken": "First clause, second clause. Last sentence.",
       "keyPreimage": {
         "spokenText": "First clause, second clause. Last sentence.",
-        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceAudioSha256": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
         "referenceText": "Synthetic reference.",
         "profileId": "compat-defaults",
         "profileVersion": "synthetic-v1",
@@ -72,7 +72,7 @@
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "02a393d797dacf0fc6bddd5688c77e76eb9bca93831824dbb4f1a878cacb849b",
+        "cacheKey": "12cab27882a5b0603b71217934b30c23f9ab4470efd7328f2e8ba9f41551678e",
         "cacheEnabled": true
       },
       "pieces": [

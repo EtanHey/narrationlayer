@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { writeFile, rename, unlink } from "node:fs/promises";
+import { readFile, writeFile, rename, unlink } from "node:fs/promises";
 
 /**
  * Synth params that affect the OUTPUT bytes. The content-hash key is computed over
@@ -34,22 +34,27 @@ export interface CacheKeyParams {
  */
 export const LOCAL_TTS_RENDER_VERSION: number = 2;
 
+/** Hash reference bytes once at the start of a render; never fall back to its path. */
+export async function hashReferenceClip(referenceClip: string): Promise<string> {
+  try {
+    return createHash("sha256").update(await readFile(referenceClip)).digest("hex");
+  } catch (cause) {
+    const code = cause !== null && typeof cause === "object" && "code" in cause && typeof cause.code === "string"
+      ? cause.code : "unknown";
+    throw new Error(`cannot read reference audio for take cache identity (${code})`, { cause });
+  }
+}
+
 /**
- * Compute the content-hash freeze key (sha256, hex) for a synth request. The key is
- * the determinism layer: qwen3 is non-deterministic, so freezing an accepted take by
- * its key is the canonical mechanism for reproducibility. The hash covers the LITERAL
- * normalized spoken text (what the daemon receives), the reference clip path + ref
- * text (voice identity), and the JSON of the OUTPUT-affecting synth params. Param keys
- * are serialized in a STABLE order so the key is independent of object construction
- * order; undefined params are omitted (a profile that never sets atempo hashes the same
- * with or without an explicit undefined). `renderVersion` defaults to
- * LOCAL_TTS_RENDER_VERSION; at version 1 it is left out of the hashed text, so the key is
- * byte-for-byte the key from before the version existed, and every take frozen then still
- * hits. Any other version is hashed. Exported for tests.
+ * Freeze identity uses normalized spoken text, reference audio SHA-256 + reference
+ * text, profile/model and stably ordered output parameters. Paths never enter the
+ * payload. Path-keyed entries miss once after this identity migration; this is not
+ * an audible render change. Version 1 omits renderVersion as before, but also uses
+ * content identity. Callers hash the reference once per render, including retries.
  */
 export function computeContentHashKey(input: {
   spokenText: string;
-  referenceClip: string;
+  referenceAudioSha256: string;
   referenceText: string;
   profileId?: string;
   profileVersion?: string;
@@ -57,6 +62,9 @@ export function computeContentHashKey(input: {
   params: CacheKeyParams;
   renderVersion?: number;
 }): string {
+  if (typeof input.referenceAudioSha256 !== "string" || input.referenceAudioSha256.length !== 64 || !/^[a-f0-9]{64}$/.test(input.referenceAudioSha256)) {
+    throw new Error("referenceAudioSha256 must be a 64-character lowercase sha256 hex digest");
+  }
   const renderVersion = input.renderVersion ?? LOCAL_TTS_RENDER_VERSION;
   if (!Number.isSafeInteger(renderVersion) || renderVersion < 1) {
     throw new Error(`invalid render version for take cache key: ${renderVersion}`);
@@ -76,7 +84,7 @@ export function computeContentHashKey(input: {
   // JSON.stringify drops undefined values, so absent params don't perturb the key.
   const payload = JSON.stringify({
     spokenText: input.spokenText,
-    referenceClip: input.referenceClip,
+    referenceAudioSha256: input.referenceAudioSha256,
     referenceText: input.referenceText,
     profileId: input.profileId,
     profileVersion: input.profileVersion,
