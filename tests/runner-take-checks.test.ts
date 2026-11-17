@@ -39,6 +39,33 @@ async function fixture(failures: number, seconds = 1, vary = false, text = "Hell
 }
 const receipt = async (output: string) => JSON.parse(await readFile(`${output}.cache.json`, "utf8"));
 
+for (const wrongHintedWord of [false, true]) {
+  test(`hinted take expects display spelling; wrong hinted word=${wrongHintedWord}`, async () => {
+    const f = await fixture(0, 1, false, "We live{say:liv} here.");
+    f.args.takeChecks!.retries = 0;
+    f.args.recogniseTake = async () =>
+      `We ${wrongHintedWord ? "sleep" : "live"} here.`.split(/\s+/)
+        .map((word, index) => ({ word, start: index * .1, end: (index + 1) * .1 }));
+    try {
+      await renderLocalTts(f.args);
+      const evidence = (await receipt(f.args.output)).takeChecks;
+      expect(evidence.wordMatch.pass).toBe(!wrongHintedWord);
+      expect(evidence.gaveUp).toBe(false);
+      expect(f.calls()).toBe(1);
+      expect(await readFile(`${f.args.output}.spoken.txt`, "utf8")).toBe("We liv here.");
+      if (wrongHintedWord) {
+        expect(evidence.wordMatch.keptBest).toBe(true);
+        expect(evidence.wordMatch.edits).toContainEqual(expect.objectContaining({ kind: "substitution", sentIndex: 1 }));
+      } else {
+        expect(evidence.wordMatch.edits).toEqual([]);
+        expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+        expect(f.calls()).toBe(1);
+        expect((await receipt(f.args.output)).takeChecks.wordMatch.pass).toBe(true);
+      }
+    } finally { await f.close(); }
+  });
+}
+
 test("failed takes retry fresh requests, publish only the passing take and keep its pieces", async () => {
   const f = await fixture(2);
   try {

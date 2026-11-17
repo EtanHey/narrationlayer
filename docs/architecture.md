@@ -290,7 +290,13 @@ synthesis or teleprompter markup generation. This uses braces rather than
 Markdown links, emphasis or code delimiters.
 
 The local runner prepares these channels before its cache lookup and word check;
-its `.spoken.txt` records the exact synthesis input. The job renderer repairs
+its `.spoken.txt` records the exact synthesis input. For the whole-take word
+check, `prepareWordCheckText` expects the displayed spelling at hinted positions,
+because recognizers transcribe conventional words rather than pronunciation
+respellings. Surrounding text still uses the configured speech preparation, and
+unmarked takes still compare against their exact persisted synthesis input.
+A different recognized word at a hinted position remains a mismatch.
+The job renderer repairs
 recognized timings against the display channel with `deriveSpeechAliases`, and
 the teleprompter embeds that display channel for its script and estimated timing.
 Outside script builders must likewise use `prepareSpeechChannels(...).displayText`

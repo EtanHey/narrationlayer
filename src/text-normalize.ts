@@ -293,13 +293,13 @@ function normalizeSpokenRules(text: string): string {
 
 // Reserve the say prefix even when its delimiter or casing is wrong. Marks
 // inside code/URLs are rejected: those spans have their own literal semantics.
-function hintChannels(text: string, normalize: (text: string) => string): SpeechChannels {
-  const marker = /\{\s*say\b/gi;
+const HINT_PREFIX = /\{\s*say\b/gi;
+function hintChannels(text: string, normalize: (text: string) => string, hintOutput: "spoken" | "display" = "spoken"): SpeechChannels {
   const protectedSpans = [...text.matchAll(PROTECTED)];
   let displayText = "";
   let synthInput = "";
   let cursor = 0;
-  for (const match of text.matchAll(marker)) {
+  for (const match of text.matchAll(HINT_PREFIX)) {
     const index = match.index;
     const word = text.slice(cursor, index).match(/(?<![\p{L}\p{N}_'’/-])([\p{L}]+(?:['’][\p{L}]+)*)$/u);
     const hint = text.slice(index).match(/^\{say:([\p{L}]+(?:['’][\p{L}]+)*)\}(?![\p{L}\p{N}_{}])/u);
@@ -309,11 +309,18 @@ function hintChannels(text: string, normalize: (text: string) => string): Speech
     const wordStart = index - word[1].length;
     const preceding = text.slice(cursor, wordStart);
     displayText += preceding + word[1];
-    synthInput += normalize(preceding) + hint[1];
+    synthInput += normalize(preceding) + (hintOutput === "display" ? word[1] : hint[1]);
     cursor = index + hint[0].length;
   }
   const tail = text.slice(cursor);
   return { displayText: displayText + tail, synthInput: synthInput + normalize(tail) };
+}
+
+// Recognition spells hinted words conventionally. Keep the persisted synthesis
+// expectation unchanged for unmarked takes, including custom speech preparation.
+export function prepareWordCheckText(text: string, synthInput: string, normalize: (text: string) => string): string {
+  if (text.search(HINT_PREFIX) === -1) return synthInput;
+  return hintChannels(text, normalize, "display").synthInput;
 }
 
 export function normalizeForSpeech(text: string, pronunciationRules: TermRule[] = []): string {

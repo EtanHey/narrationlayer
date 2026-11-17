@@ -279,7 +279,7 @@ test("explicit pronunciation hints preserve display and override only marked occ
 });
 
 test("pronunciation hint aliases anchor displayed words to spoken timings and word checks", async () => {
-  const { prepareSpeechChannels, deriveSpeechAliases } = await import("../src/text-normalize.js");
+  const { prepareSpeechChannels, prepareWordCheckText, deriveSpeechAliases } = await import("../src/text-normalize.js");
   const { normalizeWordTimingsForScript } = await import("../src/word-timing-repair.js");
   const { wordMismatches } = await import("../src/quality/take-checks.js");
   const channels = prepareSpeechChannels("We live{say:liv} here and read{say:reed} daily.");
@@ -288,8 +288,11 @@ test("pronunciation hint aliases anchor displayed words to spoken timings and wo
   expect(aligned.words.map(w => w.word)).toEqual(["We", "live", "here", "and", "read", "daily."]);
   expect(aligned.words[1].start).toBe(.5);
   expect(aligned.words[4].start).toBe(2);
-  expect(wordMismatches(channels.synthInput, words, {setting: "a"}).pass).toBe(true);
-  expect(wordMismatches(channels.displayText, words, {setting: "a"}).pass).toBe(false);
+  const expected = prepareWordCheckText("We live{say:liv} here and read{say:reed} daily.", channels.synthInput,
+    text => prepareSpeechChannels(text).synthInput);
+  const recognised = words.map(word => ({ ...word, word: word.word === "liv" ? "live" : word.word === "reed" ? "read" : word.word }));
+  expect(wordMismatches(expected, recognised, {setting: "a"}).pass).toBe(true);
+  expect(wordMismatches(expected, recognised.map(word => ({ ...word, word: word.word === "live" ? "sleep" : word.word })), {setting: "a"}).pass).toBe(false);
 });
 
 test("malformed or misplaced reserved hints fail before displaying or speaking markup", async () => {
@@ -318,4 +321,15 @@ test("timing tokenization hides hints for fake and external-command renderers", 
   const { getWordsFromScript } = await import("../src/timing/script-words.js");
   expect(getWordsFromScript("We live{say:liv} here.")).toEqual(["We", "live", "here."]);
   expect(() => getWordsFromScript("We live{say:} here.")).toThrow("Invalid pronunciation hint");
+});
+
+test("hint word checks keep unhinted normalization and persisted custom expectations", async () => {
+  const { prepareWordCheckText, prepareSpeechChannels } = await import("../src/text-normalize.js");
+  const text = "We live{say:liv} and read{say:reed} with shadcn.";
+  const spoken = prepareSpeechChannels(text).synthInput;
+  expect(prepareWordCheckText(text, spoken, fragment => prepareSpeechChannels(fragment).synthInput))
+    .toBe("We live and read with shad C N.");
+  expect(prepareWordCheckText("Unmarked source.", "Custom persisted synthesis.", () => {
+    throw new Error("Unmarked takes must use persisted synthesis without re-preparing");
+  })).toBe("Custom persisted synthesis.");
 });

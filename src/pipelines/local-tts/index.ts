@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
 import { pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
-import type { SpeechChannels, TermRule } from "../../text-normalize.js";
+import { prepareWordCheckText, type SpeechChannels, type TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
 import { RunnerFailure, TakeCheckError } from "./failure.js";
@@ -294,7 +294,9 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       if (!reason) {
         try {
           const spoken = await readFile(`${output}.spoken.txt`, "utf8");
-          if (!/[a-z0-9]/i.test(spoken)) {
+          const expected = prepareWordCheckText(args.text, spoken,
+            text => args.prepareSpeechChannels(text, []).synthInput);
+          if (!/[a-z0-9]/i.test(expected)) {
             wordAttempts.push({ source, attempt: evidence.attempts, editCount: null });
             evidence.wordMatch = { pass: true, setting: checks.wordCheckSetting ?? "a", attempts: wordAttempts,
               edits: [], note: "not judged: no Latin-script words", model: "not-run" };
@@ -303,7 +305,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           if (!args.recogniseTake && !existsSync(modelPath)) throw new Error(`take checks require model: ${modelPath}`);
           const words = args.recogniseTake ? await args.recogniseTake(output)
             : (await runWhisperCliWordTimings(output, { output_directory: stage, whisper_model: modelPath })).words;
-          const wordMatch = wordMismatches(spoken, words,
+          const wordMatch = wordMismatches(expected, words,
             { setting: checks.wordCheckSetting, commonWords: checks.commonWords });
           wordAttempts.push({ source, attempt: evidence.attempts, editCount: wordMatch.edits.length });
           wordFailed = !wordMatch.pass;
