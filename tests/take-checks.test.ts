@@ -122,6 +122,7 @@ for (const [contracted, expansions] of [
   ["They'd", ["They would", "They had"]], ["That'd", ["That would", "That had"]],
   ["There'd", ["There would", "There had"]], ["Who'd", ["Who would", "Who had"]],
   ["They're", ["They are"]], ["We're", ["We are"]], ["You're", ["You are"]],
+  ["There're", ["There are"]],
   ["We've", ["We have"]], ["They've", ["They have"]], ["You'll", ["You will"]],
   ["Couldn't", ["Could not"]], ["Wouldn't", ["Would not"]], ["Shouldn't", ["Should not"]],
   ["Let's", ["Let us"]],
@@ -136,6 +137,20 @@ for (const [contracted, expansions] of [
     });
   }
 }
+for (const [sent, heard] of [
+  ["Kowalski's plan", "Kowalsky's plan"],
+  ["Johnson's plan", "Jonson's plan"],
+  ["Thompson's Ferrari", "Thomson's Ferrari"],
+]) {
+  test(`possessive spelling allowance: ${sent} / ${heard}`, () => {
+    for (const apostrophe of ["'", "’"]) {
+      const expected = sent.replace("'", apostrophe), actual = heard.replace("'", apostrophe);
+      expect(wordMismatches(expected, recognised(actual)).pass).toBe(true);
+      expect(wordMismatches(actual, recognised(expected)).pass).toBe(true);
+      expect(wordMismatches(expected, recognised(actual), { tolerance: false }).pass).toBe(false);
+    }
+  });
+}
 test("contractions preserve different subjects, adjacent words and written apostrophes", () => {
   for (const [sent, heard] of [
     ["Here is", "There's"], ["Here's the plan", "There is the plan"],
@@ -143,6 +158,8 @@ test("contractions preserve different subjects, adjacent words and written apost
     ["Here is the plan", "Heres the plan"], ["Let us go", "Lets go"],
     ["He will go", "Hell go"], ["She has finished", "She finished"],
     ["He would go", "He will go"], ["He'll go", "She'll go"], ["He'd go", "She'd go"],
+    ["He'll go", "Hell go"], ["She'll go", "Shell go"], ["She'd go", "Shed go"],
+    ["We'd go", "Wed go"], ["I'd go", "ID go"],
     ["Here is the plan", "Here's the extra plan"],
   ]) expect(wordMismatches(sent, recognised(heard)).pass).toBe(false);
 });

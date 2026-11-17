@@ -77,8 +77,10 @@ recognition times (null for a deletion, which names a boundary). Any remaining e
 fails `pass`. Empty recognition fails. This is an English/Latin-script recognition
 screen; recognition can repair an audible defect and make it invisible to this check.
 Setting (a), the default, tolerates case/punctuation, exact split/join groups of up to
-three tokens, explicit apostrophe contractions, English integer words through 99 versus
-digits, and Levenshtein distance at most one when both words have at least six letters.
+three tokens, explicit apostrophe contractions (including is/has and would/had alternatives),
+English integer words through 99 versus digits, and Levenshtein distance at most one
+when both words have at least six letters. Contraction tokens are excluded from this
+one-letter allowance; other apostrophe words, such as possessive names, retain it.
 No missing/extra-word allowance is applied. Spelling tolerance can also hide a genuine
 one-letter substitution. Every `--take-checks` attempt, including cache hits and short
 takes with unjudged pitch, checks the whole spoken text with whisper-cli after pitch

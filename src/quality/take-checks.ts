@@ -69,7 +69,7 @@ const CONTRACTIONS: Record<string, string | readonly [string, ...string[]]> = {
   didnt: "didnot", isnt: "isnot", arent: "arenot", wasnt: "wasnot",
   werent: "werenot", couldnt: "couldnot", wouldnt: "wouldnot",
   shouldnt: "shouldnot", havent: "havenot", hasnt: "hasnot", hadnt: "hadnot",
-  im: "iam", youre: "youare", were: "weare", theyre: "theyare",
+  im: "iam", youre: "youare", were: "weare", theyre: "theyare", therere: "thereare",
   ive: "ihave", youve: "youhave", weve: "wehave", theyve: "theyhave",
   ill: "iwill", youll: "youwill", well: "wewill", theyll: "theywill",
   its: ["itis", "ithas"], thats: ["thatis", "thathas"], theres: ["thereis", "therehas"],
@@ -145,11 +145,14 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
           const numeric = tokens.some(w => /[0-9$%]/.test(w)) && !mixedName
             || tokens.some(w => /^[$%]$|^[+-]\d/.test(w))
             || (isTranscriptionNumberSpan(left) && isTranscriptionNumberSpan(right));
-          const equivalent = l === r || (tolerant && !numeric
-            && canonicalSpans(left).some(span => canonicalSpans(right).includes(span)));
+          let equivalent = l === r;
+          if (!equivalent && tolerant && !numeric) {
+            const rightSpans = canonicalSpans(right);
+            equivalent = canonicalSpans(left).some(span => rightSpans.includes(span));
+          }
           const match = (equivalent && (!numeric || left.join(" ").toLowerCase() === right.join(" ").toLowerCase()))
             || (tolerant && a === 1 && b === 1 && !/[0-9]/.test(left[0] + right[0])
-              && !/['’]/.test(left[0] + right[0])
+              && ![left[0], right[0]].some(w => /['’]/.test(w) && normalize(w) in CONTRACTIONS)
               && Math.min(l.length, r.length) >= 6 && spellingDistance(l, r) <= 1);
           if (match) update(i + a, j + b, 0, "match");
         }
