@@ -21,15 +21,15 @@ function quieter(wav: Buffer): Buffer {
   return copy;
 }
 
-function directKey(f: Fixture, text: string) {
-  return computeContentHashKey({ spokenText: normalizeForSpeech(text), referenceAudioSha256: hashReferenceClip(path.join(f.root, "reference.wav")), referenceText: "Synthetic reference.", params: {} });
+async function directKey(f: Fixture, text: string) {
+  return computeContentHashKey({ spokenText: normalizeForSpeech(text), referenceAudioSha256: await hashReferenceClip(path.join(f.root, "reference.wav")), referenceText: "Synthetic reference.", params: {} });
 }
 
 test("--refresh-cache renders a new take and replaces the cached one", async () => {
   const f = await fixture();
   try {
     const args = runnerArgs(f, "Hello there");
-    const cached = path.join(f.root, "cache", `${directKey(f, "Hello there")}.wav`);
+    const cached = path.join(f.root, "cache", `${await directKey(f, "Hello there")}.wav`);
     expect(stderrClass((await runner(f, args)).stderr)).toBe("ok");
     const first = await readFile(cached);
 
@@ -44,7 +44,7 @@ test("--refresh-cache renders a new take and replaces the cached one", async () 
     const second = await readFile(cached);
     expect(second.equals(first)).toBe(false);
     expect((await readFile(out(f))).equals(second)).toBe(true);
-    expect(await receipt(f)).toEqual({ version: 1, cacheKey: directKey(f, "Hello there"), cacheEnabled: true, cacheRefreshed: true });
+    expect(await receipt(f)).toEqual({ version: 1, cacheKey: await directKey(f, "Hello there"), cacheEnabled: true, cacheRefreshed: true });
     expect(readdirSync(path.join(f.root, "cache"))).toEqual([path.basename(cached)]);
 
     // The next plain run replays the refreshed take.
@@ -57,7 +57,7 @@ test("a failed --refresh-cache keeps the old cache entry", async () => {
   const f = await fixture();
   try {
     const args = runnerArgs(f, "Hello there");
-    const cached = path.join(f.root, "cache", `${directKey(f, "Hello there")}.wav`);
+    const cached = path.join(f.root, "cache", `${await directKey(f, "Hello there")}.wav`);
     expect((await runner(f, args)).code).toBe(0);
     const first = await readFile(cached);
     f.setMode("http");
@@ -84,7 +84,7 @@ test("a failed cache store on a plain MISS still succeeds, with the right output
   const f = await fixture();
   try {
     const args = runnerArgs(f, "Hello there");
-    const key = directKey(f, "Hello there");
+    const key = await directKey(f, "Hello there");
     const missed = await readOnlyCache(f, () => runner(f, args));
     expect(missed.code, missed.stderr).toBe(0);
     expect(missed.stderr).toContain(`cache MISS (store failed key=${key})`);
@@ -105,7 +105,7 @@ test("a failed cache store under --refresh-cache fails readably, keeps the old e
   const f = await fixture();
   try {
     const args = runnerArgs(f, "Hello there");
-    const key = directKey(f, "Hello there");
+    const key = await directKey(f, "Hello there");
     const cached = path.join(f.root, "cache", `${key}.wav`);
     expect((await runner(f, args)).code).toBe(0);
     const first = await readFile(cached);

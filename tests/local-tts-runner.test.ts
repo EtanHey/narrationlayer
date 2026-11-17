@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { normalizeForSpeech } from "../src/text-normalize.js";
@@ -9,7 +9,7 @@ import { clearTakeCacheReceipt, hashReferenceClip, computeContentHashKey, writeT
 import { splitForBreathing } from "../src/plan/breathing.js";
 import { spawnChecked } from "./compat/harness.js";
 
-test("runner defaults and injected speech preparation preserve the authored input", () => {
+test("runner defaults and injected speech preparation preserve the authored input", async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "narrationlayer-speech-seam-"));
   try {
     const reference = path.join(dir, "reference.wav");
@@ -21,7 +21,7 @@ test("runner defaults and injected speech preparation preserve the authored inpu
     const input = "Check pgid and surface.select.split.";
     const custom = "Custom engine words";
     for (const spokenText of [normalizeForSpeech(input), custom]) {
-      const key = computeContentHashKey({ spokenText, referenceAudioSha256: hashReferenceClip(reference), referenceText: "reference transcript", params: {} });
+      const key = computeContentHashKey({ spokenText, referenceAudioSha256: await hashReferenceClip(reference), referenceText: "reference transcript", params: {} });
       writeFileSync(path.join(cache, `${key}.wav`), "frozen-wave");
     }
     const runner = path.resolve(import.meta.dir, "..", "bin", "local-tts-runner.ts");
@@ -145,7 +145,7 @@ test("a cache hit binds the selected frozen take to its cache key", async () => 
   writeFileSync(token, "test-token");
   const cacheKey = computeContentHashKey({
     spokenText: "hello",
-    referenceAudioSha256: hashReferenceClip(reference),
+    referenceAudioSha256: await hashReferenceClip(reference),
     referenceText: "reference transcript",
     params: {},
   });
@@ -524,20 +524,51 @@ test("colon pause override controls splitting and the cache key", () => {
 });
 
 
-test("reference cache identity follows bytes across paths and rejects unreadable files", () => {
+test("reference cache identity follows bytes across paths and rejects unreadable files", async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "nl-reference-identity-"));
   try {
     const first = path.join(dir, "one.wav"), second = path.join(dir, "two.wav");
     writeFileSync(first, Buffer.from([1, 2, 3]));
     writeFileSync(second, Buffer.from([1, 2, 3]));
-    const key = (file: string, referenceText = "Synthetic reference.") => computeContentHashKey({
-      spokenText: "Hello", referenceAudioSha256: hashReferenceClip(file), referenceText, params: {},
+    const key = async (file: string, referenceText = "Synthetic reference.") => computeContentHashKey({
+      spokenText: "Hello", referenceAudioSha256: await hashReferenceClip(file), referenceText, params: {},
     });
-    expect(key(first)).toBe(key(second));
-    expect(key(first, "Other reference.")).not.toBe(key(first));
+    expect(await key(first)).toBe(await key(second));
+    expect(await key(first, "Other reference.")).not.toBe(await key(first));
     writeFileSync(second, Buffer.from([1, 2, 4]));
-    expect(key(first)).not.toBe(key(second));
-    expect(() => key(path.join(dir, "missing.wav"))).toThrow("cannot read reference audio for take cache identity");
-    expect(() => key(dir)).toThrow("cannot read reference audio for take cache identity");
+    expect(await key(first)).not.toBe(await key(second));
+    await expect(key(path.join(dir, "missing.wav"))).rejects.toThrow("cannot read reference audio for take cache identity");
+    await expect(key(dir)).rejects.toThrow("cannot read reference audio for take cache identity");
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+
+test("cache key rejects missing, malformed and non-string reference digests", () => {
+  const invalid = [undefined, null, "", "a".repeat(63), "a".repeat(65), "A".repeat(64), "g".repeat(64), "a".repeat(64) + "\n", 123, ["a".repeat(64)], { toString: () => "a".repeat(64) }];
+  for (const referenceAudioSha256 of invalid) {
+    expect(() => Reflect.apply(computeContentHashKey, undefined, [{ ...baseKeyInput, referenceAudioSha256 }]))
+      .toThrow("referenceAudioSha256 must be a 64-character lowercase sha256 hex digest");
+  }
+  const { referenceAudioSha256: _digest, ...oldInput } = baseKeyInput;
+  expect(() => Reflect.apply(computeContentHashKey, undefined, [{ ...oldInput, referenceClip: "/invented/old-reference.wav" }]))
+    .toThrow("referenceAudioSha256 must be a 64-character lowercase sha256 hex digest");
+});
+
+test("unreadable reference errors report the filesystem code without the path", async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "nl-reference-errors-"));
+  const denied = path.join(dir, "denied.wav");
+  writeFileSync(denied, "invented reference bytes");
+  chmodSync(denied, 0);
+  try {
+    for (const [file, code] of [[path.join(dir, "missing.wav"), "ENOENT"], [dir, "EISDIR"], [denied, "EACCES"]]) {
+      let message: string | undefined;
+      try { await hashReferenceClip(file!); }
+      catch (error) { if (error instanceof Error) message = error.message; else throw error; }
+      expect(message).toBe(`cannot read reference audio for take cache identity (${code})`);
+      expect(message).not.toContain(dir);
+    }
+  } finally {
+    chmodSync(denied, 0o600);
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

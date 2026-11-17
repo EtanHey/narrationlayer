@@ -250,7 +250,7 @@ async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256
 /** Pitch is a gate; word mismatches rank bounded retries without freezing a rejected take. */
 export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<LocalTtsRenderResult> {
   // Memoised for this run only: retries reuse it; subsequent runs read fresh bytes.
-  const referenceAudioSha256 = hashReferenceClip(args.resolved.referenceClip);
+  const referenceAudioSha256 = await hashReferenceClip(args.resolved.referenceClip);
   const checks = args.takeChecks;
   if (!checks) return renderUnchecked(args, referenceAudioSha256);
   if (!Number.isFinite(checks.pitchCeilingHz) || checks.pitchCeilingHz <= 0

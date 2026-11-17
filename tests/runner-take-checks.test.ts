@@ -74,7 +74,7 @@ test("old rejected cache hit is checked, then remade even with zero retries", as
   const f = await fixture(0);
   try {
     f.args.takeChecks!.retries = 0;
-    const key = computeContentHashKey({ spokenText: normalizeForSpeech(f.args.text), referenceAudioSha256: hashReferenceClip(f.args.resolved.referenceClip), referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
+    const key = computeContentHashKey({ spokenText: normalizeForSpeech(f.args.text), referenceAudioSha256: await hashReferenceClip(f.args.resolved.referenceClip), referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
     const cached = path.join(f.args.cacheDir, `${key}.wav`);
     f.args.cache = false;
     await renderLocalTts(f.args);
@@ -116,7 +116,7 @@ test("check execution error exits 2 without a fresh request or publication", asy
     await writeFile(reference, tone(180));
     await writeFile(auth, "synthetic");
     const key = computeContentHashKey({ spokenText: normalizeForSpeech(f.args.text),
-      referenceAudioSha256: hashReferenceClip(reference), referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
+      referenceAudioSha256: await hashReferenceClip(reference), referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
     const cached = path.join(f.args.cacheDir, `${key}.wav`);
     await writeFile(cached, "not audio");
     await writeFile(f.args.output, "previous accepted output");

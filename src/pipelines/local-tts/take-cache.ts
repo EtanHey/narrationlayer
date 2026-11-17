@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { writeFile, rename, unlink } from "node:fs/promises";
+import { readFile, writeFile, rename, unlink } from "node:fs/promises";
 
 /**
  * Synth params that affect the OUTPUT bytes. The content-hash key is computed over
@@ -36,11 +35,13 @@ export interface CacheKeyParams {
 export const LOCAL_TTS_RENDER_VERSION: number = 2;
 
 /** Hash reference bytes once at the start of a render; never fall back to its path. */
-export function hashReferenceClip(referenceClip: string): string {
+export async function hashReferenceClip(referenceClip: string): Promise<string> {
   try {
-    return createHash("sha256").update(readFileSync(referenceClip)).digest("hex");
+    return createHash("sha256").update(await readFile(referenceClip)).digest("hex");
   } catch (cause) {
-    throw new Error("cannot read reference audio for take cache identity", { cause });
+    const code = cause !== null && typeof cause === "object" && "code" in cause && typeof cause.code === "string"
+      ? cause.code : "unknown";
+    throw new Error(`cannot read reference audio for take cache identity (${code})`, { cause });
   }
 }
 
@@ -61,6 +62,9 @@ export function computeContentHashKey(input: {
   params: CacheKeyParams;
   renderVersion?: number;
 }): string {
+  if (typeof input.referenceAudioSha256 !== "string" || input.referenceAudioSha256.length !== 64 || !/^[a-f0-9]{64}$/.test(input.referenceAudioSha256)) {
+    throw new Error("referenceAudioSha256 must be a 64-character lowercase sha256 hex digest");
+  }
   const renderVersion = input.renderVersion ?? LOCAL_TTS_RENDER_VERSION;
   if (!Number.isSafeInteger(renderVersion) || renderVersion < 1) {
     throw new Error(`invalid render version for take cache key: ${renderVersion}`);
