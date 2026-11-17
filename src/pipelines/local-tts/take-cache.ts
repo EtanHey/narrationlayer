@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { writeFile, rename, unlink } from "node:fs/promises";
 
@@ -34,22 +35,25 @@ export interface CacheKeyParams {
  */
 export const LOCAL_TTS_RENDER_VERSION: number = 2;
 
+/** Hash reference bytes once at the start of a render; never fall back to its path. */
+export function hashReferenceClip(referenceClip: string): string {
+  try {
+    return createHash("sha256").update(readFileSync(referenceClip)).digest("hex");
+  } catch (cause) {
+    throw new Error("cannot read reference audio for take cache identity", { cause });
+  }
+}
+
 /**
- * Compute the content-hash freeze key (sha256, hex) for a synth request. The key is
- * the determinism layer: qwen3 is non-deterministic, so freezing an accepted take by
- * its key is the canonical mechanism for reproducibility. The hash covers the LITERAL
- * normalized spoken text (what the daemon receives), the reference clip path + ref
- * text (voice identity), and the JSON of the OUTPUT-affecting synth params. Param keys
- * are serialized in a STABLE order so the key is independent of object construction
- * order; undefined params are omitted (a profile that never sets atempo hashes the same
- * with or without an explicit undefined). `renderVersion` defaults to
- * LOCAL_TTS_RENDER_VERSION; at version 1 it is left out of the hashed text, so the key is
- * byte-for-byte the key from before the version existed, and every take frozen then still
- * hits. Any other version is hashed. Exported for tests.
+ * Freeze identity uses normalized spoken text, reference audio SHA-256 + reference
+ * text, profile/model and stably ordered output parameters. Paths never enter the
+ * payload. Path-keyed entries miss once after this identity migration; this is not
+ * an audible render change. Version 1 omits renderVersion as before, but also uses
+ * content identity. Callers hash the reference once per render, including retries.
  */
 export function computeContentHashKey(input: {
   spokenText: string;
-  referenceClip: string;
+  referenceAudioSha256: string;
   referenceText: string;
   profileId?: string;
   profileVersion?: string;
@@ -76,7 +80,7 @@ export function computeContentHashKey(input: {
   // JSON.stringify drops undefined values, so absent params don't perturb the key.
   const payload = JSON.stringify({
     spokenText: input.spokenText,
-    referenceClip: input.referenceClip,
+    referenceAudioSha256: input.referenceAudioSha256,
     referenceText: input.referenceText,
     profileId: input.profileId,
     profileVersion: input.profileVersion,

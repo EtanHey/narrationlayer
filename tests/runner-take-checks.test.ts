@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import path from "node:path";
 import { renderLocalTts, type LocalTtsRenderOptions } from "../src/pipelines/local-tts/index.js";
 import { normalizeForSpeech, prepareSpeechChannels } from "../src/text-normalize.js";
-import { computeContentHashKey } from "../src/pipelines/local-tts/take-cache.js";
+import { hashReferenceClip, computeContentHashKey } from "../src/pipelines/local-tts/take-cache.js";
 
 function tone(hz: number, seconds = 1) {
   const count = Math.round(24000 * seconds);
@@ -30,8 +30,9 @@ async function fixture(failures: number, seconds = 1, vary = false, text = "Hell
     expect(await readdir(cacheDir)).toEqual([]);
     return Response.json({ audio_b64: tone(calls <= failures ? 400 : vary ? 180 + calls : 180, seconds).toString("base64") });
   } });
+  await writeFile(path.join(dir, "reference.wav"), tone(180));
   const args: LocalTtsRenderOptions = { text, output: path.join(dir, "out.wav"),
-    sampleRate: 24000, resolved: { daemonUrl: `http://127.0.0.1:${server.port}`, referenceClip: "synthetic.wav", referenceText: "Synthetic reference." },
+    sampleRate: 24000, resolved: { daemonUrl: `http://127.0.0.1:${server.port}`, referenceClip: path.join(dir, "reference.wav"), referenceText: "Synthetic reference." },
     cacheDir, cache: true, authToken: "synthetic", timeoutMs: 10000, prepareSpeechChannels,
     recogniseTake: async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon", start: 0.3, end: 0.6 }],
     takeChecks: { pitchCeilingHz: 300, retries: 2 } };
@@ -73,7 +74,7 @@ test("old rejected cache hit is checked, then remade even with zero retries", as
   const f = await fixture(0);
   try {
     f.args.takeChecks!.retries = 0;
-    const key = computeContentHashKey({ spokenText: normalizeForSpeech(f.args.text), referenceClip: "synthetic.wav", referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
+    const key = computeContentHashKey({ spokenText: normalizeForSpeech(f.args.text), referenceAudioSha256: hashReferenceClip(f.args.resolved.referenceClip), referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
     const cached = path.join(f.args.cacheDir, `${key}.wav`);
     f.args.cache = false;
     await renderLocalTts(f.args);
@@ -115,7 +116,7 @@ test("check execution error exits 2 without a fresh request or publication", asy
     await writeFile(reference, tone(180));
     await writeFile(auth, "synthetic");
     const key = computeContentHashKey({ spokenText: normalizeForSpeech(f.args.text),
-      referenceClip: reference, referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
+      referenceAudioSha256: hashReferenceClip(reference), referenceText: "Synthetic reference.", params: { takeChecks: f.args.takeChecks } });
     const cached = path.join(f.args.cacheDir, `${key}.wav`);
     await writeFile(cached, "not audio");
     await writeFile(f.args.output, "previous accepted output");
@@ -269,4 +270,28 @@ test("word flags require take-checks and name the flags in the error", () => {
   const run = Bun.spawnSync([process.execPath, "bin/local-tts-runner.ts", "--word-check-setting", "a"]);
   expect(run.exitCode).toBe(1);
   expect(run.stderr.toString()).toContain("--word-check-setting and --word-dictionary require --take-checks");
+});
+
+
+test("reference hash is reused within retries and read afresh for the next run", async () => {
+  const f = await fixture(0);
+  try {
+    const reference = f.args.resolved.referenceClip;
+    const original = await readFile(reference);
+    let attempts = 0;
+    f.args.recogniseTake = async () => {
+      attempts++;
+      await rm(reference, { force: true });
+      return [{ word: "Hello", start: 0, end: 0.3 }, { word: attempts === 1 ? "sun" : "moon", start: 0.3, end: 0.6 }];
+    };
+    await renderLocalTts(f.args);
+    expect(f.calls()).toBe(2);
+    const first = (await receipt(f.args.output)).cacheKey;
+    await expect(renderLocalTts(f.args)).rejects.toThrow("cannot read reference audio for take cache identity");
+    await rm(f.args.cacheDir, { recursive: true });
+    await mkdir(f.args.cacheDir);
+    await writeFile(reference, Buffer.concat([original, Buffer.from([1])]));
+    await renderLocalTts(f.args);
+    expect((await receipt(f.args.output)).cacheKey).not.toBe(first);
+  } finally { await f.close(); }
 });

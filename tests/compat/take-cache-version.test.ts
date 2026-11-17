@@ -263,20 +263,20 @@ test("render version: the runner's audible behaviour matches the row recorded fo
   ]);
 });
 
-// Fixed synthetic input. The version-1 hex was computed on origin/master 5a100adf (before
-// the render version existed): every key a consumer cached then must still hit.
+// Synthetic pins after the content-identity migration. Path-keyed entries miss once;
+// render-version behavior remains independent of the reference identity format.
 const PIN_INPUT = {
-  spokenText: "Synthetic render version pin, one. Two.", referenceClip: "/synthetic/reference.wav", referenceText: "Synthetic reference.",
+  spokenText: "Synthetic render version pin, one. Two.", referenceAudioSha256: "a".repeat(64), referenceText: "Synthetic reference.",
   profileId: "synthetic-voice", profileVersion: "synthetic-v1", model: "synthetic-model",
   params: { eqHighshelfHz: 4000, eqHighshelfGainDb: 1.5, loudnessTargetDb: -20, atempo: 1.05, sentencePauseSeconds: 0.55, commaPauseSeconds: 0.22 },
 };
-const PIN_V1 = "128e293da872b2b5fabb6502fddd1c9f0a885bd049dca0e7e5e12066eafcd9ec";
-const PIN_MINIMAL = { spokenText: "Hello", referenceClip: "/synthetic/reference.wav", referenceText: "Synthetic reference.", params: {} };
-const PIN_MINIMAL_V1 = "bc769d5b4f60d6fd587c94bfa080890bc19b04fad884a5a2e78e89abbef3250e";
+const PIN_V1 = "59deeb04c37c6bf7b449855d0f8b019397963440423757698c7523c9e51c33bc";
+const PIN_MINIMAL = { spokenText: "Hello", referenceAudioSha256: "a".repeat(64), referenceText: "Synthetic reference.", params: {} };
+const PIN_MINIMAL_V1 = "f7531a58f15f7d1e74d150b1abe37823f27746b4412d9bc6c0e1a9112564651d";
 
-test("render version 1 keeps the pre-version key byte for byte; any other version changes it", () => {
+test("render version 1 omits the version field; any other version changes the content-based key", () => {
   const check = (ok: boolean, what: string, expected: string, received: string) => {
-    if (!ok) throw failure([`take-cache key pin: ${what}. Expected ${expected}, received ${received}.`, "Version-1 keys must stay byte for byte the keys from before the render version existed; do not edit the pins."]);
+    if (!ok) throw failure([`take-cache key pin: ${what}. Expected ${expected}, received ${received}.`, "Content-based version-1 pins must stay stable after the identity migration."]);
   };
   const pinned = computeContentHashKey({ ...PIN_INPUT, renderVersion: 1 });
   check(pinned === PIN_V1, "PIN_V1 (full synthetic input at version 1) changed", PIN_V1, pinned);

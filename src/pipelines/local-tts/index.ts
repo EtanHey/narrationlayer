@@ -13,7 +13,7 @@ import { RunnerFailure, TakeCheckError } from "./failure.js";
 import { DEFAULT_COLON_PAUSE_SECONDS } from "../../plan/breathing.js";
 import { applyBreathingInPlace } from "./breathing.js";
 import { loudnessNormalizeInPlace } from "./loudness.js";
-import { computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
+import { hashReferenceClip, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
 import { assertKeepPiecesDir, keepPieces } from "./keep-pieces.js";
 
 export interface ResolvedLocalTtsVoice extends CacheKeyParams {
@@ -50,7 +50,7 @@ export type LocalTtsRenderResult =
 const PIECES_ON_HIT = "cache hit: no pieces were rendered";
 
 /** Render one resolved voice configuration without owning the caller's process. */
-async function renderUnchecked(args: LocalTtsRenderOptions, store = true): Promise<LocalTtsRenderResult> {
+async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256: string, store = true): Promise<LocalTtsRenderResult> {
   const { output, resolved, authToken, cacheDir, prepareSpeechChannels, keepPiecesDir } = args;
   if (args.refreshCache && !args.cache) throw new RunnerFailure("--refresh-cache cannot be combined with --no-cache");
   if (keepPiecesDir !== undefined) await assertKeepPiecesDir(keepPiecesDir);
@@ -79,7 +79,7 @@ async function renderUnchecked(args: LocalTtsRenderOptions, store = true): Promi
   };
   const cacheKey = computeContentHashKey({
     spokenText,
-    referenceClip: resolved.referenceClip,
+    referenceAudioSha256,
     referenceText: resolved.referenceText,
     profileId: resolved.profileId,
     profileVersion: resolved.profileVersion,
@@ -249,8 +249,10 @@ async function renderUnchecked(args: LocalTtsRenderOptions, store = true): Promi
 
 /** Pitch is a gate; word mismatches rank bounded retries without freezing a rejected take. */
 export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<LocalTtsRenderResult> {
+  // Memoised for this run only: retries reuse it; subsequent runs read fresh bytes.
+  const referenceAudioSha256 = hashReferenceClip(args.resolved.referenceClip);
   const checks = args.takeChecks;
-  if (!checks) return renderUnchecked(args);
+  if (!checks) return renderUnchecked(args, referenceAudioSha256);
   if (!Number.isFinite(checks.pitchCeilingHz) || checks.pitchCeilingHz <= 0
     || !Number.isSafeInteger(checks.retries) || checks.retries < 0 || checks.retries > 10)
     throw new TakeCheckError("take checks require a positive pitch ceiling and 0..10 retries");
@@ -269,7 +271,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
     for (;;) {
       // The existing synthesis path sends a fresh request; the backend supplies variance (no seed API).
       let result = await renderUnchecked({ ...args, output, keepPiecesDir: pieces,
-        cache: args.cache && !refresh && evidence.attempts === 0 && evidence.failures.length === 0, refreshCache: false }, false);
+        cache: args.cache && !refresh && evidence.attempts === 0 && evidence.failures.length === 0, refreshCache: false }, referenceAudioSha256, false);
       key = result.cacheKey;
       let source: "cache" | "render" = result.kind === "cache-hit" ? "cache" : "render";
       if (source === "render") evidence.attempts++;

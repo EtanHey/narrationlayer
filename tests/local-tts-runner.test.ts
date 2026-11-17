@@ -5,7 +5,7 @@ import path from "node:path";
 import { normalizeForSpeech } from "../src/text-normalize.js";
 
 import { buildMonoS16WavArgs, buildLoudnessNormalizeArgs, computeLoudnessGainDb } from "../src/audio/ffmpeg-args.js";
-import { clearTakeCacheReceipt, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "../src/pipelines/local-tts/take-cache.js";
+import { clearTakeCacheReceipt, hashReferenceClip, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "../src/pipelines/local-tts/take-cache.js";
 import { splitForBreathing } from "../src/plan/breathing.js";
 import { spawnChecked } from "./compat/harness.js";
 
@@ -21,7 +21,7 @@ test("runner defaults and injected speech preparation preserve the authored inpu
     const input = "Check pgid and surface.select.split.";
     const custom = "Custom engine words";
     for (const spokenText of [normalizeForSpeech(input), custom]) {
-      const key = computeContentHashKey({ spokenText, referenceClip: reference, referenceText: "reference transcript", params: {} });
+      const key = computeContentHashKey({ spokenText, referenceAudioSha256: hashReferenceClip(reference), referenceText: "reference transcript", params: {} });
       writeFileSync(path.join(cache, `${key}.wav`), "frozen-wave");
     }
     const runner = path.resolve(import.meta.dir, "..", "bin", "local-tts-runner.ts");
@@ -145,7 +145,7 @@ test("a cache hit binds the selected frozen take to its cache key", async () => 
   writeFileSync(token, "test-token");
   const cacheKey = computeContentHashKey({
     spokenText: "hello",
-    referenceClip: reference,
+    referenceAudioSha256: hashReferenceClip(reference),
     referenceText: "reference transcript",
     params: {},
   });
@@ -287,7 +287,7 @@ test("eq pass never contains volume=/alimiter (loudness is a separate gated pass
 
 const baseKeyInput = {
   spokenText: "We use sooper base for auth.",
-  referenceClip: "/clips/host.wav",
+  referenceAudioSha256: "a".repeat(64),
   referenceText: "host reference transcript",
   params: {
     eqHighshelfHz: 4000,
@@ -303,7 +303,7 @@ test("computeContentHashKey: stable — identical request yields the SAME sha256
   const a = computeContentHashKey(baseKeyInput);
   const b = computeContentHashKey({
     spokenText: baseKeyInput.spokenText,
-    referenceClip: baseKeyInput.referenceClip,
+    referenceAudioSha256: baseKeyInput.referenceAudioSha256,
     referenceText: baseKeyInput.referenceText,
     params: { ...baseKeyInput.params },
   });
@@ -347,7 +347,7 @@ test("computeContentHashKey: different text / reference clip / reference text =>
   expect(
     computeContentHashKey({
       ...baseKeyInput,
-      referenceClip: "/clips/expert.wav",
+      referenceAudioSha256: "b".repeat(64),
     }),
   ).not.toBe(base);
   expect(
@@ -521,4 +521,23 @@ test("colon pause override controls splitting and the cache key", () => {
     ...baseKeyInput, params: { ...baseKeyInput.params, colonPauseSeconds },
   });
   expect(key(0.35)).not.toBe(key(0.7));
+});
+
+
+test("reference cache identity follows bytes across paths and rejects unreadable files", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "nl-reference-identity-"));
+  try {
+    const first = path.join(dir, "one.wav"), second = path.join(dir, "two.wav");
+    writeFileSync(first, Buffer.from([1, 2, 3]));
+    writeFileSync(second, Buffer.from([1, 2, 3]));
+    const key = (file: string, referenceText = "Synthetic reference.") => computeContentHashKey({
+      spokenText: "Hello", referenceAudioSha256: hashReferenceClip(file), referenceText, params: {},
+    });
+    expect(key(first)).toBe(key(second));
+    expect(key(first, "Other reference.")).not.toBe(key(first));
+    writeFileSync(second, Buffer.from([1, 2, 4]));
+    expect(key(first)).not.toBe(key(second));
+    expect(() => key(path.join(dir, "missing.wav"))).toThrow("cannot read reference audio for take cache identity");
+    expect(() => key(dir)).toThrow("cannot read reference audio for take cache identity");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -4,7 +4,7 @@ import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { splitForBreathing } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
-import { computeContentHashKey } from "../../src/pipelines/local-tts/take-cache.js";
+import { hashReferenceClip, computeContentHashKey } from "../../src/pipelines/local-tts/take-cache.js";
 import { type DefaultsRender, defaultsProfile, defaultsText, fixture, measureWav, runner, runnerArgs, stderrClass } from "./harness.js";
 
 // The two runner switches: --refresh-cache (re-roll a cached take in one step) and
@@ -22,7 +22,7 @@ function quieter(wav: Buffer): Buffer {
 }
 
 function directKey(f: Fixture, text: string) {
-  return computeContentHashKey({ spokenText: normalizeForSpeech(text), referenceClip: path.join(f.root, "reference.wav"), referenceText: "Synthetic reference.", params: {} });
+  return computeContentHashKey({ spokenText: normalizeForSpeech(text), referenceAudioSha256: hashReferenceClip(path.join(f.root, "reference.wav")), referenceText: "Synthetic reference.", params: {} });
 }
 
 test("--refresh-cache renders a new take and replaces the cached one", async () => {
