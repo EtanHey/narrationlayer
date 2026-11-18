@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { firstWordOmitted } from "../src/quality/take-checks.js";
+import { firstWordOmitted, wordMismatches } from "../src/quality/take-checks.js";
 
 const words = (text: string) => text.split(" ").filter(Boolean).map((word, i) => ({ word, start: i, end: i + 1 }));
 // The opening number was spoken, in its other form: never a first-word omission.
@@ -40,5 +40,19 @@ const reallyOmitted: [string, string][] = [
 for (const [sent, heard] of reallyOmitted) {
   test(`opening number not spoken is omitted: ${sent} / ${heard}`, () => {
     expect(firstWordOmitted(sent, words(heard)).omitted).toBe(true);
+  });
+}
+
+// Red-team round 2 (18 Nov): a bare "$" or "%" read aloud as "dollar"/"percent" still passes the word check.
+const symbolRead: [string, string][] = [
+  ["The $ sign is next.", "The dollar sign is next."],
+  ["The % sign is next.", "The percent sign is next."],
+  ["$ signs everywhere.", "dollar signs everywhere."],
+  ["% of takes passed.", "percent of takes passed."],
+  ["Percent of takes passed.", "% of takes passed."],
+];
+for (const [sent, heard] of symbolRead) {
+  test(`a symbol read as its word passes the word check: ${sent} / ${heard}`, () => {
+    expect(wordMismatches(sent, words(heard), { setting: "a" }).pass).toBe(true);
   });
 }

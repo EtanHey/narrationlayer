@@ -10,7 +10,8 @@ function normalize(word: string): string {
 // Number keys (the word check's own equivalence) of spans starting at the first `starts` tokens.
 function openingNumberKeys(tokens: readonly string[], starts: number): Set<string> {
   const index = transcriptionNumbers(tokens.slice(0, starts + 12));
-  return new Set(index.slice(0, starts).flatMap(spans => [...spans.keys()]));
+  // A unit-only key ("dollars") never stands in for a clipped opening number.
+  return new Set(index.slice(0, starts).flatMap(spans => [...spans.keys()]).filter(key => !key.startsWith("unit:")));
 }
 
 export function firstWordOmitted(sent: string, recognised: readonly RecognisedWord[]) {
