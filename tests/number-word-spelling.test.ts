@@ -19,6 +19,10 @@ const wrongValues: [string, string][] = [
   ["Fourteen takes passed.", "Fourteens takes passed."],
   ["One fifteenth of the takes.", "One fifteenths of the takes."],
   ["Two hundred takes.", "Two hundreds takes."],
+  // Red-team round 1 (18 Nov): hyphenated number words and "trillion" still took the allowance.
+  ["Forty-eight takes passed.", "Forty-eighth takes passed."],
+  ["Eighty-eight takes passed.", "Eighty-eights takes passed."],
+  ["Two trillion rows.", "Two trillions rows."],
 ];
 for (const [sent, heard] of wrongValues) {
   test(`number word one letter apart fails: ${sent} / ${heard}`, () => {
