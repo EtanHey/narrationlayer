@@ -251,3 +251,92 @@ export function pitchRunaway(samples: Float32Array, sampleRate: number, ceilingH
   const voiced = windows.flatMap((w) => w.medianHz === null ? [] : [w.medianHz]);
   return { failed: overCeiling.length > 0, ceilingHz, worstMedianHz: voiced.length ? Math.max(...voiced) : null, windows, overCeiling };
 }
+
+export type CutEndingOptions = {
+  /** Ignored stretch just before the audio end (decoder or codec fade). */
+  guardSeconds?: number;
+  /** Length of the measured tail window. */
+  windowSeconds?: number;
+  /** Tail level, relative to the take's speech level, at or above which the ending is cut. */
+  maxTailRelDb?: number;
+  /** Lower tail bar used when the last recognised word also runs to the audio end. */
+  timedTailRelDb?: number;
+  /** A tail quieter than this (dBFS) is never judged cut, whatever its relative level. */
+  minTailDbfs?: number;
+  /** The last word "runs to the end" when it ends at or after the audio end minus this. */
+  wordEndMarginSeconds?: number;
+};
+
+// Calibrated 18 Nov 2026 at 16 kHz on clean takes (all at or below -15.1 dB) against heard cut
+// endings (-6.9 dB and above); real pages show a gap between -7.5 and -8.7 dB. The recogniser's
+// last-word end reaches the audio end on about one clean take in five, so timing only lowers the bar.
+export const CUT_ENDING_DEFAULTS: Required<CutEndingOptions> = {
+  guardSeconds: 0.01,
+  windowSeconds: 0.025,
+  maxTailRelDb: -8,
+  timedTailRelDb: -12,
+  minTailDbfs: -45,
+  wordEndMarginSeconds: 0.02,
+};
+
+export type CutEndingResult = {
+  failed: boolean;
+  reason: "tail-at-speech-level" | "last-word-runs-to-end" | null;
+  note: "not judged: too short or silent" | null;
+  durationSeconds: number;
+  audioEndSeconds: number;
+  lastWordEndSeconds: number | null;
+  speechDbfs: number | null;
+  tailDbfs: number | null;
+  tailRelDb: number | null;
+  thresholds: Required<CutEndingOptions>;
+};
+
+const SUB_LSB = 1.5 / 32768;
+const meanSquareDb = (power: number) => power > 0 ? 10 * Math.log10(power) : -Infinity;
+
+/**
+ * Cut ending: the take stops while the last word is still sounding. A finished take decays into its
+ * own quiet tail; a cut one is still at speech level in its final window. Two ways to fail:
+ * the final window is within `maxTailRelDb` of the take's speech level (acoustic), or the last
+ * recognised word runs to the audio end and the final window is within `timedTailRelDb` (timing).
+ * Recognised timings alone never fail a take: the recogniser also stretches clean last words to the end.
+ */
+export function cutEnding(samples: Float32Array, sampleRate: number, words: readonly RecognisedWord[] = [],
+  options: CutEndingOptions = {}): CutEndingResult {
+  if (!Number.isFinite(sampleRate) || sampleRate < 2000) throw new Error("invalid sample rate");
+  const t = { ...CUT_ENDING_DEFAULTS, ...options };
+  for (const value of Object.values(t)) if (!Number.isFinite(value)) throw new Error("invalid cut-ending option");
+  const durationSeconds = samples.length / sampleRate;
+  // The audio end is the first sample of the trailing sub-LSB run: digital zeros after a cut hide nothing.
+  let end = samples.length;
+  while (end > 0 && Math.abs(samples[end - 1]) <= SUB_LSB) end--;
+  for (let i = 0; i < end; i++) if (!Number.isFinite(samples[i])) throw new Error("nonfinite audio sample");
+  const frame = Math.max(1, Math.round(sampleRate * 0.02));
+  const powers: number[] = [];
+  for (let i = 0; i + frame <= end; i += frame) {
+    let sum = 0;
+    for (let j = i; j < i + frame; j++) sum += samples[j] * samples[j];
+    powers.push(sum / frame);
+  }
+  const loudest = powers.length ? Math.max(...powers) : 0;
+  const active = powers.filter(p => p > 0 && p >= loudest * 10 ** (-25 / 10));
+  const speechDbfs = active.length ? meanSquareDb(active.reduce((a, p) => a + p, 0) / active.length) : -Infinity;
+  const to = end - Math.round(sampleRate * t.guardSeconds), from = to - Math.round(sampleRate * t.windowSeconds);
+  const audioEndSeconds = end / sampleRate;
+  const last = words.length ? words[words.length - 1] : undefined;
+  const lastWordEndSeconds = last ? last.end : null;
+  const base = { durationSeconds, audioEndSeconds, lastWordEndSeconds, speechDbfs: null, tailDbfs: null, tailRelDb: null, thresholds: t };
+  if (from < 0 || !Number.isFinite(speechDbfs)) return { ...base, failed: false, reason: null, note: "not judged: too short or silent" };
+  let sum = 0;
+  for (let i = from; i < to; i++) sum += samples[i] * samples[i];
+  const tailDbfs = meanSquareDb(sum / (to - from));
+  const tailRelDb = tailDbfs - speechDbfs;
+  const audible = tailDbfs >= t.minTailDbfs;
+  const runsToEnd = lastWordEndSeconds !== null && lastWordEndSeconds >= audioEndSeconds - t.wordEndMarginSeconds;
+  const reason: CutEndingResult["reason"] = audible && tailRelDb >= t.maxTailRelDb ? "tail-at-speech-level"
+    : audible && runsToEnd && tailRelDb >= t.timedTailRelDb ? "last-word-runs-to-end" : null;
+  const round = (x: number) => Math.round(x * 1000) / 1000;
+  return { ...base, speechDbfs: round(speechDbfs), tailDbfs: round(tailDbfs), tailRelDb: round(tailRelDb),
+    failed: reason !== null, reason, note: null };
+}
