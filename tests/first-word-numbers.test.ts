@@ -28,6 +28,11 @@ const reallyOmitted: [string, string][] = [
   ["Three, two, one, go.", "two one go."],
   ["Ten, nine, go.", "nine one go."],
   ["Forty percent of takes passed.", "of takes passed."],
+  // Red-team round 1 (18 Nov): a unit heard without its number is not the number zero.
+  ["Zero percent passed.", "percent passed."],
+  ["Zero dollars was the budget.", "dollars was the budget."],
+  ["0% of takes passed.", "percent of takes passed."],
+  ["$5 a month.", "dollars a month."],
   ["$400 was the budget.", "was the budget."],
   ["Four hundred dollars was the budget.", "$500 was the budget."],
   ["Three moons rose.", "9 moons rose."],
