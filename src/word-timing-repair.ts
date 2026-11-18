@@ -25,6 +25,18 @@ export function scriptWords(script: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * The same words as scriptWords, one for one, but keeping a leading "$" and a trailing "%".
+ * Only number matching reads these; the words the repair returns stay as scriptWords gives them.
+ */
+function scriptNumberSources(script: string): string[] {
+  return String(script || "")
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.replace(/^[^\w]+|[^\w.?!,;:]+$/g, ""))
+    .map((word) => word.replace(/^[^\w$]+|[^\w.?!,;:%]+$/g, ""));
+}
+
 function comparable(word: string): string {
   return word.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
@@ -202,13 +214,14 @@ function maybeUpdate(cells: AlignmentCell[][], i: number, j: number, nextI: numb
 
 function alignmentSteps(
   scriptTokens: string[],
+  scriptNumberWords: string[],
   timings: WordTiming[],
   aliases: WordTimingAlias[],
 ): AlignmentStep[] {
   const scriptNorms = scriptTokens.map(comparable);
   const timingNorms = timings.map((timing) => comparable(timing.word));
   const aliasSignatures = compileAliasSignatures(aliases);
-  const scriptNumbers = numberBlockKeys(scriptTokens);
+  const scriptNumbers = numberBlockKeys(scriptNumberWords);
   const timingNumbers = numberBlockKeys(timings.map((timing) => timing.word));
   const scriptCount = scriptTokens.length;
   const timingCount = timings.length;
@@ -385,12 +398,13 @@ function fillMissingAssignments(assignments: Array<AlignmentAssignment | undefin
 
 function alignWordTimingsToScript(
   scriptTokens: string[],
+  scriptNumberWords: string[],
   timings: WordTiming[],
   durationSeconds: number,
   aliases: WordTimingAlias[],
 ): { words: WordTiming[]; matchedScriptWords: number } {
   const assignments: Array<AlignmentAssignment | undefined> = new Array(scriptTokens.length);
-  const steps = alignmentSteps(scriptTokens, timings, aliases);
+  const steps = alignmentSteps(scriptTokens, scriptNumberWords, timings, aliases);
   let matchedScriptWords = 0;
   for (const step of steps) {
     if (step.kind === "match") {
@@ -430,7 +444,7 @@ export function normalizeWordTimingsForScript(
   }
 
   if (!wordsMatchScript(expectedWords, timings)) {
-    const alignment = alignWordTimingsToScript(expectedWords, timings, durationSeconds, aliases);
+    const alignment = alignWordTimingsToScript(expectedWords, scriptNumberSources(script), timings, durationSeconds, aliases);
     return {
       rawWords: timings,
       words: alignment.words,

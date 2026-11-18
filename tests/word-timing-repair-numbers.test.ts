@@ -176,3 +176,83 @@ test("units must agree: spoken 'four hundred' is not the heard '$400'", () => {
     ["hundred", 1.35, 1.9],
   ]);
 });
+
+// Symbol direction: the script writes the symbol, the recogniser heard the words.
+
+test("script '40%' matches a heard 'forty percent' and every raw timing is kept", () => {
+  const raw = heard([
+    ["Growth", 0.1, 0.5],
+    ["was", 0.5, 0.7],
+    ["forty", 0.8, 1.1],
+    ["percent", 1.1, 1.6],
+    ["this", 1.7, 1.9],
+    ["year.", 1.9, 2.3],
+  ]);
+  const result = normalizeWordTimingsForScript("Growth was 40% this year.", raw, 2.4);
+
+  expect(result.estimated).toBe(false);
+  // The script word "40" takes the whole recognised "forty percent" span; the neighbours keep theirs.
+  expect(spans(result.words)).toEqual([
+    ["Growth", 0.1, 0.5],
+    ["was", 0.5, 0.7],
+    ["40", 0.8, 1.6],
+    ["this", 1.7, 1.9],
+    ["year.", 1.9, 2.3],
+  ]);
+});
+
+test("script '$5' matches a heard 'five dollars'", () => {
+  const result = normalizeWordTimingsForScript(
+    "It costs $5 today.",
+    heard([
+      ["It", 0.1, 0.3],
+      ["costs", 0.3, 0.7],
+      ["five", 0.8, 1.1],
+      ["dollars", 1.1, 1.6],
+      ["today.", 1.8, 2.2],
+    ]),
+    2.4,
+  );
+
+  expect(result.estimated).toBe(false);
+  expect(spans(result.words)).toEqual([
+    ["It", 0.1, 0.3],
+    ["costs", 0.3, 0.7],
+    ["5", 0.8, 1.6],
+    ["today.", 1.8, 2.2],
+  ]);
+});
+
+test("a real mismatch: script '40%' is not matched to a heard 'fifty percent'", () => {
+  const result = normalizeWordTimingsForScript(
+    "Growth was 40% this year.",
+    heard([
+      ["Growth", 0.1, 0.5],
+      ["was", 0.5, 0.7],
+      ["fifty", 0.8, 1.1],
+      ["percent", 1.1, 1.6],
+      ["this", 1.7, 1.9],
+      ["year.", 1.9, 2.3],
+    ]),
+    2.4,
+  );
+
+  // Unmatched: filled over the 0.7-1.7 s gap, not given the heard span's own boundaries.
+  expect(spans(result.words).slice(2, 3)).toEqual([["40", 0.7, 1.7]]);
+});
+
+test("a real mismatch: script '$5' is not matched to a heard 'five percent'", () => {
+  const result = normalizeWordTimingsForScript(
+    "It costs $5 today.",
+    heard([
+      ["It", 0.1, 0.3],
+      ["costs", 0.3, 0.7],
+      ["five", 0.8, 1.1],
+      ["percent", 1.1, 1.6],
+      ["today.", 1.8, 2.2],
+    ]),
+    2.4,
+  );
+
+  expect(spans(result.words).slice(2, 3)).toEqual([["5", 0.7, 1.8]]);
+});
