@@ -100,9 +100,10 @@ function spellingDistance(a: string, b: string): number {
 // seventy/seventh, eighty/eighth and million/billion are different values.
 function numberWord(word: string): boolean {
   const token = normalize(word);
-  // normalize() drops the hyphen, so "forty-eighth" must also be tested part by part.
-  const parts = word.toLowerCase().split("-").map(normalize).filter(Boolean);
-  return [token, ...parts].some(part =>
+  // normalize() drops the hyphen, so "forty-eighth" is also tested whole with its hyphen kept and a
+  // trailing 's removed; part-by-part testing wrongly caught "one-liner" and "second-rate" (red team r2).
+  const lower = word.toLowerCase().replace(/['’]s$/, "");
+  return [token, lower, normalize(lower)].some(part =>
     isTranscriptionNumberSpan([part]) || /^(?:hundred|thousand|million|billion|trillion)(?:th)?s?$/.test(part));
 }
 

@@ -23,6 +23,8 @@ const wrongValues: [string, string][] = [
   ["Forty-eight takes passed.", "Forty-eighth takes passed."],
   ["Eighty-eight takes passed.", "Eighty-eights takes passed."],
   ["Two trillion rows.", "Two trillions rows."],
+  // Red-team round 2: a trailing 's.
+  ["The eighty's sound.", "The eights sound."],
 ];
 for (const [sent, heard] of wrongValues) {
   test(`number word one letter apart fails: ${sent} / ${heard}`, () => {
@@ -39,6 +41,10 @@ const stillEquivalent: [string, string][] = [
   ["Two million users.", "2,000,000 users."],
   ["Kubernetes runs.", "Kubernetis runs."],
   ["The settings work.", "The setting work."],
+  // Red-team round 2: hyphenated words that are not numbers keep the allowance.
+  ["A one-liner helps.", "A one-liners helps."],
+  ["A second-rate take.", "A second-rated take."],
+  ["A one-sided view.", "A one-side view."],
 ];
 for (const [sent, heard] of stillEquivalent) {
   test(`number word control passes: ${sent} / ${heard}`, () => {
