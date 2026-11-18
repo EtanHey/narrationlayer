@@ -16,8 +16,29 @@ export function transcriptionSpelling(word: string): string {
   return SPELLINGS[word] ?? word;
 }
 
+// Units and signs: every currency symbol, percent, comparison and the U+2212 minus. Each is its own
+// token so a number span can never silently lose one; only "$" and "%" have a parsed meaning, so
+// any other symbol makes its span non-equivalent.
+const SYMBOL = String.raw`\p{Sc}|[%<>≤≥±−]`;
 // Preserve units and signs before punctuation folding; only explicit numeric aliases may consume them.
-export const TRANSCRIPTION_TOKEN = /\$|%|[+-]\d+(?:,\d{3})*(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:st|nd|rd|th)?|[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi;
+export const TRANSCRIPTION_TOKEN = new RegExp(
+  String.raw`[+\-−]\d+(?:,\d{3})*(?:\.\d+)?|${SYMBOL}|\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:st|nd|rd|th)?|[a-z0-9]+(?:['’.-][a-z0-9]+)*`,
+  "giu",
+);
+const SYMBOL_TOKEN = new RegExp(String.raw`^(?:${SYMBOL})$|^[+\-−]\d`, "u");
+
+/** A unit or sign token ("$", "€", "%", "<", "-5", "−5"): it must match literally, never be folded away. */
+export function isTranscriptionSymbol(token: string): boolean {
+  return SYMBOL_TOKEN.test(token);
+}
+
+/** The units and signs of a word, in order, with both minus forms as "-": "$400" is "$", "−5" is "-". */
+export function transcriptionSymbols(word: string): string {
+  return (word.match(TRANSCRIPTION_TOKEN) ?? [])
+    .filter(isTranscriptionSymbol)
+    .map((token) => (/^[+\-−]\d/.test(token) ? token[0] : token).replace("−", "-"))
+    .join("");
+}
 const SMALL = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split(" ");
 const TENS = "twenty thirty forty fifty sixty seventy eighty ninety".split(" ");
 const ORDINALS = "zeroth first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth".split(" ");
@@ -126,15 +147,18 @@ function numberKey(input: readonly string[]): string | null {
 }
 
 /** Equivalence keys of the whole span (empty when it is not one number); two spans match when they share a key. */
-export function transcriptionNumberKeys(tokens: readonly string[]): string[] {
+export function transcriptionNumberKeys(tokens: readonly string[], options: { bareDigitsMayBeDollars?: boolean } = {}): string[] {
   const key = numberKey(tokens);
   if (key === null) return [];
   const keys = new Set([key]);
   // Whisper sometimes emits bare digits for spoken dollars (builder regression).
-  // Symmetric: "four dollars" / bare "4" passes in either direction.
+  // Symmetric by default: "four dollars" / bare "4" passes in either direction.
   // Require a digit literal on the other side; "$4" / spoken "four" still fails.
+  // bareDigitsMayBeDollars: false keeps only the "dollars said, bare digits heard" direction.
   if (/^cardinal:[^:]+:dollar$/.test(key)) keys.add(key.replace(/:dollar$/, ":digit-dollar"));
-  if (tokens.length === 1 && /^\d[\d,.]*$/.test(tokens[0])) keys.add(key.replace(/:$/, ":digit-dollar"));
+  if (options.bareDigitsMayBeDollars !== false && tokens.length === 1 && /^\d[\d,.]*$/.test(tokens[0])) {
+    keys.add(key.replace(/:$/, ":digit-dollar"));
+  }
   return [...keys];
 }
 
@@ -152,5 +176,5 @@ export function transcriptionNumbers(tokens: readonly string[]): Map<string, num
 
 /** Literal matching guards numeric spans, while mixed letter-digit names keep compound matching. */
 export function isTranscriptionNumberSpan(tokens: readonly string[]): boolean {
-  return numberKey(tokens) !== null || tokens.every(token => /^[0-9.,+%$-]+$/.test(token));
+  return numberKey(tokens) !== null || tokens.every(token => /^[0-9.,+%$-]+$/.test(token) || isTranscriptionSymbol(token));
 }
