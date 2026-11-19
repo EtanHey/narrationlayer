@@ -1,6 +1,6 @@
 import type { WordTiming } from "./schema.js";
 import { normalizeForSpeech } from "./text-normalize.js";
-import { TRANSCRIPTION_TOKEN, transcriptionNumberKeys } from "./text/transcription-equivalence.js";
+import { TRANSCRIPTION_TOKEN, transcriptionNumberKeys, transcriptionSymbols } from "./text/transcription-equivalence.js";
 
 export interface WordTimingRepairResult {
   rawWords: WordTiming[];
@@ -17,24 +17,17 @@ export interface WordTimingAlias {
   spoken: string;
 }
 
-export function scriptWords(script: string): string[] {
+/** Each script word with the whitespace-split source it came from ("$400" is the source of "400"). */
+function scriptWordSources(script: string): Array<{ word: string; source: string }> {
   return String(script || "")
     .trim()
     .split(/\s+/)
-    .map((word) => word.replace(/^[^\w]+|[^\w.?!,;:]+$/g, ""))
-    .filter(Boolean);
+    .map((source) => ({ word: source.replace(/^[^\w]+|[^\w.?!,;:]+$/g, ""), source }))
+    .filter((item) => item.word);
 }
 
-/**
- * The same words as scriptWords, one for one, but keeping a leading "$" and a trailing "%".
- * Only number matching reads these; the words the repair returns stay as scriptWords gives them.
- */
-function scriptNumberSources(script: string): string[] {
-  return String(script || "")
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.replace(/^[^\w]+|[^\w.?!,;:]+$/g, ""))
-    .map((word) => word.replace(/^[^\w$]+|[^\w.?!,;:%]+$/g, ""));
+export function scriptWords(script: string): string[] {
+  return scriptWordSources(script).map((item) => item.word);
 }
 
 function comparable(word: string): string {
@@ -156,15 +149,20 @@ function blockMatchCost(
   scriptCount: number,
   timingCount: number,
   aliasSignatures: Map<string, Set<string>>,
+  symbolsAgree: boolean,
 ): number | null {
   if (!scriptNorm || !timingNorm) {
     return null;
   }
+  if (aliasSignatures.get(scriptNorm)?.has(timingNorm) && scriptNorm !== timingNorm) {
+    return 0.02 + 0.01 * (scriptCount + timingCount - 2);
+  }
+  // comparable() folds units and signs away, so "€400" / "$400" and "−5" / "5" need this check.
+  if (!symbolsAgree) {
+    return null;
+  }
   if (scriptNorm === timingNorm) {
     return 0.01 * (scriptCount + timingCount - 2);
-  }
-  if (aliasSignatures.get(scriptNorm)?.has(timingNorm)) {
-    return 0.02 + 0.01 * (scriptCount + timingCount - 2);
   }
 
   // A small fuzzy allowance handles common Whisper spelling variants while
@@ -188,13 +186,13 @@ const MAX_NUMBER_BLOCK = 8;
  * Number-equivalence keys of every word block up to MAX_NUMBER_BLOCK words, by start index then length.
  * Words are split with the take check's own tokenizer, so "$400" is ["$", "400"] and "dollars." is ["dollars"].
  */
-function numberBlockKeys(words: readonly string[]): Array<Array<readonly string[]>> {
+function numberBlockKeys(words: readonly string[], options: { bareDigitsMayBeDollars: boolean }): Array<Array<readonly string[]>> {
   const parts = words.map((word) => word.match(TRANSCRIPTION_TOKEN) ?? []);
   return words.map((_, start) => {
     const byLength: Array<readonly string[]> = [[]];
     for (let length = 1; length <= Math.min(MAX_NUMBER_BLOCK, words.length - start); length += 1) {
       const tokens = parts.slice(start, start + length).flat();
-      byLength.push(tokens.length ? transcriptionNumberKeys(tokens) : []);
+      byLength.push(tokens.length ? transcriptionNumberKeys(tokens, options) : []);
     }
     return byLength;
   });
@@ -214,15 +212,20 @@ function maybeUpdate(cells: AlignmentCell[][], i: number, j: number, nextI: numb
 
 function alignmentSteps(
   scriptTokens: string[],
-  scriptNumberWords: string[],
+  scriptSources: string[],
   timings: WordTiming[],
   aliases: WordTimingAlias[],
 ): AlignmentStep[] {
   const scriptNorms = scriptTokens.map(comparable);
   const timingNorms = timings.map((timing) => comparable(timing.word));
+  const scriptSymbols = scriptSources.map(transcriptionSymbols);
+  const timingSymbols = timings.map((timing) => transcriptionSymbols(timing.word));
   const aliasSignatures = compileAliasSignatures(aliases);
-  const scriptNumbers = numberBlockKeys(scriptNumberWords);
-  const timingNumbers = numberBlockKeys(timings.map((timing) => timing.word));
+  // Numbers are read from the script's source words: scriptWords() strips "$", "€", "−" and "%".
+  // A unit the script lacks does not match: script "400" is not a voice saying "four hundred dollars",
+  // while a bare heard "400" for a scripted "$400" still is (the Whisper builder regression).
+  const scriptNumbers = numberBlockKeys(scriptSources, { bareDigitsMayBeDollars: false });
+  const timingNumbers = numberBlockKeys(timings.map((timing) => timing.word), { bareDigitsMayBeDollars: true });
   const scriptCount = scriptTokens.length;
   const timingCount = timings.length;
   const cells: AlignmentCell[][] = Array.from({ length: scriptCount + 1 }, () =>
@@ -284,9 +287,11 @@ function alignmentSteps(
       }
       for (let a = 1; a <= maxScriptBlock && i + a <= scriptCount; a += 1) {
         const scriptNorm = scriptNorms.slice(i, i + a).join("");
+        const scriptSymbol = scriptSymbols.slice(i, i + a).join("");
         for (let b = 1; b <= maxTimingBlock && j + b <= timingCount; b += 1) {
           const timingNorm = timingNorms.slice(j, j + b).join("");
-          let cost = blockMatchCost(scriptNorm, timingNorm, a, b, aliasSignatures);
+          const symbolsAgree = scriptSymbol === timingSymbols.slice(j, j + b).join("");
+          let cost = blockMatchCost(scriptNorm, timingNorm, a, b, aliasSignatures, symbolsAgree);
           const phrase = scriptTokens.slice(i, i + a).join(" ");
           if (cost === null && a === 2 && /^\d{1,2}(?::\d{2})?\s+[ap]\.?(?:m)\.?$/i.test(phrase) && comparable(normalizeForSpeech(phrase)) === timingNorm) {
             cost = 0.02 + 0.01 * (a + b - 2);
@@ -398,13 +403,13 @@ function fillMissingAssignments(assignments: Array<AlignmentAssignment | undefin
 
 function alignWordTimingsToScript(
   scriptTokens: string[],
-  scriptNumberWords: string[],
+  scriptSources: string[],
   timings: WordTiming[],
   durationSeconds: number,
   aliases: WordTimingAlias[],
 ): { words: WordTiming[]; matchedScriptWords: number } {
   const assignments: Array<AlignmentAssignment | undefined> = new Array(scriptTokens.length);
-  const steps = alignmentSteps(scriptTokens, scriptNumberWords, timings, aliases);
+  const steps = alignmentSteps(scriptTokens, scriptSources, timings, aliases);
   let matchedScriptWords = 0;
   for (const step of steps) {
     if (step.kind === "match") {
@@ -444,7 +449,8 @@ export function normalizeWordTimingsForScript(
   }
 
   if (!wordsMatchScript(expectedWords, timings)) {
-    const alignment = alignWordTimingsToScript(expectedWords, scriptNumberSources(script), timings, durationSeconds, aliases);
+    const sources = scriptWordSources(script).map((item) => item.source);
+    const alignment = alignWordTimingsToScript(expectedWords, sources, timings, durationSeconds, aliases);
     return {
       rawWords: timings,
       words: alignment.words,

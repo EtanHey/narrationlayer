@@ -1,4 +1,4 @@
-import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, transcriptionNumbers, transcriptionSpelling } from "../text/transcription-equivalence.js";
+import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, isTranscriptionSymbol, transcriptionNumbers, transcriptionSpelling } from "../text/transcription-equivalence.js";
 
 export type RecognisedWord = { word: string; start: number; end: number };
 
@@ -96,6 +96,17 @@ function spellingDistance(a: string, b: string): number {
   return previous[b.length];
 }
 
+// Number words (and scale plurals) never take the one-letter spelling allowance:
+// seventy/seventh, eighty/eighth and million/billion are different values.
+function numberWord(word: string): boolean {
+  const token = normalize(word);
+  // normalize() drops the hyphen, so "forty-eighth" is also tested whole with its hyphen kept and a
+  // trailing 's removed; part-by-part testing wrongly caught "one-liner" and "second-rate" (red team r2).
+  const lower = word.toLowerCase().replace(/['’]s$/, "");
+  return [token, lower, normalize(lower)].some(part =>
+    isTranscriptionNumberSpan([part]) || /^(?:hundred|thousand|million|billion|trillion)(?:th)?s?$/.test(part));
+}
+
 function canonicalWords(word: string): readonly [string, ...string[]] {
   const token = normalize(word);
   // Expand only a written apostrophe: e.g. ordinary "well" must not become "we will".
@@ -143,7 +154,7 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
           const tokens = [...left, ...right];
           const mixedName = tokens.some(w => /[a-z]/i.test(w) && /[0-9]/.test(w));
           const numeric = tokens.some(w => /[0-9$%]/.test(w)) && !mixedName
-            || tokens.some(w => /^[$%]$|^[+-]\d/.test(w))
+            || tokens.some(isTranscriptionSymbol)
             || (isTranscriptionNumberSpan(left) && isTranscriptionNumberSpan(right));
           let equivalent = l === r;
           if (!equivalent && tolerant && !numeric) {
@@ -152,7 +163,7 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
           }
           const match = (equivalent && (!numeric || left.join(" ").toLowerCase() === right.join(" ").toLowerCase()))
             || (tolerant && a === 1 && b === 1 && !/[0-9]/.test(left[0] + right[0])
-              && ![left[0], right[0]].some(w => /['’]/.test(w) && normalize(w) in CONTRACTIONS)
+              && ![left[0], right[0]].some(w => /['’]/.test(w) && normalize(w) in CONTRACTIONS || numberWord(w))
               && Math.min(l.length, r.length) >= 6 && spellingDistance(l, r) <= 1);
           if (match) update(i + a, j + b, 0, "match");
         }
