@@ -1,6 +1,7 @@
 import { writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { breathingV1, toBreathingPieces } from "../../plan/index.js";
+import { splitLongPieces } from "../../plan/breathing.js";
 import { buildPcmSilenceArgs, escapeConcatPath, buildWavConcatArgs } from "../../audio/ffmpeg-args.js";
 import { ffmpegRun, ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
@@ -31,12 +32,14 @@ export async function applyBreathingInPlace(opts: {
   /** Called after the join succeeds, while each piece's joined audio still exists. */
   onJoined?: (pieces: JoinedPiece[]) => Promise<void>;
 }): Promise<{ applied: boolean; pieces: number }> {
-  const pieces = toBreathingPieces(breathingV1(
+  // A piece over MAX_BREATHING_PIECE_WORDS is split at a clause, so no generation reaches
+  // the model's ~10 s wall; the split pieces pause like a comma.
+  const pieces = splitLongPieces(toBreathingPieces(breathingV1(
     opts.spokenText,
     opts.sentencePad,
     opts.commaPad,
     opts.colonPad,
-  ));
+  )), opts.commaPad);
   // Nothing to interleave: 0 or 1 piece => leave the whole-segment WAV untouched.
   if (pieces.length < 2) {
     return { applied: false, pieces: pieces.length };
