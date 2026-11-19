@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
-import { cutEnding, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
+import { cutEnding, cutPieceEndings, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
 import { prepareWordCheckText, type SpeechChannels, type TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
@@ -48,6 +48,16 @@ export type LocalTtsRenderResult =
   | { kind: "rendered"; cacheKey: string; bytes: number; atempoNote: string; breathingNote: string; loudnessNote: string; cacheNote: string; piecesNote: string };
 
 const PIECES_ON_HIT = "cache hit: no pieces were rendered";
+
+/** Decode any audio file to mono float samples at `rate`; throws on any decode failure. */
+function decodeMono(file: string, rate: number): Float32Array {
+  const decoded = spawnSync("ffmpeg", ["-v", "error", "-nostdin", "-i", file,
+    "-ar", String(rate), "-ac", "1", "-f", "f32le", "pipe:1"], { maxBuffer: 256 * 1024 * 1024 });
+  if (decoded.error || decoded.status !== 0 || !decoded.stdout.length) throw new Error(`decode failed: ${file}`);
+  const samples = new Float32Array(decoded.stdout.length / 4);
+  for (let i = 0; i < samples.length; i++) samples[i] = decoded.stdout.readFloatLE(i * 4);
+  return samples;
+}
 
 /** Render one resolved voice configuration without owning the caller's process. */
 async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256: string, store = true): Promise<LocalTtsRenderResult> {
@@ -261,13 +271,14 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
   const evidence: TakeCheckReceipt = { attempts: 0, failures: [], gaveUp: false };
   const stage = await mkdtemp(`${args.output}.checks-`);
   const output = path.join(stage, "take.wav");
-  const pieces = args.keepPiecesDir === undefined ? undefined : path.join(stage, "pieces");
+  // Pieces are always kept in the stage: the cut-join check reads them; --keep-pieces publishes them.
+  const pieces = path.join(stage, "pieces");
   let refresh = args.refreshCache;
   let key = "";
   const wordAttempts: { source: "cache" | "render"; attempt: number; editCount: number | null }[] = [];
   let best: { count: number; result: LocalTtsRenderResult; source: "cache" | "render";
     wordMatch: NonNullable<TakeCheckReceipt["wordMatch"]>; pitchNote: TakeCheckReceipt["pitchNote"];
-    cutEnding: TakeCheckReceipt["cutEnding"] } | undefined;
+    cutEnding: TakeCheckReceipt["cutEnding"]; cutJoins: TakeCheckReceipt["cutJoins"] } | undefined;
   try {
     for (;;) {
       // The existing synthesis path sends a fresh request; the backend supplies variance (no seed API).
@@ -278,12 +289,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       if (source === "render") evidence.attempts++;
       const pitch = (() => {
         try {
-      const decoded = spawnSync("ffmpeg", ["-v", "error", "-nostdin", "-i", output,
-        "-ar", "8000", "-ac", "1", "-f", "f32le", "pipe:1"], { maxBuffer: 256 * 1024 * 1024 });
-      if (decoded.error || decoded.status !== 0 || !decoded.stdout.length) throw new RunnerFailure("take check audio decode failed");
-      const samples = new Float32Array(decoded.stdout.length / 4);
-      for (let i = 0; i < samples.length; i++) samples[i] = decoded.stdout.readFloatLE(i * 4);
-      return pitchRunaway(samples, 8000, checks.pitchCeilingHz);
+          return pitchRunaway(decodeMono(output, 8000), 8000, checks.pitchCeilingHz);
         } catch {
           throw new TakeCheckError("take check execution failed; no retry performed");
         }
@@ -326,12 +332,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
         // Cut ending: decoded at 16 kHz so fricative endings keep their energy; a cut take is never kept as best.
         const cut = (() => {
           try {
-            const decoded = spawnSync("ffmpeg", ["-v", "error", "-nostdin", "-i", output,
-              "-ar", "16000", "-ac", "1", "-f", "f32le", "pipe:1"], { maxBuffer: 256 * 1024 * 1024 });
-            if (decoded.error || decoded.status !== 0 || !decoded.stdout.length) throw new Error("decode failed");
-            const samples = new Float32Array(decoded.stdout.length / 4);
-            for (let i = 0; i < samples.length; i++) samples[i] = decoded.stdout.readFloatLE(i * 4);
-            return cutEnding(samples, 16000, recognised);
+            return cutEnding(decodeMono(output, 16000), 16000, recognised);
           } catch {
             throw new TakeCheckError("cut-ending check execution failed; no retry performed");
           }
@@ -340,37 +341,60 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           tailRelDb: cut.tailRelDb, audioEndSeconds: Math.round(cut.audioEndSeconds * 1000) / 1000,
           lastWordEndSeconds: cut.lastWordEndSeconds, ...(cut.note ? { note: cut.note } : {}) };
         evidence.cutEnding = cutEvidence;
+        // Cut joins: each breathing piece's own ending, as joined, judged like the take's ending.
+        evidence.cutJoins = source === "cache"
+          ? { failed: false, piecesChecked: 0, cuts: [], note: "not judged: a cache hit keeps no pieces" }
+          : await (async () => {
+            try {
+              const kept: { pieces: { file: string; text: string; durationSeconds: number; pauseAfterSeconds: number; offsetSeconds: number }[] }
+                = JSON.parse(await readFile(path.join(pieces, "pieces.json"), "utf8"));
+              const judged = cutPieceEndings(kept.pieces.map(p => ({ samples: decodeMono(path.join(pieces, p.file), 16000),
+                startSeconds: p.offsetSeconds, spanSeconds: p.durationSeconds + p.pauseAfterSeconds })), 16000, recognised);
+              const round = (x: number) => Math.round(x * 1000) / 1000;
+              const cuts = judged.flatMap(({ index, result }) => result.failed && result.reason ? [{ piece: index + 1,
+                of: kept.pieces.length, text: kept.pieces[index]!.text, reason: result.reason, tailRelDb: result.tailRelDb,
+                endSeconds: round(kept.pieces[index]!.offsetSeconds + result.audioEndSeconds),
+                lastWordEndSeconds: result.lastWordEndSeconds === null ? null : round(kept.pieces[index]!.offsetSeconds + result.lastWordEndSeconds) }] : []);
+              return { failed: cuts.length > 0, piecesChecked: judged.length, cuts };
+            } catch {
+              throw new TakeCheckError("cut-join check execution failed; no retry performed");
+            }
+          })();
         if (cut.failed) {
           wordFailed = false;
           reason = `cut-ending:${JSON.stringify({ reason: cut.reason, tailRelDb: cut.tailRelDb,
             audioEndSeconds: cutEvidence.audioEndSeconds, lastWordEndSeconds: cut.lastWordEndSeconds })}`;
+        } else if (evidence.cutJoins.failed) {
+          wordFailed = false;
+          reason = `cut-join:${JSON.stringify(evidence.cutJoins.cuts[0])}`;
         }
-      } else delete evidence.cutEnding;
+      } else {
+        delete evidence.cutEnding;
+        delete evidence.cutJoins;
+      }
       if (pitchFailed) wordAttempts.push({ source, attempt: evidence.attempts, editCount: null });
       if (reason) evidence.failures.push({ source, attempt: evidence.attempts, reason });
       if (wordFailed && evidence.wordMatch && (!best || evidence.wordMatch.edits.length < best.count)) {
         best = { count: evidence.wordMatch.edits.length, result, source,
-          wordMatch: evidence.wordMatch, pitchNote: evidence.pitchNote, cutEnding: evidence.cutEnding };
+          wordMatch: evidence.wordMatch, pitchNote: evidence.pitchNote, cutEnding: evidence.cutEnding, cutJoins: evidence.cutJoins };
         await copyFile(output, path.join(stage, "best.wav"));
         await copyFile(`${output}.spoken.txt`, path.join(stage, "best.spoken.txt"));
-        if (pieces) {
-          await rm(path.join(stage, "best-pieces"), { recursive: true, force: true });
-          if (existsSync(pieces)) await cp(pieces, path.join(stage, "best-pieces"), { recursive: true });
-        }
+        await rm(path.join(stage, "best-pieces"), { recursive: true, force: true });
+        if (existsSync(pieces)) await cp(pieces, path.join(stage, "best-pieces"), { recursive: true });
       }
       if (reason && best && evidence.attempts >= checks.retries + 1) {
         await copyFile(path.join(stage, "best.wav"), output);
         await copyFile(path.join(stage, "best.spoken.txt"), `${output}.spoken.txt`);
-        if (pieces) {
-          await rm(pieces, { recursive: true, force: true });
-          if (existsSync(path.join(stage, "best-pieces"))) await cp(path.join(stage, "best-pieces"), pieces, { recursive: true });
-        }
+        await rm(pieces, { recursive: true, force: true });
+        if (existsSync(path.join(stage, "best-pieces"))) await cp(path.join(stage, "best-pieces"), pieces, { recursive: true });
         result = best.result; source = best.source;
         evidence.wordMatch = { ...best.wordMatch, keptBest: true, attempts: wordAttempts };
         if (best.pitchNote) evidence.pitchNote = best.pitchNote;
         else delete evidence.pitchNote;
         if (best.cutEnding) evidence.cutEnding = best.cutEnding;
         else delete evidence.cutEnding;
+        if (best.cutJoins) evidence.cutJoins = best.cutJoins;
+        else delete evidence.cutJoins;
         reason = undefined;
       }
       if (!reason) {
@@ -384,18 +408,19 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
         }
         await rename(output, args.output);
         await writeFile(`${args.output}.spoken.txt`, await readFile(`${output}.spoken.txt`));
-        if (pieces && args.keepPiecesDir && existsSync(pieces)) await rename(pieces, args.keepPiecesDir);
+        if (args.keepPiecesDir && existsSync(pieces)) await rename(pieces, args.keepPiecesDir);
         const keptPieces = args.keepPiecesDir === undefined ? undefined : source === "cache"
           ? { dir: args.keepPiecesDir, count: 0, skipped: PIECES_ON_HIT }
           : { dir: args.keepPiecesDir, count: JSON.parse(await readFile(path.join(args.keepPiecesDir, "pieces.json"), "utf8")).pieces.length };
         await writeTakeCacheReceipt(args.output, key, { cacheEnabled: cacheAccepted,
           refreshed: args.refreshCache && cacheAccepted, keptPieces, takeChecks: evidence });
         const pitchNote = evidence.pitchNote ? ` pitch=${evidence.pitchNote}` : "";
-        return result.kind === "cache-hit" ? { ...result, cachePath, piecesNote: result.piecesNote + pitchNote }
+        return result.kind === "cache-hit" ? { ...result, cachePath,
+          piecesNote: (keptPieces ? ` pieces=skipped(${PIECES_ON_HIT})` : "") + pitchNote }
           : { ...result, cacheNote: cacheAccepted ? ` cache checked->frozen key=${key}` : evidence.wordMatch?.keptBest ? " cache skipped: kept best word-mismatch take" : "",
             piecesNote: (keptPieces ? ` pieces=${keptPieces.count} kept in ${args.keepPiecesDir}` : "") + pitchNote };
       }
-      if (pieces) await rm(pieces, { recursive: true, force: true });
+      await rm(pieces, { recursive: true, force: true });
       if (evidence.attempts >= checks.retries + 1) {
         evidence.gaveUp = true;
         throw new RunnerFailure(`take checks gave up after bounded retries: ${JSON.stringify(evidence)}`);

@@ -340,3 +340,21 @@ export function cutEnding(samples: Float32Array, sampleRate: number, words: read
   return { ...base, speechDbfs: round(speechDbfs), tailDbfs: round(tailDbfs), tailRelDb: round(tailRelDb),
     failed: reason !== null, reason, note: null };
 }
+
+/** One breathing piece as joined: its own audio, and where it starts in the take with the pause after it. */
+export type JoinedPieceAudio = { samples: Float32Array; startSeconds: number; spanSeconds: number };
+
+/**
+ * Cut joins: `cutEnding` on the end of every piece except the last (the take's own ending covers that one).
+ * Each piece is its own generation, so it is judged against its own speech level with the same thresholds.
+ * A recognised word belongs to the piece whose span (audio plus the pause after it) holds its start.
+ */
+export function cutPieceEndings(pieces: readonly JoinedPieceAudio[], sampleRate: number,
+  words: readonly RecognisedWord[] = [], options: CutEndingOptions = {}): { index: number; result: CutEndingResult }[] {
+  return pieces.slice(0, -1).map((piece, index) => {
+    const from = piece.startSeconds, to = from + piece.spanSeconds;
+    const own = words.filter(w => w.start >= from && w.start < to)
+      .map(w => ({ word: w.word, start: w.start - from, end: w.end - from }));
+    return { index, result: cutEnding(piece.samples, sampleRate, own, options) };
+  });
+}

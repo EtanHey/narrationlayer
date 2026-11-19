@@ -353,6 +353,44 @@ test("takes that are always cut give up and publish nothing", async () => {
   } finally { await f.close(); }
 });
 
+for (const cutTakes of [1, Infinity]) {
+  test(`a breathing piece cut at its join fails the take (cut takes: ${cutTakes})`, async () => {
+    const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+    let cutRequests = 0;
+    // Only the first piece is ever cut; the take's own ending (the last piece) always decays.
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
+      const { text } = await req.json() as { text: string };
+      const cut = text === "Hello moon." && ++cutRequests <= cutTakes;
+      return Response.json({ audio_b64: tone(180, 1, cut ? "cut" : "decay").toString("base64") });
+    } });
+    f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`, sentencePauseSeconds: 0.3 };
+    f.args.recogniseTake = async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon.", start: 0.3, end: 0.6 },
+      { word: "Hello", start: 1.3, end: 1.6 }, { word: "sun.", start: 1.6, end: 1.9 }];
+    try {
+      if (cutTakes === Infinity) {
+        await expect(renderLocalTts(f.args)).rejects.toThrow("gave up");
+        expect(cutRequests).toBe(3);
+        expect(await Bun.file(f.args.output).exists()).toBe(false);
+        expect(await readdir(f.args.cacheDir)).toEqual([]);
+        return;
+      }
+      await renderLocalTts(f.args);
+      expect(cutRequests).toBe(2);
+      const r = await receipt(f.args.output);
+      expect(r.takeChecks.failures).toHaveLength(1);
+      expect(r.takeChecks.failures[0].reason)
+        .toStartWith('cut-join:{"piece":1,"of":2,"text":"Hello moon.","reason":"tail-at-speech-level"');
+      expect(r.takeChecks.cutEnding).toMatchObject({ failed: false, reason: null });
+      expect(r.takeChecks.cutJoins).toEqual({ failed: false, piecesChecked: 1, cuts: [] });
+      expect(await readFile(path.join(f.args.cacheDir, `${r.cacheKey}.wav`))).toEqual(await readFile(f.args.output));
+      expect((await readdir(f.dir)).filter(n => n.includes("pieces") || n.includes(".checks-"))).toEqual([]);
+      expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+      expect((await receipt(f.args.output)).takeChecks.cutJoins)
+        .toEqual({ failed: false, piecesChecked: 0, cuts: [], note: "not judged: a cache hit keeps no pieces" });
+    } finally { server.stop(true); await f.close(); }
+  });
+}
+
 test("a cut take is never kept as the best word-mismatch take, even with fewer edits", async () => {
   const f = await fixture(0, 1, true, "Hello moon.", 0);
   const takes: Buffer<ArrayBuffer>[] = [];
