@@ -10,7 +10,7 @@ import { prepareWordCheckText, type SpeechChannels, type TermRule } from "../../
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
 import { RunnerFailure, TakeCheckError } from "./failure.js";
-import { DEFAULT_COLON_PAUSE_SECONDS } from "../../plan/breathing.js";
+import { DEFAULT_COLON_PAUSE_SECONDS, MAX_BREATHING_PIECE_WORDS, splitPauseSeconds } from "../../plan/breathing.js";
 import { applyBreathingInPlace } from "./breathing.js";
 import { loudnessNormalizeInPlace } from "./loudness.js";
 import { hashReferenceClip, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
@@ -133,46 +133,48 @@ async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256
   // (so they share the EQ'd body) and BEFORE loudness normalization.
   //   - atempo: pitch-PRESERVING tempo change (no timbre / identity shift).
   //   - breathing: re-synthesize the segment as sentence/clause pieces and interleave
-  //     PCM-silence breaths.
+  //     PCM-silence breaths. A profile without pauses is re-synthesized only when the
+  //     segment is over MAX_BREATHING_PIECE_WORDS (the model's ~10 s length wall).
   // When breathing is active it applies atempo PER PIECE (so the silence pads keep
   // their EXACT profile durations); the standalone atempo pass below runs ONLY when
   // breathing did not assemble (so a non-breathing profile still gets its speed change).
   let atempoNote =
     resolved.atempo !== undefined ? ` atempo=${resolved.atempo}` : "";
   let breathingNote = "";
-  let breathingApplied = false;
   let piecesKept: number | undefined;
-  if (
+  const breathing =
     resolved.sentencePauseSeconds !== undefined ||
     resolved.commaPauseSeconds !== undefined ||
-    resolved.colonPauseSeconds !== undefined
-  ) {
-    const sentencePad = resolved.sentencePauseSeconds ?? 0.55;
-    const commaPad = resolved.commaPauseSeconds ?? 0.22;
-    const colonPad = resolved.colonPauseSeconds ?? DEFAULT_COLON_PAUSE_SECONDS;
-    const breath = await applyBreathingInPlace({
-      output,
-      sampleRate: args.sampleRate,
-      spokenText,
-      sentencePad,
-      commaPad,
-      colonPad,
-      daemonUrl: resolved.daemonUrl,
-      authToken,
-      referenceClip: resolved.referenceClip,
-      referenceText: resolved.referenceText,
-      timeoutMs: args.timeoutMs,
-      eqHighshelfHz: resolved.eqHighshelfHz,
-      eqHighshelfGainDb: resolved.eqHighshelfGainDb,
-      atempo: resolved.atempo,
-      onJoined: keepPiecesDir === undefined ? undefined : async (pieces) => {
-        piecesKept = await keepPieces(keepPiecesDir, pieces);
-      },
-    });
-    breathingApplied = breath.applied;
+    resolved.colonPauseSeconds !== undefined;
+  const sentencePad = resolved.sentencePauseSeconds ?? 0.55;
+  const commaPad = resolved.commaPauseSeconds ?? 0.22;
+  const colonPad = resolved.colonPauseSeconds ?? DEFAULT_COLON_PAUSE_SECONDS;
+  const splitPause = splitPauseSeconds(breathing ? commaPad : undefined);
+  const breath = await applyBreathingInPlace({
+    output,
+    sampleRate: args.sampleRate,
+    spokenText,
+    pads: breathing ? { sentence: sentencePad, comma: commaPad, colon: colonPad } : undefined,
+    splitPause,
+    daemonUrl: resolved.daemonUrl,
+    authToken,
+    referenceClip: resolved.referenceClip,
+    referenceText: resolved.referenceText,
+    timeoutMs: args.timeoutMs,
+    eqHighshelfHz: resolved.eqHighshelfHz,
+    eqHighshelfGainDb: resolved.eqHighshelfGainDb,
+    atempo: resolved.atempo,
+    onJoined: keepPiecesDir === undefined ? undefined : async (pieces) => {
+      piecesKept = await keepPieces(keepPiecesDir, pieces);
+    },
+  });
+  const breathingApplied = breath.applied;
+  if (breathing) {
     breathingNote = breath.applied
       ? ` breathing=${breath.pieces}pc(sent=${sentencePad}s,comma=${commaPad}s,colon=${colonPad}s)`
       : ` breathing=skipped(${breath.pieces}pc)`;
+  } else if (breath.applied) {
+    breathingNote = ` long-split=${breath.pieces}pc(max=${MAX_BREATHING_PIECE_WORDS}w,pause=${splitPause}s)`;
   }
 
   // Standalone atempo: only when breathing did NOT assemble (breathing applies atempo

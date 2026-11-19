@@ -68,11 +68,11 @@
           "atempo": 1,
           "sentencePauseSeconds": 0.41
         },
-        "renderVersion": 3
+        "renderVersion": 4
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "4a8436add3dcf33311a12b9a958cf5fc73a1d31b05a3fdcccfdc336dcb08475f",
+        "cacheKey": "c840d28293db2b3158de1c7634ab44d2b10ea14fee532ce4428f1f1be27fb958",
         "cacheEnabled": true
       },
       "pieces": [

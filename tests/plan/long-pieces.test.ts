@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
-import { MAX_BREATHING_PIECE_WORDS, splitForBreathing, splitLongPieces } from "../../src/plan/breathing.js";
+import {
+  DEFAULT_SPLIT_PAUSE_SECONDS, MAX_BREATHING_PIECE_WORDS, splitForBreathing, splitLongPieces, splitPauseSeconds,
+} from "../../src/plan/breathing.js";
 
 // The Qwen3-TTS clone path stops a long generation at about 10 s, often mid-word, so the
 // runner never sends one breathing piece longer than MAX_BREATHING_PIECE_WORDS words.
@@ -62,4 +64,19 @@ test("the limit must leave room for two five-word sides", () => {
   expect(() => splitLongPieces([], 0, 9)).toThrow(RangeError);
   expect(() => splitLongPieces([], 0, 10.5)).toThrow(RangeError);
   expect(splitLongPieces([], 0, 10)).toEqual([]);
+});
+
+test("a sentence end is the first choice of cut, before a nearer comma", () => {
+  const text = "one two three four five six. seven, eight nine ten eleven twelve thirteen fourteen";
+  expect(splitLongPieces([{ text, padAfterSeconds: 0 }], 0.1, 10).map((p) => p.text)).toEqual([
+    "one two three four five six.",
+    "seven, eight nine ten eleven twelve thirteen fourteen",
+  ]);
+});
+
+test("a split pauses like the profile's comma, or 0.14 s when the profile pads no comma", () => {
+  expect(splitPauseSeconds(0.22)).toBe(0.22);
+  expect(splitPauseSeconds(0)).toBe(DEFAULT_SPLIT_PAUSE_SECONDS);
+  expect(splitPauseSeconds(undefined)).toBe(DEFAULT_SPLIT_PAUSE_SECONDS);
+  expect(DEFAULT_SPLIT_PAUSE_SECONDS).toBe(0.14);
 });

@@ -32,7 +32,7 @@ export interface CacheKeyParams {
  * history lives in
  * `tests/compat/fixtures/take-cache-render-versions.json`.
  */
-export const LOCAL_TTS_RENDER_VERSION: number = 3;
+export const LOCAL_TTS_RENDER_VERSION: number = 4;
 
 /** Hash reference bytes once at the start of a render; never fall back to its path. */
 export async function hashReferenceClip(referenceClip: string): Promise<string> {
