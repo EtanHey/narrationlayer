@@ -108,7 +108,10 @@ or less when the last recognised word also ends within 20 ms of the audio end. A
 quieter than -45 dBFS never fails. Recognised timing alone never fails a take, because the
 recogniser also stretches clean last words to the end. A cut take uses the bounded retry
 loop like a pitch failure and is never kept as the best word-mismatch take. The receipt's
-`takeChecks.cutEnding` records the kept take's tail level. `check-take` does not run this check.
+`takeChecks.cutEnding` records the kept take's tail level. `check-take` runs the same check
+on the finished take with its `--words`, through the same code (`cutTakeEnd` in
+`src/quality/check-take.ts`); it needs no `--pieces`. A cut ending fails the verdict (exit 1),
+and the JSON's `cutEnding` has the receipt's fields.
 
 The same check, with the same thresholds, runs on the end of every breathing piece except
 the last (`cutPieceEndings`): each piece is its own generation, so it is measured on its own

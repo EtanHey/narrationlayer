@@ -56,14 +56,15 @@ test("pitch ignores the partial tail and windows with fewer than ten voiced fram
   expect(judged.failed).toBe(true);
 });
 
-function tone(runaway: boolean) {
+/** `decay` lets the tone die away over 0.12 s after 3.5 s, like a finished take; without it the tone stops at full level. */
+function tone(runaway: boolean, decay = false) {
   const sr = 24000, samples = new Float32Array(sr * 4);
   let phase = 0;
-  for (let i = sr / 2; i < sr * 3.5; i++) {
+  for (let i = sr / 2; i < sr * 3.5 + (decay ? sr * 0.12 : 0); i++) {
     const t = i / sr;
     const hz = runaway ? t < 1.5 ? 180 + 220 * (t - 0.5) : t < 3 ? 400 : 180 : 180;
     phase += 2 * Math.PI * hz / sr;
-    samples[i] = 0.2 * Math.sin(phase);
+    samples[i] = 0.2 * Math.sin(phase) * (t < 3.5 ? 1 : Math.exp(-(t - 3.5) / 0.015));
   }
   return samples;
 }
@@ -86,7 +87,8 @@ test("real CLI emits JSON and exit codes on synthetic WAVs", () => {
   writeFileSync(`${dir}/words.json`, JSON.stringify([word("Hello"), word("moon")]));
   for (const [high, omitted, substituted] of [[false, false, false], [true, false, false], [false, true, false], [false, false, true]]) {
     writeFileSync(`${dir}/words.json`, JSON.stringify(omitted ? [word("moon")] : [word("Hello"), word(substituted ? "sun" : "moon")]));
-    const samples = tone(high), pcm = Buffer.alloc(samples.length * 2);
+    // Decayed, so a take-end cut is not what fails it (tests/check-take-end.test.ts covers that).
+    const samples = tone(high, true), pcm = Buffer.alloc(samples.length * 2);
     samples.forEach((v, i) => pcm.writeInt16LE(Math.round(v * 32767), i * 2));
     const header = Buffer.alloc(44);
     header.write("RIFF"); header.writeUInt32LE(36 + pcm.length, 4); header.write("WAVEfmt ", 8);

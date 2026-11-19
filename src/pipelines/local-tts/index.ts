@@ -4,8 +4,8 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
-import { cutEnding, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
-import { cutJoinsInKeptPieces, readKeptPieces } from "../../quality/check-take.js";
+import { pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
+import { cutJoinsInKeptPieces, cutTakeEnd, readKeptPieces } from "../../quality/check-take.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
 import { prepareWordCheckText, type SpeechChannels, type TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
@@ -330,18 +330,15 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           const detail = error instanceof Error ? error.message : "unknown recognition error";
           throw new TakeCheckError(`word check execution failed; no retry performed: ${detail}`);
         }
-        // Cut ending: decoded at 16 kHz so fricative endings keep their energy; a cut take is never kept as best.
+        // Cut ending: the same take-end check `check-take` runs; a cut take is never kept as best.
         const cut = (() => {
           try {
-            return cutEnding(decodeMono(output, 16000), 16000, recognised);
+            return cutTakeEnd(output, recognised);
           } catch {
             throw new TakeCheckError("cut-ending check execution failed; no retry performed");
           }
         })();
-        const cutEvidence: NonNullable<TakeCheckReceipt["cutEnding"]> = { failed: cut.failed, reason: cut.reason,
-          tailRelDb: cut.tailRelDb, audioEndSeconds: Math.round(cut.audioEndSeconds * 1000) / 1000,
-          lastWordEndSeconds: cut.lastWordEndSeconds, ...(cut.note ? { note: cut.note } : {}) };
-        evidence.cutEnding = cutEvidence;
+        evidence.cutEnding = cut;
         // Cut joins: each breathing piece's own ending, as joined, judged like the take's ending.
         evidence.cutJoins = source === "cache"
           ? { failed: false, piecesChecked: 0, cuts: [], note: "not judged: a cache hit keeps no pieces" }
@@ -355,7 +352,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
         if (cut.failed) {
           wordFailed = false;
           reason = `cut-ending:${JSON.stringify({ reason: cut.reason, tailRelDb: cut.tailRelDb,
-            audioEndSeconds: cutEvidence.audioEndSeconds, lastWordEndSeconds: cut.lastWordEndSeconds })}`;
+            audioEndSeconds: cut.audioEndSeconds, lastWordEndSeconds: cut.lastWordEndSeconds })}`;
         } else if (evidence.cutJoins.failed) {
           wordFailed = false;
           reason = `cut-join:${JSON.stringify(evidence.cutJoins.cuts[0])}`;
