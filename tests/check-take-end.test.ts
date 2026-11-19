@@ -6,17 +6,21 @@ import * as checkTakeModule from "../src/quality/check-take.js";
 // The take end needs no pieces: the finished WAV and its recognised words are enough.
 const SR = 24000, SECONDS = 2, ROOT = "docs.local/check-take-end-test";
 
-/** The take's ending: stops at full level, decays into quiet, or holds `tailDb` for its last 50 ms. */
-type Ending = { kind: "cut" } | { kind: "decay" } | { kind: "tail"; tailDb: number };
+/**
+ * The take's ending: stops at full level, decays into quiet, holds `tailDb` for its last 50 ms, or fades
+ * out from full level at 10 dB per 10 ms over 50 ms (a word that fades before it is finished).
+ */
+type Ending = { kind: "cut" } | { kind: "decay" } | { kind: "tail"; tailDb: number } | { kind: "fade" };
 
 function samples(ending: Ending): Float32Array {
-  const body = Math.round(SR * SECONDS), tail = ending.kind === "tail" ? Math.round(SR * 0.05) : 0;
+  const body = Math.round(SR * SECONDS), tail = ending.kind === "tail" || ending.kind === "fade" ? Math.round(SR * 0.05) : 0;
   const decay = ending.kind === "decay" ? Math.round(SR * 0.12) : 0;
   const out = new Float32Array(body + tail + decay);
   let seed = 7;
   for (let i = 0; i < out.length; i++) {
     seed = (1664525 * seed + 1013904223) >>> 0;
-    const gain = i < body ? 1 : ending.kind === "tail" ? 10 ** (ending.tailDb / 20) : Math.exp(-(i - body) / (SR * 0.015));
+    const gain = i < body ? 1 : ending.kind === "tail" ? 10 ** (ending.tailDb / 20)
+      : ending.kind === "fade" ? 10 ** (-10 * (i - body) / (SR * 0.01) / 20) : Math.exp(-(i - body) / (SR * 0.015));
     out[i] = 0.2 * gain * (Math.sin(2 * Math.PI * 180 * i / SR) + 0.05 * (seed / 2 ** 32 * 2 - 1));
   }
   return out;
@@ -85,16 +89,26 @@ test("the timing rule counts only together with loudness: a tail 10 dB under spe
   expect(timed.verdict.cutEnding).toMatchObject({ failed: true, reason: "last-word-runs-to-end" });
 });
 
+test("check-take fails a take whose last word fades out from speech level, though its tail is quiet", () => {
+  const run = checkTake(take("fade", { kind: "fade" }));
+  expect(run.exitCode).toBe(1);
+  expect(run.verdict.wordMatch.pass).toBe(true);
+  expect(run.verdict.pitch.failed).toBe(false);
+  expect(run.verdict.cutEnding).toMatchObject({ failed: true, reason: "fade-from-speech-level", lastWordEndSeconds: 1.5 });
+  expect(run.verdict.cutEnding.tailRelDb).toBeLessThan(-8);
+  expect(run.verdict.cutEnding.fadeDbPer10ms).toBeGreaterThanOrEqual(7);
+});
+
 test("check-take's take end is the runner's: the receipt-shaped result of the one shared function", () => {
   // The runner's take loop calls this same export (src/pipelines/local-tts/index.ts).
   const { cutTakeEnd } = checkTakeModule;
   expect(cutTakeEnd).toBeFunction();
   for (const [name, ending, lastWordEnd] of [["cut", { kind: "cut" }, 1.5], ["decay-1.5", { kind: "decay" }, 1.5],
-    ["tail-10-timed", { kind: "tail", tailDb: -10 }, SECONDS + 0.05]] as const) {
+    ["tail-10-timed", { kind: "tail", tailDb: -10 }, SECONDS + 0.05], ["fade", { kind: "fade" }, 1.5]] as const) {
     const dir = take(name, ending, lastWordEnd);
     const words = [{ word: "Hello", start: 0.2, end: 0.8 }, { word: "moon.", start: 0.9, end: lastWordEnd }];
     const shared = cutTakeEnd(`${dir}/take.wav`, words);
-    expect(Object.keys(shared).sort()).toEqual(["audioEndSeconds", "failed", "lastWordEndSeconds", "reason", "tailRelDb"]);
+    expect(Object.keys(shared).sort()).toEqual(["audioEndSeconds", "fadeDbPer10ms", "failed", "lastWordEndSeconds", "reason", "tailRelDb"]);
     expect(checkTake(dir).verdict.cutEnding).toEqual(shared);
   }
 });

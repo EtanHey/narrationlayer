@@ -351,7 +351,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           })();
         if (cut.failed) {
           wordFailed = false;
-          reason = `cut-ending:${JSON.stringify({ reason: cut.reason, tailRelDb: cut.tailRelDb,
+          reason = `cut-ending:${JSON.stringify({ reason: cut.reason, tailRelDb: cut.tailRelDb, fadeDbPer10ms: cut.fadeDbPer10ms,
             audioEndSeconds: cut.audioEndSeconds, lastWordEndSeconds: cut.lastWordEndSeconds })}`;
         } else if (evidence.cutJoins.failed) {
           wordFailed = false;

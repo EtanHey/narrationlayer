@@ -154,11 +154,12 @@ export interface TakeCheckReceipt {
     edits: { kind: string; sentIndex: number; recognisedIndex: number; start: number | null; end: number | null }[];
   };
   pitchNote?: "not judged: shorter than one window";
-  /** The kept take's cut-ending measure (tail level relative to its speech level, in dB). */
+  /** The kept take's cut-ending measures (tail level relative to its speech level, in dB; steepest fall at the end). */
   cutEnding?: {
     failed: boolean;
-    reason: "tail-at-speech-level" | "last-word-runs-to-end" | null;
+    reason: "tail-at-speech-level" | "last-word-runs-to-end" | "fade-from-speech-level" | null;
     tailRelDb: number | null;
+    fadeDbPer10ms: number | null;
     audioEndSeconds: number;
     lastWordEndSeconds: number | null;
     note?: "not judged: too short or silent";
@@ -167,8 +168,8 @@ export interface TakeCheckReceipt {
   cutJoins?: {
     failed: boolean;
     piecesChecked: number;
-    cuts: { piece: number; of: number; text: string; reason: "tail-at-speech-level" | "last-word-runs-to-end";
-      tailRelDb: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
+    cuts: { piece: number; of: number; text: string; reason: "tail-at-speech-level" | "last-word-runs-to-end" | "fade-from-speech-level";
+      tailRelDb: number | null; fadeDbPer10ms: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
     note?: "not judged: a cache hit keeps no pieces";
   };
   attempts: number;

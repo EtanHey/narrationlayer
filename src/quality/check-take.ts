@@ -39,6 +39,8 @@ export type CutTakeEndResult = {
   failed: boolean;
   reason: CutEndingResult["reason"];
   tailRelDb: number | null;
+  /** Steepest 50 ms fall at the end of sound, dB per 10 ms (the fade rule's measure). */
+  fadeDbPer10ms: number | null;
   audioEndSeconds: number;
   lastWordEndSeconds: number | null;
   note?: NonNullable<CutEndingResult["note"]>;
@@ -50,7 +52,7 @@ export type CutTakeEndResult = {
  */
 export function cutTakeEnd(wav: string, words: readonly RecognisedWord[]): CutTakeEndResult {
   const cut = cutEnding(decodeMono(wav, 16000), 16000, words);
-  return { failed: cut.failed, reason: cut.reason, tailRelDb: cut.tailRelDb,
+  return { failed: cut.failed, reason: cut.reason, tailRelDb: cut.tailRelDb, fadeDbPer10ms: cut.fadeDbPer10ms,
     audioEndSeconds: Math.round(cut.audioEndSeconds * 1000) / 1000, lastWordEndSeconds: cut.lastWordEndSeconds,
     ...(cut.note ? { note: cut.note } : {}) };
 }
@@ -59,7 +61,7 @@ export type CutJoinsResult = {
   failed: boolean;
   piecesChecked: number;
   cuts: { piece: number; of: number; text: string; reason: NonNullable<CutEndingResult["reason"]>;
-    tailRelDb: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
+    tailRelDb: number | null; fadeDbPer10ms: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
 };
 
 /**
@@ -72,7 +74,7 @@ export function cutJoinsInKeptPieces(dir: string, kept: KeptPieces, words: reado
   const round = (x: number) => Math.round(x * 1000) / 1000;
   const cuts = judged.flatMap(({ index, result }) => result.failed && result.reason ? [{ piece: index + 1,
     of: kept.pieces.length, text: kept.pieces[index]!.text, reason: result.reason, tailRelDb: result.tailRelDb,
-    endSeconds: round(kept.pieces[index]!.offsetSeconds + result.audioEndSeconds),
+    fadeDbPer10ms: result.fadeDbPer10ms, endSeconds: round(kept.pieces[index]!.offsetSeconds + result.audioEndSeconds),
     lastWordEndSeconds: result.lastWordEndSeconds === null ? null : round(kept.pieces[index]!.offsetSeconds + result.lastWordEndSeconds) }] : []);
   return { failed: cuts.length > 0, piecesChecked: judged.length, cuts };
 }

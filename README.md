@@ -106,7 +106,13 @@ audio end against the take's speech level (the mean of the 20 ms frames within 2
 the loudest). The take fails when that window is 8 dB or less under speech level, or 12 dB
 or less when the last recognised word also ends within 20 ms of the audio end. A window
 quieter than -45 dBFS never fails. Recognised timing alone never fails a take, because the
-recogniser also stretches clean last words to the end. A cut take uses the bounded retry
+recogniser also stretches clean last words to the end. A word can also fade out before it is
+finished ("addre" for "address"), leaving a quiet tail: the take also fails when, in its last
+150 ms of sound (to the last 5 ms frame within 50 dB of speech level), a 10 ms frame reaches
+within 3 dB of speech level and the level falls at 7 dB per 10 ms or faster over some 50 ms
+(`fade-from-speech-level`; the receipt's `fadeDbPer10ms` is that steepest fall). A natural
+decay falls slower; a stop consonant can close almost as fast, so this bar has no margin
+(on the 15 Nov page it fails 9 of 465 unmarked pieces, 1.9%; on the bake-off, 1 of 1005 takes). A cut take uses the bounded retry
 loop like a pitch failure and is never kept as the best word-mismatch take. The receipt's
 `takeChecks.cutEnding` records the kept take's tail level. `check-take` runs the same check
 on the finished take with its `--words`, through the same code (`cutTakeEnd` in

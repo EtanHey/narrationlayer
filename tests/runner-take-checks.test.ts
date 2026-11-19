@@ -5,12 +5,14 @@ import { renderLocalTts, type LocalTtsRenderOptions } from "../src/pipelines/loc
 import { normalizeForSpeech, prepareSpeechChannels } from "../src/text-normalize.js";
 import { hashReferenceClip, computeContentHashKey } from "../src/pipelines/local-tts/take-cache.js";
 
-// A finished take decays into a little silence over its last 0.15 s; a cut one stops at full level.
-function tone(hz: number, seconds = 1, ending: "decay" | "cut" = "decay") {
+// A finished take decays into a little silence over its last 0.15 s; a cut one stops at full level;
+// a faded one falls from full level at 10 dB per 10 ms for 50 ms, then is silent.
+function tone(hz: number, seconds = 1, ending: "decay" | "cut" | "fade" = "decay") {
   const count = Math.round(24000 * seconds), fade = count - 3600, quiet = count - 720;
   const pcm = Buffer.alloc(count * 2);
   for (let i = 0; i < count; i++) {
-    const gain = ending === "cut" || i < fade ? 1 : i < quiet ? Math.exp(-(i - fade) / 360) : 0;
+    const gain = ending === "cut" || i < fade ? 1 : ending === "fade" ? (i < fade + 1200 ? 10 ** (-(i - fade) / 240 / 2) : 0)
+      : i < quiet ? Math.exp(-(i - fade) / 360) : 0;
     pcm.writeInt16LE(Math.round(4000 * gain * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
   }
   const h = Buffer.alloc(44);
@@ -353,15 +355,15 @@ test("takes that are always cut give up and publish nothing", async () => {
   } finally { await f.close(); }
 });
 
-for (const cutTakes of [1, Infinity]) {
-  test(`a breathing piece cut at its join fails the take (cut takes: ${cutTakes})`, async () => {
+for (const [ending, cutTakes] of [["cut", 1], ["cut", Infinity], ["fade", 1]] as const) {
+  test(`a breathing piece ${ending === "cut" ? "cut" : "faded out"} at its join fails the take (cut takes: ${cutTakes})`, async () => {
     const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
     let cutRequests = 0;
     // Only the first piece is ever cut; the take's own ending (the last piece) always decays.
     const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
       const { text } = await req.json() as { text: string };
       const cut = text === "Hello moon." && ++cutRequests <= cutTakes;
-      return Response.json({ audio_b64: tone(180, 1, cut ? "cut" : "decay").toString("base64") });
+      return Response.json({ audio_b64: tone(180, 1, cut ? ending : "decay").toString("base64") });
     } });
     f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`, sentencePauseSeconds: 0.3 };
     f.args.recogniseTake = async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon.", start: 0.3, end: 0.6 },
@@ -379,7 +381,7 @@ for (const cutTakes of [1, Infinity]) {
       const r = await receipt(f.args.output);
       expect(r.takeChecks.failures).toHaveLength(1);
       expect(r.takeChecks.failures[0].reason)
-        .toStartWith('cut-join:{"piece":1,"of":2,"text":"Hello moon.","reason":"tail-at-speech-level"');
+        .toStartWith(`cut-join:{"piece":1,"of":2,"text":"Hello moon.","reason":"${ending === "cut" ? "tail-at-speech-level" : "fade-from-speech-level"}"`);
       expect(r.takeChecks.cutEnding).toMatchObject({ failed: false, reason: null });
       expect(r.takeChecks.cutJoins).toEqual({ failed: false, piecesChecked: 1, cuts: [] });
       expect(await readFile(path.join(f.args.cacheDir, `${r.cacheKey}.wav`))).toEqual(await readFile(f.args.output));
