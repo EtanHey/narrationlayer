@@ -4,7 +4,8 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
-import { cutEnding, cutPieceEndings, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
+import { cutEnding, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
+import { cutJoinsInKeptPieces, readKeptPieces } from "../../quality/check-take.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
 import { prepareWordCheckText, type SpeechChannels, type TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
@@ -346,16 +347,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           ? { failed: false, piecesChecked: 0, cuts: [], note: "not judged: a cache hit keeps no pieces" }
           : await (async () => {
             try {
-              const kept: { pieces: { file: string; text: string; durationSeconds: number; pauseAfterSeconds: number; offsetSeconds: number }[] }
-                = JSON.parse(await readFile(path.join(pieces, "pieces.json"), "utf8"));
-              const judged = cutPieceEndings(kept.pieces.map(p => ({ samples: decodeMono(path.join(pieces, p.file), 16000),
-                startSeconds: p.offsetSeconds, spanSeconds: p.durationSeconds + p.pauseAfterSeconds })), 16000, recognised);
-              const round = (x: number) => Math.round(x * 1000) / 1000;
-              const cuts = judged.flatMap(({ index, result }) => result.failed && result.reason ? [{ piece: index + 1,
-                of: kept.pieces.length, text: kept.pieces[index]!.text, reason: result.reason, tailRelDb: result.tailRelDb,
-                endSeconds: round(kept.pieces[index]!.offsetSeconds + result.audioEndSeconds),
-                lastWordEndSeconds: result.lastWordEndSeconds === null ? null : round(kept.pieces[index]!.offsetSeconds + result.lastWordEndSeconds) }] : []);
-              return { failed: cuts.length > 0, piecesChecked: judged.length, cuts };
+              return cutJoinsInKeptPieces(pieces, await readKeptPieces(pieces), recognised);
             } catch {
               throw new TakeCheckError("cut-join check execution failed; no retry performed");
             }

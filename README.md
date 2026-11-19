@@ -117,6 +117,16 @@ in that piece and its pause. A cut piece fails the take through the same retry l
 receipt's `takeChecks.cutJoins` lists each cut piece (number, text, measure, tail level, end
 time). A cache hit renders no pieces, so its joins are recorded as not judged.
 
+`check-take --pieces <dir>` runs the same join check on a finished take, with the same code
+and thresholds (`cutJoinsInKeptPieces` in `src/quality/check-take.ts`). `<dir>` is the
+runner's `--keep-pieces` directory for that take (`pieces.json` plus each piece's WAV); the
+take's receipt names it as `keptPieces.dir`. A cut piece fails the verdict (exit 1), and
+the JSON's `cutJoins` lists it as the receipt does. Kept pieces whose total length differs
+from the take's by more than 20 ms are an input error (exit 2). Without `--pieces`,
+`cutJoins.judged` is `false` and stderr says "joins not judged": the piece boundaries are
+not re-found by splitting the finished take at its silences, and the verdict comes from the
+other checks alone. A one-piece take has no join to judge (`piecesChecked: 0`).
+
 `check-take --word-check-setting a|b|c|d` selects alternatives: (b) additionally
 ignores jargon substitutions with character edit distance / maximum length <= 0.5;
 (c) also ignores common-word substitutions unless both tokens have 4+ letters or
