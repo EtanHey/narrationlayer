@@ -1,17 +1,18 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { renderLocalTts, type LocalTtsRenderOptions } from "../src/pipelines/local-tts/index.js";
 import { normalizeForSpeech, prepareSpeechChannels } from "../src/text-normalize.js";
-import { hashReferenceClip, computeContentHashKey } from "../src/pipelines/local-tts/take-cache.js";
+import { hashReferenceClip, computeContentHashKey, readTakeChecksVersion, writeTakeChecksVersion } from "../src/pipelines/local-tts/take-cache.js";
 
 // A finished take decays into a little silence over its last 0.15 s; a cut one stops at full level.
-function tone(hz: number, seconds = 1, ending: "decay" | "cut" = "decay") {
+function tone(hz: number, seconds = 1, ending: "decay" | "cut" = "decay", amplitude = 4000) {
   const count = Math.round(24000 * seconds), fade = count - 3600, quiet = count - 720;
   const pcm = Buffer.alloc(count * 2);
   for (let i = 0; i < count; i++) {
     const gain = ending === "cut" || i < fade ? 1 : i < quiet ? Math.exp(-(i - fade) / 360) : 0;
-    pcm.writeInt16LE(Math.round(4000 * gain * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
+    pcm.writeInt16LE(Math.round(amplitude * gain * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
   }
   const h = Buffer.alloc(44);
   h.write("RIFF"); h.writeUInt32LE(36 + pcm.length, 4); h.write("WAVEfmt ", 8);
@@ -44,6 +45,26 @@ async function fixture(failures: number, seconds = 1, vary = false, text = "Hell
   return { args, dir, calls: () => calls, async close() { server.stop(true); await rm(dir, { recursive: true, force: true }); } };
 }
 const receipt = async (output: string) => JSON.parse(await readFile(`${output}.cache.json`, "utf8"));
+
+test("stale cached long no-pause takes are re-made to judge their split joins", async () => {
+  const text = Array(35).fill("hello").join(" ");
+  const f = await fixture(0, 1, false, text);
+  let requests = 0;
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch() {
+    requests++;
+    return Response.json({ audio_b64: tone(180).toString("base64") });
+  } });
+  f.args.resolved.daemonUrl = `http://127.0.0.1:${server.port}`;
+  f.args.recogniseTake = async () => text.split(" ").map((word, i) => ({ word, start: i * .01, end: (i + 1) * .01 }));
+  try {
+    const key = await frozenKey(f);
+    await writeFile(path.join(f.args.cacheDir, `${key}.wav`), tone(180));
+    expect((await renderLocalTts(f.args)).kind).toBe("rendered");
+    expect(requests).toBe(3);
+    expect((await receipt(f.args.output)).takeChecks.cachedChecks).toMatchObject({ action: "re-made" });
+    expect((await receipt(f.args.output)).takeChecks.cutJoins.piecesChecked).toBe(1);
+  } finally { server.stop(true); await f.close(); }
+});
 
 for (const wrongHintedWord of [false, true]) {
   test(`hinted take expects display spelling; wrong hinted word=${wrongHintedWord}`, async () => {
@@ -352,6 +373,199 @@ test("takes that are always cut give up and publish nothing", async () => {
     expect(await readdir(f.args.cacheDir)).toEqual([]);
   } finally { await f.close(); }
 });
+
+test("quiet join boosted to the published level is rejected", async () => {
+  const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
+    const body: unknown = await req.json();
+    const cut = typeof body === "object" && body !== null && "text" in body && body.text === "Hello moon.";
+    return Response.json({ audio_b64: tone(180, 1, cut ? "cut" : "decay", 160).toString("base64") });
+  } });
+  f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`,
+    sentencePauseSeconds: 0.3, loudnessTargetDb: -20 };
+  f.args.takeChecks!.retries = 0;
+  f.args.recogniseTake = async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon.", start: 0.3, end: 0.6 },
+    { word: "Hello", start: 1.3, end: 1.6 }, { word: "sun.", start: 1.6, end: 1.9 }];
+  try {
+    await expect(renderLocalTts(f.args)).rejects.toThrow("cut-join:");
+    expect(await Bun.file(f.args.output).exists()).toBe(false);
+    expect(await readdir(f.args.cacheDir)).toEqual([]);
+  } finally { server.stop(true); await f.close(); }
+});
+
+for (const cutTakes of [1, Infinity]) {
+  test(`a breathing piece cut at its join fails the take (cut takes: ${cutTakes})`, async () => {
+    const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+    let cutRequests = 0;
+    // Only the first piece is ever cut; the take's own ending (the last piece) always decays.
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
+      const { text } = await req.json() as { text: string };
+      const cut = text === "Hello moon." && ++cutRequests <= cutTakes;
+      return Response.json({ audio_b64: tone(180, 1, cut ? "cut" : "decay").toString("base64") });
+    } });
+    f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`, sentencePauseSeconds: 0.3 };
+    f.args.recogniseTake = async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon.", start: 0.3, end: 0.6 },
+      { word: "Hello", start: 1.3, end: 1.6 }, { word: "sun.", start: 1.6, end: 1.9 }];
+    try {
+      if (cutTakes === Infinity) {
+        await expect(renderLocalTts(f.args)).rejects.toThrow("gave up");
+        expect(cutRequests).toBe(3);
+        expect(await Bun.file(f.args.output).exists()).toBe(false);
+        expect(await readdir(f.args.cacheDir)).toEqual([]);
+        return;
+      }
+      await renderLocalTts(f.args);
+      expect(cutRequests).toBe(2);
+      const r = await receipt(f.args.output);
+      expect(r.takeChecks.failures).toHaveLength(1);
+      expect(r.takeChecks.failures[0].reason)
+        .toStartWith('cut-join:{"piece":1,"of":2,"text":"Hello moon.","reason":"tail-at-speech-level"');
+      expect(r.takeChecks.cutEnding).toMatchObject({ failed: false, reason: null });
+      expect(r.takeChecks.cutJoins).toEqual({ failed: false, piecesChecked: 1, cuts: [] });
+      expect(await readFile(path.join(f.args.cacheDir, `${r.cacheKey}.wav`))).toEqual(await readFile(f.args.output));
+      expect((await readdir(f.dir)).filter(n => n.includes("pieces") || n.includes(".checks-"))).toEqual([]);
+      expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+      expect((await receipt(f.args.output)).takeChecks.cutJoins)
+        .toEqual({ failed: false, piecesChecked: 0, cuts: [], note: "not judged: a cache hit keeps no pieces" });
+    } finally { server.stop(true); await f.close(); }
+  });
+}
+
+// A frozen breathing take: two synthetic pieces joined with a PCM-silence pad, as the runner joins them.
+function joinTakes(first: Buffer, gapSeconds: number, second: Buffer) {
+  const pcm = Buffer.concat([first.subarray(44), Buffer.alloc(Math.round(24000 * gapSeconds) * 2), second.subarray(44)]);
+  const header = Buffer.from(first.subarray(0, 44));
+  header.writeUInt32LE(36 + pcm.length, 4); header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+async function frozenKey(f: Awaited<ReturnType<typeof fixture>>) {
+  return computeContentHashKey({ spokenText: normalizeForSpeech(f.args.text), referenceAudioSha256: await hashReferenceClip(f.args.resolved.referenceClip),
+    referenceText: "Synthetic reference.", params: { sentencePauseSeconds: f.args.resolved.sentencePauseSeconds, takeChecks: f.args.takeChecks } });
+}
+const twoPieceWords = async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon.", start: 0.3, end: 0.6 },
+  { word: "Hello", start: 1.3, end: 1.6 }, { word: "sun.", start: 1.6, end: 1.9 }];
+
+for (const replacement of ["interrupted", "unbound"] as const) {
+  test(`a current checks stamp cannot attest replacement WAV bytes (${replacement})`, async () => {
+    const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+    let requests = 0;
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch() {
+      requests++;
+      return Response.json({ audio_b64: tone(180).toString("base64") });
+    } });
+    f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`, sentencePauseSeconds: 0.3 };
+    f.args.recogniseTake = twoPieceWords;
+    try {
+      const key = await frozenKey(f), cached = path.join(f.args.cacheDir, `${key}.wav`);
+      await writeFile(cached, joinTakes(tone(180), 0.3, tone(180)));
+      await writeTakeChecksVersion(f.args.cacheDir, key);
+      const stale = joinTakes(tone(180, 1, "cut"), 0.3, tone(180));
+      // An older writer renames a new WAV, then stops before publishing any checks record.
+      await writeFile(`${cached}.replacement`, stale);
+      await rename(`${cached}.replacement`, cached);
+      if (replacement === "unbound") await writeFile(path.join(f.args.cacheDir, `${key}.checks.json`), '{"takeChecksVersion":2}\n');
+      expect((await renderLocalTts(f.args)).kind).toBe("rendered");
+      expect(requests).toBe(3);
+      expect((await receipt(f.args.output)).takeChecks.cachedChecks)
+        .toEqual({ recordedVersion: null, currentVersion: 2, action: "re-made" });
+      expect(await readFile(f.args.output)).not.toEqual(stale);
+      expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+      expect(requests).toBe(3);
+    } finally { server.stop(true); await f.close(); }
+  });
+}
+
+test("checks binding validates the copied candidate, even if the cache and stamp are newer", async () => {
+  const f = await fixture(0);
+  try {
+    const key = await frozenKey(f), cached = path.join(f.args.cacheDir, `${key}.wav`);
+    const candidate = path.join(f.dir, "candidate.wav");
+    await writeFile(cached, tone(180));
+    await writeFile(candidate, tone(181));
+    await writeTakeChecksVersion(f.args.cacheDir, key);
+    expect(await readTakeChecksVersion(f.args.cacheDir, key, candidate)).toBeNull();
+    // A re-judging reader stamps exactly its checked bytes, not a concurrently replaced cache file.
+    await writeTakeChecksVersion(f.args.cacheDir, key, candidate);
+    expect(await readTakeChecksVersion(f.args.cacheDir, key)).toBeNull();
+    expect(await readTakeChecksVersion(f.args.cacheDir, key, candidate)).toBe(2);
+  } finally { await f.close(); }
+});
+
+test("a take frozen before the checks version, with a join cut, is re-made instead of served unjudged", async () => {
+  const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+  const requests: string[] = [];
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
+    requests.push((await req.json() as { text: string }).text);
+    return Response.json({ audio_b64: tone(180).toString("base64") });
+  } });
+  f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`, sentencePauseSeconds: 0.3 };
+  f.args.recogniseTake = twoPieceWords;
+  try {
+    const key = await frozenKey(f);
+    const stale = joinTakes(tone(180, 1, "cut"), 0.3, tone(180));
+    await writeFile(path.join(f.args.cacheDir, `${key}.wav`), stale);
+    expect((await renderLocalTts(f.args)).kind).toBe("rendered");
+    expect(requests).toEqual(["Hello moon. Hello sun.", "Hello moon.", "Hello sun."]);
+    const r = await receipt(f.args.output);
+    expect(r.takeChecks.failures).toEqual([{ source: "cache", attempt: 0, reason: 'checks-version:{"recorded":null,"current":2}' }]);
+    expect(r.takeChecks.cachedChecks).toEqual({ recordedVersion: null, currentVersion: 2, action: "re-made" });
+    expect(r.takeChecks.cutJoins).toEqual({ failed: false, piecesChecked: 1, cuts: [] });
+    expect(await readFile(f.args.output)).not.toEqual(stale);
+    expect(await readFile(path.join(f.args.cacheDir, `${key}.wav`))).toEqual(await readFile(f.args.output));
+    expect(JSON.parse(await readFile(path.join(f.args.cacheDir, `${key}.checks.json`), "utf8"))).toEqual({ takeChecksVersion: 2,
+      wavSha256: createHash("sha256").update(await readFile(f.args.output)).digest("hex") });
+  } finally { server.stop(true); await f.close(); }
+});
+
+test("a take frozen before the checks version without joins is re-judged on the hit and kept", async () => {
+  const f = await fixture(Infinity, 1, false, "Hello moon.");
+  f.args.resolved.sentencePauseSeconds = 0.3;
+  try {
+    const key = await frozenKey(f);
+    await writeFile(path.join(f.args.cacheDir, `${key}.wav`), tone(180));
+    expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+    expect(f.calls()).toBe(0);
+    expect(await readFile(f.args.output)).toEqual(tone(180));
+    const r = await receipt(f.args.output);
+    expect(r.takeChecks).toMatchObject({ attempts: 0, failures: [], gaveUp: false,
+      cachedChecks: { recordedVersion: null, currentVersion: 2, action: "re-judged" } });
+    expect(JSON.parse(await readFile(path.join(f.args.cacheDir, `${key}.checks.json`), "utf8"))).toEqual({ takeChecksVersion: 2,
+      wavSha256: createHash("sha256").update(await readFile(f.args.output)).digest("hex") });
+    expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+    expect((await receipt(f.args.output)).takeChecks.cachedChecks).toBeUndefined();
+  } finally { await f.close(); }
+});
+
+for (const recorded of ["written by the run", 2, 3] as const) {
+  test(`a take frozen under the current or a newer checks version is a plain hit (recorded: ${recorded})`, async () => {
+    const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+    let requests = 0;
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch() {
+      requests++;
+      return Response.json({ audio_b64: tone(180).toString("base64") });
+    } });
+    f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`, sentencePauseSeconds: 0.3 };
+    f.args.recogniseTake = twoPieceWords;
+    try {
+      const key = await frozenKey(f);
+      if (recorded === "written by the run") expect((await renderLocalTts(f.args)).kind).toBe("rendered");
+      else {
+        await writeFile(path.join(f.args.cacheDir, `${key}.wav`), joinTakes(tone(180), 0.3, tone(180)));
+        await writeFile(path.join(f.args.cacheDir, `${key}.checks.json`), `${JSON.stringify({ takeChecksVersion: recorded,
+          wavSha256: createHash("sha256").update(await readFile(path.join(f.args.cacheDir, `${key}.wav`))).digest("hex") })}\n`);
+      }
+      const before = requests;
+      const frozen = await readFile(path.join(f.args.cacheDir, `${key}.wav`));
+      expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+      expect(requests).toBe(before);
+      expect(await readFile(f.args.output)).toEqual(frozen);
+      const r = await receipt(f.args.output);
+      expect(r.takeChecks).toMatchObject({ attempts: 0, failures: [], gaveUp: false });
+      expect(r.takeChecks.cachedChecks).toBeUndefined();
+      expect(r.takeChecks.cutJoins).toEqual({ failed: false, piecesChecked: 0, cuts: [], note: "not judged: a cache hit keeps no pieces" });
+    } finally { server.stop(true); await f.close(); }
+  });
+}
 
 test("a cut take is never kept as the best word-mismatch take, even with fewer edits", async () => {
   const f = await fixture(0, 1, true, "Hello moon.", 0);

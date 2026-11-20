@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { renderLocalTts } from "../src/pipelines/local-tts/index.js";
+import { planBreathingPieces } from "../src/pipelines/local-tts/breathing.js";
 import { prepareSpeechChannels } from "../src/text-normalize.js";
 import { MAX_BREATHING_PIECE_WORDS } from "../src/plan/breathing.js";
 
@@ -88,4 +89,10 @@ test("a breathing render sends a long sentence as clause pieces, none over the w
     server.stop(true);
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("cache join planning includes splits of a long single sentence", () => {
+  const pieces = planBreathingPieces(Array.from({ length: 35 }, (_, i) => `word${i}`).join(" "), 0.5, 0);
+  expect(pieces.length).toBeGreaterThan(1);
+  for (const piece of pieces) expect(piece.text.split(/\s+/).length).toBeLessThanOrEqual(MAX_BREATHING_PIECE_WORDS);
 });
