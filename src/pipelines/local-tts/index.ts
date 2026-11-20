@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
-import { cutEnding, cutPieceEndings, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
+import { CUT_ENDING_DEFAULTS, cutEnding, cutPieceEndings, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
 import { prepareWordCheckText, type SpeechChannels, type TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
@@ -75,7 +75,7 @@ function hasJoins(spokenText: string, resolved: ResolvedLocalTtsVoice): boolean 
 }
 
 /** Render one resolved voice configuration without owning the caller's process. */
-async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256: string, store = true): Promise<LocalTtsRenderResult> {
+async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256: string, store = true): Promise<LocalTtsRenderResult & { joinGainDb?: number }> {
   const { output, resolved, authToken, cacheDir, prepareSpeechChannels, keepPiecesDir } = args;
   if (args.refreshCache && !args.cache) throw new RunnerFailure("--refresh-cache cannot be combined with --no-cache");
   if (keepPiecesDir !== undefined) await assertKeepPiecesDir(keepPiecesDir);
@@ -221,12 +221,16 @@ async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256
   // the target regardless of the EQ — making body loudness consistent across every
   // segment. Unset target => behavior unchanged (skipped).
   let loudnessNote = "";
+  let joinGainDb = 0;
   if (resolved.loudnessTargetDb !== undefined) {
     const norm = await loudnessNormalizeInPlace(
       output,
       args.sampleRate,
       resolved.loudnessTargetDb,
     );
+    // alimiter's default level=true makes up its 0.95 ceiling (ffmpeg-args.ts).
+    // At the audibility floor it is linear; loud peak limiting cannot affect that floor.
+    if (norm.applied) joinGainDb = (norm.gainDb ?? 0) - 20 * Math.log10(0.95);
     loudnessNote = norm.applied
       ? ` loudness=${resolved.loudnessTargetDb}dB (measured ${norm.measuredDb?.toFixed(2)}dB, gain ${norm.gainDb?.toFixed(2)}dB)`
       : ` loudness=${resolved.loudnessTargetDb}dB (skipped: unmeasurable)`;
@@ -264,7 +268,7 @@ async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256
   await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache, refreshed: args.refreshCache === true, keptPieces });
   const piecesNote = keptPieces ? ` pieces=${keptPieces.count} kept in ${keptPieces.dir}` : "";
 
-  return { kind: "rendered", cacheKey, bytes: info.size, atempoNote, breathingNote, loudnessNote, cacheNote, piecesNote };
+  return { kind: "rendered", cacheKey, bytes: info.size, atempoNote, breathingNote, loudnessNote, cacheNote, piecesNote, joinGainDb };
 }
 
 /** Pitch is a gate; word mismatches rank bounded retries without freezing a rejected take. */
@@ -377,7 +381,8 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
               const kept: { pieces: { file: string; text: string; durationSeconds: number; pauseAfterSeconds: number; offsetSeconds: number }[] }
                 = JSON.parse(await readFile(path.join(pieces, "pieces.json"), "utf8"));
               const judged = cutPieceEndings(kept.pieces.map(p => ({ samples: decodeMono(path.join(pieces, p.file), 16000),
-                startSeconds: p.offsetSeconds, spanSeconds: p.durationSeconds + p.pauseAfterSeconds })), 16000, recognised);
+                startSeconds: p.offsetSeconds, spanSeconds: p.durationSeconds + p.pauseAfterSeconds })), 16000, recognised,
+                { minTailDbfs: CUT_ENDING_DEFAULTS.minTailDbfs - (result.joinGainDb ?? 0) });
               const round = (x: number) => Math.round(x * 1000) / 1000;
               const cuts = judged.flatMap(({ index, result }) => result.failed && result.reason ? [{ piece: index + 1,
                 of: kept.pieces.length, text: kept.pieces[index]!.text, reason: result.reason, tailRelDb: result.tailRelDb,
