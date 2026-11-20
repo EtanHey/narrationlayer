@@ -1,4 +1,4 @@
-import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, transcriptionHomophones, transcriptionNumbers, transcriptionSpelling } from "./transcription-equivalence.js";
+import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, isTranscriptionSymbol, transcriptionHomophones, transcriptionNumbers, transcriptionSpelling } from "../text/transcription-equivalence.js";
 
 export type RecognisedWord = { word: string; start: number; end: number };
 
@@ -142,7 +142,7 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
           const tokens = [...left, ...right];
           const mixedName = tokens.some(w => /[a-z]/i.test(w) && /[0-9]/.test(w));
           const numeric = tokens.some(w => /[0-9$%]/.test(w)) && !mixedName
-            || tokens.some(w => /^[$%]$|^[+-]\d/.test(w))
+            || tokens.some(isTranscriptionSymbol)
             || (isTranscriptionNumberSpan(left) && isTranscriptionNumberSpan(right));
           let equivalent = l === r;
           if (!equivalent && tolerant && !numeric) {
