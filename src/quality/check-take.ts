@@ -31,8 +31,34 @@ export type KeptPieces = { totalSamples: number; pieces: { file: string; text: s
 export async function readKeptPieces(dir: string): Promise<KeptPieces> {
   const kept: unknown = JSON.parse(await readFile(path.join(dir, "pieces.json"), "utf8"));
   if (typeof kept !== "object" || kept === null || !("pieces" in kept) || !Array.isArray(kept.pieces) || !kept.pieces.length
-    || !("totalSamples" in kept) || typeof kept.totalSamples !== "number") throw new Error(`not a kept-pieces directory: ${dir}`);
-  return kept as KeptPieces;
+    || !("totalSamples" in kept) || !positiveCount(kept.totalSamples)) throw new Error(`not a kept-pieces directory: ${dir}`);
+  let offsetSamples = 0, offsetSeconds = 0, sampleRate: number | undefined;
+  const pieces = kept.pieces.map((row: unknown) => {
+    if (typeof row !== "object" || row === null
+      || !("file" in row) || typeof row.file !== "string" || !row.file.trim()
+      || !("text" in row) || typeof row.text !== "string"
+      || !("samples" in row) || !positiveCount(row.samples)
+      || !("durationSeconds" in row) || !finiteNumber(row.durationSeconds) || row.durationSeconds <= 0
+      || !("offsetSamples" in row) || !nonnegativeCount(row.offsetSamples)
+      || !("pauseAfterSamples" in row) || !nonnegativeCount(row.pauseAfterSamples)
+      || !("offsetSeconds" in row) || !finiteNumber(row.offsetSeconds) || row.offsetSeconds < 0
+      || !("pauseAfterSeconds" in row) || !finiteNumber(row.pauseAfterSeconds) || row.pauseAfterSeconds < 0)
+      throw new Error(`invalid kept-piece row: ${dir}`);
+    const rate = Math.round(row.samples / row.durationSeconds);
+    sampleRate ??= rate;
+    if (!Number.isSafeInteger(rate) || rate <= 0 || rate !== sampleRate
+      || Math.abs(row.durationSeconds * rate - row.samples) > 1e-6
+      || row.offsetSamples !== offsetSamples || Math.abs(row.offsetSeconds - offsetSeconds) > 1e-6
+      || Math.abs(row.pauseAfterSeconds * rate - row.pauseAfterSamples) > 1e-6)
+      throw new Error(`inconsistent kept-piece timing: ${dir}`);
+    offsetSamples += row.samples + row.pauseAfterSamples;
+    offsetSeconds += row.durationSeconds + row.pauseAfterSeconds;
+    return { file: row.file, text: row.text, samples: row.samples, durationSeconds: row.durationSeconds,
+      offsetSeconds: row.offsetSeconds, pauseAfterSeconds: row.pauseAfterSeconds };
+  });
+  if (!Number.isSafeInteger(offsetSamples) || kept.totalSamples !== offsetSamples || !Number.isFinite(offsetSeconds))
+    throw new Error(`inconsistent kept-piece total: ${dir}`);
+  return { totalSamples: kept.totalSamples, pieces };
 }
 
 export type CutTakeEndResult = {
@@ -54,6 +80,9 @@ export function cutTakeEnd(wav: string, words: readonly RecognisedWord[]): CutTa
     audioEndSeconds: Math.round(cut.audioEndSeconds * 1000) / 1000, lastWordEndSeconds: cut.lastWordEndSeconds,
     ...(cut.note ? { note: cut.note } : {}) };
 }
+function finiteNumber(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value); }
+function nonnegativeCount(value: unknown): value is number { return finiteNumber(value) && Number.isSafeInteger(value) && value >= 0; }
+function positiveCount(value: unknown): value is number { return nonnegativeCount(value) && value > 0; }
 
 export type CutJoinsResult = {
   failed: boolean;
