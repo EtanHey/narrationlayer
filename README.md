@@ -119,6 +119,19 @@ published level; the relative thresholds stay unchanged. A cut piece fails the t
 the same retry loop; the receipt's `takeChecks.cutJoins` lists each cut piece (number, text, measure, tail level, end
 time). A cache hit renders no pieces, so its joins are recorded as not judged.
 
+Each checked take frozen in the cache records the take-checks version it passed and its WAV's SHA-256 in
+`<key>.checks.json` beside `<key>.wav` (`TAKE_CHECKS_VERSION` in
+`src/pipelines/local-tts/take-cache.ts`; raised when a check is added or made stricter, apart
+from `LOCAL_TTS_RENDER_VERSION`). The digest is validated against the copied candidate,
+so an interrupted replacement or a newer writer's sidecar cannot attest different bytes.
+A missing or mismatched digest counts as an unrecorded version.
+A hit whose recorded version is older or missing is re-made
+when its text has breathing joins, because its pieces are gone and the joins cannot be judged.
+Re-splitting the frozen WAV at its pauses was measured and rejected: on 943 real pieced takes
+the pauses matched the plan on only 575, and their edges moved by up to 97 ms after the
+loudness pass. A hit without joins is judged whole as before and recorded as current once kept.
+The receipt's `takeChecks.cachedChecks` says which happened; a current hit has no such field.
+
 `check-take --word-check-setting a|b|c|d` selects alternatives: (b) additionally
 ignores jargon substitutions with character edit distance / maximum length <= 0.5;
 (c) also ignores common-word substitutions unless both tokens have 4+ letters or
