@@ -42,9 +42,8 @@ export const LOCAL_TTS_RENDER_VERSION: number = 5;
  * unrecorded) version is re-made on a hit when it has breathing joins, because joins can only
  * be judged while the pieces exist; a take without joins is re-judged whole on the hit.
  * 1: word, pitch and cut-ending checks (#151). 2: the cut-join check (#152).
- * 3: fade measurements and opt-in fade rejection (#159); default fade verdicts are unchanged.
  */
-export const TAKE_CHECKS_VERSION: number = 3;
+export const TAKE_CHECKS_VERSION: number = 2;
 
 /** Read a checks version only when its digest matches the candidate bytes the caller copied. */
 export async function readTakeChecksVersion(cacheDir: string, cacheKey: string,

@@ -483,35 +483,34 @@ async function frozenKey(f: Awaited<ReturnType<typeof fixture>>) {
 const twoPieceWords = async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon.", start: 0.3, end: 0.6 },
   { word: "Hello", start: 1.3, end: 1.6 }, { word: "sun.", start: 1.6, end: 1.9 }];
 
-for (const rejectFades of [false, true]) {
-  test(`a version-2 joined take is re-made under checks version 3 (rejectFades=${rejectFades})`, async () => {
-    const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
-    let requests = 0;
-    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch() {
-      requests++;
-      return Response.json({ audio_b64: tone(180).toString("base64") });
-    } });
-    f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`, sentencePauseSeconds: 0.3 };
-    f.args.takeChecks!.rejectFades = rejectFades;
-    f.args.recogniseTake = twoPieceWords;
-    try {
-      const key = await frozenKey(f);
-      const cached = joinTakes(tone(180, 1, "fade"), 0.3, tone(180));
-      await writeFile(path.join(f.args.cacheDir, `${key}.wav`), cached);
-      await writeFile(path.join(f.args.cacheDir, `${key}.checks.json`), JSON.stringify({
-        takeChecksVersion: 2, wavSha256: createHash("sha256").update(cached).digest("hex"),
-      }));
-      expect((await renderLocalTts(f.args)).kind).toBe("rendered");
-      expect(requests).toBe(3);
-      const evidence = (await receipt(f.args.output)).takeChecks;
-      expect(evidence.cachedChecks).toEqual({ recordedVersion: 2, currentVersion: 3, action: "re-made" });
-      expect(evidence.cutJoins).toMatchObject({ failed: false, piecesChecked: 1, cuts: [] });
-      expect(await readTakeChecksVersion(f.args.cacheDir, key)).toBe(3);
-      expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
-      expect(requests).toBe(3);
-    } finally { server.stop(true); await f.close(); }
-  });
-}
+test("a version-2 joined take stays a cache hit on the default fade path", async () => {
+  const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+  let requests = 0;
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch() {
+    requests++;
+    return Response.json({ audio_b64: tone(180).toString("base64") });
+  } });
+  f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`, sentencePauseSeconds: 0.3 };
+  f.args.recogniseTake = twoPieceWords;
+  try {
+    expect(TAKE_CHECKS_VERSION).toBe(2);
+    const key = await frozenKey(f);
+    const cached = joinTakes(tone(180, 1, "fade"), 0.3, tone(180));
+    await writeFile(path.join(f.args.cacheDir, `${key}.wav`), cached);
+    await writeFile(path.join(f.args.cacheDir, `${key}.checks.json`), JSON.stringify({
+      takeChecksVersion: 2, wavSha256: createHash("sha256").update(cached).digest("hex"),
+    }));
+    expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+    expect(requests).toBe(0);
+    const evidence = (await receipt(f.args.output)).takeChecks;
+    expect(evidence.cachedChecks).toBeUndefined();
+    expect(evidence.cutJoins).toEqual({ failed: false, piecesChecked: 0, cuts: [], note: "not judged: a cache hit keeps no pieces" });
+    expect(await readFile(f.args.output)).toEqual(cached);
+    expect(await readTakeChecksVersion(f.args.cacheDir, key)).toBe(2);
+    expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+    expect(requests).toBe(0);
+  } finally { server.stop(true); await f.close(); }
+});
 
 for (const replacement of ["interrupted", "unbound"] as const) {
   test(`a current checks stamp cannot attest replacement WAV bytes (${replacement})`, async () => {

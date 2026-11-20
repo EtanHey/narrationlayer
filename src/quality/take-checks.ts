@@ -338,7 +338,8 @@ function fadeAtEnd(samples: Float32Array, end: number, sampleRate: number, speec
  * the final window is within `maxTailRelDb` of the take's speech level (acoustic), or the last
  * recognised word runs to the audio end and the final window is within `timedTailRelDb` (timing),
  * or, with rejectFades explicitly enabled, the sound falls from speech level faster than `fadeDbPer10ms` (a
- * word faded out before it was finished, like "addre" for "address", which leaves a quiet tail).
+ * word faded out before it was finished, which leaves a quiet tail). The same-pair rule misses
+ * "addre" (3.945 dB/10 ms) but catches "merged" (8.556 dB/10 ms) at the default threshold.
  * Recognised timings alone never fail a take: the recogniser also stretches clean last words to the end.
  */
 export function cutEnding(samples: Float32Array, sampleRate: number, words: readonly RecognisedWord[] = [],
