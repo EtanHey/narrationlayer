@@ -119,6 +119,16 @@ published level; the relative thresholds stay unchanged. A cut piece fails the t
 the same retry loop; the receipt's `takeChecks.cutJoins` lists each cut piece (number, text, measure, tail level, end
 time). A cache hit renders no pieces, so its joins are recorded as not judged.
 
+`check-take --pieces <dir>` runs the same join check on a finished take, with the same code
+and thresholds (`cutJoinsInKeptPieces` in `src/quality/check-take.ts`). `<dir>` is the
+runner's `--keep-pieces` directory for that take (`pieces.json` plus each piece's WAV); the
+take's receipt names it as `keptPieces.dir`. A cut piece fails the verdict (exit 1), and
+the JSON's `cutJoins` lists it as the receipt does. Kept pieces whose total length differs
+from the take's by more than 20 ms are an input error (exit 2). Without `--pieces`,
+`cutJoins.judged` is `false` and stderr says "joins not judged": the piece boundaries are
+not re-found by splitting the finished take at its silences, and the verdict comes from the
+other checks alone. A one-piece take has no join to judge (`piecesChecked: 0`).
+
 Each checked take frozen in the cache records the take-checks version it passed and its WAV's SHA-256 in
 `<key>.checks.json` beside `<key>.wav` (`TAKE_CHECKS_VERSION` in
 `src/pipelines/local-tts/take-cache.ts`; raised when a check is added or made stricter, apart

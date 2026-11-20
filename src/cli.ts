@@ -28,7 +28,7 @@ const HELP =
 
 Usage:
   narrationlayer doctor
-  narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz>
+  narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz> [--pieces <keep-pieces-dir>]
   narrationlayer create-job <job.json> [--json]
   narrationlayer render <job-id> [--json]
   narrationlayer status <job-id>
@@ -274,8 +274,11 @@ export async function main() {
       if (setting !== "a" && setting !== "b" && setting !== "c" && setting !== "d") throw new Error("word-check-setting must be a, b, c or d");
       const commonWords = setting === "b" || setting === "c"
         ? new Set((await readFile(flagValue(args, "--word-dictionary") ?? "/usr/share/dict/words", "utf8")).split(/\r?\n/).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ""))) : undefined;
-      const verdict = await checkTake(payload, sent, words, voice, ceiling, { setting, commonWords });
+      const pieces = flagValue(args, "--pieces");
+      if (args.includes("--pieces") && !pieces) throw new Error("--pieces requires a directory");
+      const verdict = await checkTake(payload, sent, words, voice, ceiling, { setting, commonWords }, pieces);
       printJson(verdict);
+      if (!verdict.cutJoins.judged) console.error(`check-take: ${verdict.cutJoins.note}`);
       if (!verdict.pass) process.exitCode = 1;
       break;
     }
