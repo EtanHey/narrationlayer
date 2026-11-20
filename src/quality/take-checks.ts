@@ -243,6 +243,8 @@ export function pitchRunaway(samples: Float32Array, sampleRate: number, ceilingH
 }
 
 export type CutEndingOptions = {
+  /** Experimental fade rejection; measurements are always reported. Default false pending more listening labels. */
+  rejectFades?: boolean;
   /** Ignored stretch just before the audio end (decoder or codec fade). */
   guardSeconds?: number;
   /** Length of the measured tail window. */
@@ -268,10 +270,9 @@ export type CutEndingOptions = {
 // Calibrated 18 Nov 2026 at 16 kHz on clean takes (all at or below -15.1 dB) against heard cut
 // endings (-6.9 dB and above); real pages show a gap between -7.5 and -8.7 dB. The recogniser's
 // last-word end reaches the audio end on about one clean take in five, so timing only lowers the bar.
-// Fade bars (19 Nov 2026, 16 kHz): the two heard fade cuts ("addre", "merged") fall from speech level at
-// 7.1 and 8.5 dB per 10 ms. Clean endings mostly fall slower; the bar flags 9/465 (1.9%) unmarked page
-// pieces and 1/1005 bake-off takes. There is no gap: stop consonants close almost as fast.
+// Fade rejection stays opt-in pending more listening labels; its level and slope must describe the same pair.
 export const CUT_ENDING_DEFAULTS: Required<CutEndingOptions> = {
+  rejectFades: false,
   guardSeconds: 0.01,
   windowSeconds: 0.025,
   maxTailRelDb: -8,
@@ -286,6 +287,7 @@ export const CUT_ENDING_DEFAULTS: Required<CutEndingOptions> = {
 
 export type CutEndingResult = {
   failed: boolean;
+  fadeDetected: boolean;
   reason: "tail-at-speech-level" | "last-word-runs-to-end" | "fade-from-speech-level" | null;
   note: "not judged: too short or silent" | null;
   durationSeconds: number;
@@ -294,9 +296,9 @@ export type CutEndingResult = {
   speechDbfs: number | null;
   tailDbfs: number | null;
   tailRelDb: number | null;
-  /** Steepest 50 ms fall (dB per 10 ms) in the last `fadeWindowSeconds` of sound; null when not measured. */
+  /** Steepest eligible 50 ms fall, dB per 10 ms; zero if no pair starts at speech level, null when not measured. */
   fadeDbPer10ms: number | null;
-  /** Loudest 10 ms frame in that stretch, relative to speech level. */
+  /** Starting frame of that same fall, relative to speech; null when no eligible fall was found. */
   fadePeakRelDb: number | null;
   thresholds: Required<CutEndingOptions>;
 };
@@ -304,7 +306,7 @@ export type CutEndingResult = {
 const SUB_LSB = 1.5 / 32768;
 const meanSquareDb = (power: number) => power > 0 ? 10 * Math.log10(power) : -Infinity;
 
-/** Steepest 50 ms fall and loudest frame over the last `fadeWindowSeconds` of sound, in 10 ms frames. */
+/** Steepest 50 ms fall whose own starting frame meets both level gates. */
 function fadeAtEnd(samples: Float32Array, end: number, sampleRate: number, speechDbfs: number, t: Required<CutEndingOptions>) {
   const level = (from: number, to: number) => {
     let sum = 0;
@@ -319,8 +321,15 @@ function fadeAtEnd(samples: Float32Array, end: number, sampleRate: number, speec
   // frames[0] is the last 10 ms of sound; frames[k + 5] lies 50 ms before frames[k].
   const frames = Array.from({ length: count }, (_, k) => level(soundEnd - (k + 1) * f10, soundEnd - k * f10));
   let dbPer10ms = 0;
-  for (let k = 0; k + 5 < count; k++) dbPer10ms = Math.max(dbPer10ms, (frames[k + 5] - frames[k]) / 5);
-  return { dbPer10ms, peakRelDb: Math.max(...frames) };
+  let peakRelDb: number | null = null;
+  for (let k = 0; k + 5 < count; k++) {
+    const start = frames[k + 5], slope = (start - frames[k]) / 5;
+    if (start >= t.fadePeakRelDb && speechDbfs + start >= t.minTailDbfs && slope > dbPer10ms) {
+      dbPer10ms = slope;
+      peakRelDb = start;
+    }
+  }
+  return { dbPer10ms, peakRelDb };
 }
 
 /**
@@ -328,7 +337,7 @@ function fadeAtEnd(samples: Float32Array, end: number, sampleRate: number, speec
  * own quiet tail; a cut one is still at speech level in its final window. Three ways to fail:
  * the final window is within `maxTailRelDb` of the take's speech level (acoustic), or the last
  * recognised word runs to the audio end and the final window is within `timedTailRelDb` (timing),
- * or the sound falls from speech level faster than `fadeDbPer10ms` in its last `fadeWindowSeconds` (a
+ * or, with rejectFades explicitly enabled, the sound falls from speech level faster than `fadeDbPer10ms` (a
  * word faded out before it was finished, like "addre" for "address", which leaves a quiet tail).
  * Recognised timings alone never fail a take: the recogniser also stretches clean last words to the end.
  */
@@ -336,7 +345,9 @@ export function cutEnding(samples: Float32Array, sampleRate: number, words: read
   options: CutEndingOptions = {}): CutEndingResult {
   if (!Number.isFinite(sampleRate) || sampleRate < 2000) throw new Error("invalid sample rate");
   const t = { ...CUT_ENDING_DEFAULTS, ...options };
-  for (const value of Object.values(t)) if (!Number.isFinite(value)) throw new Error("invalid cut-ending option");
+  const { rejectFades, ...numeric } = t;
+  if (typeof rejectFades !== "boolean" || Object.values(numeric).some(value => !Number.isFinite(value)))
+    throw new Error("invalid cut-ending option");
   const durationSeconds = samples.length / sampleRate;
   // The audio end is the first sample of the trailing sub-LSB run: digital zeros after a cut hide nothing.
   let end = samples.length;
@@ -357,7 +368,7 @@ export function cutEnding(samples: Float32Array, sampleRate: number, words: read
   const last = words.length ? words[words.length - 1] : undefined;
   const lastWordEndSeconds = last ? last.end : null;
   const base = { durationSeconds, audioEndSeconds, lastWordEndSeconds, speechDbfs: null, tailDbfs: null, tailRelDb: null,
-    fadeDbPer10ms: null, fadePeakRelDb: null, thresholds: t };
+    fadeDbPer10ms: null, fadePeakRelDb: null, fadeDetected: false, thresholds: t };
   if (from < 0 || !Number.isFinite(speechDbfs)) return { ...base, failed: false, reason: null, note: "not judged: too short or silent" };
   let sum = 0;
   for (let i = from; i < to; i++) sum += samples[i] * samples[i];
@@ -366,14 +377,14 @@ export function cutEnding(samples: Float32Array, sampleRate: number, words: read
   const audible = tailDbfs >= t.minTailDbfs;
   const runsToEnd = lastWordEndSeconds !== null && lastWordEndSeconds >= audioEndSeconds - t.wordEndMarginSeconds;
   const fade = fadeAtEnd(samples, end, sampleRate, speechDbfs, t);
-  const faded = fade !== null && fade.peakRelDb >= t.fadePeakRelDb && speechDbfs + fade.peakRelDb >= t.minTailDbfs
-    && fade.dbPer10ms >= t.fadeDbPer10ms;
+  const faded = fade !== null && fade.peakRelDb !== null && fade.dbPer10ms >= t.fadeDbPer10ms;
   const reason: CutEndingResult["reason"] = audible && tailRelDb >= t.maxTailRelDb ? "tail-at-speech-level"
     : audible && runsToEnd && tailRelDb >= t.timedTailRelDb ? "last-word-runs-to-end"
-    : faded ? "fade-from-speech-level" : null;
+    : rejectFades && faded ? "fade-from-speech-level" : null;
   const round = (x: number) => Math.round(x * 1000) / 1000;
   return { ...base, speechDbfs: round(speechDbfs), tailDbfs: round(tailDbfs), tailRelDb: round(tailRelDb),
-    fadeDbPer10ms: fade ? round(fade.dbPer10ms) : null, fadePeakRelDb: fade ? round(fade.peakRelDb) : null,
+    fadeDbPer10ms: fade ? round(fade.dbPer10ms) : null,
+    fadePeakRelDb: fade && fade.peakRelDb !== null ? round(fade.peakRelDb) : null, fadeDetected: faded,
     failed: reason !== null, reason, note: null };
 }
 

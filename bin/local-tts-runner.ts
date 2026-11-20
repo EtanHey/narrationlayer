@@ -54,6 +54,7 @@ export {
 
 interface Args {
   takeChecks?: boolean;
+  rejectFades?: boolean;
   pitchCeilingHz?: number;
   takeRetries?: number;
   wordCheckSetting?: WordCheckSetting;
@@ -104,6 +105,9 @@ function parseArgs(argv: string[]): Args {
     switch (name) {
       case "--take-checks":
         args.takeChecks = true;
+        break;
+      case "--reject-fades":
+        args.rejectFades = true;
         break;
       case "--word-check-setting": {
         const setting = takeValue();
@@ -179,6 +183,7 @@ function parseArgs(argv: string[]): Args {
     fail("--take-retries must be an integer from 0 to 10");
   if (!args.takeChecks && (args.pitchCeilingHz !== undefined || args.takeRetries !== undefined || args.wordCheckSetting !== undefined || args.wordDictionary !== undefined))
     fail("--pitch-ceiling, --take-retries, --word-check-setting and --word-dictionary require --take-checks");
+  if (args.rejectFades && !args.takeChecks) fail("--reject-fades requires --take-checks");
   return args;
 }
 
@@ -196,6 +201,7 @@ Required:
 
 Options:
   --take-checks              Check pitch and cut endings, and rank word matches, on cached and fresh takes.
+  --reject-fades             Opt in to experimental fade rejection (default: measure and report only).
   --pitch-ceiling <hz>        Required voice ceiling with --take-checks.
   --take-retries <count>      Retries after the first render (default 2; range 0..10).
   --word-check-setting <a|b|c|d>  Word tolerance (default a); kept-best fallback after retries.
@@ -376,6 +382,7 @@ export async function main(prepareSpeechChannels = defaultPrepareSpeechChannels)
       cacheDir: path.resolve(expandHome(args.cacheDir ?? "~/.narrationlayer/tts-cache")),
       cache: args.cache,
       takeChecks: args.takeChecks ? { pitchCeilingHz: args.pitchCeilingHz!, retries: args.takeRetries ?? 2,
+      rejectFades: args.rejectFades,
       wordCheckSetting: args.wordCheckSetting,
       commonWords: args.wordCheckSetting === "b" || args.wordCheckSetting === "c"
         ? new Set((await readFile(args.wordDictionary ?? "/usr/share/dict/words", "utf8")).split(/\r?\n/).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ""))) : undefined } : undefined,

@@ -47,9 +47,9 @@ function take(name: string, ending: Ending, lastWordEnd = 1.5): string {
   return dir;
 }
 
-function checkTake(dir: string) {
+function checkTake(dir: string, rejectFades = false) {
   const run = Bun.spawnSync([process.execPath, "src/cli.ts", "check-take", `${dir}/take.wav`, "--sent", `${dir}/sent`,
-    "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300"]);
+    "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300", ...(rejectFades ? ["--reject-fades"] : [])]);
   return { exitCode: run.exitCode, verdict: JSON.parse(run.stdout.toString()) };
 }
 
@@ -90,7 +90,10 @@ test("the timing rule counts only together with loudness: a tail 10 dB under spe
 });
 
 test("check-take fails a take whose last word fades out from speech level, though its tail is quiet", () => {
-  const run = checkTake(take("fade", { kind: "fade" }));
+  const dir = take("fade", { kind: "fade" });
+  expect(checkTake(dir).exitCode).toBe(0);
+  expect(checkTake(dir).verdict.cutEnding.fadeDetected).toBe(true);
+  const run = checkTake(dir, true);
   expect(run.exitCode).toBe(1);
   expect(run.verdict.wordMatch.pass).toBe(true);
   expect(run.verdict.pitch.failed).toBe(false);
@@ -108,7 +111,7 @@ test("check-take's take end is the runner's: the receipt-shaped result of the on
     const dir = take(name, ending, lastWordEnd);
     const words = [{ word: "Hello", start: 0.2, end: 0.8 }, { word: "moon.", start: 0.9, end: lastWordEnd }];
     const shared = cutTakeEnd(`${dir}/take.wav`, words);
-    expect(Object.keys(shared).sort()).toEqual(["audioEndSeconds", "fadeDbPer10ms", "failed", "lastWordEndSeconds", "reason", "tailRelDb"]);
+    expect(Object.keys(shared).sort()).toEqual(["audioEndSeconds", "fadeDbPer10ms", "fadeDetected", "fadePeakRelDb", "failed", "lastWordEndSeconds", "reason", "tailRelDb"]);
     expect(checkTake(dir).verdict.cutEnding).toEqual(shared);
   }
 });

@@ -302,6 +302,9 @@ test("non-Latin spoken text skips recognition with an explicit receipt note", as
   } finally { await f.close(); }
 });
 test("word flags require take-checks and name the flags in the error", () => {
+  const fade = Bun.spawnSync([process.execPath, "bin/local-tts-runner.ts", "--reject-fades"]);
+  expect(fade.exitCode).toBe(1);
+  expect(fade.stderr.toString()).toContain("--reject-fades requires --take-checks");
   const run = Bun.spawnSync([process.execPath, "bin/local-tts-runner.ts", "--word-check-setting", "a"]);
   expect(run.exitCode).toBe(1);
   expect(run.stderr.toString()).toContain("--word-check-setting and --word-dictionary require --take-checks");
@@ -379,6 +382,7 @@ for (const [ending, cutTakes] of [["cut", 1], ["cut", Infinity], ["fade", 1]] as
   test(`a breathing piece ${ending === "cut" ? "cut" : "faded out"} at its join fails the take (cut takes: ${cutTakes})`, async () => {
 
     const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+    f.args.takeChecks!.rejectFades = ending === "fade";
     let cutRequests = 0;
     // Only the first piece is ever cut; the take's own ending (the last piece) always decays.
     const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
@@ -404,7 +408,7 @@ for (const [ending, cutTakes] of [["cut", 1], ["cut", Infinity], ["fade", 1]] as
       expect(r.takeChecks.failures[0].reason)
         .toStartWith(`cut-join:{"piece":1,"of":2,"text":"Hello moon.","reason":"${ending === "cut" ? "tail-at-speech-level" : "fade-from-speech-level"}"`);
       expect(r.takeChecks.cutEnding).toMatchObject({ failed: false, reason: null });
-      expect(r.takeChecks.cutJoins).toEqual({ failed: false, piecesChecked: 1, cuts: [] });
+      expect(r.takeChecks.cutJoins).toMatchObject({ failed: false, piecesChecked: 1, cuts: [] });
       expect(await readFile(path.join(f.args.cacheDir, `${r.cacheKey}.wav`))).toEqual(await readFile(f.args.output));
       expect((await readdir(f.dir)).filter(n => n.includes("pieces") || n.includes(".checks-"))).toEqual([]);
       expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
@@ -413,6 +417,36 @@ for (const [ending, cutTakes] of [["cut", 1], ["cut", Infinity], ["fade", 1]] as
     } finally { server.stop(true); await f.close(); }
   });
 }
+
+for (const join of [false, true]) test(`fade is measured without retry by default and strict opt-in misses that cache (join=${join})`, async () => {
+  const f = await fixture(0, 1, false, join ? "Hello moon. Hello sun." : "Hello moon.");
+  let requests = 0;
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
+    requests++;
+    const body: unknown = await req.json();
+    const firstPiece = typeof body === "object" && body !== null && "text" in body && body.text === "Hello moon.";
+    return Response.json({ audio_b64: tone(180, 1, !join || firstPiece ? "fade" : "decay").toString("base64") });
+  } });
+  f.args.resolved.daemonUrl = `http://127.0.0.1:${server.port}`;
+  if (join) f.args.resolved.sentencePauseSeconds = 0.3;
+  f.args.takeChecks!.retries = 0;
+  f.args.recogniseTake = async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon.", start: 0.3, end: 0.6 },
+    ...(join ? [{ word: "Hello", start: 1.3, end: 1.6 }, { word: "sun.", start: 1.6, end: 1.9 }] : [])];
+  try {
+    await renderLocalTts(f.args);
+    const evidence = (await receipt(f.args.output)).takeChecks;
+    expect(evidence.attempts).toBe(1);
+    expect(evidence.failures).toEqual([]);
+    if (join) expect(evidence.cutJoins.fadeMeasurements[0]).toMatchObject({ piece: 1, detected: true });
+    else expect(evidence.cutEnding).toMatchObject({ failed: false, reason: null, fadeDetected: true });
+    const before = requests;
+    expect((await renderLocalTts(f.args)).kind).toBe("cache-hit");
+    expect(requests).toBe(before);
+    f.args.takeChecks!.rejectFades = true;
+    await expect(renderLocalTts(f.args)).rejects.toThrow("fade-from-speech-level");
+    expect(requests).toBeGreaterThan(before);
+  } finally { server.stop(true); await f.close(); }
+});
 
 test("a cut take is never kept as the best word-mismatch take, even with fewer edits", async () => {
   const f = await fixture(0, 1, true, "Hello moon.", 0);

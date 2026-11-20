@@ -107,12 +107,16 @@ the loudest). The take fails when that window is 8 dB or less under speech level
 or less when the last recognised word also ends within 20 ms of the audio end. A window
 quieter than -45 dBFS never fails. Recognised timing alone never fails a take, because the
 recogniser also stretches clean last words to the end. A word can also fade out before it is
-finished ("addre" for "address"), leaving a quiet tail: the take also fails when, in its last
-150 ms of sound (to the last 5 ms frame within 50 dB of speech level), a 10 ms frame reaches
-within 3 dB of speech level and the level falls at 7 dB per 10 ms or faster over some 50 ms
-(`fade-from-speech-level`; the receipt's `fadeDbPer10ms` is that steepest fall). A natural
-decay falls slower; a stop consonant can close almost as fast, so this bar has no margin
-(on the 15 Nov page it fails 9 of 465 unmarked pieces, 1.9%; on the bake-off, 1 of 1005 takes). A cut take uses the bounded retry
+finished, leaving a quiet tail. Fade detection measures each 50 ms pair in the last 150 ms
+of sound. A pair qualifies only when its own starting 10 ms frame is within 3 dB of speech
+level and above the audibility floor; the fall must reach 7 dB per 10 ms.
+**Fade rejection is off by default pending more listening labels.** Both commands accept
+`--reject-fades` to opt in (the runner requires `--take-checks`); programmatic callers set
+`takeChecks.rejectFades: true`, or `CutEndingOptions.rejectFades: true` on the checker.
+Without that setting a detected fade is reported and does not reject or re-make a take.
+The receipt records `fadeDetected`, `fadeDbPer10ms` and the same pair's `fadePeakRelDb` at
+the take end, and `cutJoins.fadeMeasurements` for every judged join. Opting in uses a distinct
+cache key; absent and false preserve the default key. A cut take uses the bounded retry
 loop like a pitch failure and is never kept as the best word-mismatch take. The receipt's
 `takeChecks.cutEnding` records the kept take's tail level. `check-take` runs the same check
 on the finished take with its `--words`, through the same code (`cutTakeEnd` in
@@ -133,7 +137,8 @@ and thresholds (`cutJoinsInKeptPieces` in `src/quality/check-take.ts`). `<dir>` 
 runner's `--keep-pieces` directory for that take (`pieces.json` plus each piece's WAV); the
 take's receipt names it as `keptPieces.dir`. A cut piece fails the verdict (exit 1), and
 the JSON's `cutJoins` lists it as the receipt does. Kept pieces whose total length differs
-from the take's by more than 20 ms are an input error (exit 2). Without `--pieces`,
+from the take's by more than 20 ms, or whose rows have malformed or inconsistent timing/counts,
+are an input error (exit 2). Without `--pieces`,
 `cutJoins.judged` is `false` and stderr says "joins not judged": the piece boundaries are
 not re-found by splitting the finished take at its silences, and the verdict comes from the
 other checks alone. A one-piece take has no join to judge (`piecesChecked: 0`).

@@ -8,7 +8,7 @@ import { readFile, writeFile, rename, unlink } from "node:fs/promises";
  * identical request reuses the frozen accepted take. Exported for tests.
  */
 export interface CacheKeyParams {
-  takeChecks?: { pitchCeilingHz: number; retries: number };
+  takeChecks?: { pitchCeilingHz: number; retries: number; rejectFades?: boolean };
   eqHighshelfHz?: number;
   eqHighshelfGainDb?: number;
   loudnessTargetDb?: number;
@@ -79,7 +79,8 @@ export function computeContentHashKey(input: {
     sentencePauseSeconds: p.sentencePauseSeconds,
     commaPauseSeconds: p.commaPauseSeconds,
     colonPauseSeconds: p.colonPauseSeconds,
-    ...(p.takeChecks ? { takeChecks: { pitchCeilingHz: p.takeChecks.pitchCeilingHz, retries: p.takeChecks.retries } } : {}),
+    ...(p.takeChecks ? { takeChecks: { pitchCeilingHz: p.takeChecks.pitchCeilingHz, retries: p.takeChecks.retries,
+      ...(p.takeChecks.rejectFades ? { rejectFades: true } : {}) } } : {}),
   };
   // JSON.stringify drops undefined values, so absent params don't perturb the key.
   const payload = JSON.stringify({
@@ -160,6 +161,8 @@ export interface TakeCheckReceipt {
     reason: "tail-at-speech-level" | "last-word-runs-to-end" | "fade-from-speech-level" | null;
     tailRelDb: number | null;
     fadeDbPer10ms: number | null;
+    fadePeakRelDb: number | null;
+    fadeDetected: boolean;
     audioEndSeconds: number;
     lastWordEndSeconds: number | null;
     note?: "not judged: too short or silent";
@@ -168,6 +171,7 @@ export interface TakeCheckReceipt {
   cutJoins?: {
     failed: boolean;
     piecesChecked: number;
+    fadeMeasurements?: { piece: number; fadeDbPer10ms: number | null; fadePeakRelDb: number | null; detected: boolean }[];
     cuts: { piece: number; of: number; text: string; reason: "tail-at-speech-level" | "last-word-runs-to-end" | "fade-from-speech-level";
       tailRelDb: number | null; fadeDbPer10ms: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
     note?: "not judged: a cache hit keeps no pieces";

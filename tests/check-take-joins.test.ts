@@ -5,13 +5,13 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 // Each case writes a take plus a `--keep-pieces`-shaped directory (piece WAVs + pieces.json).
 const SR = 24000, PAUSE = 0.55, ROOT = "docs.local/check-take-joins-test";
 
-function piece(ending: "cut" | "decay", seconds = 1.5): Float32Array {
-  const body = Math.round(SR * seconds), decay = ending === "decay" ? Math.round(SR * 0.12) : 0;
+function piece(ending: "cut" | "decay" | "fade", seconds = 1.5): Float32Array {
+  const body = Math.round(SR * seconds), decay = ending === "decay" ? Math.round(SR * 0.12) : ending === "fade" ? Math.round(SR * 0.05) : 0;
   const samples = new Float32Array(body + decay);
   let seed = 7;
   for (let i = 0; i < samples.length; i++) {
     seed = (1664525 * seed + 1013904223) >>> 0;
-    const gain = i < body ? 1 : Math.exp(-(i - body) / (SR * 0.015));
+    const gain = i < body ? 1 : ending === "fade" ? 10 ** (-10 * (i - body) / (SR * 0.01) / 20) : Math.exp(-(i - body) / (SR * 0.015));
     samples[i] = 0.2 * gain * (Math.sin(2 * Math.PI * 180 * i / SR) + 0.05 * (seed / 2 ** 32 * 2 - 1));
   }
   return samples;
@@ -29,7 +29,7 @@ function wav(file: string, samples: Float32Array) {
 }
 
 /** Writes take.wav, pieces/ and the sent/words files; returns the case directory. */
-function take(name: string, endings: ("cut" | "decay")[], texts: string[]): string {
+function take(name: string, endings: ("cut" | "decay" | "fade")[], texts: string[]): string {
   const dir = `${ROOT}/${name}`;
   mkdirSync(`${dir}/pieces`, { recursive: true });
   const parts: Float32Array[] = [], rows = [], words = [];
@@ -54,9 +54,9 @@ function take(name: string, endings: ("cut" | "decay")[], texts: string[]): stri
   return dir;
 }
 
-function checkTake(dir: string, pieces: string | null = `${dir}/pieces`) {
+function checkTake(dir: string, pieces: string | null = `${dir}/pieces`, rejectFades = false) {
   const run = Bun.spawnSync([process.execPath, "src/cli.ts", "check-take", `${dir}/take.wav`, "--sent", `${dir}/sent`,
-    "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300", ...(pieces === null ? [] : ["--pieces", pieces])]);
+    "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300", ...(pieces === null ? [] : ["--pieces", pieces]), ...(rejectFades ? ["--reject-fades"] : [])]);
   return { exitCode: run.exitCode, stderr: run.stderr.toString(), verdict: run.exitCode === 2 ? null : JSON.parse(run.stdout.toString()) };
 }
 
@@ -67,6 +67,16 @@ test("check-take --pieces fails a take whose first piece is cut at its join", ()
   expect(run.verdict.wordMatch.pass).toBe(true);
   expect(run.verdict.cutJoins).toMatchObject({ judged: true, failed: true, piecesChecked: 1,
     cuts: [{ piece: 1, of: 2, text: "Hello", reason: "tail-at-speech-level" }] });
+});
+
+test("check-take reports a faded join and rejects it only with --reject-fades", () => {
+  const dir = take("fade-join", ["fade", "decay"], ["Hello", "moon"]);
+  const measured = checkTake(dir);
+  expect(measured.exitCode).toBe(0);
+  expect(measured.verdict.cutJoins.fadeMeasurements[0]).toMatchObject({ piece: 1, detected: true });
+  const strict = checkTake(dir, `${dir}/pieces`, true);
+  expect(strict.exitCode).toBe(1);
+  expect(strict.verdict.cutJoins.cuts[0].reason).toBe("fade-from-speech-level");
 });
 
 test("malformed kept-piece metadata exits 2 instead of allowing NaN to skip the match", () => {
@@ -107,8 +117,8 @@ test("a clean pieced take and a one-piece take still pass", () => {
 
 test("joins are judged only with --pieces, say so plainly otherwise, and pieces must match the take", () => {
   const cut = take("cut-join", ["cut", "decay"], ["Hello", "moon"]), clean = take("clean-join", ["decay", "decay"], ["Hello", "moon"]);
-  expect(checkTake(clean).verdict.cutJoins).toEqual({ judged: true, failed: false, piecesChecked: 1, cuts: [] });
-  expect(checkTake(take("one-piece", ["decay"], ["Hello"])).verdict.cutJoins).toEqual({ judged: true, failed: false, piecesChecked: 0, cuts: [] });
+  expect(checkTake(clean).verdict.cutJoins).toMatchObject({ judged: true, failed: false, piecesChecked: 1, cuts: [] });
+  expect(checkTake(take("one-piece", ["decay"], ["Hello"])).verdict.cutJoins).toMatchObject({ judged: true, failed: false, piecesChecked: 0, cuts: [] });
   // Without --pieces a cut join is not passed silently: the JSON and stderr both say the joins were not judged.
   const blind = checkTake(cut, null);
   expect(blind.verdict.cutJoins).toMatchObject({ judged: false, failed: false, piecesChecked: 0 });
