@@ -1,6 +1,7 @@
 import { writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { breathingV1, toBreathingPieces } from "../../plan/index.js";
+import { splitLongPieces } from "../../plan/breathing.js";
 import { buildPcmSilenceArgs, escapeConcatPath, buildWavConcatArgs } from "../../audio/ffmpeg-args.js";
 import { ffmpegRun, ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
@@ -9,7 +10,7 @@ import type { JoinedPiece } from "./keep-pieces.js";
 
 /** The pieces breathing cuts `spokenText` into; fewer than 2 means the take has no joins. */
 export function planBreathingPieces(spokenText: string, sentencePad: number, commaPad: number, colonPad?: number) {
-  return toBreathingPieces(breathingV1(spokenText, sentencePad, commaPad, colonPad));
+  return splitLongPieces(toBreathingPieces(breathingV1(spokenText, sentencePad, commaPad, colonPad)), commaPad);
 }
 
 /**
@@ -29,6 +30,7 @@ export async function applyBreathingInPlace(opts: {
   authToken: string;
   referenceClip: string;
   referenceText: string;
+  model?: string;
   timeoutMs: number;
   eqHighshelfHz?: number;
   eqHighshelfGainDb?: number;
@@ -57,6 +59,7 @@ export async function applyBreathingInPlace(opts: {
         authToken: opts.authToken,
         referenceClip: opts.referenceClip,
         referenceText: opts.referenceText,
+        model: opts.model,
         text: piece.text,
         timeoutMs: opts.timeoutMs,
       });
