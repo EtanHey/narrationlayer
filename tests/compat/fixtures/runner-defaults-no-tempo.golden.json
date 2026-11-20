@@ -71,11 +71,11 @@
           "sentencePauseSeconds": 0.41,
           "commaPauseSeconds": 0.17
         },
-        "renderVersion": 4
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "1ff97b751c5310a060f98d690537040f5248ac81a1d8e9af3fb2c0d508c7d551",
+        "cacheKey": "5c186c2f77d4fab80aa950ac014cf3d42894b743ad4205af3153a4559283b6cc",
         "cacheEnabled": true
       },
       "pieces": [

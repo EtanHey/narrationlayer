@@ -49,7 +49,7 @@ for (const breathing of [true, false]) {
         },
       });
       expect(result.kind).toBe("rendered");
-      expect(requests.length).toBeGreaterThanOrEqual(breathing ? 3 : 1);
+      expect(requests.length).toBeGreaterThanOrEqual(3);
       expect(requests.map(({ model }) => model)).toEqual(requests.map(() => "custom-model"));
       for (const piece of requests.slice(1)) {
         expect(piece.text.split(/\s+/).length).toBeLessThanOrEqual(MAX_BREATHING_PIECE_WORDS);

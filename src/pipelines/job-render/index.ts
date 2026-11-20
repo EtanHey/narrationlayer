@@ -4,7 +4,8 @@ import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 import { resolveWithinRoot } from "../../path-safety.js";
 import { assembleAudioWithSilence, trimAudioSilence, applyAudioEq, probeAudioDurationSeconds } from "../../audio.js";
-import { utterancesV1, toPlannedUtterances } from "../../plan/index.js";
+import { utterancesV1, toBreathingPieces } from "../../plan/index.js";
+import { splitLongPieces, splitPauseSeconds } from "../../plan/breathing.js";
 import type { RenderManifestSegment, TimingSource, WordsFile } from "../../schema.js";
 import { deriveSpeechAliases, prepareSpeechChannels } from "../../text-normalize.js";
 import type { RenderSegmentOptions } from "../../renderers/types.js";
@@ -35,7 +36,11 @@ export async function renderSegment(
   const audioPath = resolveWithinRoot(artifactsRoot, `${segmentId}.mp3`);
   const wordsPath = resolveWithinRoot(artifactsRoot, "words.json");
   await mkdir(artifactsRoot, { recursive: true });
-  const plannedUtterances = toPlannedUtterances(utterancesV1(normalizedScript, config));
+  // No utterance is over MAX_BREATHING_PIECE_WORDS, whatever the pause strategy: the model
+  // stops a long generation at about 10 s, often mid-word.
+  const splitPause = splitPauseSeconds(config.pause_strategy === "none" ? undefined : config.comma_pause_seconds);
+  const plannedUtterances = splitLongPieces(toBreathingPieces(utterancesV1(normalizedScript, config)), splitPause)
+    .map(piece => ({ text: piece.text, pause_after_seconds: piece.padAfterSeconds }));
   const shouldTrim = config.trim_silence === true;
   const chunksRoot = resolveWithinRoot(artifactsRoot, "chunks");
   const shouldAssemble = plannedUtterances.length > 1 || plannedUtterances.some((item) => item.pause_after_seconds > 0);

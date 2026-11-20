@@ -9,23 +9,28 @@ import { RunnerFailure } from "./failure.js";
 import type { JoinedPiece } from "./keep-pieces.js";
 
 /** The pieces breathing cuts `spokenText` into; fewer than 2 means the take has no joins. */
-export function planBreathingPieces(spokenText: string, sentencePad: number, commaPad: number, colonPad?: number) {
-  return splitLongPieces(toBreathingPieces(breathingV1(spokenText, sentencePad, commaPad, colonPad)), commaPad);
+export function planBreathingPieces(spokenText: string, sentencePad?: number, commaPad = 0, colonPad?: number, splitPause = commaPad) {
+  const planned = sentencePad === undefined
+    ? [{ text: spokenText.trim(), padAfterSeconds: 0 }]
+    : toBreathingPieces(breathingV1(spokenText, sentencePad, commaPad, colonPad));
+  return splitLongPieces(planned, splitPause);
 }
 
 /**
  * BREATHING stage: re-synthesize the whole-segment text as discrete sentence/clause
  * pieces, mono-s16 each, then concat them interleaved with PCM silence pads so the
- * voice "breathes" between sentences. Profile-gated; runs AFTER atempo, BEFORE
- * loudness. Overwrites `output` in place with the assembled, padded WAV.
+ * voice "breathes" between sentences. Without profile pauses it only cuts text longer
+ * than MAX_BREATHING_PIECE_WORDS. Runs AFTER atempo, BEFORE loudness. Overwrites `output` in place with
+ * the assembled, padded WAV.
  */
 export async function applyBreathingInPlace(opts: {
   output: string;
   sampleRate: number;
   spokenText: string;
-  sentencePad: number;
-  commaPad: number;
-  colonPad?: number;
+  /** The profile's pauses; without them the text is cut only where it is too long. */
+  pads?: { sentence: number; comma: number; colon?: number };
+  /** Silence after a piece cut for length. */
+  splitPause: number;
   daemonUrl: string;
   authToken: string;
   referenceClip: string;
@@ -38,7 +43,7 @@ export async function applyBreathingInPlace(opts: {
   /** Called after the join succeeds, while each piece's joined audio still exists. */
   onJoined?: (pieces: JoinedPiece[]) => Promise<void>;
 }): Promise<{ applied: boolean; pieces: number }> {
-  const pieces = planBreathingPieces(opts.spokenText, opts.sentencePad, opts.commaPad, opts.colonPad);
+  const pieces = planBreathingPieces(opts.spokenText, opts.pads?.sentence, opts.pads?.comma, opts.pads?.colon, opts.splitPause);
   // Nothing to interleave: 0 or 1 piece => leave the whole-segment WAV untouched.
   if (pieces.length < 2) {
     return { applied: false, pieces: pieces.length };
