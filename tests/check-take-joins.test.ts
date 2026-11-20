@@ -96,7 +96,7 @@ test("malformed kept-piece metadata exits 2 instead of allowing NaN to skip the 
 });
 
 test("a clean pieced take and a one-piece take still pass", () => {
-  for (const dir of [take("clean-join", ["decay", "decay"], ["Hello", "moon"]), take("one-piece", ["cut"], ["Hello"])]) {
+  for (const dir of [take("clean-join", ["decay", "decay"], ["Hello", "moon"]), take("one-piece", ["decay"], ["Hello"])]) {
     for (const pieces of [`${dir}/pieces`, null]) {
       const run = checkTake(dir, pieces);
       expect(run.exitCode).toBe(0);
@@ -108,7 +108,7 @@ test("a clean pieced take and a one-piece take still pass", () => {
 test("joins are judged only with --pieces, say so plainly otherwise, and pieces must match the take", () => {
   const cut = take("cut-join", ["cut", "decay"], ["Hello", "moon"]), clean = take("clean-join", ["decay", "decay"], ["Hello", "moon"]);
   expect(checkTake(clean).verdict.cutJoins).toEqual({ judged: true, failed: false, piecesChecked: 1, cuts: [] });
-  expect(checkTake(take("one-piece", ["cut"], ["Hello"])).verdict.cutJoins).toEqual({ judged: true, failed: false, piecesChecked: 0, cuts: [] });
+  expect(checkTake(take("one-piece", ["decay"], ["Hello"])).verdict.cutJoins).toEqual({ judged: true, failed: false, piecesChecked: 0, cuts: [] });
   // Without --pieces a cut join is not passed silently: the JSON and stderr both say the joins were not judged.
   const blind = checkTake(cut, null);
   expect(blind.verdict.cutJoins).toMatchObject({ judged: false, failed: false, piecesChecked: 0 });

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { cutPieceEndings, firstWordOmitted, pitchRunaway, wordMismatches, type CutEndingOptions, type CutEndingResult, type WordCheckOptions, type RecognisedWord } from "./take-checks.js";
+import { cutEnding, cutPieceEndings, firstWordOmitted, pitchRunaway, wordMismatches, type CutEndingOptions, type CutEndingResult, type WordCheckOptions, type RecognisedWord } from "./take-checks.js";
 
 function parseWords(value: unknown): RecognisedWord[] {
   if (!Array.isArray(value)) throw new Error("words must be an array");
@@ -61,6 +61,25 @@ export async function readKeptPieces(dir: string): Promise<KeptPieces> {
   return { totalSamples: kept.totalSamples, pieces };
 }
 
+export type CutTakeEndResult = {
+  failed: boolean;
+  reason: CutEndingResult["reason"];
+  tailRelDb: number | null;
+  audioEndSeconds: number;
+  lastWordEndSeconds: number | null;
+  note?: NonNullable<CutEndingResult["note"]>;
+};
+
+/**
+ * Cut take end: the finished take decoded at 16 kHz (fricative endings keep their energy) and its recognised
+ * words, judged by `cutEnding`. The runner's take loop and `check-take` both judge the take's last word here.
+ */
+export function cutTakeEnd(wav: string, words: readonly RecognisedWord[]): CutTakeEndResult {
+  const cut = cutEnding(decodeMono(wav, 16000), 16000, words);
+  return { failed: cut.failed, reason: cut.reason, tailRelDb: cut.tailRelDb,
+    audioEndSeconds: Math.round(cut.audioEndSeconds * 1000) / 1000, lastWordEndSeconds: cut.lastWordEndSeconds,
+    ...(cut.note ? { note: cut.note } : {}) };
+}
 function finiteNumber(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value); }
 function nonnegativeCount(value: unknown): value is number { return finiteNumber(value) && Number.isSafeInteger(value) && value >= 0; }
 function positiveCount(value: unknown): value is number { return nonnegativeCount(value) && value > 0; }
@@ -101,6 +120,7 @@ export async function checkTake(wav: string, sentFile: string, wordsFile: string
   const wordMatch = wordMismatches(sent, words, wordOptions);
   const samples = decodeMono(wav, 8000);
   const pitch = pitchRunaway(samples, 8000, ceilingHz);
+  const takeEnd = cutTakeEnd(wav, words);
   const cutJoins: CutJoinsResult & { judged: boolean; note?: string } = await (async () => {
     if (piecesDir === undefined) return { judged: false, failed: false, piecesChecked: 0, cuts: [], note: JOINS_NOT_JUDGED };
     const kept = await readKeptPieces(piecesDir);
@@ -109,6 +129,6 @@ export async function checkTake(wav: string, sentFile: string, wordsFile: string
       throw new Error(`kept pieces do not match this take: ${piecesSeconds.toFixed(3)} s of pieces, ${(samples.length / 8000).toFixed(3)} s of take`);
     return { judged: true, ...cutJoinsInKeptPieces(piecesDir, kept, words) };
   })();
-  return { pass: wordMatch.pass && !firstWord.omitted && !pitch.failed && pitch.worstMedianHz !== null && !cutJoins.failed,
-    voice, firstWord, wordMatch, pitch, cutJoins };
+  return { pass: wordMatch.pass && !firstWord.omitted && !pitch.failed && pitch.worstMedianHz !== null
+    && !takeEnd.failed && !cutJoins.failed, voice, firstWord, wordMatch, pitch, cutEnding: takeEnd, cutJoins };
 }
