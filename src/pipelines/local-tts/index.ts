@@ -305,7 +305,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       // without its pieces), else re-judged whole below and recorded as current once kept.
       let stampChecks = source === "render";
       if (source === "cache") {
-        const recordedVersion = await readTakeChecksVersion(args.cacheDir, key);
+        const recordedVersion = await readTakeChecksVersion(args.cacheDir, key, output);
         if (recordedVersion === null || recordedVersion < TAKE_CHECKS_VERSION) {
           const remake = hasJoins(await readFile(`${output}.spoken.txt`, "utf8"), args.resolved);
           evidence.cachedChecks = { recordedVersion, currentVersion: TAKE_CHECKS_VERSION, action: remake ? "re-made" : "re-judged" };
@@ -439,8 +439,8 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           await copyFile(output, tmp);
           await rename(tmp, cachePath);
         }
-        // After the WAV, so a crash between the two leaves a take that is re-checked, never one wrongly marked.
-        if (cacheAccepted && stampChecks) await writeTakeChecksVersion(args.cacheDir, key);
+        // Bind the record to our checked candidate even if another writer replaces the cache WAV.
+        if (cacheAccepted && stampChecks) await writeTakeChecksVersion(args.cacheDir, key, output);
         await rename(output, args.output);
         await writeFile(`${args.output}.spoken.txt`, await readFile(`${output}.spoken.txt`));
         if (args.keepPiecesDir && existsSync(pieces)) await rename(pieces, args.keepPiecesDir);

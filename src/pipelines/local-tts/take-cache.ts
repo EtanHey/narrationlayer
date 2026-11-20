@@ -45,21 +45,28 @@ export const LOCAL_TTS_RENDER_VERSION: number = 2;
  */
 export const TAKE_CHECKS_VERSION: number = 2;
 
-/** Read the checks version recorded beside a frozen take; null when none was recorded. */
-export async function readTakeChecksVersion(cacheDir: string, cacheKey: string): Promise<number | null> {
+/** Read a checks version only when its digest matches the candidate bytes the caller copied. */
+export async function readTakeChecksVersion(cacheDir: string, cacheKey: string,
+  candidateWav = path.join(cacheDir, `${cacheKey}.wav`)): Promise<number | null> {
   try {
-    const version: unknown = JSON.parse(await readFile(path.join(cacheDir, `${cacheKey}.checks.json`), "utf8")).takeChecksVersion;
-    return Number.isSafeInteger(version) ? version as number : null;
+    const record: unknown = JSON.parse(await readFile(path.join(cacheDir, `${cacheKey}.checks.json`), "utf8"));
+    if (typeof record !== "object" || record === null || !("takeChecksVersion" in record) || !("wavSha256" in record)
+      || typeof record.takeChecksVersion !== "number" || !Number.isSafeInteger(record.takeChecksVersion)
+      || record.takeChecksVersion < 1 || typeof record.wavSha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.wavSha256)) return null;
+    const digest = createHash("sha256").update(await readFile(candidateWav)).digest("hex");
+    return digest === record.wavSha256 ? record.takeChecksVersion : null;
   } catch {
     return null;
   }
 }
 
-/** Record that the frozen take for `cacheKey` passed the current checks. Write it after the WAV. */
-export async function writeTakeChecksVersion(cacheDir: string, cacheKey: string): Promise<void> {
+/** Stamp the exact checked candidate, after publishing the WAV; a replacement cannot inherit its checks. */
+export async function writeTakeChecksVersion(cacheDir: string, cacheKey: string,
+  candidateWav = path.join(cacheDir, `${cacheKey}.wav`)): Promise<void> {
   const file = path.join(cacheDir, `${cacheKey}.checks.json`);
   const temporaryPath = `${file}.tmp-${process.pid}`;
-  await writeFile(temporaryPath, `${JSON.stringify({ takeChecksVersion: TAKE_CHECKS_VERSION })}\n`, "utf8");
+  const wavSha256 = createHash("sha256").update(await readFile(candidateWav)).digest("hex");
+  await writeFile(temporaryPath, `${JSON.stringify({ takeChecksVersion: TAKE_CHECKS_VERSION, wavSha256 })}\n`, "utf8");
   await rename(temporaryPath, file);
 }
 
