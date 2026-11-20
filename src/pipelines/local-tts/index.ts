@@ -12,9 +12,10 @@ import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
 import { synthesize } from "./synthesis.js";
 import { RunnerFailure, TakeCheckError } from "./failure.js";
 import { DEFAULT_COLON_PAUSE_SECONDS } from "../../plan/breathing.js";
-import { applyBreathingInPlace } from "./breathing.js";
+import { applyBreathingInPlace, planBreathingPieces } from "./breathing.js";
 import { loudnessNormalizeInPlace } from "./loudness.js";
-import { hashReferenceClip, computeContentHashKey, writeTakeCacheReceipt, type CacheKeyParams } from "./take-cache.js";
+import { hashReferenceClip, computeContentHashKey, readTakeChecksVersion, TAKE_CHECKS_VERSION, writeTakeCacheReceipt,
+  writeTakeChecksVersion, type CacheKeyParams } from "./take-cache.js";
 import { assertKeepPiecesDir, keepPieces } from "./keep-pieces.js";
 
 export interface ResolvedLocalTtsVoice extends CacheKeyParams {
@@ -58,6 +59,20 @@ function decodeMono(file: string, rate: number): Float32Array {
   const samples = new Float32Array(decoded.stdout.length / 4);
   for (let i = 0; i < samples.length; i++) samples[i] = decoded.stdout.readFloatLE(i * 4);
   return samples;
+}
+
+/** The pads breathing joins pieces with, or undefined when the voice sets no pause (one generation, no joins). */
+function breathingPads(resolved: ResolvedLocalTtsVoice): { sentencePad: number; commaPad: number; colonPad: number } | undefined {
+  if (resolved.sentencePauseSeconds === undefined && resolved.commaPauseSeconds === undefined
+    && resolved.colonPauseSeconds === undefined) return undefined;
+  return { sentencePad: resolved.sentencePauseSeconds ?? 0.55, commaPad: resolved.commaPauseSeconds ?? 0.22,
+    colonPad: resolved.colonPauseSeconds ?? DEFAULT_COLON_PAUSE_SECONDS };
+}
+
+/** Whether a take of `spokenText` is joined from breathing pieces, so it has joins to judge. */
+function hasJoins(spokenText: string, resolved: ResolvedLocalTtsVoice): boolean {
+  const pads = breathingPads(resolved);
+  return pads !== undefined && planBreathingPieces(spokenText, pads.sentencePad, pads.commaPad, pads.colonPad).length >= 2;
 }
 
 /** Render one resolved voice configuration without owning the caller's process. */
@@ -153,14 +168,9 @@ async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256
   let breathingNote = "";
   let breathingApplied = false;
   let piecesKept: number | undefined;
-  if (
-    resolved.sentencePauseSeconds !== undefined ||
-    resolved.commaPauseSeconds !== undefined ||
-    resolved.colonPauseSeconds !== undefined
-  ) {
-    const sentencePad = resolved.sentencePauseSeconds ?? 0.55;
-    const commaPad = resolved.commaPauseSeconds ?? 0.22;
-    const colonPad = resolved.colonPauseSeconds ?? DEFAULT_COLON_PAUSE_SECONDS;
+  const pads = breathingPads(resolved);
+  if (pads) {
+    const { sentencePad, commaPad, colonPad } = pads;
     const breath = await applyBreathingInPlace({
       output,
       sampleRate: args.sampleRate,
@@ -292,6 +302,24 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       key = result.cacheKey;
       let source: "cache" | "render" = result.kind === "cache-hit" ? "cache" : "render";
       if (source === "render") evidence.attempts++;
+      // A take frozen under older checks: re-made when it has joins (they can't be judged
+      // without its pieces), else re-judged whole below and recorded as current once kept.
+      let stampChecks = source === "render";
+      if (source === "cache") {
+        const recordedVersion = await readTakeChecksVersion(args.cacheDir, key, output);
+        if (recordedVersion === null || recordedVersion < TAKE_CHECKS_VERSION) {
+          const remake = hasJoins(await readFile(`${output}.spoken.txt`, "utf8"), args.resolved);
+          evidence.cachedChecks = { recordedVersion, currentVersion: TAKE_CHECKS_VERSION, action: remake ? "re-made" : "re-judged" };
+          if (remake) {
+            evidence.failures.push({ source, attempt: evidence.attempts,
+              reason: `checks-version:${JSON.stringify({ recorded: recordedVersion, current: TAKE_CHECKS_VERSION })}` });
+            await rm(pieces, { recursive: true, force: true });
+            refresh = false;
+            continue;
+          }
+          stampChecks = true;
+        }
+      }
       const pitch = (() => {
         try {
           return pitchRunaway(decodeMono(output, 8000), 8000, checks.pitchCeilingHz);
@@ -400,6 +428,8 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           await copyFile(output, tmp);
           await rename(tmp, cachePath);
         }
+        // Bind the record to our checked candidate even if another writer replaces the cache WAV.
+        if (cacheAccepted && stampChecks) await writeTakeChecksVersion(args.cacheDir, key, output);
         await rename(output, args.output);
         await writeFile(`${args.output}.spoken.txt`, await readFile(`${output}.spoken.txt`));
         if (args.keepPiecesDir && existsSync(pieces)) await rename(pieces, args.keepPiecesDir);
