@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { cutEnding, cutPieceEndings, firstWordOmitted, pitchRunaway, wordMismatches, type CutEndingResult, type WordCheckOptions, type RecognisedWord } from "./take-checks.js";
+import { cutEnding, cutPieceEndings, firstWordOmitted, pitchRunaway, wordMismatches, type CutEndingOptions, type CutEndingResult, type WordCheckOptions, type RecognisedWord } from "./take-checks.js";
 
 function parseWords(value: unknown): RecognisedWord[] {
   if (!Array.isArray(value)) throw new Error("words must be an array");
@@ -95,9 +95,9 @@ export type CutJoinsResult = {
  * Cut joins on kept pieces: each piece's own audio as joined (16 kHz), its offset and pause from `pieces.json`,
  * and the take's recognised words. The runner's take loop and `check-take --pieces` both judge joins here.
  */
-export function cutJoinsInKeptPieces(dir: string, kept: KeptPieces, words: readonly RecognisedWord[]): CutJoinsResult {
+export function cutJoinsInKeptPieces(dir: string, kept: KeptPieces, words: readonly RecognisedWord[], options: CutEndingOptions = {}): CutJoinsResult {
   const judged = cutPieceEndings(kept.pieces.map(p => ({ samples: decodeMono(path.join(dir, p.file), 16000),
-    startSeconds: p.offsetSeconds, spanSeconds: p.durationSeconds + p.pauseAfterSeconds })), 16000, words);
+    startSeconds: p.offsetSeconds, spanSeconds: p.durationSeconds + p.pauseAfterSeconds })), 16000, words, options);
   const round = (x: number) => Math.round(x * 1000) / 1000;
   const cuts = judged.flatMap(({ index, result }) => result.failed && result.reason ? [{ piece: index + 1,
     of: kept.pieces.length, text: kept.pieces[index]!.text, reason: result.reason, tailRelDb: result.tailRelDb,

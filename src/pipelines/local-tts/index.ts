@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
-import { pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
+import { CUT_ENDING_DEFAULTS, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
 import { cutJoinsInKeptPieces, cutTakeEnd, readKeptPieces } from "../../quality/check-take.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
 import { prepareWordCheckText, type SpeechChannels, type TermRule } from "../../text-normalize.js";
@@ -61,7 +61,7 @@ function decodeMono(file: string, rate: number): Float32Array {
 }
 
 /** Render one resolved voice configuration without owning the caller's process. */
-async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256: string, store = true): Promise<LocalTtsRenderResult> {
+async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256: string, store = true): Promise<LocalTtsRenderResult & { joinGainDb?: number }> {
   const { output, resolved, authToken, cacheDir, prepareSpeechChannels, keepPiecesDir } = args;
   if (args.refreshCache && !args.cache) throw new RunnerFailure("--refresh-cache cannot be combined with --no-cache");
   if (keepPiecesDir !== undefined) await assertKeepPiecesDir(keepPiecesDir);
@@ -212,12 +212,16 @@ async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256
   // the target regardless of the EQ — making body loudness consistent across every
   // segment. Unset target => behavior unchanged (skipped).
   let loudnessNote = "";
+  let joinGainDb = 0;
   if (resolved.loudnessTargetDb !== undefined) {
     const norm = await loudnessNormalizeInPlace(
       output,
       args.sampleRate,
       resolved.loudnessTargetDb,
     );
+    // alimiter's default level=true makes up its 0.95 ceiling (ffmpeg-args.ts).
+    // At the audibility floor it is linear; loud peak limiting cannot affect that floor.
+    if (norm.applied) joinGainDb = (norm.gainDb ?? 0) - 20 * Math.log10(0.95);
     loudnessNote = norm.applied
       ? ` loudness=${resolved.loudnessTargetDb}dB (measured ${norm.measuredDb?.toFixed(2)}dB, gain ${norm.gainDb?.toFixed(2)}dB)`
       : ` loudness=${resolved.loudnessTargetDb}dB (skipped: unmeasurable)`;
@@ -255,7 +259,7 @@ async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256
   await writeTakeCacheReceipt(output, cacheKey, { cacheEnabled: args.cache, refreshed: args.refreshCache === true, keptPieces });
   const piecesNote = keptPieces ? ` pieces=${keptPieces.count} kept in ${keptPieces.dir}` : "";
 
-  return { kind: "rendered", cacheKey, bytes: info.size, atempoNote, breathingNote, loudnessNote, cacheNote, piecesNote };
+  return { kind: "rendered", cacheKey, bytes: info.size, atempoNote, breathingNote, loudnessNote, cacheNote, piecesNote, joinGainDb };
 }
 
 /** Pitch is a gate; word mismatches rank bounded retries without freezing a rejected take. */
@@ -344,7 +348,8 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           ? { failed: false, piecesChecked: 0, cuts: [], note: "not judged: a cache hit keeps no pieces" }
           : await (async () => {
             try {
-              return cutJoinsInKeptPieces(pieces, await readKeptPieces(pieces), recognised);
+              return cutJoinsInKeptPieces(pieces, await readKeptPieces(pieces), recognised,
+                { minTailDbfs: CUT_ENDING_DEFAULTS.minTailDbfs - (result.joinGainDb ?? 0) });
             } catch {
               throw new TakeCheckError("cut-join check execution failed; no retry performed");
             }
