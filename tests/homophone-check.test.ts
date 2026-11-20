@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { wordMismatches } from "../src/quality/take-checks.js";
-import * as equivalence from "../src/quality/transcription-equivalence.js";
+import * as equivalence from "../src/text/transcription-equivalence.js";
 
 const words = (text: string) => text.split(" ").map((word, i) => ({ word, start: i, end: i + 1 }));
 const check = (sent: string, heard: string) => wordMismatches(sent, words(heard), { setting: "a" }).pass;

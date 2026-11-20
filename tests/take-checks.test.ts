@@ -217,3 +217,10 @@ test("word-check settings retain evidence for ignored substitutions", () => {
   expect(wordMismatches("a moon", recognised("moon"), { setting: "d" }).pass).toBe(false);
   expect(() => wordMismatches("a", recognised("a"), { setting: "b" })).toThrow("dictionary");
 });
+
+test("take check: a script '40%' / '$5' already matches the spoken form, and a wrong number does not", () => {
+  const heard = (text: string) => text.split(" ").map(word);
+  expect(wordMismatches("Growth was 40% this year.", heard("Growth was forty percent this year")).pass).toBe(true);
+  expect(wordMismatches("It costs $5 today.", heard("It costs five dollars today")).pass).toBe(true);
+  expect(wordMismatches("Growth was 40% this year.", heard("Growth was fifty percent this year")).pass).toBe(false);
+});

@@ -128,6 +128,9 @@ export const cases: MutationRow[] = [
   { kind: "conformance-case", name: "engine-plan-before-backend", file: "src/engine/session/session.ts", before: "for (const effect of result.effects) {", after: "for (const effect of [...result.effects].reverse()) {", binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-01" },
   // Clock deadline inclusivity is independent of the conformance command entry module.
   { kind: "conformance-case", name: "conformance-clock-deadline", file: "src/engine/conformance/clock.ts", before: "next[1].at > end", after: "next[1].at >= end", binding: "src/engine/conformance/engine-binding.ts", caseId: "CONF-02" },
+  { kind: "named-test", name: "stale-checks-served", file: "src/pipelines/local-tts/index.ts", before: "recordedVersion === null || recordedVersion < TAKE_CHECKS_VERSION", after: "false", testFile: "tests/runner-take-checks.test.ts", testName: "a take frozen before the checks version, with a join cut, is re-made instead of served unjudged" },
+  { kind: "named-test", name: "stale-checks-no-joins-remade", file: "src/pipelines/local-tts/index.ts", before: "const remake = hasJoins(", after: "const remake = true || hasJoins(", testFile: "tests/runner-take-checks.test.ts", testName: "a take frozen before the checks version without joins is re-judged on the hit and kept" },
+  { kind: "named-test", name: "stale-checks-older-is-current", file: "src/pipelines/local-tts/index.ts", before: "recordedVersion < TAKE_CHECKS_VERSION", after: "recordedVersion !== TAKE_CHECKS_VERSION", testFile: "tests/runner-take-checks.test.ts", testName: "a take frozen under the current or a newer checks version is a plain hit (recorded: 3)" },
 ];
 const literal = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
