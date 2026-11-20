@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile, rename, unlink } from "node:fs/promises";
+import path from "node:path";
 
 /**
  * Synth params that affect the OUTPUT bytes. The content-hash key is computed over
@@ -33,6 +34,42 @@ export interface CacheKeyParams {
  * `tests/compat/fixtures/take-cache-render-versions.json`.
  */
 export const LOCAL_TTS_RENDER_VERSION: number = 2;
+
+/**
+ * The version of the take checks a frozen take passed, kept apart from the render version
+ * because a checks change alters which takes are kept, not the audio for a key. Raise it
+ * when a check is added or made stricter. A checked take frozen under an older (or
+ * unrecorded) version is re-made on a hit when it has breathing joins, because joins can only
+ * be judged while the pieces exist; a take without joins is re-judged whole on the hit.
+ * 1: word, pitch and cut-ending checks (#151). 2: the cut-join check (#152).
+ * 3: fade measurements and opt-in fade rejection (#159); default fade verdicts are unchanged.
+ */
+export const TAKE_CHECKS_VERSION: number = 3;
+
+/** Read a checks version only when its digest matches the candidate bytes the caller copied. */
+export async function readTakeChecksVersion(cacheDir: string, cacheKey: string,
+  candidateWav = path.join(cacheDir, `${cacheKey}.wav`)): Promise<number | null> {
+  try {
+    const record: unknown = JSON.parse(await readFile(path.join(cacheDir, `${cacheKey}.checks.json`), "utf8"));
+    if (typeof record !== "object" || record === null || !("takeChecksVersion" in record) || !("wavSha256" in record)
+      || typeof record.takeChecksVersion !== "number" || !Number.isSafeInteger(record.takeChecksVersion)
+      || record.takeChecksVersion < 1 || typeof record.wavSha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.wavSha256)) return null;
+    const digest = createHash("sha256").update(await readFile(candidateWav)).digest("hex");
+    return digest === record.wavSha256 ? record.takeChecksVersion : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Stamp the exact checked candidate, after publishing the WAV; a replacement cannot inherit its checks. */
+export async function writeTakeChecksVersion(cacheDir: string, cacheKey: string,
+  candidateWav = path.join(cacheDir, `${cacheKey}.wav`)): Promise<void> {
+  const file = path.join(cacheDir, `${cacheKey}.checks.json`);
+  const temporaryPath = `${file}.tmp-${process.pid}`;
+  const wavSha256 = createHash("sha256").update(await readFile(candidateWav)).digest("hex");
+  await writeFile(temporaryPath, `${JSON.stringify({ takeChecksVersion: TAKE_CHECKS_VERSION, wavSha256 })}\n`, "utf8");
+  await rename(temporaryPath, file);
+}
 
 /** Hash reference bytes once at the start of a render; never fall back to its path. */
 export async function hashReferenceClip(referenceClip: string): Promise<string> {
@@ -176,6 +213,8 @@ export interface TakeCheckReceipt {
       tailRelDb: number | null; fadeDbPer10ms: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
     note?: "not judged: a cache hit keeps no pieces";
   };
+  /** Present only when a cache hit was frozen under older take checks, and what was done about it. */
+  cachedChecks?: { recordedVersion: number | null; currentVersion: number; action: "re-made" | "re-judged" };
   attempts: number;
   failures: { source: "cache" | "render"; attempt: number; reason: string }[];
   gaveUp: boolean;
