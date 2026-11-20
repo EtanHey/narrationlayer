@@ -276,7 +276,8 @@ export async function main() {
         ? new Set((await readFile(flagValue(args, "--word-dictionary") ?? "/usr/share/dict/words", "utf8")).split(/\r?\n/).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ""))) : undefined;
       const pieces = flagValue(args, "--pieces");
       if (args.includes("--pieces") && !pieces) throw new Error("--pieces requires a directory");
-      const verdict = await checkTake(payload, sent, words, voice, ceiling, { setting, commonWords }, pieces);
+      const verdict = await checkTake(payload, sent, words, voice, ceiling, { setting, commonWords }, pieces,
+        { rejectFades: hasFlag(args, "--reject-fades") });
       printJson(verdict);
       if (!verdict.cutJoins.judged) console.error(`check-take: ${verdict.cutJoins.note}`);
       if (!verdict.pass) process.exitCode = 1;

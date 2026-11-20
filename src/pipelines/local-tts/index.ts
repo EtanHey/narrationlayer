@@ -28,7 +28,7 @@ export interface ResolvedLocalTtsVoice extends CacheKeyParams {
 }
 
 export interface LocalTtsRenderOptions {
-  takeChecks?: { pitchCeilingHz: number; retries: number; wordCheckSetting?: WordCheckSetting; commonWords?: ReadonlySet<string> };
+  takeChecks?: { pitchCeilingHz: number; retries: number; rejectFades?: boolean; wordCheckSetting?: WordCheckSetting; commonWords?: ReadonlySet<string> };
   recogniseTake?: (wav: string) => Promise<readonly RecognisedWord[]>;
   text: string;
   output: string;
@@ -373,7 +373,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
         // Cut ending: the same take-end check `check-take` runs; a cut take is never kept as best.
         const cut = (() => {
           try {
-            return cutTakeEnd(output, recognised);
+            return cutTakeEnd(output, recognised, { rejectFades: checks.rejectFades ?? false });
           } catch {
             throw new TakeCheckError("cut-ending check execution failed; no retry performed");
           }
@@ -385,14 +385,14 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           : await (async () => {
             try {
               return cutJoinsInKeptPieces(pieces, await readKeptPieces(pieces), recognised,
-                { minTailDbfs: CUT_ENDING_DEFAULTS.minTailDbfs - (result.joinGainDb ?? 0) });
+                { minTailDbfs: CUT_ENDING_DEFAULTS.minTailDbfs - (result.joinGainDb ?? 0), rejectFades: checks.rejectFades ?? false });
             } catch {
               throw new TakeCheckError("cut-join check execution failed; no retry performed");
             }
           })();
         if (cut.failed) {
           wordFailed = false;
-          reason = `cut-ending:${JSON.stringify({ reason: cut.reason, tailRelDb: cut.tailRelDb,
+          reason = `cut-ending:${JSON.stringify({ reason: cut.reason, tailRelDb: cut.tailRelDb, fadeDbPer10ms: cut.fadeDbPer10ms,
             audioEndSeconds: cut.audioEndSeconds, lastWordEndSeconds: cut.lastWordEndSeconds })}`;
         } else if (evidence.cutJoins.failed) {
           wordFailed = false;

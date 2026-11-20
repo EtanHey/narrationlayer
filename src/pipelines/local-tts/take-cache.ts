@@ -9,7 +9,7 @@ import path from "node:path";
  * identical request reuses the frozen accepted take. Exported for tests.
  */
 export interface CacheKeyParams {
-  takeChecks?: { pitchCeilingHz: number; retries: number };
+  takeChecks?: { pitchCeilingHz: number; retries: number; rejectFades?: boolean };
   eqHighshelfHz?: number;
   eqHighshelfGainDb?: number;
   loudnessTargetDb?: number;
@@ -115,7 +115,8 @@ export function computeContentHashKey(input: {
     sentencePauseSeconds: p.sentencePauseSeconds,
     commaPauseSeconds: p.commaPauseSeconds,
     colonPauseSeconds: p.colonPauseSeconds,
-    ...(p.takeChecks ? { takeChecks: { pitchCeilingHz: p.takeChecks.pitchCeilingHz, retries: p.takeChecks.retries } } : {}),
+    ...(p.takeChecks ? { takeChecks: { pitchCeilingHz: p.takeChecks.pitchCeilingHz, retries: p.takeChecks.retries,
+      ...(p.takeChecks.rejectFades ? { rejectFades: true } : {}) } } : {}),
   };
   // JSON.stringify drops undefined values, so absent params don't perturb the key.
   const payload = JSON.stringify({
@@ -190,11 +191,14 @@ export interface TakeCheckReceipt {
     edits: { kind: string; sentIndex: number; recognisedIndex: number; start: number | null; end: number | null }[];
   };
   pitchNote?: "not judged: shorter than one window";
-  /** The kept take's cut-ending measure (tail level relative to its speech level, in dB). */
+  /** The kept take's cut-ending measures (tail level relative to its speech level, in dB; steepest fall at the end). */
   cutEnding?: {
     failed: boolean;
-    reason: "tail-at-speech-level" | "last-word-runs-to-end" | null;
+    reason: "tail-at-speech-level" | "last-word-runs-to-end" | "fade-from-speech-level" | null;
     tailRelDb: number | null;
+    fadeDbPer10ms: number | null;
+    fadePeakRelDb: number | null;
+    fadeDetected: boolean;
     audioEndSeconds: number;
     lastWordEndSeconds: number | null;
     note?: "not judged: too short or silent";
@@ -203,8 +207,9 @@ export interface TakeCheckReceipt {
   cutJoins?: {
     failed: boolean;
     piecesChecked: number;
-    cuts: { piece: number; of: number; text: string; reason: "tail-at-speech-level" | "last-word-runs-to-end";
-      tailRelDb: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
+    fadeMeasurements?: { piece: number; fadeDbPer10ms: number | null; fadePeakRelDb: number | null; detected: boolean }[];
+    cuts: { piece: number; of: number; text: string; reason: "tail-at-speech-level" | "last-word-runs-to-end" | "fade-from-speech-level";
+      tailRelDb: number | null; fadeDbPer10ms: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
     note?: "not judged: a cache hit keeps no pieces";
   };
   /** Present only when a cache hit was frozen under older take checks, and what was done about it. */

@@ -65,6 +65,10 @@ export type CutTakeEndResult = {
   failed: boolean;
   reason: CutEndingResult["reason"];
   tailRelDb: number | null;
+  /** Steepest 50 ms fall at the end of sound, dB per 10 ms (the fade rule's measure). */
+  fadeDbPer10ms: number | null;
+  fadePeakRelDb: number | null;
+  fadeDetected: boolean;
   audioEndSeconds: number;
   lastWordEndSeconds: number | null;
   note?: NonNullable<CutEndingResult["note"]>;
@@ -74,9 +78,10 @@ export type CutTakeEndResult = {
  * Cut take end: the finished take decoded at 16 kHz (fricative endings keep their energy) and its recognised
  * words, judged by `cutEnding`. The runner's take loop and `check-take` both judge the take's last word here.
  */
-export function cutTakeEnd(wav: string, words: readonly RecognisedWord[]): CutTakeEndResult {
-  const cut = cutEnding(decodeMono(wav, 16000), 16000, words);
-  return { failed: cut.failed, reason: cut.reason, tailRelDb: cut.tailRelDb,
+export function cutTakeEnd(wav: string, words: readonly RecognisedWord[], options: CutEndingOptions = {}): CutTakeEndResult {
+  const cut = cutEnding(decodeMono(wav, 16000), 16000, words, options);
+  return { failed: cut.failed, reason: cut.reason, tailRelDb: cut.tailRelDb, fadeDbPer10ms: cut.fadeDbPer10ms,
+    fadePeakRelDb: cut.fadePeakRelDb, fadeDetected: cut.fadeDetected,
     audioEndSeconds: Math.round(cut.audioEndSeconds * 1000) / 1000, lastWordEndSeconds: cut.lastWordEndSeconds,
     ...(cut.note ? { note: cut.note } : {}) };
 }
@@ -87,8 +92,9 @@ function positiveCount(value: unknown): value is number { return nonnegativeCoun
 export type CutJoinsResult = {
   failed: boolean;
   piecesChecked: number;
+  fadeMeasurements?: { piece: number; fadeDbPer10ms: number | null; fadePeakRelDb: number | null; detected: boolean }[];
   cuts: { piece: number; of: number; text: string; reason: NonNullable<CutEndingResult["reason"]>;
-    tailRelDb: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
+    tailRelDb: number | null; fadeDbPer10ms: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
 };
 
 /**
@@ -101,9 +107,11 @@ export function cutJoinsInKeptPieces(dir: string, kept: KeptPieces, words: reado
   const round = (x: number) => Math.round(x * 1000) / 1000;
   const cuts = judged.flatMap(({ index, result }) => result.failed && result.reason ? [{ piece: index + 1,
     of: kept.pieces.length, text: kept.pieces[index]!.text, reason: result.reason, tailRelDb: result.tailRelDb,
-    endSeconds: round(kept.pieces[index]!.offsetSeconds + result.audioEndSeconds),
+    fadeDbPer10ms: result.fadeDbPer10ms, endSeconds: round(kept.pieces[index]!.offsetSeconds + result.audioEndSeconds),
     lastWordEndSeconds: result.lastWordEndSeconds === null ? null : round(kept.pieces[index]!.offsetSeconds + result.lastWordEndSeconds) }] : []);
-  return { failed: cuts.length > 0, piecesChecked: judged.length, cuts };
+  const fadeMeasurements = judged.map(({ index, result }) => ({ piece: index + 1,
+    fadeDbPer10ms: result.fadeDbPer10ms, fadePeakRelDb: result.fadePeakRelDb, detected: result.fadeDetected }));
+  return { failed: cuts.length > 0, piecesChecked: judged.length, cuts, fadeMeasurements };
 }
 
 export const JOINS_NOT_JUDGED = "joins not judged: no --pieces directory (the runner's --keep-pieces output); piece boundaries are never re-split from silence";
@@ -112,7 +120,7 @@ export const JOINS_NOT_JUDGED = "joins not judged: no --pieces directory (the ru
 const PIECES_MATCH_SECONDS = 0.02;
 
 export async function checkTake(wav: string, sentFile: string, wordsFile: string, voice: string, ceilingHz: number,
-  wordOptions: WordCheckOptions = {}, piecesDir?: string) {
+  wordOptions: WordCheckOptions = {}, piecesDir?: string, cutOptions: CutEndingOptions = {}) {
   if (!voice.trim() || !Number.isFinite(ceilingHz) || ceilingHz <= 0) throw new Error("voice and positive pitch ceiling required");
   const sent = await readFile(sentFile, "utf8");
   const words = parseWords(JSON.parse(await readFile(wordsFile, "utf8")));
@@ -120,14 +128,14 @@ export async function checkTake(wav: string, sentFile: string, wordsFile: string
   const wordMatch = wordMismatches(sent, words, wordOptions);
   const samples = decodeMono(wav, 8000);
   const pitch = pitchRunaway(samples, 8000, ceilingHz);
-  const takeEnd = cutTakeEnd(wav, words);
+  const takeEnd = cutTakeEnd(wav, words, cutOptions);
   const cutJoins: CutJoinsResult & { judged: boolean; note?: string } = await (async () => {
     if (piecesDir === undefined) return { judged: false, failed: false, piecesChecked: 0, cuts: [], note: JOINS_NOT_JUDGED };
     const kept = await readKeptPieces(piecesDir);
     const piecesSeconds = kept.totalSamples / (kept.pieces[0]!.samples / kept.pieces[0]!.durationSeconds);
     if (Math.abs(piecesSeconds - samples.length / 8000) > PIECES_MATCH_SECONDS)
       throw new Error(`kept pieces do not match this take: ${piecesSeconds.toFixed(3)} s of pieces, ${(samples.length / 8000).toFixed(3)} s of take`);
-    return { judged: true, ...cutJoinsInKeptPieces(piecesDir, kept, words) };
+    return { judged: true, ...cutJoinsInKeptPieces(piecesDir, kept, words, cutOptions) };
   })();
   return { pass: wordMatch.pass && !firstWord.omitted && !pitch.failed && pitch.worstMedianHz !== null
     && !takeEnd.failed && !cutJoins.failed, voice, firstWord, wordMatch, pitch, cutEnding: takeEnd, cutJoins };
