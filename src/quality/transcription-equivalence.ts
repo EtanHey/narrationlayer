@@ -16,6 +16,26 @@ export function transcriptionSpelling(word: string): string {
   return SPELLINGS[word] ?? word;
 }
 
+// Exact homophones the recognizer wrote for a word said right, in takes on disk (P3.4 measure).
+// A pair is listed only if it failed a measured take whose other words were right; each word has
+// one pronunciation and it is the pair's. Left out on purpose: heteronyms (read/red, route/root),
+// number words (two/to: #149), written apostrophes (it's/its: #146), names, right/write and
+// grey/gray (#143 review rulings), and aloud/allowed ("aloud" said as "alod" is a marked slip).
+export const TRANSCRIPTION_HOMOPHONES: readonly (readonly string[])[] = [
+  ["cache", "cash"], ["queue", "cue"], ["queues", "cues"], ["queued", "cued"],
+  ["pane", "pain"], ["panes", "pains"], ["wait", "weight"], ["waits", "weights"],
+  ["brake", "break"], ["disk", "disc"], ["council", "counsel"], ["prose", "pros"],
+  ["miner", "minor"], ["dialogs", "dialogues"], ["hey", "hay"],
+];
+const HOMOPHONE_GROUP: ReadonlyMap<string, number> = new Map(
+  TRANSCRIPTION_HOMOPHONES.flatMap((group, index) => group.map(word => [word, index] as const)));
+
+/** True when two normalized single words are different spellings of one listed sound. */
+export function transcriptionHomophones(a: string, b: string): boolean {
+  const group = HOMOPHONE_GROUP.get(a);
+  return group !== undefined && group === HOMOPHONE_GROUP.get(b);
+}
+
 // Preserve units and signs before punctuation folding; only explicit numeric aliases may consume them.
 export const TRANSCRIPTION_TOKEN = /\$|%|[+-]\d+(?:,\d{3})*(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:st|nd|rd|th)?|[a-z0-9]+(?:['’.-][a-z0-9]+)*/gi;
 const SMALL = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split(" ");
@@ -106,6 +126,9 @@ function numberKey(input: readonly string[]): string | null {
     unit = suffix;
     tokens = tokens.slice(0, -1);
   }
+  // A unit with no number ("dollars", "percent", "$") is not the number zero (red team, 18 Nov); it keeps
+  // a unit-only key so "$" still matches a spoken "dollar" in the word check (red team round 2).
+  if (!tokens.length) return unit ? `unit:${unit}` : null;
   const point = tokens.indexOf("point");
   // Decimal identity is textual: 18.10 is distinct from 18.1 (versions and dropped zeros).
   if (tokens.length === 1 && /^(?:\d+|\d{1,3}(?:,\d{3})+)\.\d+$/.test(tokens[0])) {
