@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 // Synthetic audio only: a 180 Hz tone with seeded noise stands in for one generation's speech.
 // Each case writes a take plus a `--keep-pieces`-shaped directory (piece WAVs + pieces.json).
@@ -67,6 +67,32 @@ test("check-take --pieces fails a take whose first piece is cut at its join", ()
   expect(run.verdict.wordMatch.pass).toBe(true);
   expect(run.verdict.cutJoins).toMatchObject({ judged: true, failed: true, piecesChecked: 1,
     cuts: [{ piece: 1, of: 2, text: "Hello", reason: "tail-at-speech-level" }] });
+});
+
+test("malformed kept-piece metadata exits 2 instead of allowing NaN to skip the match", () => {
+  const cut = take("metadata-cut", ["cut", "decay"], ["Hello", "moon"]);
+  const other = take("metadata-other", ["cut"], ["Hello"]);
+  const file = `${other}/pieces/pieces.json`;
+  const original = JSON.parse(readFileSync(file, "utf8"));
+  for (const [field, value] of [["samples", undefined], ["samples", 0], ["durationSeconds", 0],
+    ["durationSeconds", 1e300], ["offsetSeconds", -1], ["pauseAfterSeconds", null],
+    ["offsetSamples", 1], ["pauseAfterSamples", -1], ["file", null], ["text", null]]) {
+    const changed = structuredClone(original);
+    changed.pieces[0][field as string] = value;
+    writeFileSync(file, JSON.stringify(changed));
+    expect(checkTake(cut, `${other}/pieces`).exitCode).toBe(2);
+  }
+  const clean = take("metadata-clean", ["decay", "decay"], ["Hello", "moon"]);
+  const manifest = `${clean}/pieces/pieces.json`;
+  const valid = JSON.parse(readFileSync(manifest, "utf8"));
+  for (const mutate of [(x: typeof valid) => x.totalSamples++,
+    (x: typeof valid) => x.pieces[1].offsetSeconds += 0.1,
+    (x: typeof valid) => x.pieces[1].durationSeconds += 0.1]) {
+    const changed = structuredClone(valid);
+    mutate(changed);
+    writeFileSync(manifest, JSON.stringify(changed));
+    expect(checkTake(clean).exitCode).toBe(2);
+  }
 });
 
 test("a clean pieced take and a one-piece take still pass", () => {
