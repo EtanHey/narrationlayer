@@ -122,8 +122,10 @@ and the JSON's `cutEnding` has the receipt's fields.
 The same check, with the same thresholds, runs on the end of every breathing piece except
 the last (`cutPieceEndings`): each piece is its own generation, so it is measured on its own
 audio as joined, against its own speech level, with the recognised words whose start falls
-in that piece and its pause. A cut piece fails the take through the same retry loop; the
-receipt's `takeChecks.cutJoins` lists each cut piece (number, text, measure, tail level, end
+in that piece and its pause. The runner adjusts the absolute audibility floor by the
+applied output gain, so a quiet piece boosted by loudness normalization is judged at its
+published level; the relative thresholds stay unchanged. A cut piece fails the take through
+the same retry loop; the receipt's `takeChecks.cutJoins` lists each cut piece (number, text, measure, tail level, end
 time). A cache hit renders no pieces, so its joins are recorded as not judged.
 
 `check-take --pieces <dir>` runs the same join check on a finished take, with the same code

@@ -7,13 +7,14 @@ import { hashReferenceClip, computeContentHashKey } from "../src/pipelines/local
 
 // A finished take decays into a little silence over its last 0.15 s; a cut one stops at full level;
 // a faded one falls from full level at 10 dB per 10 ms for 50 ms, then is silent.
-function tone(hz: number, seconds = 1, ending: "decay" | "cut" | "fade" = "decay") {
+function tone(hz: number, seconds = 1, ending: "decay" | "cut" | "fade" = "decay", amplitude = 4000) {
   const count = Math.round(24000 * seconds), fade = count - 3600, quiet = count - 720;
   const pcm = Buffer.alloc(count * 2);
   for (let i = 0; i < count; i++) {
     const gain = ending === "cut" || i < fade ? 1 : ending === "fade" ? (i < fade + 1200 ? 10 ** (-(i - fade) / 240 / 2) : 0)
       : i < quiet ? Math.exp(-(i - fade) / 360) : 0;
-    pcm.writeInt16LE(Math.round(4000 * gain * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
+    pcm.writeInt16LE(Math.round(amplitude * gain * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
+
   }
   const h = Buffer.alloc(44);
   h.write("RIFF"); h.writeUInt32LE(36 + pcm.length, 4); h.write("WAVEfmt ", 8);
@@ -355,8 +356,28 @@ test("takes that are always cut give up and publish nothing", async () => {
   } finally { await f.close(); }
 });
 
+test("quiet join boosted to the published level is rejected", async () => {
+  const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
+    const body: unknown = await req.json();
+    const cut = typeof body === "object" && body !== null && "text" in body && body.text === "Hello moon.";
+    return Response.json({ audio_b64: tone(180, 1, cut ? "cut" : "decay", 160).toString("base64") });
+  } });
+  f.args.resolved = { ...f.args.resolved, daemonUrl: `http://127.0.0.1:${server.port}`,
+    sentencePauseSeconds: 0.3, loudnessTargetDb: -20 };
+  f.args.takeChecks!.retries = 0;
+  f.args.recogniseTake = async () => [{ word: "Hello", start: 0, end: 0.3 }, { word: "moon.", start: 0.3, end: 0.6 },
+    { word: "Hello", start: 1.3, end: 1.6 }, { word: "sun.", start: 1.6, end: 1.9 }];
+  try {
+    await expect(renderLocalTts(f.args)).rejects.toThrow("cut-join:");
+    expect(await Bun.file(f.args.output).exists()).toBe(false);
+    expect(await readdir(f.args.cacheDir)).toEqual([]);
+  } finally { server.stop(true); await f.close(); }
+});
+
 for (const [ending, cutTakes] of [["cut", 1], ["cut", Infinity], ["fade", 1]] as const) {
   test(`a breathing piece ${ending === "cut" ? "cut" : "faded out"} at its join fails the take (cut takes: ${cutTakes})`, async () => {
+
     const f = await fixture(0, 1, false, "Hello moon. Hello sun.");
     let cutRequests = 0;
     // Only the first piece is ever cut; the take's own ending (the last piece) always decays.
