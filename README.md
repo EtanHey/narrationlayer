@@ -98,6 +98,19 @@ with its expected path when missing; they do not use the general model fallback
 or `NARRATIONLAYER_WHISPER_MODEL`. Audio bytes,
 pauses and the render version are unchanged.
 
+After recognition, every `--take-checks` attempt also checks for a cut ending
+(`cutEnding` in `src/quality/take-checks.ts`): the take stopped while its last word was
+still sounding. The take is decoded at 16 kHz; the audio end is the first sample of any
+trailing digital silence. The check measures the 25 ms window that ends 10 ms before the
+audio end against the take's speech level (the mean of the 20 ms frames within 25 dB of
+the loudest). The take fails when that window is 8 dB or less under speech level, or 12 dB
+or less when the last recognised word also ends within 20 ms of the audio end. A window
+quieter than -45 dBFS never fails. Recognised timing alone never fails a take, because the
+recogniser also stretches clean last words to the end. A cut take uses the bounded retry
+loop like a pitch failure and is never kept as the best word-mismatch take. The receipt's
+`takeChecks.cutEnding` records the kept take's tail level. Only the end of the take is
+checked, not the joins between breathing pieces. `check-take` does not run this check.
+
 `check-take --word-check-setting a|b|c|d` selects alternatives: (b) additionally
 ignores jargon substitutions with character edit distance / maximum length <= 0.5;
 (c) also ignores common-word substitutions unless both tokens have 4+ letters or

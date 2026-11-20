@@ -195,7 +195,7 @@ Required:
                            OR a direct path to a reference .wav clip.
 
 Options:
-  --take-checks              Check pitch and rank word matches on cached and fresh takes.
+  --take-checks              Check pitch and cut endings, and rank word matches, on cached and fresh takes.
   --pitch-ceiling <hz>        Required voice ceiling with --take-checks.
   --take-retries <count>      Retries after the first render (default 2; range 0..10).
   --word-check-setting <a|b|c|d>  Word tolerance (default a); kept-best fallback after retries.

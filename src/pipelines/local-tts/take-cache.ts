@@ -154,6 +154,15 @@ export interface TakeCheckReceipt {
     edits: { kind: string; sentIndex: number; recognisedIndex: number; start: number | null; end: number | null }[];
   };
   pitchNote?: "not judged: shorter than one window";
+  /** The kept take's cut-ending measure (tail level relative to its speech level, in dB). */
+  cutEnding?: {
+    failed: boolean;
+    reason: "tail-at-speech-level" | "last-word-runs-to-end" | null;
+    tailRelDb: number | null;
+    audioEndSeconds: number;
+    lastWordEndSeconds: number | null;
+    note?: "not judged: too short or silent";
+  };
   attempts: number;
   failures: { source: "cache" | "render"; attempt: number; reason: string }[];
   gaveUp: boolean;
