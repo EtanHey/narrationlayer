@@ -108,8 +108,16 @@ or less when the last recognised word also ends within 20 ms of the audio end. A
 quieter than -45 dBFS never fails. Recognised timing alone never fails a take, because the
 recogniser also stretches clean last words to the end. A cut take uses the bounded retry
 loop like a pitch failure and is never kept as the best word-mismatch take. The receipt's
-`takeChecks.cutEnding` records the kept take's tail level. Only the end of the take is
-checked, not the joins between breathing pieces. `check-take` does not run this check.
+`takeChecks.cutEnding` records the kept take's tail level. `check-take` does not run this check.
+
+The same check, with the same thresholds, runs on the end of every breathing piece except
+the last (`cutPieceEndings`): each piece is its own generation, so it is measured on its own
+audio as joined, against its own speech level, with the recognised words whose start falls
+in that piece and its pause. The runner adjusts the absolute audibility floor by the
+applied output gain, so a quiet piece boosted by loudness normalization is judged at its
+published level; the relative thresholds stay unchanged. A cut piece fails the take through
+the same retry loop; the receipt's `takeChecks.cutJoins` lists each cut piece (number, text, measure, tail level, end
+time). A cache hit renders no pieces, so its joins are recorded as not judged.
 
 `check-take --word-check-setting a|b|c|d` selects alternatives: (b) additionally
 ignores jargon substitutions with character edit distance / maximum length <= 0.5;

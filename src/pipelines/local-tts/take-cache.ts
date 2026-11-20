@@ -163,6 +163,14 @@ export interface TakeCheckReceipt {
     lastWordEndSeconds: number | null;
     note?: "not judged: too short or silent";
   };
+  /** The kept take's breathing-piece ends before the last, each measured like `cutEnding`; cut pieces are listed. */
+  cutJoins?: {
+    failed: boolean;
+    piecesChecked: number;
+    cuts: { piece: number; of: number; text: string; reason: "tail-at-speech-level" | "last-word-runs-to-end";
+      tailRelDb: number | null; endSeconds: number; lastWordEndSeconds: number | null }[];
+    note?: "not judged: a cache hit keeps no pieces";
+  };
   attempts: number;
   failures: { source: "cache" | "render"; attempt: number; reason: string }[];
   gaveUp: boolean;
