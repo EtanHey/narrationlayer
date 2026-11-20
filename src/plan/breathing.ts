@@ -2,6 +2,77 @@
 export const DEFAULT_COLON_PAUSE_SECONDS = 0.35;
 
 /**
+ * Longest piece, in words, any path sends as one generation. The Qwen3-TTS clone path
+ * stops long generations at about 10 s, often mid-word; 24 words is about 7 s of speech.
+ * Not scaled to the reference length: a 5.2 s reference ran 20-word takes to 5.6-7.0 s,
+ * past its own length, with every word kept.
+ */
+export const MAX_BREATHING_PIECE_WORDS = 24;
+/**
+ * Silence after a piece cut by `splitLongPieces` when the profile pads no commas. Measured on
+ * whole-sentence clone takes: the model's own pause at a comma has a median of 0.226 s, and
+ * the two pieces either side of a cut already carry a median 0.091 s of edge silence.
+ */
+export const DEFAULT_SPLIT_PAUSE_SECONDS = 0.14;
+/** Fewest words either side of a split made by `splitLongPieces`. */
+const MIN_SPLIT_SIDE_WORDS = 5;
+const SENTENCE_END = /[.?!]["'”’)\]}»]*$/;
+const CLAUSE_END = /[,;:—–]$/;
+
+/** The pause after a split piece: the profile's comma pause when it has one, else the default. */
+export function splitPauseSeconds(commaPauseSeconds: number | undefined): number {
+  return commaPauseSeconds !== undefined && commaPauseSeconds > 0 ? commaPauseSeconds : DEFAULT_SPLIT_PAUSE_SECONDS;
+}
+
+const CONJUNCTION = new Set(["and", "but", "or", "so", "because", "while", "which", "when", "where", "though", "although", "then"]);
+
+/**
+ * Split every piece longer than `maxWords` words into pieces of at most `maxWords` words,
+ * so no single generation runs into the model's length wall. Each cut is the one nearest
+ * the middle that leaves at least five words on each side, preferring, in order: after a
+ * sentence end (. ? !), after a clause mark (, ; : or a dash), before a conjunction, then any
+ * word gap. Pieces made by a
+ * split are followed by `pauseSeconds`; the last keeps the original piece's pause.
+ */
+export function splitLongPieces(
+  pieces: ReadonlyArray<{ text: string; padAfterSeconds: number }>,
+  pauseSeconds: number,
+  maxWords = MAX_BREATHING_PIECE_WORDS,
+): Array<{ text: string; padAfterSeconds: number }> {
+  if (!Number.isInteger(maxWords) || maxWords < 2 * MIN_SPLIT_SIDE_WORDS)
+    throw new RangeError(`maxWords must be an integer of at least ${2 * MIN_SPLIT_SIDE_WORDS}`);
+  return pieces.flatMap((piece) => {
+    const words = [...piece.text.matchAll(/\S+/g)].map((m) => ({ word: m[0], start: m.index, end: m.index + m[0].length }));
+    if (words.length <= maxWords) return [{ ...piece }];
+    // Each part is a slice of the original text, so whitespace inside a part is kept.
+    const parts = splitWords(words, maxWords);
+    return parts.map((part, i) => ({
+      text: piece.text.slice(part[0]!.start, part.at(-1)!.end),
+      padAfterSeconds: i === parts.length - 1 ? piece.padAfterSeconds : pauseSeconds,
+    }));
+  });
+}
+
+type Word = { word: string; start: number; end: number };
+
+function splitWords(words: Word[], maxWords: number): Word[][] {
+  if (words.length <= maxWords) return [words];
+  // `cut` is the number of words kept on the left.
+  // A breathing piece never holds a sentence end (the planner cuts there first), so rank 0
+  // only matters for a whole segment that no planner has cut.
+  const rank = (cut: number) =>
+    SENTENCE_END.test(words[cut - 1]!.word) ? 0
+      : CLAUSE_END.test(words[cut - 1]!.word) ? 1 : CONJUNCTION.has(words[cut]!.word.toLowerCase()) ? 2 : 3;
+  let best = 0;
+  for (let cut = MIN_SPLIT_SIDE_WORDS; cut <= words.length - MIN_SPLIT_SIDE_WORDS; cut += 1) {
+    if (best === 0) { best = cut; continue; }
+    const better = rank(cut) - rank(best) || Math.abs(2 * cut - words.length) - Math.abs(2 * best - words.length);
+    if (better < 0) best = cut;
+  }
+  return [...splitWords(words.slice(0, best), maxWords), ...splitWords(words.slice(best), maxWords)];
+}
+
+/**
  * Split normalized speech text into pieces on sentence-ending punctuation (. ? !)
  * and long pauses (em-dash / semicolon / colon), tagging each piece with the pause
  * (seconds) that should FOLLOW it. Sentence-enders => sentencePad; comma/clause

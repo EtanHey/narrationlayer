@@ -15,6 +15,32 @@
             "reference_wav": "$FIXTURE/reference.wav",
             "reference_text": "Synthetic reference."
           }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m;",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "version version one point two runs three times faster.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
         }
       ],
       "spoken": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m; version version one point two runs three times faster.",
@@ -23,11 +49,11 @@
         "referenceAudioSha256": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
         "referenceText": "Synthetic reference.",
         "params": {},
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "0d7934ed8a91cb194cc49df14d7d5b6ff427894a2c80823b8e4ec9db77497ed9",
+        "cacheKey": "069100869f7a7efd796249f28d22208f683f42002814af1e19a4e3b05a1912fb",
         "cacheEnabled": true
       },
       "pieces": [
@@ -78,7 +104,8 @@
           "body": {
             "text": "pull request one thousand two hundred twenty-five improves forty-two percent at nine oh five a m",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -91,7 +118,8 @@
           "body": {
             "text": "version version one point two runs three times faster.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         }
       ],
@@ -110,11 +138,11 @@
           "atempo": 1,
           "commaPauseSeconds": 0.22
         },
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "620870eca848dd60c1016c9a408133cefde32c636adc3cf81eb2d93f364556bf",
+        "cacheKey": "ea5852e3b79ee20cf9465ae13038a81bb0a06bff8e45a718a027215109aa34a3",
         "cacheEnabled": true
       },
       "pieces": [
@@ -153,6 +181,32 @@
             "reference_wav": "$FIXTURE/reference.wav",
             "reference_text": "Synthetic reference."
           }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
         }
       ],
       "spoken": "Release checklist\n- Ready.\n- Check the logs.\n- Confirm every public interface.\n- Review all changes before the release.\n- Publish the final report after each independent check has completed successfully.",
@@ -161,11 +215,11 @@
         "referenceAudioSha256": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
         "referenceText": "Synthetic reference.",
         "params": {},
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "2f697a7bf109c26bb3c6eeb3538b0de85ffb7b036e4569ab71ea0531e9239b5d",
+        "cacheKey": "18f1317ed279bff8d784f5d4ca44f07c36b7b2906fe2f566df26d898ce0b2f48",
         "cacheEnabled": true
       },
       "pieces": [
@@ -228,7 +282,8 @@
           "body": {
             "text": "Release checklist\n- Ready.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -241,7 +296,8 @@
           "body": {
             "text": "- Check the logs.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -254,7 +310,8 @@
           "body": {
             "text": "- Confirm every public interface.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -267,7 +324,8 @@
           "body": {
             "text": "- Review all changes before the release.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -280,7 +338,8 @@
           "body": {
             "text": "- Publish the final report after each independent check has completed successfully.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         }
       ],
@@ -299,11 +358,11 @@
           "atempo": 1,
           "commaPauseSeconds": 0.22
         },
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "e05d7f42d06756465ad3f0c6edc6082383954b9e74078bbbab17e7be9f406536",
+        "cacheKey": "2cc9768f1d497fc42aa20f3b17df7ccc25d805b4943bf67b9d32d38e7ce75033",
         "cacheEnabled": true
       },
       "pieces": [
@@ -354,6 +413,45 @@
             "reference_wav": "$FIXTURE/reference.wav",
             "reference_text": "Synthetic reference."
           }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary:",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "every reader can follow the sequence (including the parenthetical detail),",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
+        },
+        {
+          "method": "POST",
+          "url": "$DAEMON/synthesize",
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer synthetic-token"
+          },
+          "body": {
+            "text": "while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
+            "reference_wav": "$FIXTURE/reference.wav",
+            "reference_text": "Synthetic reference."
+          }
         }
       ],
       "spoken": "The public example explains a deliberately long paragraph, with enough words to cross the planning boundary: every reader can follow the sequence (including the parenthetical detail), while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
@@ -362,11 +460,11 @@
         "referenceAudioSha256": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
         "referenceText": "Synthetic reference.",
         "params": {},
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "3572d29d47225ec2fe09985dcd93d656d8ec99f1f8d49e1cfd2f44c8171ab33f",
+        "cacheKey": "b3e7afe8c7d1a3ae243ea3f54424d70aee8321eec588153ef234154ed62d5972",
         "cacheEnabled": true
       },
       "pieces": [
@@ -425,7 +523,8 @@
           "body": {
             "text": "The public example explains a deliberately long paragraph",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -438,7 +537,8 @@
           "body": {
             "text": "with enough words to cross the planning boundary",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -451,7 +551,8 @@
           "body": {
             "text": "every reader can follow the sequence (including the parenthetical detail)",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -464,7 +565,8 @@
           "body": {
             "text": "while each synthetic sentence remains independent of private source materials and each additional clause exercises the established punctuation policy.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         }
       ],
@@ -483,11 +585,11 @@
           "atempo": 1,
           "commaPauseSeconds": 0.22
         },
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "a5b841128104261d6aab4c3cfa9114f3c1735c28d88b9f404db04eb6ec57b45e",
+        "cacheKey": "3977746e452ef4600713ad3ae7ab38c284eb2eb3d94c3122e7684c58e8acb947",
         "cacheEnabled": true
       },
       "pieces": [
@@ -542,11 +644,11 @@
         "referenceAudioSha256": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
         "referenceText": "Synthetic reference.",
         "params": {},
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "5365e73be9a89d82bd75fd6573e0399477eff088bff049252f8d7a3cdd5797dc",
+        "cacheKey": "ab29a3cc765b649e215c2b9ec6f6b046597167db642ac27e61c15a4785fb4a9f",
         "cacheEnabled": true
       },
       "pieces": [
@@ -617,7 +719,8 @@
           "body": {
             "text": "Hello",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -630,7 +733,8 @@
           "body": {
             "text": "reader",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -643,7 +747,8 @@
           "body": {
             "text": "wait",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -656,7 +761,8 @@
           "body": {
             "text": "go",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -669,7 +775,8 @@
           "body": {
             "text": "now!",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -682,7 +789,8 @@
           "body": {
             "text": "Really?",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -695,7 +803,8 @@
           "body": {
             "text": "Yes (certainly).",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         }
       ],
@@ -714,11 +823,11 @@
           "atempo": 1,
           "commaPauseSeconds": 0.22
         },
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "c9af8940d6f4c255442507365446900b6ff64e148d4abe7eb3f8aaaa634c4073",
+        "cacheKey": "868530d36ee78400f6a63177fb37e5fdadcd409f3a668342d8eefd6df9c8a4b8",
         "cacheEnabled": true
       },
       "pieces": [
@@ -785,11 +894,11 @@
         "referenceAudioSha256": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
         "referenceText": "Synthetic reference.",
         "params": {},
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "8ac7d2ff6052a75cf1bb50ead112ecbda777f93b539337c7db7dcbdfaa6599fc",
+        "cacheKey": "420a2b21bca96133e8c8e140d650f16bdc7954a3643d2bf99bead72416a028f3",
         "cacheEnabled": true
       },
       "pieces": [
@@ -842,11 +951,11 @@
           "atempo": 1,
           "commaPauseSeconds": 0.22
         },
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "6851bb2e22a8e1e2227454bbd53ba15a219884763003742383e5500e8547e06a",
+        "cacheKey": "21223965b696660f823d9b0cf0bfdccad06a12f6ef998066a6338688ef4900e2",
         "cacheEnabled": true
       },
       "pieces": [
@@ -882,6 +991,71 @@
         "pcm_s16le",
         "$FIXTURE/out.wav"
       ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-0.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.14",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-1.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-1.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        "$FIXTURE/out.wav.breath.concat.txt",
+        "-c",
+        "copy",
+        "$FIXTURE/out.wav.breath.out.wav"
+      ],
+      "concat": "file '$FIXTURE/out.wav.breath-0.wav'\nfile '$FIXTURE/out.wav.sil-0.wav'\nfile '$FIXTURE/out.wav.breath-1.wav'"
     },
     {
       "tool": "ffmpeg",
@@ -1048,6 +1222,71 @@
         "pcm_s16le",
         "$FIXTURE/out.wav"
       ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-0.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.14",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-1.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-1.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        "$FIXTURE/out.wav.breath.concat.txt",
+        "-c",
+        "copy",
+        "$FIXTURE/out.wav.breath.out.wav"
+      ],
+      "concat": "file '$FIXTURE/out.wav.breath-0.wav'\nfile '$FIXTURE/out.wav.sil-0.wav'\nfile '$FIXTURE/out.wav.breath-1.wav'"
     },
     {
       "tool": "ffmpeg",
@@ -1373,6 +1612,105 @@
         "pcm_s16le",
         "$FIXTURE/out.wav"
       ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-0.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.14",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-0.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-1.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-1.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t",
+        "0.14",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.sil-1.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-i",
+        "$FIXTURE/out.wav.breath-2.raw",
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-c:a",
+        "pcm_s16le",
+        "$FIXTURE/out.wav.breath-2.wav"
+      ]
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        "$FIXTURE/out.wav.breath.concat.txt",
+        "-c",
+        "copy",
+        "$FIXTURE/out.wav.breath.out.wav"
+      ],
+      "concat": "file '$FIXTURE/out.wav.breath-0.wav'\nfile '$FIXTURE/out.wav.sil-0.wav'\nfile '$FIXTURE/out.wav.breath-1.wav'\nfile '$FIXTURE/out.wav.sil-1.wav'\nfile '$FIXTURE/out.wav.breath-2.wav'"
     },
     {
       "tool": "ffmpeg",

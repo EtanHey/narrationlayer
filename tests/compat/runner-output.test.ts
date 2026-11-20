@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { splitForBreathing } from "../../src/plan/breathing.js";
+import { splitForBreathing, splitLongPieces, splitPauseSeconds } from "../../src/plan/breathing.js";
 import { normalizeForSpeech } from "../../src/text-normalize.js";
 import corpus from "./fixtures/corpus.json";
 import { compatProfile, defaultsCases, type DefaultsRender, defaultsProfile, defaultsText, fixture, golden, measureWav, runner, runnerArgs, stderrClass, wrappers } from "./harness.js";
@@ -31,7 +31,9 @@ type Measure = Awaited<ReturnType<typeof measureWav>> & { run: string };
  */
 function implied(run: Run, stubSamples: number) {
   const breathing = run.sentence !== undefined || run.comma !== undefined;
-  const pieces = breathing ? splitForBreathing(normalizeForSpeech(run.text), run.sentence ?? 0.55, run.comma ?? 0.22) : [];
+  const spoken = normalizeForSpeech(run.text);
+  const planned = breathing ? splitForBreathing(spoken, run.sentence ?? 0.55, run.comma ?? 0.22) : [{ text: spoken.trim(), padAfterSeconds: 0 }];
+  const pieces = splitLongPieces(planned, splitPauseSeconds(breathing ? run.comma ?? 0.22 : undefined));
   const assembled = pieces.length >= 2;
   const segments = assembled ? pieces.length : 1;
   const pads = assembled ? pieces.slice(0, -1).map(piece => piece.padAfterSeconds).filter(pad => pad > 0).map(pad => Math.round(pad * SAMPLE_RATE)) : [];

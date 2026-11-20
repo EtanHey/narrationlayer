@@ -1,12 +1,12 @@
 {
-  "sha256": "b95ab54a9ac5126ceaec63e61abf9c4d3eae2082cd174630564c13c5f6c3fd76",
+  "sha256": "39c66c9053787f9bd4f6c776e568d32b8380ea7c81568ea9f4c3deddab5cb534",
   "files": {
     "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
     "src/api/index.d.ts": "2a693788db68ccce82f6df8e320e234ac7e1af97e4080354a98e74ffb90812f5",
     "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
     "src/core/render-types.d.ts": "1c84ddb3185ca0968b125829ecc3088963d1198330d2570fe5757c09cd9c5e60",
     "src/pipelines/local-tts/take-cache.d.ts": "4da16f2f97a7f499ababeac47b6afb51714f9e7d0b6421df24ce17e47681ec37",
-    "src/plan/breathing.d.ts": "4a802c3e7c6277dcb73935854024b0d39f27b5d79ef9cb6d078c6332aceda89c",
+    "src/plan/breathing.d.ts": "6bab548964a24303e16a18b772c6c0c7437c905e740a24a249c47d9330a1a34e",
     "src/plan/index.d.ts": "63e7034174142b2227221aaba9d655a1f5d27d81836bc1cc5e7744d6e66a6dea",
     "src/plan/utterances.d.ts": "14f6b4ad810911a23fb7e26665c90541004e954958936a5b8469adb2941693c8",
     "src/profiles.d.ts": "e796d269216e1197deec9d0c04fee297433a34042ec4fc660cccd1df3d48c872",

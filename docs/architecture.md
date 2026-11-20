@@ -114,7 +114,7 @@ one is passed, and renders each segment with the job's renderer. For
 
 1. spoken text: `normalizeForSpeech` (`src/text-normalize.ts`)
 2. config: auth token, reference clip and text (`src/pipelines/job-render/config.ts`)
-3. plan: `utterancesV1`, adapted to the legacy utterance shape (`src/plan/`)
+3. plan: `utterancesV1`, then `splitLongPieces` (no utterance over 24 words; see the breathing paragraph below), adapted to the legacy utterance shape (`src/plan/`)
 4. per utterance, inside a retry loop of up to `max_chunk_retries` extra attempts: synthesis with `synthesizeText` (`src/pipelines/job-render/synthesis.ts`, which builds the `/synthesize` URL and the request body, with the LoRA fields) over `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`); silence trim (or `audio_postprocessor`) when `trim_silence` is true; high-shelf EQ when configured (`src/audio.ts`); then the duration guard `assertGeneratedChunkDuration`, whose runaway-chunk error starts the next attempt
 5. assembly with silence pads (or `audio_assembler`) when there is more than one utterance or a pause; the spoken text is written to `<audio>.spoken.txt`
 6. duration: the segment's authored `duration_seconds` when set, else `probeAudioDurationSeconds` (or `audio_duration_probe`), else the sum of the daemon-reported durations and pauses, else 0
@@ -131,6 +131,23 @@ breathing is enabled; its defaults are 0.35 s for colons, 0.22 s for commas and
 and URLs stay intact. A zero colon pause disables colon splitting. The final
 piece always has zero trailing pause. The job planner's punctuation policy is
 unchanged.
+
+Retained runner pieces and job utterances contain at most 24 words
+(`MAX_BREATHING_PIECE_WORDS`, `splitLongPieces` in `src/plan/breathing.ts`).
+The runner still sends the whole take first, without this bound, then discards
+that audio when it assembles replacement pieces. The
+Qwen3-TTS clone path rushes a long generation and can stop it at about 10 s
+(126 frames for a 10.000 s reference), cutting its last word. The limit is not
+scaled to the reference length: a 5.2 s reference ran 20-word takes to 5.6-7.0 s,
+past its own length, with every word kept. A longer piece is split at the cut nearest its middle that
+leaves five words on each side. A cut after `. ? !` comes first, then after
+`, ; :` or a dash, then before a conjunction, then any gap between words. The
+profile's comma pause goes between the parts, or 0.14 s
+(`DEFAULT_SPLIT_PAUSE_SECONDS`) when the profile pads no commas.
+`splitForBreathing`, `breathingV1` and `utterancesV1` keep their output; the
+runner applies the split after the breathing plan, or to the whole text when the
+profile has no pauses, and the job path applies it after `utterancesV1`, whatever
+the pause strategy.
 
 Runner path: `bin/local-tts-runner.ts` (`main`, public as `runLocalTtsCli`)
 resolves argv, profiles and auth, then calls `renderLocalTts`
@@ -151,7 +168,7 @@ must not call it in its own process; it runs it in a child process.
 4. cache: `computeContentHashKey`; when caching is on (the default; `--no-cache` turns it off), `--refresh-cache` is not given, and the key's WAV exists, copy it, write `.spoken.txt` and the receipt, stop (with `--keep-pieces` the receipt says no pieces were rendered)
 5. synthesis of the whole text: `synthesize` (`src/pipelines/local-tts/synthesis.ts`) builds the `/synthesize` URL and the request body and calls `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`)
 6. ffmpeg to mono s16 WAV with optional high-shelf EQ (`src/audio/ffmpeg-run.ts`, argv from `src/audio/ffmpeg-args.ts`)
-7. breathing (`src/pipelines/local-tts/breathing.ts`), when the profile sets a sentence or comma pause: `breathingV1` (`src/plan/`); with two or more pieces, each piece is synthesized again, converted, tempo-adjusted when `atempo` is set, and concatenated with PCM silence pads
+7. breathing (`src/pipelines/local-tts/breathing.ts`): when the profile sets a sentence, comma or colon pause, `breathingV1` (`src/plan/`), then `splitLongPieces`; otherwise `splitLongPieces` on the whole text; with two or more pieces, each piece is synthesized again, converted, tempo-adjusted when `atempo` is set, and concatenated with PCM silence pads
 8. tempo (`atempo`) when breathing did not assemble; with `--keep-pieces <dir>`, each piece as it went into the join (or the whole take, as one piece, when it was not cut) is copied to `<dir>` with `pieces.json` (`src/pipelines/local-tts/keep-pieces.ts`)
 9. loudness normalization (`src/pipelines/local-tts/loudness.ts`) when a target is set
 10. `.spoken.txt` written; when caching is on, the take is copied into the cache (temp file and rename), and a failed copy is logged, not an error, except under `--refresh-cache`, where it fails the run and the old entry stays; then the receipt is written (`cacheRefreshed` under `--refresh-cache`, `keptPieces` under `--keep-pieces`). Neither switch is in the cache key or changes the audio

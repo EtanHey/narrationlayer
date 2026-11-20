@@ -49,6 +49,26 @@ async function fixture(failures: number, seconds = 1, vary = false, text = "Hell
 }
 const receipt = async (output: string) => JSON.parse(await readFile(`${output}.cache.json`, "utf8"));
 
+test("stale cached long no-pause takes are re-made to judge their split joins", async () => {
+  const text = Array(35).fill("hello").join(" ");
+  const f = await fixture(0, 1, false, text);
+  let requests = 0;
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch() {
+    requests++;
+    return Response.json({ audio_b64: tone(180).toString("base64") });
+  } });
+  f.args.resolved.daemonUrl = `http://127.0.0.1:${server.port}`;
+  f.args.recogniseTake = async () => text.split(" ").map((word, i) => ({ word, start: i * .01, end: (i + 1) * .01 }));
+  try {
+    const key = await frozenKey(f);
+    await writeFile(path.join(f.args.cacheDir, `${key}.wav`), tone(180));
+    expect((await renderLocalTts(f.args)).kind).toBe("rendered");
+    expect(requests).toBe(3);
+    expect((await receipt(f.args.output)).takeChecks.cachedChecks).toMatchObject({ action: "re-made" });
+    expect((await receipt(f.args.output)).takeChecks.cutJoins.piecesChecked).toBe(1);
+  } finally { server.stop(true); await f.close(); }
+});
+
 for (const wrongHintedWord of [false, true]) {
   test(`hinted take expects display spelling; wrong hinted word=${wrongHintedWord}`, async () => {
     const f = await fixture(0, 1, false, "We live{say:liv} here.");

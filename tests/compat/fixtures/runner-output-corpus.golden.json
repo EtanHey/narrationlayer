@@ -8,8 +8,8 @@
         "sampleRate": 24000,
         "bitsPerSample": 16
       },
-      "samples": 4800,
-      "rmsDb": -21.3
+      "samples": 12960,
+      "rmsDb": -22.6
     },
     {
       "run": "corpus[0] profile",
@@ -30,8 +30,8 @@
         "sampleRate": 24000,
         "bitsPerSample": 16
       },
-      "samples": 4800,
-      "rmsDb": -21.3
+      "samples": 12960,
+      "rmsDb": -22.6
     },
     {
       "run": "corpus[1] profile",
@@ -52,8 +52,8 @@
         "sampleRate": 24000,
         "bitsPerSample": 16
       },
-      "samples": 4800,
-      "rmsDb": -21.3
+      "samples": 21120,
+      "rmsDb": -22.9
     },
     {
       "run": "corpus[2] profile",

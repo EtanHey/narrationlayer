@@ -33,7 +33,7 @@ export interface CacheKeyParams {
  * history lives in
  * `tests/compat/fixtures/take-cache-render-versions.json`.
  */
-export const LOCAL_TTS_RENDER_VERSION: number = 2;
+export const LOCAL_TTS_RENDER_VERSION: number = 5;
 
 /**
  * The version of the take checks a frozen take passed, kept apart from the render version

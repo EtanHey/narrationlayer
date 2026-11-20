@@ -26,7 +26,8 @@
           "body": {
             "text": "First clause",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -39,7 +40,8 @@
           "body": {
             "text": "second clause.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -52,7 +54,8 @@
           "body": {
             "text": "Last sentence.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         }
       ],
@@ -68,11 +71,11 @@
           "atempo": 1,
           "commaPauseSeconds": 0.17
         },
-        "renderVersion": 2
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "74c419fcadd0b2d2ed31285d71b12d546acc02b47c232a2b5f5ebde95e7ffdd3",
+        "cacheKey": "912221edf51a065c06f1ba6f4fd2db2d1c3e96584543b4f16fc1cf2bd1ffbfc5",
         "cacheEnabled": true
       },
       "pieces": [
