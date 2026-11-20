@@ -8,6 +8,11 @@ import { synthesize } from "./synthesis.js";
 import { RunnerFailure } from "./failure.js";
 import type { JoinedPiece } from "./keep-pieces.js";
 
+/** The pieces breathing cuts `spokenText` into; fewer than 2 means the take has no joins. */
+export function planBreathingPieces(spokenText: string, sentencePad: number, commaPad: number, colonPad?: number) {
+  return splitLongPieces(toBreathingPieces(breathingV1(spokenText, sentencePad, commaPad, colonPad)), commaPad);
+}
+
 /**
  * BREATHING stage: re-synthesize the whole-segment text as discrete sentence/clause
  * pieces, mono-s16 each, then concat them interleaved with PCM silence pads so the
@@ -33,14 +38,7 @@ export async function applyBreathingInPlace(opts: {
   /** Called after the join succeeds, while each piece's joined audio still exists. */
   onJoined?: (pieces: JoinedPiece[]) => Promise<void>;
 }): Promise<{ applied: boolean; pieces: number }> {
-  // A piece over MAX_BREATHING_PIECE_WORDS is split at a clause, so no generation reaches
-  // the model's ~10 s wall; the split pieces pause like a comma.
-  const pieces = splitLongPieces(toBreathingPieces(breathingV1(
-    opts.spokenText,
-    opts.sentencePad,
-    opts.commaPad,
-    opts.colonPad,
-  )), opts.commaPad);
+  const pieces = planBreathingPieces(opts.spokenText, opts.sentencePad, opts.commaPad, opts.colonPad);
   // Nothing to interleave: 0 or 1 piece => leave the whole-segment WAV untouched.
   if (pieces.length < 2) {
     return { applied: false, pieces: pieces.length };
