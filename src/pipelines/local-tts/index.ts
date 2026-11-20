@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { runWhisperCliWordTimings } from "../../word-timings.js";
-import { pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
+import { cutEnding, pitchRunaway, wordMismatches, type RecognisedWord, type WordCheckSetting } from "../../quality/take-checks.js";
 import type { TakeCheckReceipt } from "./take-cache.js";
 import { prepareWordCheckText, type SpeechChannels, type TermRule } from "../../text-normalize.js";
 import { ffmpegToMonoS16Wav, ffmpegAtempo } from "../../audio/ffmpeg-run.js";
@@ -266,7 +266,8 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
   let key = "";
   const wordAttempts: { source: "cache" | "render"; attempt: number; editCount: number | null }[] = [];
   let best: { count: number; result: LocalTtsRenderResult; source: "cache" | "render";
-    wordMatch: NonNullable<TakeCheckReceipt["wordMatch"]>; pitchNote: TakeCheckReceipt["pitchNote"] } | undefined;
+    wordMatch: NonNullable<TakeCheckReceipt["wordMatch"]>; pitchNote: TakeCheckReceipt["pitchNote"];
+    cutEnding: TakeCheckReceipt["cutEnding"] } | undefined;
   try {
     for (;;) {
       // The existing synthesis path sends a fresh request; the backend supplies variance (no seed API).
@@ -293,6 +294,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
       let reason = tooShort ? undefined : pitch.worstMedianHz === null ? "pitch-unmeasurable" : pitch.failed ? "pitch-over-ceiling" : undefined;
       const pitchFailed = reason !== undefined;
       let wordFailed = false;
+      let recognised: readonly RecognisedWord[] = [];
       if (!reason) {
         try {
           const spoken = await readFile(`${output}.spoken.txt`, "utf8");
@@ -307,6 +309,7 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           if (!args.recogniseTake && !existsSync(modelPath)) throw new Error(`take checks require model: ${modelPath}`);
           const words = args.recogniseTake ? await args.recogniseTake(output)
             : (await runWhisperCliWordTimings(output, { output_directory: stage, whisper_model: modelPath })).words;
+          recognised = words;
           const wordMatch = wordMismatches(expected, words,
             { setting: checks.wordCheckSetting, commonWords: checks.commonWords });
           wordAttempts.push({ source, attempt: evidence.attempts, editCount: wordMatch.edits.length });
@@ -320,12 +323,34 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
           const detail = error instanceof Error ? error.message : "unknown recognition error";
           throw new TakeCheckError(`word check execution failed; no retry performed: ${detail}`);
         }
-      }
+        // Cut ending: decoded at 16 kHz so fricative endings keep their energy; a cut take is never kept as best.
+        const cut = (() => {
+          try {
+            const decoded = spawnSync("ffmpeg", ["-v", "error", "-nostdin", "-i", output,
+              "-ar", "16000", "-ac", "1", "-f", "f32le", "pipe:1"], { maxBuffer: 256 * 1024 * 1024 });
+            if (decoded.error || decoded.status !== 0 || !decoded.stdout.length) throw new Error("decode failed");
+            const samples = new Float32Array(decoded.stdout.length / 4);
+            for (let i = 0; i < samples.length; i++) samples[i] = decoded.stdout.readFloatLE(i * 4);
+            return cutEnding(samples, 16000, recognised);
+          } catch {
+            throw new TakeCheckError("cut-ending check execution failed; no retry performed");
+          }
+        })();
+        const cutEvidence: NonNullable<TakeCheckReceipt["cutEnding"]> = { failed: cut.failed, reason: cut.reason,
+          tailRelDb: cut.tailRelDb, audioEndSeconds: Math.round(cut.audioEndSeconds * 1000) / 1000,
+          lastWordEndSeconds: cut.lastWordEndSeconds, ...(cut.note ? { note: cut.note } : {}) };
+        evidence.cutEnding = cutEvidence;
+        if (cut.failed) {
+          wordFailed = false;
+          reason = `cut-ending:${JSON.stringify({ reason: cut.reason, tailRelDb: cut.tailRelDb,
+            audioEndSeconds: cutEvidence.audioEndSeconds, lastWordEndSeconds: cut.lastWordEndSeconds })}`;
+        }
+      } else delete evidence.cutEnding;
       if (pitchFailed) wordAttempts.push({ source, attempt: evidence.attempts, editCount: null });
       if (reason) evidence.failures.push({ source, attempt: evidence.attempts, reason });
       if (wordFailed && evidence.wordMatch && (!best || evidence.wordMatch.edits.length < best.count)) {
         best = { count: evidence.wordMatch.edits.length, result, source,
-          wordMatch: evidence.wordMatch, pitchNote: evidence.pitchNote };
+          wordMatch: evidence.wordMatch, pitchNote: evidence.pitchNote, cutEnding: evidence.cutEnding };
         await copyFile(output, path.join(stage, "best.wav"));
         await copyFile(`${output}.spoken.txt`, path.join(stage, "best.spoken.txt"));
         if (pieces) {
@@ -344,6 +369,8 @@ export async function renderLocalTts(args: LocalTtsRenderOptions): Promise<Local
         evidence.wordMatch = { ...best.wordMatch, keptBest: true, attempts: wordAttempts };
         if (best.pitchNote) evidence.pitchNote = best.pitchNote;
         else delete evidence.pitchNote;
+        if (best.cutEnding) evidence.cutEnding = best.cutEnding;
+        else delete evidence.cutEnding;
         reason = undefined;
       }
       if (!reason) {

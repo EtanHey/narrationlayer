@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 
 import type { WordTiming } from "../src/schema.js";
 import { normalizeWordTimingsForScript } from "../src/word-timing-repair.js";
+import { transcriptionNumberKeys } from "../src/text/transcription-equivalence.js";
 
 // Rule under test: a spoken number and its written form match as one block. The script words of
 // that block share the recognised span, split in proportion to their letters and digits (the same
@@ -20,6 +21,22 @@ function heard(words: Array<[string, number, number, number?]>): WordTiming[] {
 function spans(words: WordTiming[]): Array<[string, number, number]> {
   return words.map((word) => [word.word, word.start, word.end]);
 }
+
+test("unit-only keys cannot supply a missing zero while number repair keeps the raw span", () => {
+  expect(transcriptionNumberKeys(["dollars"])).toEqual(["unit:dollar"]);
+  expect(transcriptionNumberKeys(["percent"])).toEqual(["unit:percent"]);
+  expect(transcriptionNumberKeys(["zero", "dollars"])).not.toContain("unit:dollar");
+  const result = normalizeWordTimingsForScript(
+    "We spent four hundred dollars today.",
+    heard([["We", 0.1, 0.3], ["spent", 0.3, 0.8], ["$400", 1, 1.9], ["today.", 2.1, 2.5]]),
+    2.7,
+  );
+  expect(spans(result.words)).toEqual([
+    ["We", 0.1, 0.3], ["spent", 0.3, 0.8],
+    ["four", 1, 1.2], ["hundred", 1.2, 1.55], ["dollars", 1.55, 1.9],
+    ["today.", 2.1, 2.5],
+  ]);
+});
 
 // M1 evidence: revendor-proof-m1/job/segments/number/words.raw.json (w131 diagnosis).
 const M1_RAW = heard([

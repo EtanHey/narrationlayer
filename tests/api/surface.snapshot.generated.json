@@ -1,11 +1,11 @@
 {
-  "sha256": "2c411cb76be9cfa0f01ec7b90dd35da34fa5f53ba9b5b8dd51d5fb7e65f0f076",
+  "sha256": "4438143fb999e60d51fa36a22a3c0726cbe70c8e5abcd4d22096267c7e18924e",
   "files": {
     "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
     "src/api/index.d.ts": "2a693788db68ccce82f6df8e320e234ac7e1af97e4080354a98e74ffb90812f5",
     "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
     "src/core/render-types.d.ts": "1c84ddb3185ca0968b125829ecc3088963d1198330d2570fe5757c09cd9c5e60",
-    "src/pipelines/local-tts/take-cache.d.ts": "dcd5931a4db900f244fc2af172cb59f0998c8b98f8742d39e1f000bc84903ab3",
+    "src/pipelines/local-tts/take-cache.d.ts": "d552ae932e6798076515da91704837746843a6b2b4afe8506d7f40c1e4d3a4c7",
     "src/plan/breathing.d.ts": "4a802c3e7c6277dcb73935854024b0d39f27b5d79ef9cb6d078c6332aceda89c",
     "src/plan/index.d.ts": "63e7034174142b2227221aaba9d655a1f5d27d81836bc1cc5e7744d6e66a6dea",
     "src/plan/utterances.d.ts": "14f6b4ad810911a23fb7e26665c90541004e954958936a5b8469adb2941693c8",
@@ -184,7 +184,7 @@
     },
     "TakeCheckReceipt": {
       "kind": "type",
-      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface TakeCheckReceipt {\n    wordMatch?: {\n        keptBest?: boolean;\n        model: string;\n        note?: \"not judged: no Latin-script words\";\n        attempts: {\n            source: \"cache\" | \"render\";\n            attempt: number;\n            editCount: number | null;\n        }[];\n        pass: boolean;\n        setting: string;\n        edits: {\n            kind: string;\n            sentIndex: number;\n            recognisedIndex: number;\n            start: number | null;\n            end: number | null;\n        }[];\n    };\n    pitchNote?: \"not judged: shorter than one window\";\n    attempts: number;\n    failures: {\n        source: \"cache\" | \"render\";\n        attempt: number;\n        reason: string;\n    }[];\n    gaveUp: boolean;\n}"
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface TakeCheckReceipt {\n    wordMatch?: {\n        keptBest?: boolean;\n        model: string;\n        note?: \"not judged: no Latin-script words\";\n        attempts: {\n            source: \"cache\" | \"render\";\n            attempt: number;\n            editCount: number | null;\n        }[];\n        pass: boolean;\n        setting: string;\n        edits: {\n            kind: string;\n            sentIndex: number;\n            recognisedIndex: number;\n            start: number | null;\n            end: number | null;\n        }[];\n    };\n    pitchNote?: \"not judged: shorter than one window\";\n    /** The kept take's cut-ending measure (tail level relative to its speech level, in dB). */\n    cutEnding?: {\n        failed: boolean;\n        reason: \"tail-at-speech-level\" | \"last-word-runs-to-end\" | null;\n        tailRelDb: number | null;\n        audioEndSeconds: number;\n        lastWordEndSeconds: number | null;\n        note?: \"not judged: too short or silent\";\n    };\n    attempts: number;\n    failures: {\n        source: \"cache\" | \"render\";\n        attempt: number;\n        reason: string;\n    }[];\n    gaveUp: boolean;\n}"
     },
     "TeleprompterPayload": {
       "kind": "type",

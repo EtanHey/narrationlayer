@@ -5,10 +5,14 @@ import { renderLocalTts, type LocalTtsRenderOptions } from "../src/pipelines/loc
 import { normalizeForSpeech, prepareSpeechChannels } from "../src/text-normalize.js";
 import { hashReferenceClip, computeContentHashKey } from "../src/pipelines/local-tts/take-cache.js";
 
-function tone(hz: number, seconds = 1) {
-  const count = Math.round(24000 * seconds);
+// A finished take decays into a little silence over its last 0.15 s; a cut one stops at full level.
+function tone(hz: number, seconds = 1, ending: "decay" | "cut" = "decay") {
+  const count = Math.round(24000 * seconds), fade = count - 3600, quiet = count - 720;
   const pcm = Buffer.alloc(count * 2);
-  for (let i = 0; i < count; i++) pcm.writeInt16LE(Math.round(4000 * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
+  for (let i = 0; i < count; i++) {
+    const gain = ending === "cut" || i < fade ? 1 : i < quiet ? Math.exp(-(i - fade) / 360) : 0;
+    pcm.writeInt16LE(Math.round(4000 * gain * Math.sin(i * 2 * Math.PI * hz / 24000)), i * 2);
+  }
   const h = Buffer.alloc(44);
   h.write("RIFF"); h.writeUInt32LE(36 + pcm.length, 4); h.write("WAVEfmt ", 8);
   h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
@@ -16,7 +20,7 @@ function tone(hz: number, seconds = 1) {
   h.write("data", 36); h.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([h, pcm]);
 }
-async function fixture(failures: number, seconds = 1, vary = false, text = "Hello moon.") {
+async function fixture(failures: number, seconds = 1, vary = false, text = "Hello moon.", cuts = 0) {
   await mkdir("docs.local/w92-tests", { recursive: true });
   const dir = path.resolve(await mkdtemp("docs.local/w92-tests/case-"));
   let calls = 0;
@@ -28,7 +32,8 @@ async function fixture(failures: number, seconds = 1, vary = false, text = "Hell
     calls++;
     // No failing take may have reached the cache before a subsequent request.
     expect(await readdir(cacheDir)).toEqual([]);
-    return Response.json({ audio_b64: tone(calls <= failures ? 400 : vary ? 180 + calls : 180, seconds).toString("base64") });
+    return Response.json({ audio_b64: tone(calls <= failures ? 400 : vary ? 180 + calls : 180, seconds,
+      calls <= cuts ? "cut" : "decay").toString("base64") });
   } });
   await writeFile(path.join(dir, "reference.wav"), tone(180));
   const args: LocalTtsRenderOptions = { text, output: path.join(dir, "out.wav"),
@@ -321,4 +326,55 @@ test("reference hash is reused within retries and read afresh for the next run",
     await renderLocalTts(f.args);
     expect((await receipt(f.args.output)).cacheKey).not.toBe(first);
   } finally { await f.close(); }
+});
+
+test("a take cut mid-sound is re-made; the kept take records its decayed ending", async () => {
+  const f = await fixture(0, 1, false, "Hello moon.", 2);
+  try {
+    await renderLocalTts(f.args);
+    expect(f.calls()).toBe(3);
+    const r = await receipt(f.args.output);
+    expect(r.takeChecks.failures.map((x: { attempt: number }) => x.attempt)).toEqual([1, 2]);
+    for (const failure of r.takeChecks.failures) expect(failure.reason).toStartWith('cut-ending:{"reason":"tail-at-speech-level"');
+    expect(r.takeChecks.cutEnding).toMatchObject({ failed: false, reason: null, lastWordEndSeconds: 0.6 });
+    expect(r.takeChecks.cutEnding.tailRelDb).toBeLessThan(-30);
+    expect(r.takeChecks.wordMatch.pass).toBe(true);
+    expect(await readFile(path.join(f.args.cacheDir, `${r.cacheKey}.wav`))).toEqual(await readFile(f.args.output));
+  } finally { await f.close(); }
+});
+
+test("takes that are always cut give up and publish nothing", async () => {
+  const f = await fixture(0, 1, false, "Hello moon.", Infinity);
+  try {
+    await expect(renderLocalTts(f.args)).rejects.toThrow("gave up");
+    expect(f.calls()).toBe(3);
+    expect(await Bun.file(f.args.output).exists()).toBe(false);
+    expect(await readdir(f.args.cacheDir)).toEqual([]);
+  } finally { await f.close(); }
+});
+
+test("a cut take is never kept as the best word-mismatch take, even with fewer edits", async () => {
+  const f = await fixture(0, 1, true, "Hello moon.", 0);
+  const takes: Buffer<ArrayBuffer>[] = [];
+  // The second take is cut and has the fewest edits; the first decayed take must be kept.
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch() {
+    const n = takes.length + 1;
+    return Response.json({ audio_b64: tone(180 + n, 1, n === 2 ? "cut" : "decay").toString("base64") });
+  } });
+  f.args.resolved.daemonUrl = `http://127.0.0.1:${server.port}`;
+  f.args.recogniseTake = async wav => {
+    takes.push(await readFile(wav));
+    return takes.length === 2 ? [{ word: "Hello", start: 0, end: 0.3 }, { word: "sun", start: 0.3, end: 0.6 }]
+      : [{ word: "Goodbye", start: 0, end: 0.3 }, { word: "sun", start: 0.3, end: 0.6 }];
+  };
+  try {
+    await renderLocalTts(f.args);
+    expect(takes).toHaveLength(3);
+    expect(await readFile(f.args.output)).toEqual(takes[0]);
+    const r = await receipt(f.args.output);
+    expect(r.takeChecks.wordMatch).toMatchObject({ keptBest: true, pass: false });
+    expect(r.takeChecks.failures[1].reason).toStartWith("cut-ending:");
+    expect(r.takeChecks.cutEnding).toMatchObject({ failed: false, reason: null });
+    expect(await readdir(f.args.cacheDir)).toEqual([]);
+  } finally { server.stop(true); await f.close(); }
 });

@@ -1,4 +1,4 @@
-import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, isTranscriptionSymbol, transcriptionNumbers, transcriptionSpelling } from "../text/transcription-equivalence.js";
+import { TRANSCRIPTION_TOKEN, isTranscriptionNumberSpan, isTranscriptionSymbol, transcriptionHomophones, transcriptionNumbers, transcriptionSpelling } from "../text/transcription-equivalence.js";
 
 export type RecognisedWord = { word: string; start: number; end: number };
 
@@ -7,23 +7,11 @@ function normalize(word: string): string {
   return word.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-const NUMBER_WORDS: Record<string, number> = {
-  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
-  seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
-  thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
-  eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40,
-  fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
-};
-
-function numberValue(tokens: readonly string[]): number | null {
-  if (tokens.length === 1 && /^\d+$/.test(tokens[0])) return Number(tokens[0]);
-  let value = 0;
-  for (const token of tokens) {
-    const n = NUMBER_WORDS[token];
-    if (n === undefined) return null;
-    value += n;
-  }
-  return tokens.length ? value : null;
+// Number keys (the word check's own equivalence) of spans starting at the first `starts` tokens.
+function openingNumberKeys(tokens: readonly string[], starts: number): Set<string> {
+  const index = transcriptionNumbers(tokens.slice(0, starts + 12));
+  // A unit-only key ("dollars") never stands in for a clipped opening number.
+  return new Set(index.slice(0, starts).flatMap(spans => [...spans.keys()]).filter(key => !key.startsWith("unit:")));
 }
 
 export function firstWordOmitted(sent: string, recognised: readonly RecognisedWord[]) {
@@ -37,16 +25,16 @@ export function firstWordOmitted(sent: string, recognised: readonly RecognisedWo
   let found = false;
   for (let start = 0; start < opening.length; start++) {
     for (let end = start + 1; end <= opening.length; end++) {
-      const candidate = opening.slice(start, end);
-      if (candidate.join("") === first) found = true;
-      const n = numberValue(candidate);
-      if (n !== null) {
-        for (let length = 1; length <= Math.min(3, sentTokens.length); length++) {
-          if (numberValue(sentTokens.slice(0, length)) === n) found = true;
-        }
-      }
+      if (opening.slice(start, end).join("") === first) found = true;
     }
   }
+  // An opening number may be heard in its other form ("Forty percent" / "40%", "$400" / "four hundred
+  // dollars"); it counts only when a span starting in the first three heard words has the same value.
+  const sentWords = sent.match(TRANSCRIPTION_TOKEN) ?? [];
+  const sentKeys = openingNumberKeys(sentWords, sentWords[0] === "$" ? 2 : 1);
+  const heardWords = recognised.map(({ word }) => word.match(TRANSCRIPTION_TOKEN) ?? []).filter(parts => parts.length);
+  const heardStarts = heardWords.slice(0, 3).flat().length;
+  for (const key of openingNumberKeys(heardWords.flat(), heardStarts)) if (sentKeys.has(key)) found = true;
   return { omitted: !found, recognisedCount: recognised.length };
 }
 
@@ -161,6 +149,8 @@ export function wordMismatches(sent: string, recognised: readonly RecognisedWord
             const rightSpans = canonicalSpans(right);
             equivalent = canonicalSpans(left).some(span => rightSpans.includes(span));
           }
+          // A listed homophone matches one word for one word, never inside a joined compound.
+          if (!equivalent && tolerant && !numeric && a === 1 && b === 1) equivalent = transcriptionHomophones(l, r);
           const match = (equivalent && (!numeric || left.join(" ").toLowerCase() === right.join(" ").toLowerCase()))
             || (tolerant && a === 1 && b === 1 && !/[0-9]/.test(left[0] + right[0])
               && ![left[0], right[0]].some(w => /['’]/.test(w) && normalize(w) in CONTRACTIONS || numberWord(w))
@@ -250,4 +240,93 @@ export function pitchRunaway(samples: Float32Array, sampleRate: number, ceilingH
   const overCeiling = windows.filter((w) => w.medianHz !== null && w.medianHz > ceilingHz);
   const voiced = windows.flatMap((w) => w.medianHz === null ? [] : [w.medianHz]);
   return { failed: overCeiling.length > 0, ceilingHz, worstMedianHz: voiced.length ? Math.max(...voiced) : null, windows, overCeiling };
+}
+
+export type CutEndingOptions = {
+  /** Ignored stretch just before the audio end (decoder or codec fade). */
+  guardSeconds?: number;
+  /** Length of the measured tail window. */
+  windowSeconds?: number;
+  /** Tail level, relative to the take's speech level, at or above which the ending is cut. */
+  maxTailRelDb?: number;
+  /** Lower tail bar used when the last recognised word also runs to the audio end. */
+  timedTailRelDb?: number;
+  /** A tail quieter than this (dBFS) is never judged cut, whatever its relative level. */
+  minTailDbfs?: number;
+  /** The last word "runs to the end" when it ends at or after the audio end minus this. */
+  wordEndMarginSeconds?: number;
+};
+
+// Calibrated 18 Nov 2026 at 16 kHz on clean takes (all at or below -15.1 dB) against heard cut
+// endings (-6.9 dB and above); real pages show a gap between -7.5 and -8.7 dB. The recogniser's
+// last-word end reaches the audio end on about one clean take in five, so timing only lowers the bar.
+export const CUT_ENDING_DEFAULTS: Required<CutEndingOptions> = {
+  guardSeconds: 0.01,
+  windowSeconds: 0.025,
+  maxTailRelDb: -8,
+  timedTailRelDb: -12,
+  minTailDbfs: -45,
+  wordEndMarginSeconds: 0.02,
+};
+
+export type CutEndingResult = {
+  failed: boolean;
+  reason: "tail-at-speech-level" | "last-word-runs-to-end" | null;
+  note: "not judged: too short or silent" | null;
+  durationSeconds: number;
+  audioEndSeconds: number;
+  lastWordEndSeconds: number | null;
+  speechDbfs: number | null;
+  tailDbfs: number | null;
+  tailRelDb: number | null;
+  thresholds: Required<CutEndingOptions>;
+};
+
+const SUB_LSB = 1.5 / 32768;
+const meanSquareDb = (power: number) => power > 0 ? 10 * Math.log10(power) : -Infinity;
+
+/**
+ * Cut ending: the take stops while the last word is still sounding. A finished take decays into its
+ * own quiet tail; a cut one is still at speech level in its final window. Two ways to fail:
+ * the final window is within `maxTailRelDb` of the take's speech level (acoustic), or the last
+ * recognised word runs to the audio end and the final window is within `timedTailRelDb` (timing).
+ * Recognised timings alone never fail a take: the recogniser also stretches clean last words to the end.
+ */
+export function cutEnding(samples: Float32Array, sampleRate: number, words: readonly RecognisedWord[] = [],
+  options: CutEndingOptions = {}): CutEndingResult {
+  if (!Number.isFinite(sampleRate) || sampleRate < 2000) throw new Error("invalid sample rate");
+  const t = { ...CUT_ENDING_DEFAULTS, ...options };
+  for (const value of Object.values(t)) if (!Number.isFinite(value)) throw new Error("invalid cut-ending option");
+  const durationSeconds = samples.length / sampleRate;
+  // The audio end is the first sample of the trailing sub-LSB run: digital zeros after a cut hide nothing.
+  let end = samples.length;
+  while (end > 0 && Math.abs(samples[end - 1]) <= SUB_LSB) end--;
+  for (let i = 0; i < end; i++) if (!Number.isFinite(samples[i])) throw new Error("nonfinite audio sample");
+  const frame = Math.max(1, Math.round(sampleRate * 0.02));
+  const powers: number[] = [];
+  for (let i = 0; i + frame <= end; i += frame) {
+    let sum = 0;
+    for (let j = i; j < i + frame; j++) sum += samples[j] * samples[j];
+    powers.push(sum / frame);
+  }
+  const loudest = powers.length ? Math.max(...powers) : 0;
+  const active = powers.filter(p => p > 0 && p >= loudest * 10 ** (-25 / 10));
+  const speechDbfs = active.length ? meanSquareDb(active.reduce((a, p) => a + p, 0) / active.length) : -Infinity;
+  const to = end - Math.round(sampleRate * t.guardSeconds), from = to - Math.round(sampleRate * t.windowSeconds);
+  const audioEndSeconds = end / sampleRate;
+  const last = words.length ? words[words.length - 1] : undefined;
+  const lastWordEndSeconds = last ? last.end : null;
+  const base = { durationSeconds, audioEndSeconds, lastWordEndSeconds, speechDbfs: null, tailDbfs: null, tailRelDb: null, thresholds: t };
+  if (from < 0 || !Number.isFinite(speechDbfs)) return { ...base, failed: false, reason: null, note: "not judged: too short or silent" };
+  let sum = 0;
+  for (let i = from; i < to; i++) sum += samples[i] * samples[i];
+  const tailDbfs = meanSquareDb(sum / (to - from));
+  const tailRelDb = tailDbfs - speechDbfs;
+  const audible = tailDbfs >= t.minTailDbfs;
+  const runsToEnd = lastWordEndSeconds !== null && lastWordEndSeconds >= audioEndSeconds - t.wordEndMarginSeconds;
+  const reason: CutEndingResult["reason"] = audible && tailRelDb >= t.maxTailRelDb ? "tail-at-speech-level"
+    : audible && runsToEnd && tailRelDb >= t.timedTailRelDb ? "last-word-runs-to-end" : null;
+  const round = (x: number) => Math.round(x * 1000) / 1000;
+  return { ...base, speechDbfs: round(speechDbfs), tailDbfs: round(tailDbfs), tailRelDb: round(tailRelDb),
+    failed: reason !== null, reason, note: null };
 }
