@@ -132,8 +132,10 @@ and URLs stay intact. A zero colon pause disables colon splitting. The final
 piece always has zero trailing pause. The job planner's punctuation policy is
 unchanged.
 
-No path sends the daemon one piece longer than 24 words
-(`MAX_BREATHING_PIECE_WORDS`, `splitLongPieces` in `src/plan/breathing.ts`). The
+Retained runner pieces and job utterances contain at most 24 words
+(`MAX_BREATHING_PIECE_WORDS`, `splitLongPieces` in `src/plan/breathing.ts`).
+The runner still sends the whole take first, without this bound, then discards
+that audio when it assembles replacement pieces. The
 Qwen3-TTS clone path rushes a long generation and can stop it at about 10 s
 (126 frames for a 10.000 s reference), cutting its last word. The limit is not
 scaled to the reference length: a 5.2 s reference ran 20-word takes to 5.6-7.0 s,
