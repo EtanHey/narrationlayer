@@ -25,6 +25,7 @@ export async function applyBreathingInPlace(opts: {
   authToken: string;
   referenceClip: string;
   referenceText: string;
+  model?: string;
   timeoutMs: number;
   eqHighshelfHz?: number;
   eqHighshelfGainDb?: number;
@@ -60,6 +61,7 @@ export async function applyBreathingInPlace(opts: {
         authToken: opts.authToken,
         referenceClip: opts.referenceClip,
         referenceText: opts.referenceText,
+        model: opts.model,
         text: piece.text,
         timeoutMs: opts.timeoutMs,
       });

@@ -21,6 +21,45 @@ function silence(seconds: number) {
 const LONG =
   "When the build finished late on Tuesday night, the team opened the dashboard, checked every chart against the numbers from the morning, and found that the cache had quietly doubled its size without warning anyone.";
 
+for (const breathing of [true, false]) {
+  test(`every synthesis request preserves the selected model (breathing=${breathing})`, async () => {
+    const dir = await mkdtemp(path.join((await import("node:os")).tmpdir(), "runner-model-"));
+    const requests: { text: string; model?: string }[] = [];
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) {
+      const body = await req.json();
+      if (!body || typeof body !== "object" || !("text" in body) || typeof body.text !== "string") {
+        throw new Error("Expected synthesis request text");
+      }
+      requests.push({ text: body.text, model: "model" in body && typeof body.model === "string" ? body.model : undefined });
+      return Response.json({ audio_b64: silence(0.2).toString("base64") });
+    } });
+    try {
+      const referenceClip = path.join(dir, "synthetic.wav");
+      await writeFile(referenceClip, silence(1));
+      const result = await renderLocalTts({
+        text: Array.from({ length: 35 }, (_, i) => `word${i}`).join(" "),
+        output: path.join(dir, "out.wav"), sampleRate: 24000,
+        cacheDir: path.join(dir, "cache"), cache: false,
+        authToken: "synthetic", timeoutMs: 10000, prepareSpeechChannels,
+        resolved: {
+          daemonUrl: `http://127.0.0.1:${server.port}`, referenceClip,
+          referenceText: "Synthetic silence.", model: "custom-model",
+          ...(breathing ? { sentencePauseSeconds: 0.5, commaPauseSeconds: 0 } : {}),
+        },
+      });
+      expect(result.kind).toBe("rendered");
+      expect(requests.length).toBeGreaterThanOrEqual(breathing ? 3 : 1);
+      expect(requests.map(({ model }) => model)).toEqual(requests.map(() => "custom-model"));
+      for (const piece of requests.slice(1)) {
+        expect(piece.text.split(/\s+/).length).toBeLessThanOrEqual(MAX_BREATHING_PIECE_WORDS);
+      }
+    } finally {
+      server.stop(true);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+}
+
 test("a breathing render sends a long sentence as clause pieces, none over the word limit", async () => {
   await mkdir("docs.local/w144-tests", { recursive: true });
   const dir = path.resolve(await mkdtemp("docs.local/w144-tests/case-"));

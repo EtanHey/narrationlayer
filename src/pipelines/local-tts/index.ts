@@ -161,6 +161,7 @@ async function renderUnchecked(args: LocalTtsRenderOptions, referenceAudioSha256
       authToken,
       referenceClip: resolved.referenceClip,
       referenceText: resolved.referenceText,
+      model: resolved.model,
       timeoutMs: args.timeoutMs,
       eqHighshelfHz: resolved.eqHighshelfHz,
       eqHighshelfGainDb: resolved.eqHighshelfGainDb,
