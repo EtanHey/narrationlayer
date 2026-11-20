@@ -82,17 +82,17 @@ for (const [sent, heard, pass] of cases) {
     expect(wordMismatches(sent, words(heard), { setting: "a" }).pass).toBe(pass);
   });
 }
-// The first-word gate is a separately reported defect; these probes pin its current result.
+// The first-word gate uses the same number equivalence: an opening number heard in its other form is present.
 const openingCases: [string, string, boolean][] = [
-  ["Three hundred and seventy two takes.", "372 takes.", true],
-  ["Four hundred dollars today.", "$400 today.", true],
-  ["Four hundred dollars today.", "400 dollars today.", true],
-  ["Twenty twenty-six was long.", "2026 was long.", true],
+  ["Three hundred and seventy two takes.", "372 takes.", false],
+  ["Four hundred dollars today.", "$400 today.", false],
+  ["Four hundred dollars today.", "400 dollars today.", false],
+  ["Twenty twenty-six was long.", "2026 was long.", false],
   ["Twenty five takes.", "25 takes.", false],
   ["Fifteen takes.", "15 takes.", false],
   ["The colour is red.", "The color is red.", false],
-  ["A hundred takes.", "100 takes.", true],
-  ["Fourth take.", "4th take.", true]
+  ["A hundred takes.", "100 takes.", false],
+  ["Fourth take.", "4th take.", false]
 ];
 for (const [sent, heard, omitted] of openingCases) {
   test(`review opening probe: ${sent} / ${heard}`, () => {

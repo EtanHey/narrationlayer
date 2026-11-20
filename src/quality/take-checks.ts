@@ -7,23 +7,11 @@ function normalize(word: string): string {
   return word.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-const NUMBER_WORDS: Record<string, number> = {
-  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
-  seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
-  thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
-  eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40,
-  fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
-};
-
-function numberValue(tokens: readonly string[]): number | null {
-  if (tokens.length === 1 && /^\d+$/.test(tokens[0])) return Number(tokens[0]);
-  let value = 0;
-  for (const token of tokens) {
-    const n = NUMBER_WORDS[token];
-    if (n === undefined) return null;
-    value += n;
-  }
-  return tokens.length ? value : null;
+// Number keys (the word check's own equivalence) of spans starting at the first `starts` tokens.
+function openingNumberKeys(tokens: readonly string[], starts: number): Set<string> {
+  const index = transcriptionNumbers(tokens.slice(0, starts + 12));
+  // A unit-only key ("dollars") never stands in for a clipped opening number.
+  return new Set(index.slice(0, starts).flatMap(spans => [...spans.keys()]).filter(key => !key.startsWith("unit:")));
 }
 
 export function firstWordOmitted(sent: string, recognised: readonly RecognisedWord[]) {
@@ -37,16 +25,16 @@ export function firstWordOmitted(sent: string, recognised: readonly RecognisedWo
   let found = false;
   for (let start = 0; start < opening.length; start++) {
     for (let end = start + 1; end <= opening.length; end++) {
-      const candidate = opening.slice(start, end);
-      if (candidate.join("") === first) found = true;
-      const n = numberValue(candidate);
-      if (n !== null) {
-        for (let length = 1; length <= Math.min(3, sentTokens.length); length++) {
-          if (numberValue(sentTokens.slice(0, length)) === n) found = true;
-        }
-      }
+      if (opening.slice(start, end).join("") === first) found = true;
     }
   }
+  // An opening number may be heard in its other form ("Forty percent" / "40%", "$400" / "four hundred
+  // dollars"); it counts only when a span starting in the first three heard words has the same value.
+  const sentWords = sent.match(TRANSCRIPTION_TOKEN) ?? [];
+  const sentKeys = openingNumberKeys(sentWords, sentWords[0] === "$" ? 2 : 1);
+  const heardWords = recognised.map(({ word }) => word.match(TRANSCRIPTION_TOKEN) ?? []).filter(parts => parts.length);
+  const heardStarts = heardWords.slice(0, 3).flat().length;
+  for (const key of openingNumberKeys(heardWords.flat(), heardStarts)) if (sentKeys.has(key)) found = true;
   return { omitted: !found, recognisedCount: recognised.length };
 }
 

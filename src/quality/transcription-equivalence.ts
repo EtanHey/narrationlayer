@@ -106,6 +106,9 @@ function numberKey(input: readonly string[]): string | null {
     unit = suffix;
     tokens = tokens.slice(0, -1);
   }
+  // A unit with no number ("dollars", "percent", "$") is not the number zero (red team, 18 Nov); it keeps
+  // a unit-only key so "$" still matches a spoken "dollar" in the word check (red team round 2).
+  if (!tokens.length) return unit ? `unit:${unit}` : null;
   const point = tokens.indexOf("point");
   // Decimal identity is textual: 18.10 is distinct from 18.1 (versions and dropped zeros).
   if (tokens.length === 1 && /^(?:\d+|\d{1,3}(?:,\d{3})+)\.\d+$/.test(tokens[0])) {
