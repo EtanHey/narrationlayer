@@ -2,7 +2,7 @@
 // tests/mcp-contract.test.ts already pins the tool names and contract == server list == docs/mcp-tools.json;
 // this adds the input schemas, CLI verbs, the bin map, a real stdio session and a real build.
 import { expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
+import { nodeSpawnChecked } from "../support/spawn.js";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
@@ -25,8 +25,7 @@ test("MCP tool names and input schemas match the frozen snapshot", () => {
 });
 
 test("CLI verbs in --help and in the dispatch switch match the frozen list", () => {
-  const help = spawnSync(BUN, ["src/cli.ts", "--help"], { cwd: ROOT, encoding: "utf8", timeout: 4000 });
-  if (help.error) throw help.error;
+  const help = nodeSpawnChecked(BUN, ["src/cli.ts", "--help"], { cwd: ROOT, timeout: 4000 });
   expect(help.status).toBe(0);
   expect([...help.stdout.matchAll(/^\s+narrationlayer ([a-z0-9-]+)/gm)].map((m) => m[1])).toEqual(snapshot.cliVerbs);
   const source = readFileSync(path.join(ROOT, "src/cli.ts"), "utf8");
@@ -63,8 +62,7 @@ test("the MCP server process completes initialize and tools/list over stdio", as
 test("bun build src/cli.ts succeeds", () => {
   const outdir = scratchDir("build");
   try {
-    const build = spawnSync(BUN, ["build", "src/cli.ts", "--outdir", outdir, "--target", "bun"], { cwd: ROOT, encoding: "utf8", timeout: 4000 });
-    if (build.error) throw build.error;
+    const build = nodeSpawnChecked(BUN, ["build", "src/cli.ts", "--outdir", outdir, "--target", "bun"], { cwd: ROOT, timeout: 4000 });
     expect(build.status).toBe(0);
     expect(existsSync(path.join(outdir, "cli.js"))).toBe(true);
   } finally {
