@@ -1,52 +1,261 @@
-// Run with: bun tests/compat/mutations.ts. Never run concurrently with another test command.
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+// Run serially: bun tests/compat/mutations.ts (mutates and restores source files).
+import { readFile, writeFile, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { writeFileSync, rmSync } from "node:fs";
+import { Window } from "happy-dom";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { repo, tool } from "./harness.js";
-const cases = [
-  ["job-daemon-timeout", "src/pipelines/job-render/index.ts", "timeoutMs: config.timeout_ms ?? 30_000", "timeoutMs: config.timeout_ms ?? 31_000", "job daemon observables"],
-  ["runner-daemon-timeout", "bin/local-tts-runner.ts", "timeoutMs: 120_000", "timeoutMs: 121_000", "runner daemon observables"],
-  ["job-daemon-slash", "src/pipelines/job-render/index.ts", '.replace(/\\/+$/, "")', "", "job daemon observables"],
-  ["runner-daemon-slash", "src/pipelines/local-tts/synthesis.ts", '.replace(/\\/+$/, "")', "", "runner daemon observables"],
-  ["job-silence-pad", "src/audio.ts", "String(chunk.pauseAfterSeconds)", "String(chunk.pauseAfterSeconds * 2)", "job service"],
-  ["job-silence-rate", "src/audio.ts", "anullsrc=channel_layout=mono:sample_rate=24000", "anullsrc=channel_layout=mono:sample_rate=22050", "job service"],
-  ["runner-newlines", "src/pipelines/local-tts/index.ts", "      spokenText,\n      sentencePad,", '      spokenText: spokenText.replace(/\\n/g, " "),\n      sentencePad,', "runner executable goldens"],
-  ["job-pause", "src/plan/utterances.ts", "DEFAULT_SENTENCE_PAUSE_SECONDS = 0.55", "DEFAULT_SENTENCE_PAUSE_SECONDS = 0.56", "job service manifest"],
-  ["runner-pause", "src/pipelines/local-tts/index.ts", "resolved.sentencePauseSeconds ?? 0.55", "resolved.sentencePauseSeconds ?? 0.56", "runner executable goldens"],
-  ["runner-auth", "src/backends/qwen3-daemon.ts", "Authorization: `Bearer ${args.authToken}`", '"X-Dropped-Authorization": `Bearer ${args.authToken}`', "runner executable"],
-  ["job-auth", "src/backends/qwen3-daemon.ts", "Authorization: `Bearer ${args.authToken}`", '"X-Dropped-Authorization": `Bearer ${args.authToken}`', "job service"],
-  ["profile-base", "bin/local-tts-runner.ts", 'findProfile(ref, path.resolve(import.meta.dir, ".."))', 'findProfile(ref, path.resolve(import.meta.dir, "../.."))', "runner entry root lookup without profile-file environment"],
-  ["failure-cleanup", "src/pipelines/local-tts/breathing.ts", "await unlink(p);", "/* scratch: leave intermediate output behind */", "runner removes intermediate output"],
-  ["spoken-form", "src/text-normalize.ts", '`pull request ${referenceNumber(n)}`', '`changed request ${referenceNumber(n)}`', "runner executable goldens"],
-  ["silent-http", "src/pipelines/job-render/synthesis.ts", "throw new Error(`voicelayer-qwen3 synthesize failed (${failure.status}): ${failure.body || failure.statusText}`);", "return {};", "job service thrown error golden: http"],
-  ["job-probe-default", "src/pipelines/job-render/index.ts", "normalizeDuration(await (config.audio_duration_probe ?? probeAudioDurationSeconds)(audioPath))", "normalizeDuration(await (config.audio_duration_probe ?? (async () => undefined))(audioPath))", "job service probes unauthored"],
-  ["job-probe-scale-1.05", "src/audio.ts", "return Number(value.toFixed(3));", "return Number((value * 1.05).toFixed(3));", "job service probes unauthored"],
-  ["job-probe-scale-0.9", "src/audio.ts", "return Number(value.toFixed(3));", "return Number((value * 0.9).toFixed(3));", "job service probes unauthored"],
-  ["job-probe-scale-1.5", "src/audio.ts", "return Number(value.toFixed(3));", "return Number((value * 1.5).toFixed(3));", "job service probes unauthored"],
-  ["runner-loudness-result", "src/pipelines/local-tts/loudness.ts", "\n  await rename(tmpPath, output);", "\n  await (await import(\"node:fs/promises\")).unlink(tmpPath);", "runner executable goldens"],
-  ["runner-hit-sidecar", "src/pipelines/local-tts/index.ts", "    await writeFile(`${output}.spoken.txt`, spokenText, \"utf8\");", "/* scratch: omit HIT spoken sidecar */", "runner executable goldens"],
-  ["job-secret-fallback", "src/pipelines/job-render/config.ts", "    process.env.VOICELAYER_TTS_DAEMON_SECRET_FILE ||\n", "", "job service daemon auth"],
-  ["job-env-daemon_url", "src/service.ts", "process.env.NARRATIONLAYER_QWEN3_DAEMON_URL ?? overrides.daemon_url", "overrides.daemon_url ?? process.env.NARRATIONLAYER_QWEN3_DAEMON_URL", "job service daemon auth"],
-  ["job-env-auth_token", "src/service.ts", "process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN ?? overrides.auth_token", "overrides.auth_token ?? process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN", "job service daemon auth"],
-  ["job-env-auth_token_file", "src/service.ts", "process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE ?? overrides.auth_token_file", "overrides.auth_token_file ?? process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE", "job service daemon auth"],
-  ["stderr-abort-class", "tests/compat/harness.ts", "The operation was aborted\\.(?=\\r?$)", "[^\\n]*abort[^\\n]*", "stderr timeout classification"],
-  ["job-assembly-dir", "src/audio.ts", "path.join(os.tmpdir(), \"narrationlayer-audio-\")", "path.join(path.dirname(outputPath), \"narrationlayer-audio-\")", "job service manifest"],
-  ["runner-http-exit", "src/pipelines/local-tts/synthesis.ts", "throw new RunnerFailure(\n        `daemon /synthesize failed", "throw new Error(\n        `daemon /synthesize failed", "runner HTTP failure during breathing"],
-] satisfies string[][];
-await mkdir(path.join(repo, "docs.local/characterization"), { recursive: true });
-for (const [name, relative, before, after, pattern] of cases) {
-  const file = path.join(repo, relative); const original = await readFile(file, "utf8");
-  if (original.split(before).length !== 2) throw new Error(`Mutation anchor is not unique: ${name}`);
-  const run = async (suffix: string) => {
-    const child = Bun.spawn([tool("bun"), "test", "tests/compat", "--test-name-pattern", pattern], { cwd: repo, env: { ...process.env, UPDATE_COMPAT_GOLDENS: "0" }, stdout: "pipe", stderr: "pipe" });
-    const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
-    await writeFile(path.join(repo, `docs.local/characterization/${name}-${suffix}.log`), stdout + stderr);
-    return code;
-  };
-  let red: number;
-  try { await writeFile(file, original.replace(before, after)); red = await run("mutated"); }
-  finally { await writeFile(file, original); }
-  if (red === 0) throw new Error(`Mutation survived: ${name}`);
-  const green = await run("restored");
-  if (green !== 0) throw new Error(`Restored test failed: ${name}`);
-  process.stdout.write(`${name}: mutated FAIL (exit ${red}); restored PASS (exit ${green})\n`);
+type Anchor = { name: string; file: string; before: string; after: string };
+export type MutationRow = Anchor & (
+  | { kind: "compat-pattern"; pattern: string }
+  // Full path joins describe scopes and test name with spaces: "outer inner test name".
+  | { kind: "named-test"; testFile: string; testName: string }
+  | { kind: "conformance-case"; binding: string; caseId: string }
+);
+export const cases: MutationRow[] = [
+  { kind: "named-test", name: "publication-validation-as-host-fault", file: "src/engine/publication/publication.ts", before: 'decoded = decodePcm(bytes)', after: 'decoded = (() => { try { return decodePcm(bytes); } catch { throw new HostFault("artifacts.put"); } })()', testFile: "tests/engine/publication.test.ts", testName: "Q103: origin determines error code for malformed WAV" },
+  { kind: "conformance-case", name: "host-required-failure-code", file: "src/engine/session/session.ts", before: 'code: "HOST_CALLBACK_FAILED", phase: error.callback', after: 'code: "SYNTH_FAILED", phase: error.callback', binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-03" },
+  { kind: "conformance-case", name: "host-logger-throw-escapes", file: "src/engine/host-callbacks.ts", before: 'try { void Promise.resolve(log?.({ callback, error_name })).catch(() => {}); } catch { /* R103: logging cannot break the host. */ }', after: 'log?.({ callback, error_name });', binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-03" },
+  { kind: "conformance-case", name: "host-emit-guard-removed", file: "src/engine/session/session.ts", before: 'host.ignore("observe.event",', after: 'host.call("observe.event",', binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-03" },
+  { kind: "named-test", name: "host-log-message-leak", file: "src/engine/host-callbacks.ts", before: 'log?.({ callback, error_name })', after: 'log?.({ callback, error_name, message: error instanceof Error ? error.message : String(error) })', testFile: "tests/engine/session/session.test.ts", testName: "N4: accept observer failure is logged without becoming a planner refusal" },
+
+  {"kind": "named-test", "name": "timeout-paused-ignored", "file": "src/engine/session/session.ts", "before": "if (shuttingDown || state.sessions[identity.session_id].generation !== \"running\") return;", "after": "if (shuttingDown || state.sessions[identity.session_id].pause_owner !== undefined || state.sessions[identity.session_id].generation !== \"running\") return;", "testFile": "tests/engine/session/session.test.ts", "testName": "synthesis timeout: pause and player feedback do not move the call bound"},
+  {"kind": "named-test", "name": "timeout-abort-cancel-listener-removed", "file": "src/engine/session/session.ts", "before": "abort.signal.addEventListener(\"abort\", cancelTimeout, { once: true });", "after": "", "testFile": "tests/engine/session/session.test.ts", "testName": "synthesis timeout: abort cancels the timer and timeout abort is deferred"},
+  {"kind": "named-test", "name": "timeout-inline-abort", "file": "src/engine/session/session.ts", "before": "queueMicrotask(() => abort.abort());", "after": "abort.abort();", "testFile": "tests/engine/session/session.test.ts", "testName": "synthesis timeout: abort cancels the timer and timeout abort is deferred"},
+  {"kind": "named-test", "name": "waiting-read-bound-removed", "file": "src/engine/session/session.ts", "before": "if (waiting.has(id)) return;", "after": "return;", "testFile": "tests/engine/session/session.test.ts", "testName": "synthesis timeout: waiting read is bounded behind an abort-ignoring predecessor"},
+
+  { kind: "conformance-case", name: "synthesis-timeout-removed", file: "src/engine/session/session.ts", before: "host.schedule(options.clock, options.synthesis_timeout_ms,", after: "host.schedule(options.clock, 1e9,", binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-01" },
+  { kind: "named-test", name: "synthesis-timeout-cancel-removed", file: "src/engine/session/session.ts", before: "finally { cancelTimeout(); abort.signal.removeEventListener", after: "finally { abort.signal.removeEventListener", testFile: "tests/engine/session/session.test.ts", testName: "synthesis timeout: settled call cancels its timer" },
+  {"kind": "conformance-case", "name": "resync-live-filter", "file": "src/engine/reducer/session.ts", "before": ".filter(read => !read.outcome)", "after": "", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SNAP-01"},
+  {"kind": "conformance-case", "name": "resync-delivered-words", "file": "src/engine/reducer/session.ts", "before": "derivation_id: \"resync\", words: piece.words", "after": "derivation_id: \"resync\", words: read.plan.words.slice(read.plan.pieces[piece.index].word_start, read.plan.pieces[piece.index].word_end)", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SNAP-01"},
+
+  {"kind": "conformance-case", "name": "stop-exclusions", "file": "src/engine/reducer/session.ts", "before": " || c.args.except_sessions?.includes(candidate.session_id)", "after": "", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "STOP-01e"},
+  {"kind": "conformance-case", "name": "stop-scope-reach", "file": "src/engine/reducer/session.ts", "before": "const reached = candidate.session_id === session_id || c.args.scope === \"all_speech\"\n          || c.args.scope === \"queue\" && !candidate.started && typeof candidate.request.start === \"object\";", "after": "const reached = candidate.session_id === session_id;", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "STOP-01e"},
+  {"kind": "conformance-case", "name": "seek-word-timing", "file": "src/engine/session/session.ts", "before": "else if (\"word_index\" in args && !word)", "after": "else if (false)", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SEEK-01e"},
+  {"kind": "conformance-case", "name": "seek-clamp", "file": "src/engine/session/session.ts", "before": "Math.max(0, Math.min(requested, session.known_ms))", "after": "requested", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SEEK-01e"},
+  {"kind": "conformance-case", "name": "I09-seek-clears-pause-owner-SEEK-01e", "file": "src/engine/reducer/session.ts", "before": "else anchor(input.target); // I09", "after": "else { delete s.pause_owner; anchor(input.target); } // I09", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "SEEK-01e"},
+
+  {"kind": "named-test", "name": "cancel-settled-run-guard", "file": "src/engine/session/session.ts", "before": "if (aborts.get(id) === abort) abort.abort();", "after": "abort.abort();", "testFile": "tests/engine/session/session.test.ts", "testName": "send: settled run does not fire a deferred abort listener"},
+  {"kind": "conformance-case", "name": "plan-after-first-backend", "file": "src/engine/session/session.ts", "before": "      if (effect.kind === \"emit\" || effect.kind === \"replay\") emit(effect.event.type === \"error\" && details ? { ...effect.event, details } : effect.event, effect.kind === \"replay\");", "after": "      if (effect.kind === \"emit\" || effect.kind === \"replay\") (effect.event.type === \"plan\" ? (event: Event, replay: boolean) => queueMicrotask(() => queueMicrotask(() => emit(event, replay))) : emit)(effect.event.type === \"error\" && details ? { ...effect.event, details } : effect.event, effect.kind === \"replay\");", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "PLAN-LAT-01"},
+  {"kind": "named-test", "name": "send-inline-start", "file": "src/engine/session/session.ts", "before": "    queueMicrotask(() => {\n      void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort)\n        .then(() => { runs.delete(pending); finish(); }, () => { runs.delete(pending); finish(); });\n    });", "after": "    (() => {\n      void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort)\n        .then(() => { runs.delete(pending); finish(); }, () => { runs.delete(pending); finish(); });\n    })();", "testFile": "tests/engine/session/session.test.ts", "testName": "send: no host port that starts work or touches storage runs before return"},
+  {"kind": "named-test", "name": "send-same-turn-stop", "file": "src/engine/session/session.ts", "before": "    queueMicrotask(() => {\n      void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort)\n        .then(() => { runs.delete(pending); finish(); }, () => { runs.delete(pending); finish(); });\n    });", "after": "    (() => {\n      void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort)\n        .then(() => { runs.delete(pending); finish(); }, () => { runs.delete(pending); finish(); });\n    })();", "testFile": "tests/engine/session/session.test.ts", "testName": "send: narrate then stop in the same turn starts no backend"},
+  {"kind": "conformance-case", "name": "pause-owner", "file": "src/engine/reducer/session.ts", "before": "s.pause_owner !== c.args.owner", "after": "false", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "PAUSE-02e"},
+  {"kind": "conformance-case", "name": "pause-takeover", "file": "src/engine/reducer/session.ts", "before": "c.args.owner === \"user\" && s.pause_owner !== \"user\"", "after": "s.pause_owner !== c.args.owner", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "PAUSE-02e"},
+  {"kind": "conformance-case", "name": "pause-routing", "file": "src/engine/session/session.ts", "before": " || value.op === \"pause\"", "after": "", "binding": "src/engine/conformance/engine-binding.ts", "caseId": "PAUSE-03e"},
+
+  { kind: "conformance-case", name: "synthesis-required-clone", file: "src/engine/session/session.ts", before: 'if (session.request.voice.require_clone) throw', after: 'if (false) throw', binding: "src/engine/conformance/engine-binding.ts", caseId: "ENG-01" },
+  { kind: "conformance-case", name: "synthesis-read-mark", file: "src/engine/session/session.ts", before: 'rate = "+0%"; substituted = true;', after: 'if (selection) { selection.substituted = true; selection.fallback_reason = "clone_synthesis_failed"; } rate = "+0%"; substituted = true;', binding: "src/engine/conformance/engine-binding.ts", caseId: "ENG-02" },
+  { kind: "conformance-case", name: "selection-count-sanitization", file: "src/engine/core/engine.ts", before: 'projection.speechText.replace(/ {2,}/g, " ").trim().length', after: "projection.speechText.length", binding: "src/engine/conformance/engine-binding.ts", caseId: "SUB-01" },
+  { kind: "conformance-case", name: "selection-speak-only", file: "src/engine/selection/voice.ts", before: 'request.use === "speak" && request.mode === "announce"', after: 'request.mode === "announce"', binding: "src/engine/conformance/engine-binding.ts", caseId: "SUB-01" },
+  { kind: "conformance-case", name: "selection-required-clone", file: "src/engine/selection/voice.ts", before: "if (request.voice.require_clone) throw", after: "if (false) throw", binding: "src/engine/conformance/engine-binding.ts", caseId: "ENG-01" },
+  { kind: "conformance-case", name: "selection-shortcut-boundary", file: "src/engine/selection/voice.ts", before: "speechLength < 50", after: "speechLength <= 50", binding: "src/engine/conformance/engine-binding.ts", caseId: "SUB-01" },
+  { kind: "conformance-case", name: "selection-substitution-wire", file: "src/engine/session/session.ts", before: "substituted = selection?.substituted ?? false", after: "substituted = false", binding: "src/engine/conformance/engine-binding.ts", caseId: "SUB-01" },
+  { kind: "named-test", name: "shutdown-reason", file: "src/engine/reducer/session.ts", before: 's.playback = "shutdown"', after: 's.playback = "cancel"', testFile: "tests/conformance/engine-binding.test.ts", testName: "engine binding: the packaged entry passes the active cases under containment" },
+  { kind: "named-test", name: "shutdown-release", file: "src/engine/session/session.ts", before: 'host.ignore("artifacts.releaseFromHost", () => options.artifacts?.releaseFromHost(lease));', after: ';', testFile: "tests/conformance/engine-binding.test.ts", testName: "engine binding: the packaged entry passes the active cases under containment" },
+  { kind: "named-test", name: "engine-reach-blocking-call", file: "src/plan/synthesis-units.ts", before: "const MIN_SYNTHESIS_WORDS = 3;", after: "const MIN_SYNTHESIS_WORDS = 3;\nconst blocked = () => existsSync(\"synthetic\");", testFile: "tests/architecture/engine-reach.test.ts", testName: "engine reach: nothing the engine imports can block" },
+  { kind: "named-test", name: "artifact-released-outcome", file: "src/engine/reducer/session.ts", before: "!s.released_leases?.includes(p.artifact.lease_id)", after: "true", testFile: "tests/engine/artifacts/custody.test.ts", testName: "custody: release offsets preserve exactly the remaining delivered leases" },
+  { kind: "conformance-case", name: "artifact-expired-silent", file: "src/engine/session/session.ts", before: 'result.kind === "expired"', after: 'false', binding: "src/engine/conformance/engine-binding.ts", caseId: "ART-04" },
+  {"kind": "named-test", "name": "artifact-release-check", "file": "src/engine/artifacts/store.ts", "before": "if (!entry) return { kind: \"expired\" };\n      try {", "after": "if (!entry) { port.delete([...live.values()][0]?.handle ?? \"missing\"); return { kind: \"expired\" }; }\n      try {", "testFile": "tests/engine/artifacts/store.test.ts", "testName": "D3: only a live matching lease can delete bytes"},
+  {"kind": "named-test", "name": "artifact-host-release-check", "file": "src/engine/artifacts/store.ts", "before": "if (!entry) return { kind: \"expired\" };\n      live.delete(lease_id);", "after": "if (!entry) { port.delete([...live.values()][0]?.handle ?? \"missing\"); return { kind: \"expired\" }; }\n      live.delete(lease_id);", "testFile": "tests/engine/artifacts/custody.test.ts", "testName": "custody: release offsets preserve exactly the remaining delivered leases"},
+  {"kind": "named-test", "name": "artifact-publication-abandon", "file": "src/engine/publication/publication.ts", "before": "host.ignore(\"artifacts.release\", () => artifacts.release(stored.lease_id));", "after": "", "testFile": "tests/engine/artifacts/store.test.ts", "testName": "D5 publication: abort after put and throw after put return the lease"},
+  {"kind": "named-test", "name": "artifact-collision", "file": "src/engine/artifacts/store.ts", "before": "if (host.call(\"store.has\", () => port.has(handle))) throw new ArtifactStoreError(\"collision\");", "after": "", "testFile": "tests/engine/artifacts/store.test.ts", "testName": "D1: unique opaque handles, epochs and collision refusal"},
+  {"kind": "named-test", "name": "duration-rounded-sum", "file": "src/engine/publication/publication.ts", "before": "known_ms = startMs([...context.prefix, decoded])", "after": "known_ms = context.prefix.reduce((n, p) => n + startMs([p]), 0) + duration_ms", "testFile": "tests/engine/publication.test.ts", "testName": "duration: mixed rates, rounded once, 1 ms difference, final exactly once"},
+  {"kind": "named-test", "name": "duration-final-early", "file": "src/engine/reducer/session.ts", "before": "final: s.delivered.length === s.plan.pieces.length", "after": "final: true", "testFile": "tests/engine/publication.test.ts", "testName": "duration: mixed rates, rounded once, 1 ms difference, final exactly once"},
+  {"kind": "named-test", "name": "audio-ready-after-store", "file": "src/engine/session/session.ts", "before": "t_mono_ms: Math.round(ready)", "after": "t_mono_ms: Math.round(options.clock.monotonic())", "testFile": "tests/engine/publication.test.ts", "testName": "LIFE-01e: three pieces, monotonic, audio timestamp before store, failed second request stays alone"},
+
+  {"kind": "named-test", "name": "decoded-duration", "file": "src/engine/publication/publication.ts", "before": "duration_ms = startMs([decoded])", "after": "duration_ms = Math.round(Reflect.get(audio, \"duration_ms\"))", "testFile": "tests/engine/publication.test.ts", "testName": "TIME-02: a backend that reports three times the real length changes nothing"},
+  {"kind": "named-test", "name": "exact-sample-prefix", "file": "src/engine/publication/time.ts", "before": "  let numerator = 0n, denominator = 1n;", "after": "  return prefix.reduce((sum, p) => sum + Math.round(p.sample_count * 1000 / p.sample_rate), 0);\n  let numerator = 0n, denominator = 1n;", "testFile": "tests/engine/publication.test.ts", "testName": "TIME-01: start_ms equals cumulative decoded samples, rounded once"},
+  {"kind": "named-test", "name": "every-word-timed", "file": "src/engine/publication/time.ts", "before": "return words.map((word, i)", "after": "return words.slice(1).map((word, i)", "testFile": "tests/engine/publication.test.ts", "testName": "WORD-02: an engine with no timings: every word numeric and estimated"},
+
+  {"kind": "named-test", "name": "session-parked-predecessor-wake", "file": "src/engine/session/session.ts", "before": "      if (wasRunning && state.sessions[id]?.generation !== \"running\") pumpDependents(id);", "after": "", "testFile": "tests/engine/session/session.test.ts", "testName": "PACE-02 parked predecessor: stopping a parked read wakes the read queued behind it"},
+  {"kind": "named-test", "name": "session-predecessor-settlement", "file": "src/engine/session/session.ts", "before": "if (start && typeof start === \"object\" && aborts.has(start.after_session))", "after": "if (false)", "testFile": "tests/engine/session/session.test.ts", "testName": "PACE-02 physical: abort-ignoring predecessor settles before the waiter synthesizes zero"},
+  {"kind": "named-test", "name": "session-lookahead", "file": "src/engine/reducer/pacing.ts", "before": "  if (index > session.current.piece_index + Math.max(1, Number.isSafeInteger(lookahead) ? lookahead : 1)) return;", "after": "", "testFile": "tests/engine/session/session.test.ts", "testName": "PACE-01: never more than lookahead pieces past the playing piece, one in flight"},
+  {"kind": "named-test", "name": "session-pacing-wake", "file": "src/engine/session/session.ts", "before": "      pump(id);", "after": "      if (input.kind !== \"feedback\") pump(id);", "testFile": "tests/engine/session/session.test.ts", "testName": "PACE-01 wake: a parked read resumes on the next piece's spawned feedback and on nothing else"},
+  {"kind": "named-test", "name": "session-after-session", "file": "src/engine/reducer/pacing.ts", "before": "if (start && typeof start === \"object\")", "after": "if (false && start && typeof start === \"object\")", "testFile": "tests/engine/session/session.test.ts", "testName": "PACE-02: wait for exact predecessor terminal, prefetch only zero until first_sample"},
+
+  {"kind": "named-test", "name": "session-plan-first", "file": "src/engine/session/session.ts", "before": "for (const effect of result.effects) {", "after": "for (const effect of result.effects.reverse()) {", "testFile": "tests/engine/session/session.test.ts", "testName": "PLAN-LAT-01: plan is enqueued before the first backend call"},
+  {"kind": "named-test", "name": "session-piece-order", "file": "src/engine/session/session.ts", "before": "index = session.delivered.length;", "after": "index = session.plan.pieces.length - 1 - session.delivered.length;", "testFile": "tests/engine/session/session.test.ts", "testName": "ORDER-01 (lease clause owed to S7): ordered prefix and no events after outcome"},
+  {"kind": "named-test", "name": "session-result-fence", "file": "src/engine/session/session.ts", "before": "abort.signal.throwIfAborted();", "after": "", "testFile": "tests/engine/session/session.test.ts", "testName": "late result after stop: fenced audio produces no event or publication"},
+  {"kind": "named-test", "name": "reducer-duplicate-accept", "file": "src/engine/reducer/session.ts", "before": " || input.kind === \"accept\" && Object.hasOwn(engine.admissions, input.request.idempotency_key)", "after": "", "testFile": "tests/engine/reducer/session.test.ts", "testName": "ID-04: same key and same request replays the original accepted; a different request conflicts; a different key is a new session"},
+  {"kind": "named-test", "name": "reducer-error-fields", "file": "src/engine/reducer/session.ts", "before": "type: \"error\", code, message,", "after": "type: \"error\", ...input.result.error,", "testFile": "tests/engine/reducer/session.test.ts", "testName": "ERR-01: a live failure emits error then outcome; a fenced or terminal one emits nothing"},
+
+  {"kind": "named-test", "name": "reducer-ID04", "file": "src/engine/reducer/session.ts", "before": "key(engine.sessions[receipt.session_id].request) === key(input.request)", "after": "true", "testFile": "tests/engine/reducer/session.test.ts", "testName": "ID-04: same key and same request replays the original accepted; a different request conflicts; a different key is a new session"},
+  {"kind": "named-test", "name": "reducer-ERR01", "file": "src/engine/reducer/session.ts", "before": "emit({ type: \"error\", code, message, phase: input.result.error.code === \"HOST_CALLBACK_FAILED\" ? input.result.error.phase : \"synthesize\", retry: \"new_request\", session_id }); ", "after": "", "testFile": "tests/engine/reducer/session.test.ts", "testName": "ERR-01: a live failure emits error then outcome; a fenced or terminal one emits nothing"},
+
+  {"kind": "named-test", "name": "reducer-I01", "file": "src/engine/reducer/session.ts", "before": "if (s.playback !== null) return", "after": "if (false) return", "testFile": "tests/engine/reducer/session.test.ts", "testName": "I01: a player failure after the natural end keeps completed"},
+  {"kind": "named-test", "name": "reducer-I02", "file": "src/engine/reducer/session.ts", "before": " && input.identity.attempt_id === s.attempt_id", "after": "", "testFile": "tests/engine/reducer/session.test.ts", "testName": "I02: matching feedback moves state; foreign job owner and attempt cannot"},
+  {"kind": "named-test", "name": "reducer-I03", "file": "src/engine/reducer/session.ts", "before": "s.generation = \"cancelled\"; s.fenced = true;", "after": "s.generation = \"running\"; s.fenced = false;", "testFile": "tests/engine/reducer/session.test.ts", "testName": "I03: cancellation fences delivery and commit, including late backend results"},
+  {"kind": "named-test", "name": "reducer-I04", "file": "src/engine/reducer/session.ts", "before": "s.started && s.delivered.length === s.plan.pieces.length && f.piece_index", "after": "s.started && f.piece_index", "testFile": "tests/engine/reducer/session.test.ts", "testName": "I04: natural EOF needs actual start and N-piece coverage; no seek"},
+  {"kind": "named-test", "name": "reducer-A1-previous-job", "file": "src/engine/reducer/session.ts", "before": "if (next) s.previous = !moved ? { player_instance_id: s.current.player_instance_id, piece_index: s.current.piece_index } : null;", "after": "s.previous = null;", "testFile": "tests/engine/reducer/session.test.ts", "testName": "A1: previous player exits settle in both orders with distinct and reused ids"},
+
+  {"kind":"compat-pattern","name":"job-daemon-timeout","file":"src/pipelines/job-render/index.ts","before":"timeoutMs: config.timeout_ms ?? 30_000","after":"timeoutMs: config.timeout_ms ?? 31_000","pattern":"job daemon observables"},
+  {"kind":"compat-pattern","name":"runner-daemon-timeout","file":"bin/local-tts-runner.ts","before":"timeoutMs: 120_000","after":"timeoutMs: 121_000","pattern":"runner daemon observables"},
+  {"kind":"compat-pattern","name":"job-daemon-slash","file":"src/pipelines/job-render/index.ts","before":".replace(/\\/+$/, \"\")","after":"","pattern":"job daemon observables"},
+  {"kind":"compat-pattern","name":"runner-daemon-slash","file":"src/pipelines/local-tts/synthesis.ts","before":".replace(/\\/+$/, \"\")","after":"","pattern":"runner daemon observables"},
+  {"kind":"compat-pattern","name":"job-silence-pad","file":"src/audio.ts","before":"String(chunk.pauseAfterSeconds)","after":"String(chunk.pauseAfterSeconds * 2)","pattern":"job service"},
+  {"kind":"compat-pattern","name":"job-silence-rate","file":"src/audio.ts","before":"anullsrc=channel_layout=mono:sample_rate=24000","after":"anullsrc=channel_layout=mono:sample_rate=22050","pattern":"job service"},
+  {"kind":"compat-pattern","name":"runner-newlines","file":"src/pipelines/local-tts/index.ts","before":"    spokenText,\n    pads: breathing","after":"    spokenText: spokenText.replace(/\\n/g, \" \"),\n    pads: breathing","pattern":"runner executable goldens"},
+  {"kind":"compat-pattern","name":"runner-no-pause-long-split","file":"src/pipelines/local-tts/breathing.ts","before":"return splitLongPieces(planned, splitPause);","after":"return sentencePad === undefined ? planned : splitLongPieces(planned, splitPause);","pattern":"runner executable goldens"},
+  {"kind":"compat-pattern","name":"split-default-pause","file":"src/plan/breathing.ts","before":"DEFAULT_SPLIT_PAUSE_SECONDS = 0.14","after":"DEFAULT_SPLIT_PAUSE_SECONDS = 0.15","pattern":"runner executable goldens"},
+  {"kind":"named-test","name":"job-long-split","file":"src/pipelines/job-render/index.ts","before":"splitLongPieces(toBreathingPieces(utterancesV1(normalizedScript, config)), splitPause)","after":"toBreathingPieces(utterancesV1(normalizedScript, config))","testFile":"tests/runner-wall-no-pause.test.ts","testName":"the job path cuts a long utterance even with pause_strategy none"},
+  {"kind":"compat-pattern","name":"job-pause","file":"src/plan/utterances.ts","before":"DEFAULT_SENTENCE_PAUSE_SECONDS = 0.55","after":"DEFAULT_SENTENCE_PAUSE_SECONDS = 0.56","pattern":"job service manifest"},
+  {"kind":"compat-pattern","name":"runner-pause","file":"src/pipelines/local-tts/index.ts","before":"const sentencePad = resolved.sentencePauseSeconds ?? 0.55;","after":"const sentencePad = resolved.sentencePauseSeconds ?? 0.56;","pattern":"runner executable goldens"},
+  {"kind":"compat-pattern","name":"runner-auth","file":"src/backends/qwen3-daemon.ts","before":"Authorization: `Bearer ${args.authToken}`","after":"\"X-Dropped-Authorization\": `Bearer ${args.authToken}`","pattern":"runner executable"},
+  {"kind":"compat-pattern","name":"job-auth","file":"src/backends/qwen3-daemon.ts","before":"Authorization: `Bearer ${args.authToken}`","after":"\"X-Dropped-Authorization\": `Bearer ${args.authToken}`","pattern":"job service"},
+  {"kind":"compat-pattern","name":"profile-base","file":"bin/local-tts-runner.ts","before":"findProfile(ref, path.resolve(import.meta.dir, \"..\"))","after":"findProfile(ref, path.resolve(import.meta.dir, \"../..\"))","pattern":"runner entry root lookup without profile-file environment"},
+  {"kind":"compat-pattern","name":"failure-cleanup","file":"src/pipelines/local-tts/breathing.ts","before":"await unlink(p);","after":"/* scratch: leave intermediate output behind */","pattern":"runner removes intermediate output"},
+  {"kind":"compat-pattern","name":"spoken-form","file":"src/text-normalize.ts","before":"`pull request ${referenceNumber(n)}`","after":"`changed request ${referenceNumber(n)}`","pattern":"runner executable goldens"},
+  {"kind":"compat-pattern","name":"silent-http","file":"src/pipelines/job-render/synthesis.ts","before":"throw new Error(`voicelayer-qwen3 synthesize failed (${failure.status}): ${failure.body || failure.statusText}`);","after":"return {};","pattern":"job service thrown error golden: http"},
+  {"kind":"compat-pattern","name":"job-probe-default","file":"src/pipelines/job-render/index.ts","before":"normalizeDuration(await (config.audio_duration_probe ?? probeAudioDurationSeconds)(audioPath))","after":"normalizeDuration(await (config.audio_duration_probe ?? (async () => undefined))(audioPath))","pattern":"job service probes unauthored"},
+  {"kind":"compat-pattern","name":"job-probe-scale-1.05","file":"src/audio.ts","before":"return Number(value.toFixed(3));","after":"return Number((value * 1.05).toFixed(3));","pattern":"job service probes unauthored"},
+  {"kind":"compat-pattern","name":"job-probe-scale-0.9","file":"src/audio.ts","before":"return Number(value.toFixed(3));","after":"return Number((value * 0.9).toFixed(3));","pattern":"job service probes unauthored"},
+  {"kind":"compat-pattern","name":"job-probe-scale-1.5","file":"src/audio.ts","before":"return Number(value.toFixed(3));","after":"return Number((value * 1.5).toFixed(3));","pattern":"job service probes unauthored"},
+  {"kind":"compat-pattern","name":"runner-loudness-result","file":"src/pipelines/local-tts/loudness.ts","before":"\n  await rename(tmpPath, output);","after":"\n  await (await import(\"node:fs/promises\")).unlink(tmpPath);","pattern":"runner executable goldens"},
+  {"kind":"compat-pattern","name":"runner-hit-sidecar","file":"src/pipelines/local-tts/index.ts","before":"    await writeFile(`${output}.spoken.txt`, spokenText, \"utf8\");","after":"/* scratch: omit HIT spoken sidecar */","pattern":"runner executable goldens"},
+  {"kind":"compat-pattern","name":"job-secret-fallback","file":"src/pipelines/job-render/config.ts","before":"    process.env.VOICELAYER_TTS_DAEMON_SECRET_FILE ||\n","after":"","pattern":"job service daemon auth"},
+  {"kind":"compat-pattern","name":"job-env-daemon_url","file":"src/service.ts","before":"process.env.NARRATIONLAYER_QWEN3_DAEMON_URL ?? overrides.daemon_url","after":"overrides.daemon_url ?? process.env.NARRATIONLAYER_QWEN3_DAEMON_URL","pattern":"job service daemon auth"},
+  {"kind":"compat-pattern","name":"job-env-auth_token","file":"src/service.ts","before":"process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN ?? overrides.auth_token","after":"overrides.auth_token ?? process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN","pattern":"job service daemon auth"},
+  {"kind":"compat-pattern","name":"job-env-auth_token_file","file":"src/service.ts","before":"process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE ?? overrides.auth_token_file","after":"overrides.auth_token_file ?? process.env.NARRATIONLAYER_QWEN3_AUTH_TOKEN_FILE","pattern":"job service daemon auth"},
+  {"kind":"compat-pattern","name":"stderr-abort-class","file":"tests/compat/harness.ts","before":"The operation was aborted\\.(?=\\r?$)","after":"[^\\n]*abort[^\\n]*","pattern":"stderr timeout classification"},
+  {"kind":"compat-pattern","name":"job-assembly-dir","file":"src/audio.ts","before":"path.join(os.tmpdir(), \"narrationlayer-audio-\")","after":"path.join(path.dirname(outputPath), \"narrationlayer-audio-\")","pattern":"job service manifest"},
+  {"kind":"compat-pattern","name":"runner-http-exit","file":"src/pipelines/local-tts/synthesis.ts","before":"throw new RunnerFailure(\n        `daemon /synthesize failed","after":"throw new Error(\n        `daemon /synthesize failed","pattern":"runner HTTP failure during breathing"},
+  { kind: "named-test", name: "planner-cutter-cost", file: "src/plan/synthesis-units.ts", before: "text.slice(start, start + max_chars + 1)", after: "text.slice(start)", testFile: "tests/plan/cutter-cost.test.ts", testName: "cutter cost: planning time grows linearly with one long sentence" },
+  { kind: "named-test", name: "planner-minimum-words", file: "src/plan/synthesis-units.ts", before: "const MIN_SYNTHESIS_WORDS = 3;", after: "const MIN_SYNTHESIS_WORDS = 2;", testFile: "tests/plan/synthesis-units.test.ts", testName: "PLAN-D5: two-word remainder joins; a three-word remainder stands" },
+  {"kind": "named-test", "name": "sentence-cap-input-limit", "file": "src/engine/core/engine.ts", "before": "max_chars: capability.max_chars ?? Number.MAX_SAFE_INTEGER", "after": "max_chars: _limits.max_chars[request.use]", "testFile": "tests/engine/sentence-cap.test.ts", "testName": "sentence cap: the input limit is not the cutter's cap"},
+  {"kind": "named-test", "name": "sentence-cap-absent", "file": "src/engine/core/engine.ts", "before": "capability.max_chars ?? Number.MAX_SAFE_INTEGER", "after": "capability.max_chars ?? 0", "testFile": "tests/engine/sentence-cap.test.ts", "testName": "sentence cap: an engine without max_chars never cuts"},
+  { kind: "named-test", name: "read-plan-partition", file: "src/plan/read-plan.ts", before: "word_start: start, word_end: cursor,", after: "word_start: start, word_end: cursor + 1,", testFile: "tests/plan/read-plan.test.ts", testName: "partition: every document word belongs to exactly one segment and piece" },
+  { kind: "named-test", name: "read-plan-chunk-match", file: "src/plan/read-plan.ts", before: 'if (position.chunks[position.used]?.[0] !== chunk[0]) throw new ReadPlanError("CHUNK_MISMATCH");', after: '/* scratch: skip chunk comparison */', testFile: "tests/plan/read-plan.test.ts", testName: "chunk disagreement throws before a plan escapes" },
+  { kind: "named-test", name: "read-plan-kind", file: "src/plan/read-plan.ts", before: 'segment.kind === "list_item" ? "item" : segment.kind', after: 'segment.kind', testFile: "tests/plan/read-plan.test.ts", testName: "every plan parses: the projected fixtures are wire events" },
+  { kind: "named-test", name: "planner-word-boundary", file: "src/plan/synthesis-units.ts", before: "(?:[,;:—―–]|(?<!\\S)-)(?=\\s|$)", after: "[,;:―–-](?=\\s|$)|[—]", testFile: "tests/plan/synthesis-round1.test.ts", testName: "word boundary: every cut falls on whitespace" },
+  { kind: "named-test", name: "planner-attached-hyphen", file: "src/plan/synthesis-units.ts", before: "(?:[,;:—―–]|(?<!\\S)-)(?=\\s|$)", after: "[,;:—―–-](?=\\s|$)", testFile: "tests/plan/synthesis-units.test.ts", testName: "PLAN-D4: a hyphen that joins words is not a cut point: first- and second-rate lanterns glow." },
+  { kind: "conformance-case", name: "engine-plan-before-backend", file: "src/engine/session/session.ts", before: "for (const effect of result.effects) {", after: "for (const effect of [...result.effects].reverse()) {", binding: "src/engine/conformance/engine-binding.ts", caseId: "BIND-01" },
+  // Clock deadline inclusivity is independent of the conformance command entry module.
+  { kind: "conformance-case", name: "conformance-clock-deadline", file: "src/engine/conformance/clock.ts", before: "next[1].at > end", after: "next[1].at >= end", binding: "src/engine/conformance/engine-binding.ts", caseId: "CONF-02" },
+  { kind: "named-test", name: "stale-checks-served", file: "src/pipelines/local-tts/index.ts", before: "recordedVersion === null || recordedVersion < TAKE_CHECKS_VERSION", after: "false", testFile: "tests/runner-take-checks.test.ts", testName: "a take frozen before the checks version, with a join cut, is re-made instead of served unjudged" },
+  { kind: "named-test", name: "stale-checks-no-joins-remade", file: "src/pipelines/local-tts/index.ts", before: "const remake = hasJoins(", after: "const remake = true || hasJoins(", testFile: "tests/runner-take-checks.test.ts", testName: "a take frozen before the checks version without joins is re-judged on the hit and kept" },
+  { kind: "named-test", name: "stale-checks-older-is-current", file: "src/pipelines/local-tts/index.ts", before: "recordedVersion < TAKE_CHECKS_VERSION", after: "recordedVersion !== TAKE_CHECKS_VERSION", testFile: "tests/runner-take-checks.test.ts", testName: "a take frozen under the current or a newer checks version is a plain hit (recorded: 3)" },
+];
+const literal = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
+let runningChild: ReturnType<typeof Bun.spawn> | undefined;
+let pending: { file: string; original: Buffer; reportDir: string | undefined } | undefined;
+for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143]] as const) {
+  process.on(signal, () => {
+    try {
+      runningChild?.kill("SIGTERM");
+      if (pending) {
+        writeFileSync(pending.file, pending.original);
+        if (pending.reportDir) rmSync(pending.reportDir, { recursive: true, force: true });
+      }
+    } finally { process.exit(code); }
+  });
 }
+type Run = { code: number; stdout: string; stderr: string; junit: string | undefined };
+async function invoke(row: MutationRow, cwd: string, reportFile?: string): Promise<Run> {
+  const args = row.kind === "compat-pattern" ? ["test", "tests/compat", "--test-name-pattern", row.pattern]
+    : row.kind === "named-test" ? ["test", row.testFile, "--test-name-pattern", `^${literal(row.testName)}$`]
+    : ["run", "conformance", "--binding", row.binding];
+  if (reportFile) args.push("--reporter=junit", `--reporter-outfile=${reportFile}`);
+  const child = Bun.spawn([tool("bun"), ...args], {
+    cwd, env: { ...process.env, UPDATE_COMPAT_GOLDENS: "0", NO_COLOR: "1", FORCE_COLOR: "0" },
+    stdout: "pipe", stderr: "pipe",
+  });
+  runningChild = child;
+  const [code, stdout, stderr] = await Promise.all([
+    child.exited, new Response(child.stdout).text(), new Response(child.stderr).text(),
+  ]);
+  runningChild = undefined;
+  const junit = reportFile ? await readFile(reportFile, "utf8").catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return undefined;
+    throw error;
+  }) : undefined;
+  return { code, stdout, stderr, junit };
+}
+const xmlWindow = new Window();
+function namedResult(row: Extract<MutationRow, { kind: "named-test" }>, run: Run) {
+  if (!run.junit) return undefined;
+  const document = new xmlWindow.DOMParser().parseFromString(run.junit, "application/xml");
+  if (document.documentElement?.tagName !== "testsuites" || document.querySelector("parsererror"))
+    throw new Error(`Invalid JUnit report: ${row.name}`);
+  const matches = [...document.querySelectorAll("testcase")].filter(test => {
+    const names = [test.getAttribute("name")];
+    // The outermost testsuite is the file, not a describe scope.
+    for (let parent = test.parentElement; parent?.parentElement?.tagName === "testsuite"; parent = parent.parentElement)
+      names.unshift(parent.getAttribute("name"));
+    return names.join(" ") === row.testName;
+  });
+  if (matches.length > 1) throw new Error(`Named test is ambiguous: ${matches.length} matches: ${row.testName}`);
+  const test = matches[0];
+  return !test ? undefined : test.querySelector("failure") ? "fail" : test.querySelector("skipped") ? "skipped" : "pass";
+}
+function caseResult(row: Extract<MutationRow, { kind: "conformance-case" }>, run: Run) {
+  let parsed: unknown;
+  try { parsed = JSON.parse(run.stdout); }
+  catch { throw new Error(`Conformance report cannot be parsed: ${row.name}`); }
+  if (!parsed || typeof parsed !== "object" || !("schema" in parsed) || parsed.schema !== "nl.conformance/1"
+    || !("rows" in parsed) || !Array.isArray(parsed.rows)) throw new Error(`Invalid conformance report: ${row.name}`);
+  const rows = parsed.rows.map((value: unknown) => {
+    if (!value || typeof value !== "object" || !("id" in value) || typeof value.id !== "string"
+      || !("result" in value) || !["pass", "fail", "inactive"].includes(String(value.result)))
+      throw new Error(`Invalid conformance row: ${row.name}`);
+    return { id: value.id, result: value.result };
+  });
+  const matches = rows.filter(result => result.id === row.caseId);
+  if (matches.length !== 1) throw new Error(`Conformance case not found: ${row.caseId}`);
+  return matches[0]?.result;
+}
+function verify(row: MutationRow, run: Run, restored: boolean) {
+  if (row.kind === "compat-pattern") {
+    if (restored ? run.code !== 0 : run.code === 0)
+      throw new Error(`${restored ? "Restored test failed" : "Mutation survived"}: ${row.name}`);
+  } else if (row.kind === "named-test") {
+    const result = namedResult(row, run);
+    if (restored) {
+      if (!result) throw new Error(`Named test not found: ${row.testName}`);
+      if (result === "skipped") throw new Error(`Mutation did not reach the named test: ${row.testName}`);
+      if (result !== "pass" || run.code !== 0) throw new Error(`Restored named test failed: ${row.testName}`);
+    } else {
+      if (result === "pass") throw new Error(`Mutation survived: named test still green: ${row.testName}`);
+      if (result !== "fail" || run.code === 0) throw new Error(`Mutation did not reach the named test: ${row.testName}`);
+    }
+  } else {
+    const result = caseResult(row, run);
+    if (result !== (restored ? "pass" : "fail") || (restored && run.code !== 0))
+      throw new Error(`${restored ? "Restored case failed" : "Mutation survived: named case still green"}: ${row.caseId}`);
+  }
+}
+/** Run one mutation against cwd, restore even on spawn failure, and prove byte custody. */
+export async function runMutation(row: MutationRow, cwd = repo) {
+  const file = path.resolve(cwd, row.file);
+  const original = await readFile(file);
+  const text = original.toString("utf8");
+  if (!row.before || text.split(row.before).length !== 2) throw new Error(`Mutation anchor is not unique: ${row.name}`);
+  const logs = path.join(cwd, "docs.local/characterization");
+  await mkdir(logs, { recursive: true });
+  if (pending) throw new Error("Mutation rows must run serially");
+  const reportDir = row.kind === "named-test" ? await mkdtemp(path.join(logs, `junit-${row.name}-`)) : undefined;
+  pending = { file, original, reportDir };
+  const run = async (suffix: string) => {
+    const result = await invoke(row, cwd, reportDir ? path.join(reportDir, `${suffix}.xml`) : undefined);
+    await writeFile(path.join(logs, `${row.name}-${suffix}.log`), result.stdout + result.stderr);
+    return result;
+  };
+  try {
+    let red: Run;
+    try { await writeFile(file, text.replace(row.before, row.after)); red = await run("mutated"); }
+    finally {
+      await writeFile(file, original);
+      if (hash(await readFile(file)) !== hash(original)) throw new Error(`Restoration hash mismatch: ${row.name}`);
+    }
+    const green = await run("restored");
+    // Check restored first so a missing test has an unambiguous diagnosis.
+    verify(row, green, true);
+    verify(row, red, false);
+    const target = row.kind === "named-test" ? `; test ${row.testName}` : row.kind === "conformance-case" ? `; case ${row.caseId}` : "";
+    process.stdout.write(`${row.name}: mutated FAIL (exit ${red.code}); restored PASS (exit ${green.code})${target}\n`);
+  } finally {
+    try { if (reportDir) await rm(reportDir, { recursive: true, force: true }); }
+    finally { pending = undefined; }
+  }
+}
+if (import.meta.main) for (const row of cases) await runMutation(row);

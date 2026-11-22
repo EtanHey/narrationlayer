@@ -26,7 +26,8 @@
           "body": {
             "text": "First clause",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -39,7 +40,8 @@
           "body": {
             "text": "second clause.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -52,14 +54,15 @@
           "body": {
             "text": "Last sentence.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         }
       ],
       "spoken": "First clause, second clause. Last sentence.",
       "keyPreimage": {
         "spokenText": "First clause, second clause. Last sentence.",
-        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceAudioSha256": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
         "referenceText": "Synthetic reference.",
         "profileId": "compat-defaults",
         "profileVersion": "synthetic-v1",
@@ -67,11 +70,12 @@
         "params": {
           "atempo": 1,
           "commaPauseSeconds": 0.17
-        }
+        },
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "46c107e407a5db6e0e2bc7c70b4730b71936e333c363adbccc150e10d6aed65d",
+        "cacheKey": "912221edf51a065c06f1ba6f4fd2db2d1c3e96584543b4f16fc1cf2bd1ffbfc5",
         "cacheEnabled": true
       },
       "pieces": [
@@ -98,7 +102,7 @@
       ],
       "exit": 0,
       "stderr": "ok",
-      "breathingNote": " breathing=3pc(sent=0.55s,comma=0.17s)"
+      "breathingNote": " breathing=3pc(sent=0.55s,comma=0.17s,colon=0.35s)"
     }
   ],
   "argv": [

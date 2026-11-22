@@ -17,7 +17,7 @@ for (const variant of cases) test(`runner defaults: ${variant.name}`, async () =
       "--reference-text", "Synthetic reference.", "--cache-dir", path.join(f.root, "cache"), "--timeout-ms", "10000"]);
     expect(result.code, result.stderr).toBe(0);
     const preimage = {
-      spokenText: normalizeForSpeech(text), referenceClip: path.join(f.root, "reference.wav"), referenceText: "Synthetic reference.",
+      spokenText: normalizeForSpeech(text), referenceAudioSha256: digest(await readFile(path.join(f.root, "reference.wav"))), referenceText: "Synthetic reference.",
       profileId: "compat-defaults", profileVersion: "synthetic-v1", model: "synthetic-model", params: variant.params,
       ...(LOCAL_TTS_RENDER_VERSION === 1 ? {} : { renderVersion: LOCAL_TTS_RENDER_VERSION }),
     };

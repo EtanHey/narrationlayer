@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "enum": [
+            "pause"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "enum": [
+                "user",
+                "f5",
+                "ask"
+              ]
+            },
+            "at_ms": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "owner"
+          ],
+          "additionalProperties": true
+        },
+        "expected_control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "command_id",
+        "session_id",
+        "op",
+        "args"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "enum": [
+            "resume"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "enum": [
+                "user",
+                "f5",
+                "ask"
+              ]
+            }
+          },
+          "required": [
+            "owner"
+          ],
+          "additionalProperties": true
+        },
+        "expected_control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "command_id",
+        "session_id",
+        "op",
+        "args"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "enum": [
+            "seek"
+          ]
+        },
+        "args": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "audio_ms": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "audio_ms"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "word_index": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "word_index"
+              ],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "expected_control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "command_id",
+        "session_id",
+        "op",
+        "args"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "enum": [
+            "stop"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "enum": [
+                "session",
+                "queue",
+                "all_speech"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "stop",
+                "cancel",
+                "replaced"
+              ]
+            },
+            "at_ms": {
+              "type": "integer"
+            },
+            "except_sessions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "retain_read_queue": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "scope",
+            "reason"
+          ],
+          "additionalProperties": true
+        },
+        "expected_control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "command_id",
+        "session_id",
+        "op",
+        "args"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "enum": [
+            "replay"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "of_session_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "from": {
+              "enum": [
+                "start",
+                "readback"
+              ]
+            },
+            "audio_ms": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "of_session_id",
+            "from"
+          ],
+          "additionalProperties": true
+        },
+        "expected_control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "command_id",
+        "session_id",
+        "op",
+        "args"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "enum": [
+            "next"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "request_id": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "request_id"
+          ],
+          "additionalProperties": true
+        },
+        "expected_control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "command_id",
+        "session_id",
+        "op",
+        "args"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "enum": [
+            "previous"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "request_id": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "request_id"
+          ],
+          "additionalProperties": true
+        },
+        "expected_control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "command_id",
+        "session_id",
+        "op",
+        "args"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "enum": [
+            "resync"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": true
+        },
+        "expected_control_epoch": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "command_id",
+        "session_id",
+        "op",
+        "args"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

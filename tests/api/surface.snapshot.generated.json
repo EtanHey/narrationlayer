@@ -1,34 +1,38 @@
 {
-  "sha256": "24644bb652eac77e717978efd082c0aae0be91e8c7d784bb6114492a4fb3ff03",
+  "sha256": "0de741bf4f2a81ff64aa7f3ff372dec3bd2e9566e56cb9af9472955bf261dab2",
   "files": {
     "bin/local-tts-runner.d.ts": "11d3762ac47c03c58db3221f417526bc358c4e882b73de33490ee7aed524ae9d",
-    "src/api/index.d.ts": "48b2c9861c0a35b627114245116e0249e68fd3f1517e07fa6e398dcf14e72648",
+    "src/api/index.d.ts": "2a693788db68ccce82f6df8e320e234ac7e1af97e4080354a98e74ffb90812f5",
     "src/audio/ffmpeg-args.d.ts": "3c879d0108f1d5f17a494d25463bead9954ee8a1944d3c20280d93a4bf998d57",
-    "src/core/render-types.d.ts": "2917a9ecd2d5107d4d8a8a01aa27be8fa2cdd609c1feb0c6ffc0f6ddf77da119",
-    "src/pipelines/local-tts/take-cache.d.ts": "8c67527ce1932251a76e621aeb9d2460da6bab078fdae3c1649ff105f78a0084",
-    "src/plan/breathing.d.ts": "2739c58b646df90a7fb04e7bf3699292ddfd41a8cc201d751ebf7f7a60d27099",
-    "src/plan/index.d.ts": "b6db6bbd829aa332fd16a7484a2aa2e5b676e3a8c1e3eab19dfb0e24a4801d47",
+    "src/core/render-types.d.ts": "1c84ddb3185ca0968b125829ecc3088963d1198330d2570fe5757c09cd9c5e60",
+    "src/pipelines/local-tts/take-cache.d.ts": "54dfb09c71fd65452620dd64e88cbaddceafa62cd05c166d236b35b38a32ee3e",
+    "src/plan/breathing.d.ts": "6bab548964a24303e16a18b772c6c0c7437c905e740a24a249c47d9330a1a34e",
+    "src/plan/index.d.ts": "63e7034174142b2227221aaba9d655a1f5d27d81836bc1cc5e7744d6e66a6dea",
     "src/plan/utterances.d.ts": "14f6b4ad810911a23fb7e26665c90541004e954958936a5b8469adb2941693c8",
     "src/profiles.d.ts": "e796d269216e1197deec9d0c04fee297433a34042ec4fc660cccd1df3d48c872",
     "src/schema.d.ts": "2617a03e8be28866be4bc854a89a8766d29731e352e21439753f529851e9e512",
     "src/service.d.ts": "6b83f9d77ef312bde23323e863f8f602163d676e5942c52d79e47d53ddddfd13",
     "src/teleprompter.d.ts": "dffeccecefebcbe6e356214890434509b8e6778f7aa3166a98859e309d482df7",
-    "src/text-normalize.d.ts": "ecf93cb2d8b2358aba439edbd889d97ba92b861603fbfdb2bc25439c1d7f2301",
+    "src/text-normalize.d.ts": "0598d5a12271eb19987d10db0090bc776ec55b41443ac7b32ad51cf9473ceebb",
     "src/word-timing-repair.d.ts": "7a162b0529b576290064a7d6ad2eb8288c5a7d64b7f527fba7a3c1e83f10f1c8",
-    "src/word-timings.d.ts": "7f81d232d1beef095a283dcf62e7cb247d1c34ca09976747d503180b0fb6cc57"
+    "src/word-timings.d.ts": "07dc6808604aaf646fffcf28a9ddecd4918ce5d53d137584bd895f2857dbb817"
   },
   "names": {
+    "applyPronunciationHints": {
+      "kind": "value",
+      "declaration": "// src/text-normalize.d.ts\nexport declare function applyPronunciationHints(text: string, normalize: (text: string) => string): SpeechChannels;"
+    },
     "AudioAssemblyChunk": {
       "kind": "type",
       "declaration": "// src/core/render-types.d.ts\nexport interface AudioAssemblyChunk {\n    audioPath: string;\n    pauseAfterSeconds: number;\n}"
     },
     "breathingV1": {
       "kind": "value",
-      "declaration": "// src/plan/index.d.ts\nexport declare function breathingV1(text: string, sentencePad: number, commaPad: number): Piece[];"
+      "declaration": "// src/plan/index.d.ts\nexport declare function breathingV1(text: string, sentencePad: number, commaPad: number, colonPad?: number): Piece[];"
     },
     "CacheKeyParams": {
       "kind": "type",
-      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface CacheKeyParams {\n    eqHighshelfHz?: number;\n    eqHighshelfGainDb?: number;\n    loudnessTargetDb?: number;\n    atempo?: number;\n    sentencePauseSeconds?: number;\n    commaPauseSeconds?: number;\n}"
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface CacheKeyParams {\n    takeChecks?: {\n        pitchCeilingHz: number;\n        retries: number;\n        rejectFades?: boolean;\n    };\n    eqHighshelfHz?: number;\n    eqHighshelfGainDb?: number;\n    loudnessTargetDb?: number;\n    atempo?: number;\n    sentencePauseSeconds?: number;\n    commaPauseSeconds?: number;\n    colonPauseSeconds?: number;\n}"
     },
     "clearTakeCacheReceipt": {
       "kind": "value",
@@ -36,7 +40,7 @@
     },
     "computeContentHashKey": {
       "kind": "value",
-      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function computeContentHashKey(input: {\n    spokenText: string;\n    referenceClip: string;\n    referenceText: string;\n    profileId?: string;\n    profileVersion?: string;\n    model?: string;\n    params: CacheKeyParams;\n    renderVersion?: number;\n}): string;"
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function computeContentHashKey(input: {\n    spokenText: string;\n    referenceAudioSha256: string;\n    referenceText: string;\n    profileId?: string;\n    profileVersion?: string;\n    model?: string;\n    params: CacheKeyParams;\n    renderVersion?: number;\n}): string;"
     },
     "CreatedJobResult": {
       "kind": "type",
@@ -178,6 +182,10 @@
       "kind": "type",
       "declaration": "// src/service.d.ts\nexport interface StatusSummary {\n    status: JobStatus;\n    done: boolean;\n    failed: boolean;\n    manifest_exists: boolean;\n    manifest: RenderManifest | null;\n}"
     },
+    "TakeCheckReceipt": {
+      "kind": "type",
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport interface TakeCheckReceipt {\n    wordMatch?: {\n        keptBest?: boolean;\n        model: string;\n        note?: \"not judged: no Latin-script words\";\n        attempts: {\n            source: \"cache\" | \"render\";\n            attempt: number;\n            editCount: number | null;\n        }[];\n        pass: boolean;\n        setting: string;\n        edits: {\n            kind: string;\n            sentIndex: number;\n            recognisedIndex: number;\n            start: number | null;\n            end: number | null;\n        }[];\n    };\n    pitchNote?: \"not judged: shorter than one window\";\n    /** The kept take's cut-ending measures (tail level relative to its speech level, in dB; steepest fall at the end). */\n    cutEnding?: {\n        failed: boolean;\n        reason: \"tail-at-speech-level\" | \"last-word-runs-to-end\" | \"fade-from-speech-level\" | null;\n        tailRelDb: number | null;\n        fadeDbPer10ms: number | null;\n        fadePeakRelDb: number | null;\n        fadeDetected: boolean;\n        audioEndSeconds: number;\n        lastWordEndSeconds: number | null;\n        note?: \"not judged: too short or silent\";\n    };\n    /** The kept take's breathing-piece ends before the last, each measured like `cutEnding`; cut pieces are listed. */\n    cutJoins?: {\n        failed: boolean;\n        piecesChecked: number;\n        fadeMeasurements?: {\n            piece: number;\n            fadeDbPer10ms: number | null;\n            fadePeakRelDb: number | null;\n            detected: boolean;\n        }[];\n        cuts: {\n            piece: number;\n            of: number;\n            text: string;\n            reason: \"tail-at-speech-level\" | \"last-word-runs-to-end\" | \"fade-from-speech-level\";\n            tailRelDb: number | null;\n            fadeDbPer10ms: number | null;\n            endSeconds: number;\n            lastWordEndSeconds: number | null;\n        }[];\n        note?: \"not judged: a cache hit keeps no pieces\";\n    };\n    /** Present only when a cache hit was frozen under older take checks, and what was done about it. */\n    cachedChecks?: {\n        recordedVersion: number | null;\n        currentVersion: number;\n        action: \"re-made\" | \"re-judged\";\n    };\n    attempts: number;\n    failures: {\n        source: \"cache\" | \"render\";\n        attempt: number;\n        reason: string;\n    }[];\n    gaveUp: boolean;\n}"
+    },
     "TeleprompterPayload": {
       "kind": "type",
       "declaration": "// src/teleprompter.d.ts\nexport interface TeleprompterPayload {\n    manifest: RenderManifest;\n    segments: TeleprompterSegment[];\n}"
@@ -208,11 +216,11 @@
     },
     "VoiceLayerQwen3Config": {
       "kind": "type",
-      "declaration": "// src/core/render-types.d.ts\nexport interface VoiceLayerQwen3Config extends NarrationPacingConfig {\n    profile_id?: string;\n    profile_version?: string;\n    reference_clip_sha?: string;\n    model?: string;\n    narrationlayer_commit?: string;\n    daemon_url?: string;\n    auth_token?: string;\n    auth_token_file?: string;\n    reference_clip?: string;\n    reference_text?: string;\n    reference_text_path?: string;\n    reference_clips?: string[];\n    lora_adapter_path?: string;\n    lora_scale?: number;\n    timeout_ms?: number;\n    timing_backend?: \"none\" | \"whisper-cli\";\n    whisper_binary?: string;\n    whisper_model?: string;\n    trim_silence?: boolean;\n    silence_threshold_db?: number;\n    eq_highshelf_hz?: number;\n    eq_highshelf_gain_db?: number;\n    loudness_target_db?: number;\n    atempo?: number;\n    silence_padding_seconds?: number;\n    repair_word_timings?: boolean;\n    max_chunk_duration_seconds?: number;\n    max_chunk_seconds_per_word?: number;\n    max_chunk_retries?: number;\n    audio_duration_probe?: (audioPath: string) => Promise<number | undefined>;\n    audio_postprocessor?: (args: {\n        inputPath: string;\n        outputPath: string;\n    }) => Promise<void>;\n    audio_assembler?: (args: {\n        chunks: AudioAssemblyChunk[];\n        outputPath: string;\n    }) => Promise<void>;\n    word_timing_provider?: (args: {\n        audioPath: string;\n        script: string;\n        durationSeconds: number;\n    }) => Promise<WordTiming[] | WordTimingResult>;\n}"
+      "declaration": "// src/core/render-types.d.ts\nexport interface VoiceLayerQwen3Config extends NarrationPacingConfig {\n    colon_pause_seconds?: number;\n    profile_id?: string;\n    profile_version?: string;\n    reference_clip_sha?: string;\n    model?: string;\n    narrationlayer_commit?: string;\n    daemon_url?: string;\n    auth_token?: string;\n    auth_token_file?: string;\n    reference_clip?: string;\n    reference_text?: string;\n    reference_text_path?: string;\n    reference_clips?: string[];\n    lora_adapter_path?: string;\n    lora_scale?: number;\n    timeout_ms?: number;\n    timing_backend?: \"none\" | \"whisper-cli\";\n    whisper_binary?: string;\n    whisper_model?: string;\n    trim_silence?: boolean;\n    silence_threshold_db?: number;\n    eq_highshelf_hz?: number;\n    eq_highshelf_gain_db?: number;\n    loudness_target_db?: number;\n    atempo?: number;\n    silence_padding_seconds?: number;\n    repair_word_timings?: boolean;\n    max_chunk_duration_seconds?: number;\n    max_chunk_seconds_per_word?: number;\n    max_chunk_retries?: number;\n    audio_duration_probe?: (audioPath: string) => Promise<number | undefined>;\n    audio_postprocessor?: (args: {\n        inputPath: string;\n        outputPath: string;\n    }) => Promise<void>;\n    audio_assembler?: (args: {\n        chunks: AudioAssemblyChunk[];\n        outputPath: string;\n    }) => Promise<void>;\n    word_timing_provider?: (args: {\n        audioPath: string;\n        script: string;\n        durationSeconds: number;\n    }) => Promise<WordTiming[] | WordTimingResult>;\n}"
     },
     "WhisperTimingOptions": {
       "kind": "type",
-      "declaration": "// src/word-timings.d.ts\nexport interface WhisperTimingOptions {\n    whisper_binary?: string;\n    whisper_model?: string;\n    language?: string;\n}"
+      "declaration": "// src/word-timings.d.ts\nexport interface WhisperTimingOptions {\n    whisper_binary?: string;\n    output_directory?: string;\n    whisper_model?: string;\n    language?: string;\n}"
     },
     "WordsFile": {
       "kind": "type",
@@ -240,7 +248,7 @@
     },
     "writeTakeCacheReceipt": {
       "kind": "value",
-      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function writeTakeCacheReceipt(output: string, cacheKey: string, options: {\n    cacheEnabled: boolean;\n    /** The take was rendered fresh under --refresh-cache and replaced the cached entry. */\n    refreshed?: boolean;\n    /** --keep-pieces: where the pieces went and how many; `skipped` says why none were written. */\n    keptPieces?: {\n        dir: string;\n        count: number;\n        skipped?: string;\n    };\n}): Promise<string>;"
+      "declaration": "// src/pipelines/local-tts/take-cache.d.ts\nexport declare function writeTakeCacheReceipt(output: string, cacheKey: string, options: {\n    cacheEnabled: boolean;\n    takeChecks?: TakeCheckReceipt;\n    /** The take was rendered fresh under --refresh-cache and replaced the cached entry. */\n    refreshed?: boolean;\n    /** --keep-pieces: where the pieces went and how many; `skipped` says why none were written. */\n    keptPieces?: {\n        dir: string;\n        count: number;\n        skipped?: string;\n    };\n}): Promise<string>;"
     }
   }
 }

@@ -1,0 +1,370 @@
+import { hostCallbacks, HostFault, type HostLog } from "../host-callbacks";
+import type { ArtifactPort, PublicationContext, PublishedPiece } from "../publication/publication";
+import { nextSynthesisIndex } from "../reducer/pacing";
+import { hasDeliveredLease, initialState, reduce, type Input } from "../reducer/session";
+import { negotiate, parseEvent, parseRequest } from "../messages/parser";
+import type { Event, Limits, Message } from "../messages/messages";
+import { VoiceUnavailable, type Substitution } from "../selection/voice";
+type Identity = Pick<Message<"accepted">, "owner_epoch" | "session_id" | "attempt_id">;
+type Plan = Omit<Message<"plan">, "protocol" | "owner_epoch" | "seq">;
+/** Returned plans and requests become engine-owned; the session detaches them before storage. */
+export interface ReadPlanner {
+  plan(request: Message<"narrate">, limits: Limits, identity: Identity): { plan: Plan; requests: readonly { piece_index: number; text: string }[]; selection?: Substitution };
+}
+export interface Clock {
+  now(): number;
+  monotonic(): number;
+  schedule(ms: number, callback: () => void): () => void;
+}
+export type SynthesisRequest = { piece_index: number; text: string; family: Message<"plan">["engine"]["family"]; voice: string; rate: string };
+class SynthesisFailure extends Error {
+  constructor(readonly code: "VOICE_UNAVAILABLE" | "ENGINE_UNAVAILABLE" | "SYNTH_FAILED") { super(code); }
+}
+export interface Backend<Audio> {
+  synthesizeRequest(request: SynthesisRequest, signal: AbortSignal): Promise<Audio>;
+}
+/** S4/S7 supply decoded timing and artifact receipts; this session never interprets audio.
+ * Returned receipts become engine-owned; the session detaches them before storage. */
+export type Publication<Audio> = {
+  piece(audio: Audio, context: PublicationContext, signal: AbortSignal): Promise<PublishedPiece>;
+  commit(identity: Identity, signal: AbortSignal): Promise<void>;
+} & ({ release: ArtifactPort["release"] } | {
+  // Throw-only fixtures own no receipts; every publication that returns one must release it.
+  piece(audio: Audio, context: PublicationContext, signal: AbortSignal): Promise<never>;
+});
+/** Only reducer state owns terminals/cursors/order. Other state: synthesis requests (text
+ * absent from reducer), id counter (epoch-local minting), abort handles (physical work),
+ * outgoing queue (transport), including its closed flag and pending iterator readers. */
+export function createEngineSession<Audio>(options: {
+  owner_epoch: number;
+  default_voice?: string;
+  synthesis_timeout_ms: number;
+  welcome: Pick<Message<"welcome">, "package_version" | "protocol_minor" | "caps" | "engines">;
+  limits: Limits;
+  planner: ReadPlanner;
+  clock: Clock;
+  backend: Backend<Audio>;
+  publication: Publication<Audio>;
+  artifacts?: { releaseFromHost(lease_id: string): { kind: "released" | "expired" }; minted(lease_id: string): boolean };
+  log?: HostLog;
+  observe?: { input?(input: Input<"host">): void; event?(event: Event, replay: boolean): void };
+}) {
+  // Amended ruling 90: the host chooses a positive safe integer within timer range.
+  if (!Number.isSafeInteger(options.synthesis_timeout_ms) || !(options.synthesis_timeout_ms > 0) || options.synthesis_timeout_ms > 2147483647)
+    throw new Error("invalid synthesis_timeout_ms");
+  const host = hostCallbacks(options.log);
+  let state = initialState(options.owner_epoch, "host"), counter = 0;
+  const requests = new Map<string, readonly { piece_index: number; text: string }[] & { selection?: Substitution }>();
+  const waiting = new Map<string, { cancel?: () => void }>();
+  const runs = new Set<Promise<void>>();
+  let shutdownPromise: Promise<void> | undefined;
+  const aborts = new Map<string, AbortController>();
+  const queue: Event[] = [], readers: ((result: IteratorResult<Event>) => void)[] = [];
+  let closed = false, shuttingDown = false, negotiated = false;
+  const events: AsyncIterable<Event> = { [Symbol.asyncIterator]() { return { next(): Promise<IteratorResult<Event>> {
+    const value = queue.shift();
+    if (value) return Promise.resolve({ done: false, value });
+    if (closed) return Promise.resolve({ done: true, value: undefined });
+    return new Promise(resolve => readers.push(resolve));
+  } }; } };
+  function emit(event: Event, replay: boolean) {
+    if (closed) return;
+    const copy = structuredClone(event), reader = readers.shift();
+    if (reader) reader({ done: false, value: copy }); else queue.push(copy);
+    host.ignore("observe.event", () => options.observe?.event?.(structuredClone(event), replay));
+  }
+  function step(input: Input<"host">, details?: Message<"error">["details"]) {
+    host.ignore("observe.input", () => options.observe?.input?.(structuredClone(input)));
+    const id = "identity" in input ? input.identity.session_id : "session_id" in input ? input.session_id : input.kind === "control" ? input.command.session_id : undefined;
+    const wasRunning = id !== undefined && state.sessions[id]?.generation === "running";
+    const result = reduce(state, input);
+    state = result.state;
+    for (const effect of result.effects) {
+      if (effect.kind === "emit" || effect.kind === "replay") emit(effect.event.type === "error" && details ? { ...effect.event, details } : effect.event, effect.kind === "replay");
+      else if (effect.kind === "plan") plan(effect.request);
+      else if (effect.kind === "backend") {
+        if (effect.op === "cancel") {
+          const id = effect.identity.session_id, abort = aborts.get(id);
+          if (abort) queueMicrotask(() => { if (aborts.get(id) === abort) abort.abort(); });
+        }
+        else pump(effect.identity.session_id);
+      }
+    }
+    if (id !== undefined) {
+      pump(id);
+      if (wasRunning && state.sessions[id]?.generation !== "running") pumpDependents(id);
+    }
+  }
+  function pumpDependents(id: string) {
+    if (closed) return;
+    for (const session of Object.values(state.sessions)) {
+      const start = session.request.start;
+      if (start && typeof start === "object" && start.after_session === id) pump(session.session_id);
+    }
+  }
+  function clearWaiting(id: string) {
+    const wait = waiting.get(id);
+    if (wait) { waiting.delete(id); queueMicrotask(() => host.ignore("clock.cancel", () => wait.cancel?.())); }
+  }
+  // Amended ruling 92: even an abort-ignoring predecessor cannot hold a read forever.
+  function boundWaiting(identity: Identity) {
+    const id = identity.session_id;
+    if (waiting.has(id)) return;
+    const wait: { cancel?: () => void } = {};
+    let started: number;
+    try { started = host.call("clock.monotonic", () => options.clock.monotonic()); }
+    catch { failHost(identity); return; }
+    waiting.set(id, wait);
+    queueMicrotask(() => {
+      if (waiting.get(id) !== wait || shuttingDown || state.sessions[id].generation !== "running") return;
+      try { wait.cancel = host.schedule(options.clock, Math.max(0, options.synthesis_timeout_ms - (host.call("clock.monotonic", () => options.clock.monotonic()) - started)), () => {
+        waiting.delete(id);
+        step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis wait timed out" } } });
+      }); } catch { waiting.delete(id); failHost(identity); }
+    });
+  }
+  function failHost(identity: Identity) {
+    queueMicrotask(() => step({ kind: "backend", identity, result: { kind: "failure", error: { code: "HOST_CALLBACK_FAILED", phase: "synthesize", message: "host callback failed" } } }));
+  }
+  function pump(id: string) {
+    const session = Object.hasOwn(state.sessions, id) ? state.sessions[id] : undefined;
+    if (!session) return;
+    if (closed || shuttingDown || aborts.has(id) || session.generation !== "running" || session.fenced) {
+      if (session.generation !== "running") { requests.delete(id); clearWaiting(id); }
+      return;
+    }
+    const start = session.request.start;
+    // The pure rule releases logical generation; this handle gates physical settlement.
+    if (start && typeof start === "object" && aborts.has(start.after_session)) {
+      if (state.sessions[start.after_session]?.generation !== "running") boundWaiting(session);
+      return;
+    }
+    if (session.delivered.length !== session.plan.pieces.length
+      && nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) return;
+    clearWaiting(id);
+    const abort = new AbortController();
+    aborts.set(id, abort);
+    let finish!: () => void;
+    const pending = new Promise<void>(resolve => { finish = resolve; });
+    runs.add(pending); // Register before invoking a host backend that can call shutdown.
+    queueMicrotask(() => {
+      void run({ owner_epoch: session.owner_epoch, session_id: id, attempt_id: session.attempt_id }, abort)
+        .then(() => { runs.delete(pending); finish(); }, () => { runs.delete(pending); finish(); });
+    });
+  }
+  // §2.5: reducer owns contract phase/retry selection for every refusal code.
+  function refuse(code: Extract<Input<"host">, { kind: "refuse" }>["code"], request_id?: string) {
+    step({ kind: "refuse", code, message: code, ...(request_id ? { request_id } : {}) });
+  }
+  function plan(request: Message<"narrate">) {
+    // §3 L270-271: epoch plus monotone counter; no random or wall-clock identity.
+    const n = ++counter;
+    const identity = {
+      owner_epoch: state.owner_epoch,
+      session_id: `session-${state.owner_epoch}-${n}`,
+      attempt_id: `attempt-${state.owner_epoch}-${n}`,
+    };
+    let prepared: ReturnType<ReadPlanner["plan"]>;
+    try {
+      const planned = options.planner.plan(structuredClone(request), structuredClone(options.limits), identity);
+      prepared = structuredClone(planned);
+      const checked = parseEvent({ ...prepared.plan, protocol: "nl.engine/1", owner_epoch: state.owner_epoch, seq: state.seq + 1 });
+      if (!checked.ok || checked.value?.type !== "plan"
+        || prepared.plan.session_id !== identity.session_id || prepared.plan.attempt_id !== identity.attempt_id
+        || prepared.plan.pieces.some(p => p.segments.length === 0)
+        || prepared.requests.length !== prepared.plan.pieces.length
+        || prepared.requests.some((r, i) => r.piece_index !== prepared.plan.pieces[i].index)) throw new Error("invalid plan");
+      requests.set(identity.session_id, Object.assign(prepared.requests, { selection: prepared.selection }));
+    } catch (error) {
+      requests.delete(identity.session_id);
+      refuse(error instanceof VoiceUnavailable ? "VOICE_UNAVAILABLE" : "INVALID_REQUEST", request.request_id);
+      return;
+    }
+    // §2 L116: accept emits the complete plan before its backend-start effect.
+    step({ kind: "accept", identity, request, plan: prepared.plan, current: {
+      session_id: identity.session_id, player_instance_id: "", control_epoch: 0,
+      audio_ms: 0, piece_index: 0, piece_start_ms: 0, piece_duration_ms: 0, duration_ms: 0,
+    } });
+  }
+  async function run(identity: Identity, abort: AbortController) {
+    try {
+      // §2 L114: strict prefix, one synthesis in flight; parked reads hold no timer.
+      while (state.sessions[identity.session_id].generation === "running") {
+        const session = state.sessions[identity.session_id], index = session.delivered.length;
+        const piece = session.plan.pieces[index];
+        if (!piece) {
+          await options.publication.commit(identity, abort.signal);
+          step({ kind: "backend", identity, result: { kind: "commit" } }); break;
+        }
+        if (nextSynthesisIndex(session, session.request.lookahead ?? options.limits.lookahead, state.sessions) === undefined) break;
+        const plannedRequests = requests.get(identity.session_id), selection = plannedRequests?.selection;
+        const request = plannedRequests?.[index];
+        if (!request || request.piece_index !== piece.index || !piece.segments[0]) throw new Error("invalid planner requests");
+        const started = host.call("clock.monotonic", () => options.clock.monotonic());
+        step({ kind: "synthesis_requested", identity, piece_index: piece.index, chars: request.text.length, t_mono_ms: Math.round(started) });
+        let audio: Audio;
+        let engine = { ...session.plan.engine }, rate = session.request.rate ?? "+0%";
+        let substituted = selection?.substituted ?? false, fallback_reason = selection?.fallback_reason ?? null;
+        let cancelTimeout = () => {};
+        const callBackend = () => {
+          cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout);
+          // Q96: the composed engine checks declared availability before a call.
+          const capability = options.welcome.engines.find(e => e.family === engine.family);
+          if (selection !== undefined && !capability?.available) throw new SynthesisFailure("ENGINE_UNAVAILABLE");
+          // Rulings 90-93: each call starts its own host-clock bound, after send.
+          cancelTimeout = host.schedule(options.clock, options.synthesis_timeout_ms, () => {
+            if (shuttingDown || state.sessions[identity.session_id].generation !== "running") return;
+            step({ kind: "backend", identity, result: { kind: "failure", error: { code: "SYNTH_TIMEOUT", message: "synthesis timed out" } } });
+            queueMicrotask(() => abort.abort());
+          });
+          abort.signal.addEventListener("abort", cancelTimeout, { once: true });
+          return host.call("backend.synthesizeRequest", () => options.backend.synthesizeRequest({ ...request, family: engine.family, voice: engine.voice, rate }, abort.signal));
+        };
+        try {
+          try { audio = await callBackend(); }
+          catch (error) {
+            if (!(error instanceof HostFault)) host.report("backend.synthesizeRequest", error);
+            if (abort.signal.aborted || state.sessions[identity.session_id].generation !== "running") throw error;
+            if (error instanceof HostFault && error.callback !== "backend.synthesizeRequest" || engine.family !== "qwen3_clone") throw error;
+            if (session.request.voice.require_clone) throw new SynthesisFailure("VOICE_UNAVAILABLE"); // Q95
+            if (session.request.voice.fallback !== "declared") throw error;
+            const edge = options.welcome.engines.find(e => e.family === "edge");
+            if (edge?.max_chars !== undefined && request.text.length > edge.max_chars) throw new SynthesisFailure("ENGINE_UNAVAILABLE"); // Q97 amended: no allowed family can serve.
+            engine = { family: "edge", voice: options.default_voice ?? "", profile_revision: "default" };
+            rate = "+0%"; substituted = true; fallback_reason = "clone_synthesis_failed"; // Q95: default rate, this piece only.
+            try { audio = await callBackend(); } catch (error) { if (!(error instanceof HostFault)) host.report("backend.synthesizeRequest", error); throw error; }
+          }
+        } finally { cancelTimeout(); abort.signal.removeEventListener("abort", cancelTimeout); }
+        const ready = host.call("clock.monotonic", () => options.clock.monotonic());
+        abort.signal.throwIfAborted();
+        const delivered = await options.publication.piece(audio, {
+          ...identity, index: piece.index, piece_id: piece.piece_id,
+          prefix: session.delivered.map(p => ({ sample_count: p.artifact.sample_count, sample_rate: p.artifact.sample_rate })),
+          words: structuredClone(session.plan.words.slice(piece.word_start, piece.word_end)),
+          // Engine selection owes the resolved profile/mode rate when the request omits it.
+          engine, substituted, fallback_reason, timing: substituted ? options.welcome.engines.find(e => e.family === engine.family)?.timing : undefined, segments: piece.segments.length, rate,
+          synthesis_ms: ready - started, spoken_text: request.text,
+        }, abort.signal);
+        // §3 L282: stop during publication still goes through the attempt fence.
+        try {
+          const { known_ms, first_audible_offset_ms, ...receipt } = structuredClone(delivered);
+          step({ kind: "backend", identity, result: { kind: "piece", piece: receipt, known_ms,
+            audio_ready: { t_mono_ms: Math.round(ready), first_audible_offset_ms } } });
+        } finally {
+          if (!state.sessions[identity.session_id].delivered.some(p => p.artifact.lease_id === delivered.artifact.lease_id)
+            && "release" in options.publication)
+            host.ignore("publication.release", () => "release" in options.publication && options.publication.release(delivered.artifact.lease_id));
+        }
+        const updated = state.sessions[identity.session_id];
+        if (updated.generation === "running" && updated.delivered.length === index) throw new Error("publication receipt rejected");
+      }
+    } catch (error) {
+      // §2.5 L220: reducer emits a text-free error and the one terminal outcome.
+      step({ kind: "backend", identity, result: { kind: "failure", error: error instanceof HostFault && error.callback !== "backend.synthesizeRequest"
+        ? { code: "HOST_CALLBACK_FAILED", phase: error.callback.startsWith("clock.") ? "synthesize" : "deliver", message: "host callback failed" }
+        : { code: error instanceof SynthesisFailure ? error.code : "SYNTH_FAILED", message: "synthesis failed" } } });
+    } finally {
+      aborts.delete(identity.session_id);
+      if (state.sessions[identity.session_id].generation !== "running") requests.delete(identity.session_id);
+      pump(identity.session_id);
+      if (state.sessions[identity.session_id].generation !== "running") pumpDependents(identity.session_id);
+    }
+  }
+  return {
+    events,
+    send(message: unknown): void {
+      if (closed) {
+        const parsed = parseRequest(message, options.limits);
+        if (parsed.ok && parsed.value.type === "artifact_release" && hasDeliveredLease(state, parsed.value.lease_id)) {
+          const lease = parsed.value.lease_id;
+          host.ignore("artifacts.releaseFromHost", () => options.artifacts?.releaseFromHost(lease));
+        }
+        return;
+      }
+      if (!negotiated) {
+        const result = negotiate(message, { ...structuredClone(options.welcome), protocol: "nl.engine/1", type: "welcome", owner_epoch: options.owner_epoch, limits: structuredClone(options.limits) });
+        if (result.ok) { negotiated = true; emit(result.value, false); }
+        else {
+          const request_id = message !== null && typeof message === "object" && "type" in message && message.type === "narrate" && "request_id" in message && typeof message.request_id === "string" && message.request_id.length >= 3 && message.request_id.length <= 128 ? message.request_id : undefined;
+          step({ kind: "refuse", code: result.error.code, message: result.error.code, ...(request_id ? { request_id } : {}) }, result.error.details);
+          if (result.error.code === "UNSUPPORTED_VERSION" || result.error.code === "MISSING_CAPABILITY") {
+            closed = true;
+            for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
+          }
+        }
+        return;
+      }
+      const parsed = parseRequest(message, options.limits);
+      if (!parsed.ok) {
+        const request_id = message !== null && typeof message === "object" && "type" in message && message.type === "narrate" && "request_id" in message && typeof message.request_id === "string" && message.request_id.length >= 3 && message.request_id.length <= 128 ? message.request_id : undefined;
+        refuse(parsed.error.code, request_id); return;
+      }
+      const value = parsed.value;
+      if (value.type === "artifact_release") {
+        if (!options.artifacts) { refuse("INVALID_REQUEST"); return; }
+        // Decide in host request order; only the store's byte-port delete is deferred.
+        let result: { kind: "released" | "expired" } = { kind: "expired" };
+        host.ignore("artifacts.releaseFromHost", () => { if (hasDeliveredLease(state, value.lease_id)) result = options.artifacts!.releaseFromHost(value.lease_id); });
+        if (result.kind === "released") step({ kind: "artifact_release", lease_id: value.lease_id });
+        else if (result.kind === "expired") {
+          let minted = false;
+          host.ignore("artifacts.minted", () => { minted = options.artifacts!.minted(value.lease_id); });
+          step({ kind: "refuse", code: "ARTIFACT_EXPIRED", message: "ARTIFACT_EXPIRED" }, minted ? { lease_id: value.lease_id } : undefined);
+        }
+      } else if (value.type === "narrate") step({ kind: "admit", request: value }); // §2.2 L137: reducer owns admission/replay.
+      else if (value.type === "control" && (value.op === "stop" || value.op === "pause" || value.op === "resume" || value.op === "seek" || value.op === "resync")) {
+        const current = state.sessions[value.session_id]?.current;
+        if (current) {
+          const session = state.sessions[value.session_id];
+          let target = current;
+          let seek: Extract<Input, { kind: "control" }>["seek"];
+          if (value.op === "seek") {
+            const args = value.args;
+            const word = "word_index" in args ? session.delivered.flatMap(p => p.words).find(w => w.index === args.word_index) : undefined;
+            if ("audio_ms" in args && args.audio_ms < 0) seek = { kind: "reject", reason: "invalid offset" };
+            else if (session.delivered.length === 0) seek = { kind: "noop", reason: "not ready" };
+            else if ("word_index" in args && (args.word_index < 0 || args.word_index >= session.plan.words.length)) seek = { kind: "reject", reason: "word index out of range" };
+            else if ("word_index" in args && !word) seek = { kind: "reject", reason: "word timing unavailable" };
+            else {
+              const requested = "audio_ms" in args ? args.audio_ms : word!.start_ms;
+              // Ruling 73: clamp to the end of the delivered prefix.
+              const offset = Math.max(0, Math.min(requested, session.known_ms));
+              const piece = session.delivered.find(p => word ? p.words.some(w => w.index === word.index) : offset < p.start_ms + p.duration_ms) ?? session.delivered.at(-1);
+              target = { ...current, audio_ms: offset, piece_index: piece?.index ?? 0, piece_start_ms: piece?.start_ms ?? 0, piece_duration_ms: piece?.duration_ms ?? 0 };
+              seek = { kind: "accept", clamped: requested !== offset };
+            }
+          }
+          step({ kind: "control", command: value, target, ...(seek ? { seek } : {}) });
+        }
+        else step({ kind: "stop", session_id: value.session_id, reason: value.op === "stop" ? value.args.reason : "stop" });
+      } else if (value.type === "player_feedback") {
+        const session = state.sessions[value.session_id];
+        if (session) step({ kind: "feedback", identity: { owner_epoch: session.owner_epoch, session_id: session.session_id, attempt_id: session.attempt_id }, feedback: value }); // §2.3 L174: host owns player.
+      } else {
+        // Owed to later controls: control error correlation; refuse cannot carry command_id/session_id yet.
+        refuse("INVALID_REQUEST");
+      }
+    },
+    shutdown(deadline: number): Promise<void> {
+      if (shutdownPromise) return shutdownPromise;
+      // Block pumping, but publish every outcome before closing the event stream.
+      shuttingDown = true;
+      const active = [...runs];
+      for (const session of Object.values(state.sessions)) if (!session.outcome)
+        step({ kind: "shutdown", session_id: session.session_id });
+      closed = true;
+      for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
+      shutdownPromise = new Promise<void>(resolve => {
+        queueMicrotask(() => {
+          try {
+          const remaining = deadline - host.call("clock.now", () => options.clock.now());
+          if (!(remaining > 0)) { resolve(); return; }
+          const cancel = Number.isFinite(remaining) ? host.schedule(options.clock, remaining, resolve) : () => {};
+          void Promise.allSettled(active).then(() => { cancel(); resolve(); });
+          } catch { resolve(); }
+        });
+      });
+      return shutdownPromise;
+    },
+  };
+}

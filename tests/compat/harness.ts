@@ -29,7 +29,7 @@ export async function fixture(mp3 = false) {
   let mode: Mode = "ok";
   let failAt = Infinity;
   let failure: Mode = "http";
-  let override: Buffer | undefined;
+  let override: Buffer | ((body: { text?: string }) => Buffer) | undefined;
   const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const body = await request.json();
     expect(request.headers.get("host")).toBe(new URL(request.url).host);
@@ -38,7 +38,7 @@ export async function fixture(mp3 = false) {
     const selected = requests.length >= failAt ? failure : mode;
     if (selected === "timeout") return new Promise<Response>(resolve => { const abort = () => resolve(new Response(null, { status: 499 })); if (request.signal.aborted) abort(); else request.signal.addEventListener("abort", abort, { once: true }); });
     if (selected === "http") return new Response("synthetic failure", { status: 500 });
-    return Response.json(selected === "malformed" ? {} : { audio_b64: (override ?? audio).toString("base64"), audio_duration_ms: 200, duration_ms: 7 });
+    return Response.json(selected === "malformed" ? {} : { audio_b64: (typeof override === "function" ? override(body as { text?: string }) : override ?? audio).toString("base64"), audio_duration_ms: 200, duration_ms: 7 });
   } });
   const url = `http://127.0.0.1:${server.port}`;
   // Canonicalization table: fixture root -> $FIXTURE; ephemeral daemon origin -> $DAEMON;
@@ -49,7 +49,7 @@ export async function fixture(mp3 = false) {
     if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, /^(created_at|updated_at)$/.test(k) ? "$TIME" : canonical(v)]));
     return value;
   };
-  return { root, wav, url, requests, canonical, setMode(value: Mode) { mode = value; }, /** Serve these bytes instead of the fixture tone until reset with undefined. */ setAudio(value: Buffer | undefined) { override = value; }, failAt(value: number, selected: Mode = "http") { failAt = value; failure = selected; }, async close() { server.stop(true); await rm(root, { recursive: true, force: true }); } };
+  return { root, wav, url, requests, canonical, setMode(value: Mode) { mode = value; }, /** Serve these bytes (or, given a function, the bytes it returns for each request body) instead of the fixture tone until reset with undefined. */ setAudio(value: Buffer | ((body: { text?: string }) => Buffer) | undefined) { override = value; }, failAt(value: number, selected: Mode = "http") { failAt = value; failure = selected; }, async close() { server.stop(true); await rm(root, { recursive: true, force: true }); } };
 }
 export async function golden(name: string, value: unknown) {
   const file = path.join(import.meta.dir, "fixtures", `${name}.golden.json`);
@@ -139,7 +139,7 @@ export async function compatProfile(f: Fixture) {
   await writeFile(path.join(f.root, "profiles.yaml"), `profiles:\n  - id: compat-voice\n    accepted: true\n    renderer: voicelayer-qwen3\n    profile_version: synthetic-v1\n    render:\n      reference_clip: ${f.root}/reference.wav\n      reference_text: Profile text.\n      daemon_url: ${f.url}\n      auth_token_file: ${f.root}/auth\n      model: synthetic-model\n      comma_pause_seconds: 0.22\n      eq_highshelf_hz: 4000\n      eq_highshelf_gain_db: 0\n      atempo: 1\n      loudness_target_db: -20\n`);
 }
 export const defaultsText = "First clause, second clause. Last sentence.";
-export type DefaultsRender = { sentence_pause_seconds?: number; comma_pause_seconds?: number; atempo?: number };
+export type DefaultsRender = { colon_pause_seconds?: number; sentence_pause_seconds?: number; comma_pause_seconds?: number; atempo?: number };
 export const defaultsCases: { name: string; render: DefaultsRender; params: Record<string, number>; sentence: number; comma: number }[] = [
   { name: "sentence-only", render: { sentence_pause_seconds: 0.41, atempo: 1 }, params: { atempo: 1, sentencePauseSeconds: 0.41 }, sentence: 0.41, comma: 0.22 },
   { name: "comma-only", render: { comma_pause_seconds: 0.17, atempo: 1 }, params: { atempo: 1, commaPauseSeconds: 0.17 }, sentence: 0.55, comma: 0.17 },

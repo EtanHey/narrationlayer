@@ -26,7 +26,8 @@
           "body": {
             "text": "First clause",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -39,7 +40,8 @@
           "body": {
             "text": "second clause.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         },
         {
@@ -52,14 +54,15 @@
           "body": {
             "text": "Last sentence.",
             "reference_wav": "$FIXTURE/reference.wav",
-            "reference_text": "Synthetic reference."
+            "reference_text": "Synthetic reference.",
+            "model": "synthetic-model"
           }
         }
       ],
       "spoken": "First clause, second clause. Last sentence.",
       "keyPreimage": {
         "spokenText": "First clause, second clause. Last sentence.",
-        "referenceClip": "$FIXTURE/reference.wav",
+        "referenceAudioSha256": "d072ec7c84a773df6ed61758abbc1b04057b190047f93a5cde6719207f7fc328",
         "referenceText": "Synthetic reference.",
         "profileId": "compat-defaults",
         "profileVersion": "synthetic-v1",
@@ -67,11 +70,12 @@
         "params": {
           "sentencePauseSeconds": 0.41,
           "commaPauseSeconds": 0.17
-        }
+        },
+        "renderVersion": 5
       },
       "receipt": {
         "version": 1,
-        "cacheKey": "20eee6bd5717bd4ce4e55ab50b8b8821d72f67a7f20284af135b2ad2215d5341",
+        "cacheKey": "5c186c2f77d4fab80aa950ac014cf3d42894b743ad4205af3153a4559283b6cc",
         "cacheEnabled": true
       },
       "pieces": [
@@ -98,7 +102,7 @@
       ],
       "exit": 0,
       "stderr": "ok",
-      "breathingNote": " breathing=3pc(sent=0.41s,comma=0.17s)"
+      "breathingNote": " breathing=3pc(sent=0.41s,comma=0.17s,colon=0.35s)"
     }
   ],
   "argv": [

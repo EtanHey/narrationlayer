@@ -39,16 +39,20 @@ export function diskRepo(root = ROOT): Repo {
 
 /** Every module specifier: import, import type, export from, import(), require(), import = require, import("…") type nodes. */
 export function importSpecifiers(source: string, fileName = "x.ts"): string[] {
+  return sourceSpecifiers(ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true));
+}
+
+function sourceSpecifiers(sf: ts.SourceFile, staticOnly = false): string[] {
   const specs: string[] = [];
   const literal = (n: ts.Node | undefined) => (n && ts.isStringLiteralLike(n) ? specs.push(n.text) : 0);
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) literal(node.moduleSpecifier);
-    else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) literal(node.arguments[0]); // a non-literal argument cannot be resolved statically
+    else if (!staticOnly && ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) literal(node.arguments[0]); // a non-literal argument cannot be resolved statically
     else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) literal(node.argument.literal);
     else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) literal(node.moduleReference.expression);
     ts.forEachChild(node, visit);
   };
-  visit(ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true));
+  visit(sf);
   return specs;
 }
 
@@ -83,6 +87,69 @@ export function resolveImport(repo: Repo, from: string, spec: string): string | 
   return candidates.find((c) => repo.tracked.has(c)) ?? "";
 }
 
+// Hosts load the engine, not its child-process conformance tooling; every engine module is a root.
+export const ENGINE_ROOTS = { directory: "src/engine/", exclude: "src/engine/conformance/" };
+// Crypto is the sole audited external dependency; any addition requires an explicit blocking review.
+export const ENGINE_EXTERNAL_ALLOW = new Set(["node:crypto"]);
+
+/** Static reach includes type edges; syntax checks reject hidden loading and blocking references. */
+export function engineReach(repo: Repo = diskRepo()): { reached: Map<string, string | null>; violations: string[] } {
+  const reached = new Map<string, string | null>();
+  const violations = new Set<string>();
+  const queue: [string, string | null][] = repo.files.filter(f => f.startsWith(ENGINE_ROOTS.directory)
+    && !f.startsWith(ENGINE_ROOTS.exclude)).sort().map(f => [f, null]);
+  for (const [file, importer] of queue) {
+    if (reached.has(file)) continue;
+    reached.set(file, importer);
+    const sf = ts.createSourceFile(file, repo.read(file) ?? "", ts.ScriptTarget.Latest, true);
+    const visit = (node: ts.Node): void => {
+      if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference))
+        violations.add(`engine loader ${file}: require()`);
+      if (ts.isCallExpression(node) && unwrap(node.expression).kind === ts.SyntaxKind.ImportKeyword)
+        violations.add(`engine loader ${file}: import()`);
+      // Inspect references and declarations as well as calls; string/comment contents are not names.
+      const member = ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node);
+      const name = ts.isPropertyAccessExpression(node) ? node.name.text
+        : ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) ? node.argumentExpression.text
+        : ts.isIdentifier(node) && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node) ? node.text
+        : ts.isStringLiteralLike(node) && (ts.isBindingElement(node.parent) && node.parent.propertyName === node
+          || "name" in node.parent && node.parent.name === node
+          || ts.isComputedPropertyName(node.parent)) ? node.text : "";
+      const binding = node.parent && ts.isBindingElement(node.parent) && (node.parent.propertyName ?? node.parent.name) === node
+        && ts.isObjectBindingPattern(node.parent.parent) ? node.parent.parent.parent : undefined;
+      const initializer = binding && (ts.isVariableDeclaration(binding) || ts.isParameter(binding)) ? binding.initializer : undefined;
+      const owner = member ? unwrap(node.expression).getText(sf) : initializer ? unwrap(initializer).getText(sf) : "";
+      if (ts.isIdentifier(node) && ["process", "Bun", "Atomics", "globalThis"].includes(node.text)
+        && !ts.isPartOfTypeNode(node) && !ts.isTypeQueryNode(node.parent) && !ts.isQualifiedName(node.parent)
+        && !("name" in node.parent && node.parent.name === node && !ts.isShorthandPropertyAssignment(node.parent))
+        && !(ts.isBindingElement(node.parent) && node.parent.propertyName === node)) {
+        const access = node.parent;
+        // A direct member is checked by its own visit, preserving the existing diagnostic.
+        if (!((ts.isPropertyAccessExpression(access) || ts.isElementAccessExpression(access)) && access.expression === node))
+          violations.add(`engine blocking call ${file}: ${node.text}`);
+      }
+      if (name === "require") violations.add(`engine loader ${file}: require()`);
+      if (["eval", "Function", "Worker"].includes(name))
+        violations.add(`engine loader ${file}: ${name}`);
+      if (name.endsWith("Sync") || owner === "Atomics" && name === "wait"
+        || owner === "process" && ["binding", "dlopen", "getBuiltinModule"].includes(name)
+        || ["process", "Bun", "Atomics", "globalThis"].includes(owner)
+          && !["require", "eval", "Function", "Worker"].includes(name))
+        violations.add(`engine blocking call ${file}: ${node.getText(sf)}`);
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+    for (const spec of sourceSpecifiers(sf, true)) {
+      const to = resolveImport(repo, file, spec);
+      if (!spec.startsWith(".") && !spec.startsWith("/") && !spec.startsWith("file:") && !ENGINE_EXTERNAL_ALLOW.has(spec))
+        violations.add(`engine external import ${file} -> ${spec}`);
+      if (to === "") violations.add(`engine unresolved import ${file} -> ${spec}`);
+      else if (to !== null) queue.push([to, file]);
+    }
+  }
+  return { reached, violations: [...violations].sort() };
+}
+
 const rank = (e: LedgerEntry): number => (e.layer === "api" ? 6 : e.layer);
 
 /** The same parser and resolver supply both layer edges and incoming shim edges. */
@@ -101,6 +168,7 @@ export function analyze(ledger: Ledger, repo: Repo = diskRepo()): { violations: 
     if (!src) continue; // reported by ledgerProblems
     if (to === "") unresolved.add(`unresolved import ${from} -> ${spec}`);
     if (!to) continue;
+    if (to.startsWith("src/engine/conformance/") && !from.startsWith("src/engine/conformance/") && !from.startsWith("tests/")) found.add(`conformance-import ${from} -> ${to}`);
     const dst = ledger.files[to];
     if (!dst && IN_SCOPE.test(to)) unresolved.add(`import of an unledgered file ${from} -> ${to}`);
     if (!dst) continue; // tracked targets outside src/, bin/ and scripts/ .ts (package.json, tests/, data files) are not layered

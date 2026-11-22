@@ -4,6 +4,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+import { readFile } from "node:fs/promises";
+import { checkTake } from "./quality/check-take.js";
+
 import { getDataDir, getStatus } from "./job-store.js";
 import { createBakeoffJobsFromFile } from "./bakeoff.js";
 import { createDashboardDemo } from "./dashboard.js";
@@ -25,6 +28,7 @@ const HELP =
 
 Usage:
   narrationlayer doctor
+  narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz> [--pieces <keep-pieces-dir>]
   narrationlayer create-job <job.json> [--json]
   narrationlayer render <job-id> [--json]
   narrationlayer status <job-id>
@@ -260,6 +264,25 @@ export async function main() {
   const json = hasFlag(args, "--json");
   const open = hasFlag(args, "--open");
   switch (command) {
+    case "check-take": {
+      const sent = flagValue(args, "--sent");
+      const words = flagValue(args, "--words");
+      const voice = flagValue(args, "--voice");
+      const ceiling = Number(flagValue(args, "--pitch-ceiling"));
+      if (!payload || !sent || !words || !voice) throw new Error("check-take requires wav, sent, words, voice and pitch-ceiling");
+      const setting = flagValue(args, "--word-check-setting") ?? "a";
+      if (setting !== "a" && setting !== "b" && setting !== "c" && setting !== "d") throw new Error("word-check-setting must be a, b, c or d");
+      const commonWords = setting === "b" || setting === "c"
+        ? new Set((await readFile(flagValue(args, "--word-dictionary") ?? "/usr/share/dict/words", "utf8")).split(/\r?\n/).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ""))) : undefined;
+      const pieces = flagValue(args, "--pieces");
+      if (args.includes("--pieces") && !pieces) throw new Error("--pieces requires a directory");
+      const verdict = await checkTake(payload, sent, words, voice, ceiling, { setting, commonWords }, pieces,
+        { rejectFades: hasFlag(args, "--reject-fades") });
+      printJson(verdict);
+      if (!verdict.cutJoins.judged) console.error(`check-take: ${verdict.cutJoins.note}`);
+      if (!verdict.pass) process.exitCode = 1;
+      break;
+    }
     case "doctor":
       await cmdDoctor(json);
       break;
@@ -306,6 +329,6 @@ export async function main() {
 if (import.meta.main) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
+    process.exitCode = process.argv[2] === "check-take" ? 2 : 1;
   });
 }

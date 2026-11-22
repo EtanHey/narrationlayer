@@ -17,6 +17,10 @@ OVERRIDES = {'app': 'NL_PROBE_APP_URL', 'clip_url': 'NL_PROBE_CLIP_URL',
              'relay_url': 'NL_PROBE_RELAY_URL', 'audio_url': 'NL_PROBE_AUDIO_URL',
              'audio_url_endpoint': 'NL_PROBE_AUDIO_URL_ENDPOINT',
              'inbox_path': 'NL_PROBE_INBOX', 'token_file': 'NL_PROBE_TOKEN_FILE'}
+PMSET = '/usr/bin/pmset'
+# `pmset -g log` prints the whole history, oldest first, and has no tail query: about 7.5 s on a
+# 39 MB log under load. Past this cap the answer is "unknown", never a delay of the remote checks.
+PMSET_SECONDS = 10
 
 
 def load_config():
@@ -41,7 +45,9 @@ def load_config():
         raise ValueError('missing launchd labels')
     if type(config['funnel_port']) is not int or not 1 <= config['funnel_port'] <= 65535:
         raise ValueError('invalid port')
-    for key, default in (('wake_grace_minutes', 5), ('sleep_event_max_age_minutes', 30), ('skip_notice_hours', 2)):
+    # 96 runs: the launchd job runs every 900 s, so about one day of unreadable power history.
+    for key, default in (('wake_grace_minutes', 5), ('sleep_event_max_age_minutes', 30), ('skip_notice_hours', 2),
+                         ('power_notice_runs', 96)):
         config[key] = float(config.get(key, default))
         if not math.isfinite(config[key]) or config[key] < 0:
             raise ValueError('invalid time threshold')
@@ -50,7 +56,8 @@ def load_config():
 
 def run(args, stdin=None):
     try:
-        result = subprocess.run(args, input=stdin, text=True, capture_output=True, timeout=20)
+        result = subprocess.run(args, input=stdin, text=True, capture_output=True,
+                                timeout=PMSET_SECONDS if args[0] == PMSET else 20)
         return result.returncode, result.stdout
     except (OSError, subprocess.TimeoutExpired):
         return 1, ''
@@ -106,7 +113,7 @@ def client_health(config, now):
         code, status = run(['/usr/bin/curl', '--head', '--silent', '--output', '/dev/null',
                             '--write-out', '%{http_code}', '--max-time', '10', 'https://' + host])
         evidence[host] = {'dns': dns, 'head': code == 0 and bool(re.fullmatch(r'2[0-9]{2}', status))}
-    code, log = run(['/usr/bin/pmset', '-g', 'log'])
+    code, log = run([PMSET, '-g', 'log'])
     events = re.findall(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d [+-]\d{4})\s+(Sleep|DarkWake|Wake)(?=\t| {2,})', log, re.M)
     evidence['power'] = 'unavailable'
     asleep = False
@@ -120,8 +127,7 @@ def client_health(config, now):
         return 'SKIPPED client-asleep', evidence
     if not any(item['dns'] and item['head'] for host, item in evidence.items() if host != 'power'):
         return 'SKIPPED client-offline', evidence
-    if code != 0 or not events:
-        raise ValueError('power history unavailable')
+    # Unreadable power history means "unknown", and unknown is not asleep: go on to the remote checks.
     return None, evidence
 
 
@@ -165,8 +171,31 @@ def main():
             status = 'CONFIG-ERROR'
             state['checks'] = {phase: f'{type(error).__name__}: check {phase} settings and access'}
         state.update(status=status, inbox_path=inbox_path)
+        notices = []
         notice = None
         lines = ''
+        client = state.get('client')
+        if isinstance(client, dict) and 'power' in client:
+            state['power'] = 'unavailable' if client['power'] == 'unavailable' else 'available'
+            if state['power'] == 'unavailable':
+                since = previous.get('power_unavailable_since') or state['time']
+                runs = previous.get('power_unavailable_runs', 0)
+                runs = (runs if type(runs) is int and runs >= 0 else 0) + 1
+                notified = previous.get('power_notified') is True
+                state.update(power_unavailable_since=since, power_unavailable_runs=runs, power_notified=notified)
+                if runs >= config['power_notice_runs'] and not notified:
+                    try:
+                        hours = (now - datetime.datetime.fromisoformat(since)).total_seconds() / 3600
+                    except (TypeError, ValueError):
+                        hours = 0
+                    notices.append(('POWER-NOTICE', f'- power history unreadable for {hours:.1f} hours ({runs} runs in a row);'
+                                    ' sleep detection is off: a check failing while this Mac sleeps is reported\n'))
+                    state['power_notified'] = True
+        else:
+            # Power history was not read on this run (configuration error): carry the streak unchanged.
+            for key in ('power', 'power_unavailable_since', 'power_unavailable_runs', 'power_notified'):
+                if key in previous:
+                    state[key] = previous[key]
         if status.startswith('SKIPPED'):
             state['last_status'] = old_status
             since = previous.get('skip_since', state['time'])
@@ -186,9 +215,12 @@ def main():
                 lines = ''.join(f'- {key}: {value}\n' for key, value in state['checks'].items() if value)
             state['last_status'] = status
         if notice:
+            notices.insert(0, (notice, lines or '- All checks healthy.'))
+        if notices:
             with Path(inbox_path).expanduser().open('a') as inbox:
                 fcntl.flock(inbox, fcntl.LOCK_EX)
-                inbox.write(f'\n### narrationlayer-probe → @orc @narrationlayer: dashboard runtime {notice} ({state["time"]})\n{lines or "- All checks healthy."}\n')
+                for heading, body in notices:
+                    inbox.write(f'\n### narrationlayer-probe → @orc @narrationlayer: dashboard runtime {heading} ({state["time"]})\n{body}\n')
                 inbox.flush()
                 os.fsync(inbox.fileno())
         with tempfile.NamedTemporaryFile(mode='w', dir=STATE, delete=False) as tmp:

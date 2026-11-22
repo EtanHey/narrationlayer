@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "enum": [
+            "synthesis_requested"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "t_mono_ms": {
+          "type": "integer"
+        },
+        "segment_index": {
+          "type": "integer"
+        },
+        "chars": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "edge",
+        "session_id",
+        "piece_index",
+        "t_mono_ms",
+        "segment_index",
+        "chars",
+        "kind"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "enum": [
+            "audio_ready"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "t_mono_ms": {
+          "type": "integer"
+        },
+        "duration_ms": {
+          "type": "integer"
+        },
+        "sample_count": {
+          "type": "integer"
+        },
+        "first_audible_offset_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "edge",
+        "session_id",
+        "piece_index",
+        "t_mono_ms",
+        "duration_ms",
+        "sample_count",
+        "first_audible_offset_ms"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "enum": [
+            "player_spawned"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "t_mono_ms": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "control_epoch": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "edge",
+        "session_id",
+        "piece_index",
+        "t_mono_ms",
+        "player_instance_id",
+        "control_epoch"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "enum": [
+            "first_sample"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "t_mono_ms": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "player_reported",
+            "derived"
+          ]
+        }
+      },
+      "required": [
+        "edge",
+        "session_id",
+        "piece_index",
+        "t_mono_ms",
+        "player_instance_id",
+        "source"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "enum": [
+            "first_audible"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "t_mono_ms": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "player_reported",
+            "derived"
+          ]
+        }
+      },
+      "required": [
+        "edge",
+        "session_id",
+        "piece_index",
+        "t_mono_ms",
+        "player_instance_id",
+        "source"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "enum": [
+            "last_sample"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "t_mono_ms": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "player_reported",
+            "derived"
+          ]
+        }
+      },
+      "required": [
+        "edge",
+        "session_id",
+        "piece_index",
+        "t_mono_ms",
+        "player_instance_id",
+        "source"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "enum": [
+            "player_exited"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "piece_index": {
+          "type": "integer"
+        },
+        "t_mono_ms": {
+          "type": "integer"
+        },
+        "player_instance_id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "interrupted",
+            "failed"
+          ]
+        },
+        "exit_code": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "edge",
+        "session_id",
+        "piece_index",
+        "t_mono_ms",
+        "player_instance_id",
+        "status",
+        "exit_code"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

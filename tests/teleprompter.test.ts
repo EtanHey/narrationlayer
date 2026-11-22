@@ -78,3 +78,14 @@ test("module output is deterministic", () => {
   const b = renderTeleprompterMarkup(payload("https://cdn/seg-1.mp3"));
   expect(a.replace("file:///x/seg-1.mp3", "https://cdn/seg-1.mp3")).toBe(b);
 });
+
+
+test("teleprompter embeds only display words for pronunciation hints", () => {
+  const data = payload("https://cdn.example.test/seg-1.mp3");
+  data.segments[0].script = "We live{say:liv} here.";
+  const markup = renderTeleprompterMarkup(data);
+  expect(markup).toContain('"script":"We live here."');
+  expect(markup).not.toContain("{say:");
+  data.segments[0].script = "We live{say:} here.";
+  expect(() => renderTeleprompterMarkup(data)).toThrow("Invalid pronunciation hint");
+});

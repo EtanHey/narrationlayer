@@ -18,7 +18,7 @@ Renderers are adapter-based:
 ## Public surface
 
 `src/api/index.ts` is the package's front door: `package.json` `exports["."]`
-points at it. It holds named re-exports only: 21 runtime values and 35 types. A
+points at it. It holds named runtime and type re-exports only. A
 name is in it because it was meant for outside callers, or because a public
 declaration names it. No per-name inventory of outside callers exists, so which
 names an outside consumer really uses is not recorded here.
@@ -26,7 +26,7 @@ names an outside consumer really uses is not recorded here.
 | Group | Names |
 |---|---|
 | Jobs | `createJobFromFile`, `createJobFromPayload`, `renderJob`, `getStatusSummary`, `getJobResult`, `listJobIds`, `getDoctorSummary`, and the job, manifest, words and renderer-config types their signatures use |
-| Text | `normalizeForSpeech`, `normalizeLegacy`, `prepareSpeechChannels`, `deriveSpeechAliases`, `TermRule`, `SpeechChannels` |
+| Text | `normalizeForSpeech`, `normalizeLegacy`, `prepareSpeechChannels`, `applyPronunciationHints`, `deriveSpeechAliases`, `TermRule`, `SpeechChannels` |
 | Planning | `Piece`, `utterancesV1`, `breathingV1`, `NarrationPacingConfig`, `PauseStrategy` |
 | Word timing | `runWhisperCliWordTimings`, `normalizeWordTimingsForScript` and their option and result types |
 | Local TTS | `runLocalTtsCli` (the runner's `main`: reads `process.argv`, takes an optional speech-preparation callback, and ends the process: see the runner path below), `computeContentHashKey`, `writeTakeCacheReceipt`, `clearTakeCacheReceipt`, `CacheKeyParams`, `SpeechPreparation` |
@@ -114,7 +114,7 @@ one is passed, and renders each segment with the job's renderer. For
 
 1. spoken text: `normalizeForSpeech` (`src/text-normalize.ts`)
 2. config: auth token, reference clip and text (`src/pipelines/job-render/config.ts`)
-3. plan: `utterancesV1`, adapted to the legacy utterance shape (`src/plan/`)
+3. plan: `utterancesV1`, then `splitLongPieces` (no utterance over 24 words; see the breathing paragraph below), adapted to the legacy utterance shape (`src/plan/`)
 4. per utterance, inside a retry loop of up to `max_chunk_retries` extra attempts: synthesis with `synthesizeText` (`src/pipelines/job-render/synthesis.ts`, which builds the `/synthesize` URL and the request body, with the LoRA fields) over `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`); silence trim (or `audio_postprocessor`) when `trim_silence` is true; high-shelf EQ when configured (`src/audio.ts`); then the duration guard `assertGeneratedChunkDuration`, whose runaway-chunk error starts the next attempt
 5. assembly with silence pads (or `audio_assembler`) when there is more than one utterance or a pause; the spoken text is written to `<audio>.spoken.txt`
 6. duration: the segment's authored `duration_seconds` when set, else `probeAudioDurationSeconds` (or `audio_duration_probe`), else the sum of the daemon-reported durations and pauses, else 0
@@ -123,6 +123,31 @@ one is passed, and renders each segment with the job's renderer. For
 
 `renderJob` then writes the manifest and status and the DONE or FAILED marker
 (`src/job-store.ts`).
+
+Local runner breathing profiles can set `colon_pause_seconds` independently of
+`comma_pause_seconds` and `sentence_pause_seconds`. When any pause is configured,
+breathing is enabled; its defaults are 0.35 s for colons, 0.22 s for commas and
+0.55 s for sentences. A colon splits only when followed by whitespace, so times
+and URLs stay intact. A zero colon pause disables colon splitting. The final
+piece always has zero trailing pause. The job planner's punctuation policy is
+unchanged.
+
+Retained runner pieces and job utterances contain at most 24 words
+(`MAX_BREATHING_PIECE_WORDS`, `splitLongPieces` in `src/plan/breathing.ts`).
+The runner still sends the whole take first, without this bound, then discards
+that audio when it assembles replacement pieces. The
+Qwen3-TTS clone path rushes a long generation and can stop it at about 10 s
+(126 frames for a 10.000 s reference), cutting its last word. The limit is not
+scaled to the reference length: a 5.2 s reference ran 20-word takes to 5.6-7.0 s,
+past its own length, with every word kept. A longer piece is split at the cut nearest its middle that
+leaves five words on each side. A cut after `. ? !` comes first, then after
+`, ; :` or a dash, then before a conjunction, then any gap between words. The
+profile's comma pause goes between the parts, or 0.14 s
+(`DEFAULT_SPLIT_PAUSE_SECONDS`) when the profile pads no commas.
+`splitForBreathing`, `breathingV1` and `utterancesV1` keep their output; the
+runner applies the split after the breathing plan, or to the whole text when the
+profile has no pauses, and the job path applies it after `utterancesV1`, whatever
+the pause strategy.
 
 Runner path: `bin/local-tts-runner.ts` (`main`, public as `runLocalTtsCli`)
 resolves argv, profiles and auth, then calls `renderLocalTts`
@@ -143,7 +168,7 @@ must not call it in its own process; it runs it in a child process.
 4. cache: `computeContentHashKey`; when caching is on (the default; `--no-cache` turns it off), `--refresh-cache` is not given, and the key's WAV exists, copy it, write `.spoken.txt` and the receipt, stop (with `--keep-pieces` the receipt says no pieces were rendered)
 5. synthesis of the whole text: `synthesize` (`src/pipelines/local-tts/synthesis.ts`) builds the `/synthesize` URL and the request body and calls `synthesizeQwen3` (`src/backends/qwen3-daemon.ts`)
 6. ffmpeg to mono s16 WAV with optional high-shelf EQ (`src/audio/ffmpeg-run.ts`, argv from `src/audio/ffmpeg-args.ts`)
-7. breathing (`src/pipelines/local-tts/breathing.ts`), when the profile sets a sentence or comma pause: `breathingV1` (`src/plan/`); with two or more pieces, each piece is synthesized again, converted, tempo-adjusted when `atempo` is set, and concatenated with PCM silence pads
+7. breathing (`src/pipelines/local-tts/breathing.ts`): when the profile sets a sentence, comma or colon pause, `breathingV1` (`src/plan/`), then `splitLongPieces`; otherwise `splitLongPieces` on the whole text; with two or more pieces, each piece is synthesized again, converted, tempo-adjusted when `atempo` is set, and concatenated with PCM silence pads
 8. tempo (`atempo`) when breathing did not assemble; with `--keep-pieces <dir>`, each piece as it went into the join (or the whole take, as one piece, when it was not cut) is copied to `<dir>` with `pieces.json` (`src/pipelines/local-tts/keep-pieces.ts`)
 9. loudness normalization (`src/pipelines/local-tts/loudness.ts`) when a target is set
 10. `.spoken.txt` written; when caching is on, the take is copied into the cache (temp file and rename), and a failed copy is logged, not an error, except under `--refresh-cache`, where it fails the run and the old entry stays; then the receipt is written (`cacheRefreshed` under `--refresh-cache`, `keptPieces` under `--keep-pieces`). Neither switch is in the cache key or changes the audio
@@ -254,3 +279,69 @@ Every new file gets a ledger row (layer, area, owner).
   candidate, so dashboards, manifests, and timing repair stay reusable.
 - Keep the generated dashboard as a local demo artifact, not a hosted dashboard
   product in this repo.
+
+The `engineReach` rule in `scripts/dev/boundaries.ts` follows every static import
+from `src/engine/` except the conformance tooling, including type-only edges. It
+rejects blocking or loading references, unapproved external modules, dynamic loading and
+unresolved imports. Inside the engine’s reach, names ending in `Sync` are reserved:
+the rule refuses them whoever defines them, so a reader never has to ask whether
+a call can block. The names `eval`, `Function`, `Worker` and `require`, like names
+ending in `Sync`, are reserved inside the engine's reach wherever they stand.
+A name computed at run time cannot be seen by a syntax rule.
+`tests/architecture/engine-reach.test.ts` pins the reachable
+files and proves these refusals with synthetic trees; `engine-no-wait.json` in
+the same directory records the contract's no-wait obligations, current evidence
+and remaining debt, with registry case references checked by a shape test.
+
+
+## Per-word pronunciation hints
+
+Script authors can write `live{say:liv}` or `read{say:reed}` in prose.
+`prepareSpeechChannels` removes the mark from `displayText` and substitutes the
+respelling in `synthInput`. Unmarked occurrences retain their usual pronunciation.
+Both sides must be one alphabetic word (Unicode letters, with internal apostrophes
+allowed); phrases, spaces, nested marks, and marks in code or URLs are errors.
+The `{say` prefix is reserved, including incorrect casing and whitespace after
+`{`. A malformed reserved mark throws `Invalid pronunciation hint` before
+synthesis or teleprompter markup generation. This uses braces rather than
+Markdown links, emphasis or code delimiters.
+
+The local runner prepares these channels before its cache lookup and word check;
+its `.spoken.txt` records the exact synthesis input. For the whole-take word
+check, `prepareWordCheckText` expects the displayed spelling at hinted positions,
+because recognizers transcribe conventional words rather than pronunciation
+respellings. Surrounding text still uses the configured speech preparation, and
+unmarked takes still compare against their exact persisted synthesis input.
+A different recognized word at a hinted position remains a mismatch.
+The job renderer repairs
+recognized timings against the display channel with `deriveSpeechAliases`, and
+the teleprompter embeds that display channel for its script and estimated timing.
+Outside script builders must likewise use `prepareSpeechChannels(...).displayText`
+when displaying authored scripts instead of embedding the marked source verbatim.
+Explicit respellings bypass automatic pronunciation rules and are sent exactly
+as written, including casing. The reserved literal `{say` also throws inside
+code spans and fences; this intentionally rejects previously valid literal text.
+
+Custom speech preparations must opt in with the public
+`applyPronunciationHints(text, normalize)` primitive. It applies their own prose
+normalizer around hints and returns the same display/synthesis split. For
+timing aliases, pass the authored text (with marks) to
+`deriveSpeechAliases(authoredText, synthInput)` and the cleaned display text to
+timing repair. Only explicit marks add per-word aliases for adjacent changes;
+unmarked alias derivation stays as on master.
+
+The golems audio-dashboard skill currently has its own speech preparation and
+embeds raw script text. Wiring that skill and its builders to this primitive is
+a separate golems PR; re-vendoring alone does not add hint support there.
+Until wired, that consumer must refuse hints instead of speaking/displaying
+their literal marks.
+
+`bin/narration-gate.ts` still runs its PRONUNCIATION check against raw authored
+scripts and built-in TERM_MAP rules. An explicit override such as
+`cmux{say:mux}` can therefore trip that check. Merely stripping the mark would
+leave cmux and still demand its default pronunciation; honoring per-occurrence
+override precedence in that separate check is deferred.
+
+`LOCAL_TTS_RENDER_VERSION` stays unchanged: this changes only marked scripts,
+whose spoken text already changes their cache key. It changes no cutting, pauses
+or ffmpeg chain (see CLAUDE.md Module rules and the cache-version rule above).

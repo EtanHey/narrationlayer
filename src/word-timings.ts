@@ -30,6 +30,7 @@ export type { WordTimingResult } from "./core/render-types.js";
 
 export interface WhisperTimingOptions {
   whisper_binary?: string;
+  output_directory?: string;
   whisper_model?: string;
   language?: string;
 }
@@ -64,7 +65,7 @@ async function resolveFirstExisting(candidates: string[]): Promise<string | unde
 }
 
 export async function resolveWhisperBinary(override?: string): Promise<string> {
-  return override || (await resolveFirstExisting([
+  return override || process.env.NARRATIONLAYER_WHISPER_BINARY || (await resolveFirstExisting([
     path.join("/opt/homebrew", "bin", "whisper-cli"),
     path.join("/usr/local", "bin", "whisper-cli"),
   ])) || "whisper-cli";
@@ -207,7 +208,7 @@ export async function runWhisperCliWordTimings(
     throw new Error("No whisper model found for word timing alignment");
   }
 
-  const outputBase = path.join(os.tmpdir(), `narrationlayer-whisper-${randomUUID()}`);
+  const outputBase = path.join(options.output_directory ?? os.tmpdir(), `narrationlayer-whisper-${randomUUID()}`);
   await runWhisperCli(binary, [
     "-m",
     model,

@@ -1,0 +1,75 @@
+[
+  {
+    "id": "finding-1-em-dash",
+    "text": "The gardeners walked slowly—carrying their heavy baskets past the long row of greenhouses.",
+    "max_chars": 40
+  },
+  {
+    "id": "finding-1-horizontal-bar",
+    "text": "The gardeners walked slowly ― carrying their heavy baskets past the long row of greenhouses.",
+    "max_chars": 40
+  },
+  {
+    "id": "finding-2-words",
+    "text": "One two three four five six seven eight nine ten.",
+    "max_chars": 40
+  },
+  {
+    "id": "finding-2-literal-ellipsis",
+    "text": "One two, three four … thirteen.",
+    "max_chars": 30
+  },
+  {
+    "id": "finding-2-expanded-words",
+    "text": "One two, three four five six seven eight nine ten eleven twelve thirteen.",
+    "max_chars": 30
+  },
+  {
+    "id": "finding-2-url",
+    "text": "Visit https://example.invalid/garden and then read every single word of it.",
+    "max_chars": 30
+  },
+  {
+    "id": "finding-2-list-item",
+    "kind": "list_item",
+    "text": "The gardeners planted the seeds beside the wide window. They watered the roots before the evening rain.",
+    "max_chars": 40
+  },
+  {
+    "id": "finding-4-punctuation",
+    "text": "One two three four five six seven eight — — —",
+    "max_chars": 38
+  },
+  {
+    "id": "heading",
+    "kind": "heading",
+    "text": "These gardeners carry their heavy baskets beside the river",
+    "max_chars": 20
+  },
+  {
+    "id": "item",
+    "kind": "list_item",
+    "text": "These gardeners carry their heavy baskets beside the river",
+    "max_chars": 20
+  },
+  {
+    "id": "hyphen",
+    "text": "One two three well-known four five six seven eight nine ten.",
+    "max_chars": 32
+  },
+  {
+    "id": "range",
+    "text": "One two three 1990–2000 four five six seven eight nine ten.",
+    "max_chars": 32
+  },
+  {
+    "id": "dash-short-merge",
+    "text": "One—two three four five six seven eight.",
+    "max_chars": 8
+  },
+  {
+    "id": "previous-phrase",
+    "text": "One two three, four five six; seven eight.",
+    "max_chars": 35
+  }
+]

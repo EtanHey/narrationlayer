@@ -67,6 +67,115 @@ Use `--json` with `doctor`, `create-job`, `render`, `bakeoff-create`,
 `qwen3-lora-prepare`, and `qwen3-lora-preflight` for machine-readable stdout.
 `status`, `result`, `dashboard`, and `list-jobs` always emit JSON.
 
+### Take checks for narration builds
+
+Run `narrationlayer check-take <wav> --sent <text-file> --words <words.json> --voice <id> --pitch-ceiling <hz>` after synthesis and recognition (ffmpeg required). It prints a JSON verdict and exits 0 on pass, 1 for a failing take, or 2 for usage, input or decode errors. Supply spoken text and an array of `{word, start, end}` recognition records. The first-word screen lowercases and removes everything except ASCII letters and digits, skips leading symbol-only tokens, searches only the first three recognised tokens, accepts a word split across consecutive tokens, and matches English number words to digits in either direction (up to three tokens). This screens recognition rather than proving an acoustic omission. The build supplies each voice's pitch ceiling from that voice's controls; there is no global default. Pitch uses a dependency-free YIN difference estimator at 8 kHz, 64 ms frames, 10 ms hop, 65–450 Hz and threshold 0.2. Only full nonoverlapping one-second windows with at least ten voiced frames are judged; skipped windows have a null median. JSON reports all full windows and those above the ceiling. No judged windows fails the combined verdict. Octave and recognition errors remain possible; the build owns regeneration.
+
+The JSON also includes `wordMatch`: a whole-take, token-level edit alignment with
+zero-based sent/recognised positions, deletion/insertion/substitution evidence and
+recognition times (null for a deletion, which names a boundary). Any remaining edit
+fails `pass`. Empty recognition fails. This is an English/Latin-script recognition
+screen; recognition can repair an audible defect and make it invisible to this check.
+Setting (a), the default, tolerates case/punctuation, exact split/join groups of up to
+three tokens, explicit apostrophe contractions (including is/has and would/had alternatives),
+English integer words through 99 versus digits, and Levenshtein distance at most one
+when both words have at least six letters. Contraction tokens are excluded from this
+one-letter allowance; other apostrophe words, such as possessive names, retain it.
+No missing/extra-word allowance is applied. Spelling tolerance can also hide a genuine
+one-letter substitution. Every `--take-checks` attempt, including cache hits and short
+takes with unjudged pitch, checks the whole spoken text with whisper-cli after pitch
+acceptance; mismatches use the bounded retry loop. At the retry bound, the runner publishes the
+pitch-passing take with the fewest word edits (ties keep the earliest). The receipt
+records `wordMatch.keptBest: true` and each attempt's edit count; this take is never
+written to the take cache, so rebuilding tries again. Pitch give-up throws only when no pitch-passing take exists; a final pitch rejection
+still publishes an earlier usable best take. Non-Latin-only spoken text skips word
+judging with `wordMatch.note: "not judged: no Latin-script words"`.
+Recognition errors fail without a
+retry or publication. This requires a Whisper model; `NARRATIONLAYER_WHISPER_BINARY`
+can override the binary for all Whisper callers. Take checks pin
+`~/.cache/whisper/ggml-large-v3-turbo.bin`, record its name in the receipt, and fail
+with its expected path when missing; they do not use the general model fallback
+or `NARRATIONLAYER_WHISPER_MODEL`. Audio bytes,
+pauses and the render version are unchanged.
+
+After recognition, every `--take-checks` attempt also checks for a cut ending
+(`cutEnding` in `src/quality/take-checks.ts`): the take stopped while its last word was
+still sounding. The take is decoded at 16 kHz; the audio end is the first sample of any
+trailing digital silence. The check measures the 25 ms window that ends 10 ms before the
+audio end against the take's speech level (the mean of the 20 ms frames within 25 dB of
+the loudest). The take fails when that window is 8 dB or less under speech level, or 12 dB
+or less when the last recognised word also ends within 20 ms of the audio end. A window
+quieter than -45 dBFS never fails. Recognised timing alone never fails a take, because the
+recogniser also stretches clean last words to the end. A word can also fade out before it is
+finished, leaving a quiet tail. Fade detection measures each 50 ms pair in the last 150 ms
+of sound. A pair qualifies only when its own starting 10 ms frame is within 3 dB of speech
+level and above the audibility floor; the fall must reach 7 dB per 10 ms.
+**Fade rejection is off by default pending more listening labels.** Both commands accept
+`--reject-fades` to opt in (the runner requires `--take-checks`); programmatic callers set
+`takeChecks.rejectFades: true`, or `CutEndingOptions.rejectFades: true` on the checker.
+Without that setting a detected fade is reported and does not reject or re-make a take.
+The receipt records `fadeDetected`, `fadeDbPer10ms` and the same pair's `fadePeakRelDb` at
+the take end, and `cutJoins.fadeMeasurements` for every judged join. Opting in uses a distinct
+cache key; absent and false preserve the default key. A cut take uses the bounded retry
+loop like a pitch failure and is never kept as the best word-mismatch take. The receipt's
+`takeChecks.cutEnding` records the kept take's tail level. `check-take` runs the same check
+on the finished take with its `--words`, through the same code (`cutTakeEnd` in
+`src/quality/check-take.ts`); it needs no `--pieces`. A cut ending fails the verdict (exit 1),
+and the JSON's `cutEnding` has the receipt's fields.
+
+The same check, with the same thresholds, runs on the end of every breathing piece except
+the last (`cutPieceEndings`): each piece is its own generation, so it is measured on its own
+audio as joined, against its own speech level, with the recognised words whose start falls
+in that piece and its pause. The runner adjusts the absolute audibility floor by the
+applied output gain, so a quiet piece boosted by loudness normalization is judged at its
+published level; the relative thresholds stay unchanged. A cut piece fails the take through
+the same retry loop; the receipt's `takeChecks.cutJoins` lists each cut piece (number, text, measure, tail level, end
+time). A cache hit renders no pieces, so its joins are recorded as not judged.
+
+`check-take --pieces <dir>` runs the same join check on a finished take, with the same code
+and thresholds (`cutJoinsInKeptPieces` in `src/quality/check-take.ts`). `<dir>` is the
+runner's `--keep-pieces` directory for that take (`pieces.json` plus each piece's WAV); the
+take's receipt names it as `keptPieces.dir`. A cut piece fails the verdict (exit 1), and
+the JSON's `cutJoins` lists it as the receipt does. Kept pieces whose total length differs
+from the take's by more than 20 ms, or whose rows have malformed or inconsistent timing/counts,
+are an input error (exit 2). Without `--pieces`,
+`cutJoins.judged` is `false` and stderr says "joins not judged": the piece boundaries are
+not re-found by splitting the finished take at its silences, and the verdict comes from the
+other checks alone. A one-piece take has no join to judge (`piecesChecked: 0`).
+
+Each checked take frozen in the cache records the take-checks version it passed and its WAV's SHA-256 in
+`<key>.checks.json` beside `<key>.wav` (`TAKE_CHECKS_VERSION` in
+`src/pipelines/local-tts/take-cache.ts`; raised when a check is added or made stricter, apart
+from `LOCAL_TTS_RENDER_VERSION`). The digest is validated against the copied candidate,
+so an interrupted replacement or a newer writer's sidecar cannot attest different bytes.
+A missing or mismatched digest counts as an unrecorded version.
+A hit whose recorded version is older or missing is re-made
+when its text has breathing joins, because its pieces are gone and the joins cannot be judged.
+Re-splitting the frozen WAV at its pauses was measured and rejected: on 943 real pieced takes
+the pauses matched the plan on only 575, and their edges moved by up to 97 ms after the
+loudness pass. A hit without joins is judged whole as before and recorded as current once kept.
+The receipt's `takeChecks.cachedChecks` says which happened; a current hit has no such field.
+
+`check-take --word-check-setting a|b|c|d` selects alternatives: (b) additionally
+ignores jargon substitutions with character edit distance / maximum length <= 0.5;
+(c) also ignores common-word substitutions unless both tokens have 4+ letters or
+the recognized token is common; (d) judges only deletions and insertions. Settings
+(b)/(c) require `--word-dictionary <newline-delimited-file>` (default
+`/usr/share/dict/words`); a missing dictionary is an input error. Jargon means absent
+from that normalized dictionary, camelCase, containing digits, or capitalized within
+a sentence. These alternatives filter the same alignment; ignored substitutions stay
+in `ignoredEdits`. The pipeline API accepts `takeChecks.wordCheckSetting` and, for
+(b)/(c), `takeChecks.commonWords`. The page build can use `bun bin/local-tts-runner.ts --text "..." --output out.wav
+--reference <profile> --take-checks --pitch-ceiling <hz> --take-retries 2
+--word-check-setting a` (plus its auth/profile flags). The runner also accepts
+`--word-dictionary <path>` for (b)/(c). `check-take` remains a diagnostic that exits 1
+on word mismatches; runner publication uses the keep-best rule.
+The page-corpus comparison did **not** meet the
+15% acceptance gate for any setting; retain opt-in use pending review of its failure
+rate. Setting (a) retains the greatest detection coverage, not a claim of corpus
+acceptance.
+
+
 ## MCP
 
 Starts a stdio MCP server in `src/mcp-server.ts` exposing:
@@ -203,3 +312,17 @@ are documented in `docs/mcp-tools.json` and drift-tested against
 - `src/schema.ts` — schema and validation helpers
 - `src/contract.ts` — shared MCP tool contract
 - `src/service.ts` — shared CLI/MCP job lifecycle
+The standalone runner accepts `--take-checks --pitch-ceiling <hz>` to screen every
+final take, including cache hits, for pitch runaway. `--take-retries <count>` allows
+zero through ten retries after the first render (default two). Rejected takes are
+never frozen or published; exhaustion exits 1 and reports attempts, failure reasons
+and give-up in stderr only, preserving the previous audio and receipt. Successful receipts record render attempts and each failure
+reason. Checks use their own cache key; leaving the switch off preserves existing
+keys and bytes. The runner has no recognition pass, so first-word omission remains
+the build's `check-take` responsibility. Each retry sends a fresh request; the daemon
+supplies variance because this backend request has no seed field.
+
+
+Check execution errors stop immediately without retrying or publishing audio; the runner exits 2. A failing take uses the bounded retry path and exits 1 on give-up.
+
+A take shorter than one full second passes the runner pitch screen without retry; its receipt and output say "not judged: shorter than one window". Longer takes with no judged pitch windows still use the bounded failure path.

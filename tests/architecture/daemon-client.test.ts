@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import path from "node:path";
 import ts from "typescript";
 
+// Whole-program type-check cost grows with the source tree; hosted runners are about 3x slower.
 test("exactly one module constructs daemon HTTP requests", () => {
   const root = path.resolve(import.meta.dir, "../..");
   const files = ["src", "bin"].flatMap(dir => [...new Bun.Glob("**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}").scanSync({ cwd: path.join(root, dir), absolute: true })]);
@@ -27,4 +28,4 @@ test("exactly one module constructs daemon HTTP requests", () => {
     visit(source);
   }
   expect([...modules].sort()).toEqual(["src/backends/qwen3-daemon.ts"]);
-});
+}, 30_000);

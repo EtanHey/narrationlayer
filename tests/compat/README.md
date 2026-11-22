@@ -72,7 +72,10 @@ times, but also freezes real silence/probe argv and the concat file order.
 The wrappers record real loudness measurements and assert the executed gain is
 `target - measured`; its golden preserves the filter structure with a measured-gain
 placeholder. WAV format and cache byte equality within the same run remain checked.
-Success requests use a 10-second timeout; only timeout tests use 150 ms.
+Success requests normally use a 10-second timeout. Runner breathing failure cases use 2 seconds
+so earlier answered requests do not race the intended failure. Timeout observables
+log the supplied 100 ms value but wait 2 seconds before aborting.
+Single-request timeout cases can use 50/150 ms: the daemon never answers them.
 Bun AbortError name/message remain frozen. Any golden regeneration after a toolchain
 bump requires a stated reason and a review of the diff; never refresh only to turn
 a failing test green. Timeout handlers settle on request abort. Root-profile
