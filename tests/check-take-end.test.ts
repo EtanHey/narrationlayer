@@ -63,7 +63,7 @@ test("check-take fails a take whose last sound is cut, with clean words and pitc
   expect(run.verdict.pitch.failed).toBe(false);
   expect(run.verdict.cutEnding).toMatchObject({ failed: true, reason: "tail-at-speech-level", audioEndSeconds: SECONDS, lastWordEndSeconds: 1.5 });
   expect(run.verdict.cutEnding.tailRelDb).toBeGreaterThan(-1);
-});
+}, 30_000);
 
 test("a natural decay passes, even when the recognised last word runs to the end", () => {
   for (const lastWordEnd of [1.5, SECONDS + 0.12]) {
@@ -71,13 +71,13 @@ test("a natural decay passes, even when the recognised last word runs to the end
     expect(run.exitCode).toBe(0);
     expect(run.verdict.pass).toBe(true);
   }
-});
+}, 30_000);
 
 test("check-take reports a decayed take end with the receipt's fields", () => {
   const run = checkTake(take("decay-1.5", { kind: "decay" }));
   expect(run.verdict.cutEnding).toMatchObject({ failed: false, reason: null, lastWordEndSeconds: 1.5 });
   expect(run.verdict.cutEnding.tailRelDb).toBeLessThan(-30);
-});
+}, 30_000);
 
 test("the timing rule counts only together with loudness: a tail 10 dB under speech fails only when the last word runs to it", () => {
   const early = checkTake(take("tail-10-early", { kind: "tail", tailDb: -10 }));
@@ -88,7 +88,7 @@ test("the timing rule counts only together with loudness: a tail 10 dB under spe
   const timed = checkTake(take("tail-10-timed", { kind: "tail", tailDb: -10 }, SECONDS + 0.05));
   expect(timed.exitCode).toBe(1);
   expect(timed.verdict.cutEnding).toMatchObject({ failed: true, reason: "last-word-runs-to-end" });
-});
+}, 30_000);
 
 test("check-take fails a take whose last word fades out from speech level, though its tail is quiet", () => {
   const dir = take("fade", { kind: "fade" });
@@ -101,7 +101,7 @@ test("check-take fails a take whose last word fades out from speech level, thoug
   expect(run.verdict.cutEnding).toMatchObject({ failed: true, reason: "fade-from-speech-level", lastWordEndSeconds: 1.5 });
   expect(run.verdict.cutEnding.tailRelDb).toBeLessThan(-8);
   expect(run.verdict.cutEnding.fadeDbPer10ms).toBeGreaterThanOrEqual(7);
-});
+}, 30_000);
 
 test("check-take's take end is the runner's: the receipt-shaped result of the one shared function", () => {
   // The runner's take loop calls this same export (src/pipelines/local-tts/index.ts).
@@ -115,4 +115,4 @@ test("check-take's take end is the runner's: the receipt-shaped result of the on
     expect(Object.keys(shared).sort()).toEqual(["audioEndSeconds", "fadeDbPer10ms", "fadeDetected", "fadePeakRelDb", "failed", "lastWordEndSeconds", "reason", "tailRelDb"]);
     expect(checkTake(dir).verdict.cutEnding).toEqual(shared);
   }
-});
+}, 30_000);

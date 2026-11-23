@@ -1,5 +1,6 @@
 // The one module that owns synchronous spawning for tests (tests/architecture/spawn-guard.test.ts enforces it).
-// A test budget cannot interrupt a blocked spawnSync, so the child's own timeout is what ends it: both helpers take
+// Bun 1.4.5 was measured killing a blocked spawnSync child at the test budget; CI's Bun 1.3.11 is unmeasured.
+// Keep the child's timeout below its test budget for a command-specific timeout error. Both helpers take
 // `timeout` as a required number (the type checker rejects a call without one), refuse a missing or non-positive
 // one at run time too, and throw an error naming the command on a spawn error, a timeout or a kill.
 import { spawnSync as nodeSpawnSync } from "node:child_process";

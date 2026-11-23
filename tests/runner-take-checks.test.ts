@@ -330,7 +330,7 @@ test("word flags require take-checks and name the flags in the error", () => {
   const run = spawnChecked([process.execPath, "bin/local-tts-runner.ts", "--word-check-setting", "a"], { timeout: 20_000 });
   expect(run.exitCode).toBe(1);
   expect(run.stderr.toString()).toContain("--word-check-setting and --word-dictionary require --take-checks");
-});
+}, 30_000);
 
 
 test("reference hash is reused within retries and read afresh for the next run", async () => {

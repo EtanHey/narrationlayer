@@ -108,7 +108,7 @@ test("real CLI emits JSON and exit codes on synthetic WAVs", () => {
   const unreadable = [...base]; unreadable[3] = `${dir}/missing.wav`;
   expect(spawnChecked([...unreadable, "--pitch-ceiling", "300"], { timeout: 20_000 }).exitCode).toBe(2);
 
-});
+}, 180_000);
 
 const recognised = (text: string) => text.split(" ").map((word, index) => ({ word, start: index * 0.3, end: (index + 1) * 0.3 }));
 for (const [contracted, expansions] of [
