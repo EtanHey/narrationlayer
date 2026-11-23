@@ -1,3 +1,4 @@
+import { spawnChecked } from "./support/spawn.js";
 import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -55,8 +56,8 @@ function take(name: string, endings: ("cut" | "decay" | "fade")[], texts: string
 }
 
 function checkTake(dir: string, pieces: string | null = `${dir}/pieces`, rejectFades = false) {
-  const run = Bun.spawnSync([process.execPath, "src/cli.ts", "check-take", `${dir}/take.wav`, "--sent", `${dir}/sent`,
-    "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300", ...(pieces === null ? [] : ["--pieces", pieces]), ...(rejectFades ? ["--reject-fades"] : [])]);
+  const run = spawnChecked([process.execPath, "src/cli.ts", "check-take", `${dir}/take.wav`, "--sent", `${dir}/sent`,
+    "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300", ...(pieces === null ? [] : ["--pieces", pieces]), ...(rejectFades ? ["--reject-fades"] : [])], { timeout: 20_000 });
   return { exitCode: run.exitCode, stderr: run.stderr.toString(), verdict: run.exitCode === 2 ? null : JSON.parse(run.stdout.toString()) };
 }
 
