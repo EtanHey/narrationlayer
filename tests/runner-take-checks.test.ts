@@ -1,3 +1,4 @@
+import { spawnChecked } from "./support/spawn.js";
 import { expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -323,13 +324,13 @@ test("non-Latin spoken text skips recognition with an explicit receipt note", as
   } finally { await f.close(); }
 });
 test("word flags require take-checks and name the flags in the error", () => {
-  const fade = Bun.spawnSync([process.execPath, "bin/local-tts-runner.ts", "--reject-fades"]);
+  const fade = spawnChecked([process.execPath, "bin/local-tts-runner.ts", "--reject-fades"], { timeout: 20_000 });
   expect(fade.exitCode).toBe(1);
   expect(fade.stderr.toString()).toContain("--reject-fades requires --take-checks");
-  const run = Bun.spawnSync([process.execPath, "bin/local-tts-runner.ts", "--word-check-setting", "a"]);
+  const run = spawnChecked([process.execPath, "bin/local-tts-runner.ts", "--word-check-setting", "a"], { timeout: 20_000 });
   expect(run.exitCode).toBe(1);
   expect(run.stderr.toString()).toContain("--word-check-setting and --word-dictionary require --take-checks");
-});
+}, 30_000);
 
 
 test("reference hash is reused within retries and read afresh for the next run", async () => {

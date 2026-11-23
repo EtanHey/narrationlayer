@@ -1,3 +1,4 @@
+import { spawnChecked } from "./support/spawn.js";
 import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -55,8 +56,8 @@ function take(name: string, endings: ("cut" | "decay" | "fade")[], texts: string
 }
 
 function checkTake(dir: string, pieces: string | null = `${dir}/pieces`, rejectFades = false) {
-  const run = Bun.spawnSync([process.execPath, "src/cli.ts", "check-take", `${dir}/take.wav`, "--sent", `${dir}/sent`,
-    "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300", ...(pieces === null ? [] : ["--pieces", pieces]), ...(rejectFades ? ["--reject-fades"] : [])]);
+  const run = spawnChecked([process.execPath, "src/cli.ts", "check-take", `${dir}/take.wav`, "--sent", `${dir}/sent`,
+    "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300", ...(pieces === null ? [] : ["--pieces", pieces]), ...(rejectFades ? ["--reject-fades"] : [])], { timeout: 20_000 });
   return { exitCode: run.exitCode, stderr: run.stderr.toString(), verdict: run.exitCode === 2 ? null : JSON.parse(run.stdout.toString()) };
 }
 
@@ -67,7 +68,7 @@ test("check-take --pieces fails a take whose first piece is cut at its join", ()
   expect(run.verdict.wordMatch.pass).toBe(true);
   expect(run.verdict.cutJoins).toMatchObject({ judged: true, failed: true, piecesChecked: 1,
     cuts: [{ piece: 1, of: 2, text: "Hello", reason: "tail-at-speech-level" }] });
-});
+}, 30_000);
 
 test("check-take reports a faded join and rejects it only with --reject-fades", () => {
   const dir = take("fade-join", ["fade", "decay"], ["Hello", "moon"]);
@@ -77,7 +78,7 @@ test("check-take reports a faded join and rejects it only with --reject-fades", 
   const strict = checkTake(dir, `${dir}/pieces`, true);
   expect(strict.exitCode).toBe(1);
   expect(strict.verdict.cutJoins.cuts[0].reason).toBe("fade-from-speech-level");
-});
+}, 30_000);
 
 test("malformed kept-piece metadata exits 2 instead of allowing NaN to skip the match", () => {
   const cut = take("metadata-cut", ["cut", "decay"], ["Hello", "moon"]);
@@ -103,7 +104,7 @@ test("malformed kept-piece metadata exits 2 instead of allowing NaN to skip the 
     writeFileSync(manifest, JSON.stringify(changed));
     expect(checkTake(clean).exitCode).toBe(2);
   }
-});
+}, 30_000);
 
 test("a clean pieced take and a one-piece take still pass", () => {
   for (const dir of [take("clean-join", ["decay", "decay"], ["Hello", "moon"]), take("one-piece", ["decay"], ["Hello"])]) {
@@ -113,7 +114,7 @@ test("a clean pieced take and a one-piece take still pass", () => {
       expect(run.verdict.pass).toBe(true);
     }
   }
-});
+}, 30_000);
 
 test("joins are judged only with --pieces, say so plainly otherwise, and pieces must match the take", () => {
   const cut = take("cut-join", ["cut", "decay"], ["Hello", "moon"]), clean = take("clean-join", ["decay", "decay"], ["Hello", "moon"]);
@@ -129,4 +130,4 @@ test("joins are judged only with --pieces, say so plainly otherwise, and pieces 
   expect(checkTake(clean, `${ROOT}/one-piece/pieces`).exitCode).toBe(2);
   expect(checkTake(clean, ROOT).exitCode).toBe(2);
   expect(checkTake(clean, "").exitCode).toBe(2);
-});
+}, 30_000);

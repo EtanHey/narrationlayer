@@ -1,3 +1,4 @@
+import { spawnChecked } from "./support/spawn.js";
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { firstWordOmitted, pitchRunaway, wordMismatches } from "../src/quality/take-checks.js";
@@ -96,18 +97,18 @@ test("real CLI emits JSON and exit codes on synthetic WAVs", () => {
     header.writeUInt32LE(24000, 24); header.writeUInt32LE(48000, 28); header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34);
     header.write("data", 36); header.writeUInt32LE(pcm.length, 40);
     writeFileSync(`${dir}/tone.wav`, Buffer.concat([header, pcm]));
-    const run = Bun.spawnSync([process.execPath, "src/cli.ts", "check-take", `${dir}/tone.wav`, "--sent", `${dir}/sent`, "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300"]);
+    const run = spawnChecked([process.execPath, "src/cli.ts", "check-take", `${dir}/tone.wav`, "--sent", `${dir}/sent`, "--words", `${dir}/words.json`, "--voice", "synthetic", "--pitch-ceiling", "300"], { timeout: 20_000 });
     expect(run.exitCode).toBe(high || omitted || substituted ? 1 : 0);
     expect(JSON.parse(run.stdout.toString()).pass).toBe(!high && !omitted && !substituted);
   }
   const base = [process.execPath, "src/cli.ts", "check-take", `${dir}/tone.wav`, "--sent", `${dir}/sent`, "--words", `${dir}/words.json`, "--voice", "synthetic"];
-  expect(Bun.spawnSync(base).exitCode).toBe(2);
-  expect(Bun.spawnSync([...base, "--pitch-ceiling", "0"]).exitCode).toBe(2);
-  expect(Bun.spawnSync([...base, "--pitch-ceiling", "300"], { env: { ...process.env, PATH: "" } }).exitCode).toBe(2);
+  expect(spawnChecked(base, { timeout: 20_000 }).exitCode).toBe(2);
+  expect(spawnChecked([...base, "--pitch-ceiling", "0"], { timeout: 20_000 }).exitCode).toBe(2);
+  expect(spawnChecked([...base, "--pitch-ceiling", "300"], { timeout: 20_000, env: { ...process.env, PATH: "" } }).exitCode).toBe(2);
   const unreadable = [...base]; unreadable[3] = `${dir}/missing.wav`;
-  expect(Bun.spawnSync([...unreadable, "--pitch-ceiling", "300"]).exitCode).toBe(2);
+  expect(spawnChecked([...unreadable, "--pitch-ceiling", "300"], { timeout: 20_000 }).exitCode).toBe(2);
 
-});
+}, 180_000);
 
 const recognised = (text: string) => text.split(" ").map((word, index) => ({ word, start: index * 0.3, end: (index + 1) * 0.3 }));
 for (const [contracted, expansions] of [

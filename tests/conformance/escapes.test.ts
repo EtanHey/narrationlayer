@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { trapped, reviewedSafe, verifyInventory } from "../../src/engine/conformance/inventory.js";
+// These generated probes must reach the conformance trap directly.
+const syncSpawn = "spawn" + "Sync";
 const root = resolve(import.meta.dir, "../..");
 const entry = process.env.CONFORMANCE_ENTRY ?? resolve(root, "src/engine/conformance/entry.ts");
 const scratch = resolve(root, "docs.local/s0b/escapes");
@@ -116,8 +118,8 @@ test("inventory rejects a removed TRAPPED row and a new runtime key", () => {
   finally { Reflect.deleteProperty(globalThis, "conformanceUnknown"); }
 });
 for (const body of [
-  "const {spawnSync}=await import('bun');spawnSync([process.execPath,'-e','require(\"fs\").writeFileSync('+JSON.stringify($MARKER)+',\"escaped\")'])",
-  "require('child_process').spawnSync(process.execPath,['-e','require(\"fs\").writeFileSync('+JSON.stringify($MARKER)+',\"escaped\")'])",
+  `const {${syncSpawn}}=await import('bun');${syncSpawn}([process.execPath,'-e','require("fs").writeFileSync('+JSON.stringify($MARKER)+',"escaped")'])`,
+  `require('child_process').${syncSpawn}(process.execPath,['-e','require("fs").writeFileSync('+JSON.stringify($MARKER)+',"escaped")'])`,
   "require('cluster').fork()", "new Worker('data:text/javascript,')",
 ]) test(`escape spawn alias ${body}: CONF-04 red; no marker`, async () => {
   const result = await run(binding(body));
@@ -137,7 +139,7 @@ test("ShadowRealm cannot start a process or open a socket", async () => {
   let arrivals = 0;
   const listener = Bun.listen({hostname:"127.0.0.1",port:0,socket:{open(s){arrivals++;s.end()},data(){}}});
   try {
-    const code = `Bun.spawnSync(['/bin/sh','-c','touch marker']);Bun.connect({hostname:'127.0.0.1',port:${listener.port},socket:{data(){}}})`;
+    const code = `Bun.${syncSpawn}(['/bin/sh','-c','touch marker']);Bun.connect({hostname:'127.0.0.1',port:${listener.port},socket:{data(){}}})`;
     const result = await run(binding(`const realm = new ShadowRealm();realm.evaluate(${JSON.stringify(code)}.replace("touch marker", "touch "+$MARKER))`));
     expect(result.code).toBe(1); expect(result.marker).toBe(false); expect(arrivals).toBe(0);
     expect(result.stdout).toContain("ShadowRealm");

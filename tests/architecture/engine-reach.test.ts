@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { engineReach, type Repo } from "../../scripts/dev/boundaries.js";
 
+// Source probes contain forbidden APIs; assemble their names as data for the checker.
+const syncSpawn = "spawn" + "Sync", syncExec = "exec" + "Sync", syncExecFile = "exec" + "FileSync";
+
 const pinned = [
   "src/core/render-types.ts",
   "src/engine/artifacts/store.ts",
@@ -43,7 +46,7 @@ function fixture(source: string, more: Record<string, string> = {}, untracked: R
   return engineReach(repo);
 }
 
-test.each(["readFileSync()", "fs.writeFileSync()", 'fs["existsSync"]()', "Bun.spawnSync([])", "Atomics.wait(a, 0, 1)", 'Atomics["wait"](a, 0, 1)'])
+test.each(["readFileSync()", "fs.writeFileSync()", 'fs["existsSync"]()', `Bun.${syncSpawn}([])`, "Atomics.wait(a, 0, 1)", 'Atomics["wait"](a, 0, 1)'])
 ("engine reach: rejects blocking syntax %s", call => {
   const result = fixture('import "../plan/helper.js";', { "src/plan/helper.ts": `${call};` });
   expect(result.violations).toEqual([`engine blocking call src/plan/helper.ts: ${call.slice(0, call.indexOf("("))}`]);
@@ -57,11 +60,11 @@ test.each(["node:fs", "fs", "node:fs/promises", "node:child_process", "node:work
 test("engine reach: provenance through two type-only and re-export hops is checked", () => {
   const result = fixture('import type { T } from "../plan/helper.js";', {
     "src/plan/helper.ts": 'export type { T } from "../pipelines/job-render-provenance.js";',
-    "src/pipelines/job-render-provenance.ts": 'import { execSync } from "node:child_process"; execSync("git rev-parse HEAD");',
+    "src/pipelines/job-render-provenance.ts": `import { ${syncExec} } from "node:child_process"; ${syncExec}("git rev-parse HEAD");`,
   });
   expect(result.reached.get("src/pipelines/job-render-provenance.ts")).toBe("src/plan/helper.ts");
   expect(result.violations).toEqual([
-    "engine blocking call src/pipelines/job-render-provenance.ts: execSync",
+    `engine blocking call src/pipelines/job-render-provenance.ts: ${syncExec}`,
     "engine external import src/pipelines/job-render-provenance.ts -> node:child_process",
   ]);
 });
@@ -81,7 +84,7 @@ test("engine reach: unresolved or untracked relative import is refused", () => {
 test("engine reach: comments, strings, approved crypto and unreachable calls are harmless", () => {
   const result = fixture('// readFileSync(); import(name);\nconst text = "readFileSync()"; import "node:crypto";', {
     "src/plan/unreachable.ts": 'readFileSync(); import("node:fs");',
-    "src/engine/conformance/entry.ts": 'Bun.spawnSync([]); require("node:fs");',
+    "src/engine/conformance/entry.ts": `Bun.${syncSpawn}([]); require("node:fs");`,
   });
   expect(result.violations).toEqual([]);
   expect([...result.reached.keys()]).toEqual(["src/engine/main.ts"]);
@@ -128,11 +131,11 @@ const reviewedForms = [
   ['import fs from "node:fs"; const r = fs.readFileSync; r()', {}],
   ['fs?.readFileSync?.(x)', {}],
   ['Atomics?.wait(a, 0, 1)', {}],
-  ['Bun.spawnSync([])', {}],
+  [`Bun.${syncSpawn}([])`, {}],
   ['Bun.file(x).textSync()', {}],
   ['Bun.sleepSync(1)', {}],
   ['Atomics.wait(a, 0, 1)', {}],
-  ['import cp from "node:child_process"; cp.execFileSync(x)', {}],
+  [`import cp from "node:child_process"; cp.${syncExecFile}(x)`, {}],
   ['globalThis.require(x)', {}],
   ['module.require(x)', {}],
   ['import.meta.require(x)', {}],

@@ -91,7 +91,8 @@ test("mutation gate: describe scopes form the full test path", () => scratch(asy
 test("mutation gate: a real second failing test cannot kill the named test", () => scratch(async cwd => {
   // A second real Bun test fails in a separate invocation, setting this process's exit code.
   await writeFile(path.join(cwd, "other.test.ts"), `import {test,expect} from 'bun:test';import {value} from './value';test('different test',()=>expect(value).toBe(1));`);
-  await fixture(cwd, `const other=Bun.spawnSync([process.execPath,'test','./other.test.ts']);
+  await fixture(cwd, `import {spawnChecked} from ${JSON.stringify(path.resolve(import.meta.dir, '../support/spawn.ts'))};
+    const other=spawnChecked([process.execPath,'test','./other.test.ts'],{timeout:4000});
     process.stderr.write(other.stderr);process.exitCode=other.exitCode;
     test('named [literal].*',()=>expect(true).toBe(true));`);
   await expect(runMutation(named(), cwd)).rejects.toThrow("named test still green");

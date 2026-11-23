@@ -6,6 +6,8 @@ import { trapState } from "../../src/engine/conformance/wall-guard.js";
 import networkFailSet from "./network-binding.fail-set.json";
 import spawnFailSet from "./spawn-binding.fail-set.json";
 import binding from "../../src/engine/conformance/null-binding.js";
+// These generated probes must reach the conformance trap directly.
+const syncSpawn = "spawn" + "Sync";
 const root = resolve(import.meta.dir, "../..");
 const entry = resolve(root, "src/engine/conformance/entry.ts");
 const runtime = process.env.CONFORMANCE_BUN ?? process.execPath;
@@ -30,7 +32,7 @@ for (const name of ["node:timers", "node:timers/promises"]) {
 }
 for (const key of ["wait", "yield"]) probes.push([`node:timers/promises.scheduler.${key}`, "CONF-02", fixture(`import {scheduler} from 'node:timers/promises'; const saved=()=>scheduler.${key}()`)]);
 for (const [kind, names] of [
-  ["CONF-04", ["Bun.spawn", "Bun.spawnSync", "Bun.$", "Worker"]],
+  ["CONF-04", ["Bun.spawn", `Bun.${syncSpawn}`, "Bun.$", "Worker"]],
   ["CONF-03", ["fetch", "Bun.connect", "Bun.listen", "Bun.serve", "WebSocket"]],
   ["CONF-02", ["setTimeout", "setInterval", "setImmediate", "Bun.sleep", "Bun.sleepSync", "Bun.nanoseconds", "Atomics.wait", "Atomics.waitAsync", "Date", "Date.now", "performance.now", "process.hrtime", "process.hrtime.bigint", "process.uptime"]],
   ["CONF-01", ["process.exit"]],

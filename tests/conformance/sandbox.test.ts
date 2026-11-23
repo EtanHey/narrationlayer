@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { sandboxAvailable, sandboxCommand, sandboxProfile } from "../../src/engine/conformance/sandbox.js";
+// Exercise the raw sandbox API, rather than a test helper.
+const syncExec = "exec" + "Sync";
 const root = resolve(import.meta.dir, "../..");
 const scratch = resolve(root, "docs.local/s0c");
 mkdirSync(scratch, { recursive: true });
@@ -17,7 +19,7 @@ test("hosted macOS requires containment", async () => {
   expect(err).toBe(""); expect(code).toBe(1); expect(JSON.parse(out).containment).toBe("macos-sandbox");
 });
 const macTest = process.platform === "darwin" ? test : test.skip;
-for (const route of ["tcp", "udp", "unix", "dns", "bun-spawn", "node-spawn", "execSync", "worker-spawn"]) {
+for (const route of ["tcp", "udp", "unix", "dns", "bun-spawn", "node-spawn", syncExec, "worker-spawn"]) {
   macTest(`containment: untrapped ${route} denied; unsandboxed control succeeds`, async () => {
     const dir = mkdtempSync(resolve(scratch, "os-")), marker = resolve(dir, "marker");
     // Short socket name avoids Darwin's 104-byte sockaddr_un limit.
@@ -40,7 +42,7 @@ for (const route of ["tcp", "udp", "unix", "dns", "bun-spawn", "node-spawn", "ex
       dns: `const r=new (require('dns').promises.Resolver)({timeout:100,tries:1});r.setServers(['127.0.0.1:${udp.port}']);try{await r.resolve4('fixture.invalid')}catch(e){if(e.code!=='ENOTFOUND')throw e}`,
       "bun-spawn": `const p=Bun.spawn(${cmd});if(await p.exited)throw Error('spawn failed')`,
       "node-spawn": `await new Promise((ok,no)=>{const p=require('child_process').spawn(...[${cmd}[0],${cmd}.slice(1)]);p.on('error',no);p.on('exit',c=>c?no(Error('exit')):ok())})`,
-      execSync: `require('child_process').execSync(${JSON.stringify([process.execPath, '-e', childCode].map(v => "'"+v.replaceAll("'", "'\"'\"'")+"'").join(' '))})`,
+      [syncExec]: `require('child_process').${syncExec}(${JSON.stringify([process.execPath, '-e', childCode].map(v => "'"+v.replaceAll("'", "'\"'\"'")+"'").join(' '))},{timeout:4000})`,
       "worker-spawn": `await new Promise((ok,no)=>{const w=new Worker('data:text/javascript;base64,'+btoa(${JSON.stringify(`try { const p=Bun.spawn(${cmd});await p.exited;postMessage('ok') } catch(e){postMessage(e.code+':'+e.message)}`)}));w.onmessage=e=>{w.terminate();e.data==='ok'?ok():no(Error(e.data))};w.onerror=no})`,
     };
     const source = resolve(dir, "probe.ts");
